@@ -34,7 +34,7 @@ plantnet:
   multi_model_run_name: v7.4-2026-03-28
   multi_model_b_name: Pl@ntNet Multi - Botanist
   multi_model_run_b_name: v7.4-2026-03-28
-  multi_predictions_dir: C:\data\plantnet\2026-02-17
+  multi_predictions_dir: data/survey_jsons
   confidence_threshold_boxes: 0.05
   multi_embedding_name: PlantNet-v7.4-multi
 
