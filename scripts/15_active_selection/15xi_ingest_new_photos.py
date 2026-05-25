@@ -1,0 +1,482 @@
+"""Ingest drone photos: call Pl@ntNet, aggregate, and score.
+
+For each photo, calls the Pl@ntNet identify + embeddings endpoints (the
+2-call fallback when direct survey API access isn't available), writes
+a survey-compatible JSON per image, then runs the aggregation and
+scoring steps from 15c_aggregate_survey.py.
+
+Input: either a local directory (--photos) or a CSV with image_url
+column (--csv). The CSV mode streams each photo in memory from its URL,
+never touching disk for image data. Use this for bulk processing from
+Arbutus object storage without downloading the full image set.
+
+Output per image (in --out-dir/cache/):
+    <filename>.json  — survey-compatible JSON (same schema as 14b)
+
+Aggregated outputs (in --out-dir/):
+    survey_embeddings.json       — coverage-weighted embeddings
+    survey_species_scores.json   — rarity-weighted species scores
+
+Usage:
+    # Stream from CSV (no local photos needed):
+    python scripts/15_active_selection/15xi_ingest_new_photos.py \\
+        --csv input/boxes/bci_images_for_plantnet_w_split.csv
+
+    # From local directory:
+    python scripts/15_active_selection/15xi_ingest_new_photos.py \\
+        --photos /data/new_drone_photos/
+
+    # Direct survey endpoint (if available):
+    python scripts/15_active_selection/15xi_ingest_new_photos.py \\
+        --photos /data/new_drone_photos/ \\
+        --survey-endpoint https://my-api.plantnet.org/v2/survey/k-central-america
+
+    # Test mode (1 image):
+    python scripts/15_active_selection/15xi_ingest_new_photos.py \\
+        --csv input/boxes/bci_images_for_plantnet_w_split.csv --test
+"""
+
+from __future__ import annotations
+
+import argparse
+import io
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+import requests
+import yaml
+from dotenv import load_dotenv
+from PIL import Image
+
+REPO = Path(__file__).resolve().parents[2]
+OUT = REPO / "output" / "15_active_selection"
+
+CROP_SIZE = 1280
+JPEG_QUALITY = 90
+MAX_RETRIES = 3
+BACKOFF = [1, 5, 10]
+API_TIMEOUT = 60
+DEFAULT_DELAY = 0.5
+IMG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+
+
+class QuotaExceededError(Exception):
+    pass
+
+
+def load_config() -> dict:
+    with open(REPO / "config.yaml") as f:
+        return yaml.safe_load(f)
+
+
+def load_csv_urls(csv_path: Path) -> list[tuple[str, str]]:
+    import csv as csvmod
+    entries = []
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        for row in csvmod.DictReader(f):
+            url = row.get("image_url", "").strip()
+            gk = row.get("global_key", "").strip()
+            if url and gk:
+                entries.append((gk, url))
+    return entries
+
+
+def download_image_bytes(url: str) -> bytes:
+    resp = requests.get(url, timeout=API_TIMEOUT)
+    resp.raise_for_status()
+    return resp.content
+
+
+def center_crop_jpeg_from_bytes(raw: bytes) -> tuple[bytes, int, int]:
+    img = Image.open(io.BytesIO(raw)).convert("RGB")
+    w, h = img.size
+    if w >= CROP_SIZE and h >= CROP_SIZE:
+        left = (w - CROP_SIZE) // 2
+        top = (h - CROP_SIZE) // 2
+        img = img.crop((left, top, left + CROP_SIZE, top + CROP_SIZE))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=JPEG_QUALITY)
+    return buf.getvalue(), w, h
+
+
+def center_crop_jpeg(image_path: Path) -> tuple[bytes, int, int]:
+    img = Image.open(image_path).convert("RGB")
+    w, h = img.size
+    if w >= CROP_SIZE and h >= CROP_SIZE:
+        left = (w - CROP_SIZE) // 2
+        top = (h - CROP_SIZE) // 2
+        img = img.crop((left, top, left + CROP_SIZE, top + CROP_SIZE))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=JPEG_QUALITY)
+    return buf.getvalue(), w, h
+
+
+def _api_call_with_retry(fn, *args, **kwargs):
+    for attempt in range(MAX_RETRIES):
+        try:
+            return fn(*args, **kwargs)
+        except QuotaExceededError:
+            raise
+        except Exception as e:
+            if attempt < MAX_RETRIES - 1:
+                wait = BACKOFF[attempt]
+                print(f"    Attempt {attempt + 1} failed ({e}), retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                raise
+
+
+def call_identify(jpeg_bytes: bytes, filename: str, api_key: str,
+                  api_url: str, nb_results: int = 5) -> dict:
+    resp = requests.post(
+        api_url,
+        files=[("images", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
+        data={"organs": "auto"},
+        params={"api-key": api_key, "nb-results": nb_results,
+                "no-reject": "true", "include-related-images": "false"},
+        timeout=API_TIMEOUT,
+    )
+    if resp.status_code == 429:
+        raise QuotaExceededError(f"Quota exceeded (HTTP 429)")
+    resp.raise_for_status()
+    return resp.json()
+
+
+def call_embeddings(jpeg_bytes: bytes, filename: str, api_key: str,
+                    api_url: str) -> dict:
+    resp = requests.post(
+        api_url,
+        files=[("image", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
+        params={"api-key": api_key},
+        timeout=API_TIMEOUT,
+    )
+    if resp.status_code == 429:
+        raise QuotaExceededError(f"Quota exceeded (HTTP 429)")
+    resp.raise_for_status()
+    return resp.json()
+
+
+def call_survey(jpeg_bytes: bytes, filename: str, api_key: str,
+                survey_url: str) -> dict:
+    resp = requests.post(
+        survey_url,
+        files=[("images", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
+        data={"organs": "auto"},
+        params={"api-key": api_key},
+        timeout=API_TIMEOUT,
+    )
+    if resp.status_code == 429:
+        raise QuotaExceededError(f"Quota exceeded (HTTP 429)")
+    resp.raise_for_status()
+    return resp.json()
+
+
+def identify_to_survey_json(identify_resp: dict, emb_resp: dict) -> dict:
+    """Convert identify + embeddings responses into survey-compatible JSON.
+
+    The single-species endpoint returns confidence scores, not coverage.
+    We use confidence as a proxy for coverage so 15c's weighted aggregation
+    still works (higher-confidence species get more embedding weight).
+    """
+    species = []
+    for r in identify_resp.get("results", []):
+        sp = r.get("species", {})
+        gbif = r.get("gbif", {})
+        score = r.get("score", 0.0)
+        species.append({
+            "gbif_id": str(gbif.get("id", "")),
+            "binomial": sp.get("scientificNameWithoutAuthor", ""),
+            "name": sp.get("commonNames", [""])[0] if sp.get("commonNames") else "",
+            "coverage": score,
+            "max_score": score,
+            "count": 1,
+            "location": [],
+        })
+
+    emb_vector = None
+    for key in ("embedding", "embeddings", "vector"):
+        if key in emb_resp:
+            val = emb_resp[key]
+            if isinstance(val, list) and val and isinstance(val[0], (int, float)):
+                emb_vector = val
+                break
+            elif isinstance(val, list) and val and isinstance(val[0], dict):
+                emb_vector = val[0].get("embeddings", [])
+                break
+
+    per_tiles = []
+    if emb_vector:
+        per_tiles.append({"embeddings": emb_vector})
+
+    return {
+        "results": {
+            "species": species,
+            "per_tiles_embeddings": per_tiles,
+        }
+    }
+
+
+def process_photo(
+    photo_path: Path,
+    api_key: str,
+    config: dict,
+    cache_dir: Path,
+    survey_url: str | None = None,
+    delay: float = DEFAULT_DELAY,
+) -> dict | None:
+    filename = photo_path.name
+    cache_file = cache_dir / f"{filename}.json"
+    if cache_file.exists():
+        with open(cache_file) as f:
+            return json.load(f)
+
+    jpeg_bytes, orig_w, orig_h = center_crop_jpeg(photo_path)
+
+    if survey_url:
+        raw = _api_call_with_retry(call_survey, jpeg_bytes, filename, api_key, survey_url)
+        result = raw
+    else:
+        identify_url = config["plantnet"]["identify_url"]
+        embeddings_url = config["plantnet"]["embeddings_api_url"]
+        nb_results = config["plantnet"].get("identify_nb_results", 5)
+
+        id_resp = _api_call_with_retry(
+            call_identify, jpeg_bytes, filename, api_key, identify_url, nb_results
+        )
+        time.sleep(delay)
+        emb_resp = _api_call_with_retry(
+            call_embeddings, jpeg_bytes, filename, api_key, embeddings_url
+        )
+        result = identify_to_survey_json(id_resp, emb_resp)
+
+    tmp = cache_file.with_suffix(".tmp")
+    with open(tmp, "w") as f:
+        json.dump(result, f)
+    tmp.replace(cache_file)
+    return result
+
+
+def process_url(
+    filename: str,
+    url: str,
+    api_key: str,
+    config: dict,
+    cache_dir: Path,
+    survey_url: str | None = None,
+    delay: float = DEFAULT_DELAY,
+) -> dict | None:
+    cache_file = cache_dir / f"{filename}.json"
+    if cache_file.exists():
+        with open(cache_file) as f:
+            return json.load(f)
+
+    raw_image = download_image_bytes(url)
+    jpeg_bytes, _, _ = center_crop_jpeg_from_bytes(raw_image)
+
+    if survey_url:
+        result = _api_call_with_retry(call_survey, jpeg_bytes, filename, api_key, survey_url)
+    else:
+        identify_url = config["plantnet"]["identify_url"]
+        embeddings_url = config["plantnet"]["embeddings_api_url"]
+        nb_results = config["plantnet"].get("identify_nb_results", 5)
+
+        id_resp = _api_call_with_retry(
+            call_identify, jpeg_bytes, filename, api_key, identify_url, nb_results
+        )
+        time.sleep(delay)
+        emb_resp = _api_call_with_retry(
+            call_embeddings, jpeg_bytes, filename, api_key, embeddings_url
+        )
+        result = identify_to_survey_json(id_resp, emb_resp)
+
+    tmp = cache_file.with_suffix(".tmp")
+    with open(tmp, "w") as f:
+        json.dump(result, f)
+    tmp.replace(cache_file)
+    return result
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    source = ap.add_mutually_exclusive_group(required=True)
+    source.add_argument("--photos", type=Path,
+                        help="directory of local drone JPGs")
+    source.add_argument("--csv", type=Path,
+                        help="CSV with global_key,image_url columns (streams from URLs)")
+    ap.add_argument("--survey-endpoint", type=str, default=None,
+                    help="direct survey API URL (skips 2-call fallback)")
+    ap.add_argument("--gt", type=Path, default=OUT / "gt_dominant_taxon.csv",
+                    help="GT CSV for species-priority scoring")
+    ap.add_argument("--rare-threshold", type=int, default=5)
+    ap.add_argument("--method", choices=["sum", "max"], default="sum")
+    ap.add_argument("--out-dir", type=Path, default=OUT / "new_ingest")
+    ap.add_argument("--delay", type=float, default=DEFAULT_DELAY,
+                    help=f"delay between API calls (default {DEFAULT_DELAY}s)")
+    ap.add_argument("--no-aggregate", action="store_true",
+                    help="skip aggregation (cache JSONs only, aggregate locally later)")
+    ap.add_argument("--test", action="store_true", help="process 1 image only")
+    args = ap.parse_args()
+
+    load_dotenv()
+    api_key = os.environ.get("PLANTNET_API_KEY")
+    if not api_key:
+        sys.exit("ERROR: PLANTNET_API_KEY not found in .env")
+
+    config = load_config()
+    out_dir = args.out_dir
+    cache_dir = out_dir / "cache"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.csv:
+        entries = load_csv_urls(args.csv)
+        if not entries:
+            sys.exit(f"No valid rows in {args.csv}")
+        if args.test:
+            entries = entries[:1]
+            print("TEST MODE: 1 image only\n")
+
+        mode = "survey" if args.survey_endpoint else "identify+embeddings"
+        cached = sum(1 for gk, _ in entries if (cache_dir / f"{gk}.json").exists())
+        print(f"Ingesting {len(entries)} photos via {mode} (streaming from URLs)")
+        print(f"  Cached: {cached}, remaining: {len(entries) - cached}\n")
+
+        processed = 0
+        failed = []
+        for i, (gk, url) in enumerate(entries, 1):
+            print(f"  [{i}/{len(entries)}] {gk} ... ", end="", flush=True)
+            try:
+                result = process_url(
+                    gk, url, api_key, config, cache_dir,
+                    survey_url=args.survey_endpoint, delay=args.delay,
+                )
+                if result:
+                    n_sp = len(result.get("results", {}).get("species", []))
+                    print(f"OK ({n_sp} species)")
+                    processed += 1
+                else:
+                    print("SKIP (no result)")
+            except QuotaExceededError as e:
+                print(f"\n\nQUOTA EXHAUSTED after {processed} images: {e}")
+                print("Safe to resume -- cached images will be skipped.")
+                break
+            except Exception as e:
+                print(f"FAIL ({e})")
+                failed.append(gk)
+
+            if i < len(entries):
+                time.sleep(args.delay)
+    else:
+        photos = sorted(
+            p for p in args.photos.iterdir()
+            if p.suffix.lower() in IMG_EXTENSIONS
+        )
+        if not photos:
+            sys.exit(f"No image files found in {args.photos}")
+
+        if args.test:
+            photos = photos[:1]
+            print("TEST MODE: 1 image only\n")
+
+        mode = "survey" if args.survey_endpoint else "identify+embeddings"
+        cached = sum(1 for p in photos if (cache_dir / f"{p.name}.json").exists())
+        print(f"Ingesting {len(photos)} photos via {mode}")
+        print(f"  Cached: {cached}, remaining: {len(photos) - cached}\n")
+
+        processed = 0
+        failed = []
+        for i, photo in enumerate(photos, 1):
+            print(f"  [{i}/{len(photos)}] {photo.name} ... ", end="", flush=True)
+            try:
+                result = process_photo(
+                    photo, api_key, config, cache_dir,
+                    survey_url=args.survey_endpoint, delay=args.delay,
+                )
+                if result:
+                    n_sp = len(result.get("results", {}).get("species", []))
+                    print(f"OK ({n_sp} species)")
+                    processed += 1
+                else:
+                    print("SKIP (no result)")
+            except QuotaExceededError as e:
+                print(f"\n\nQUOTA EXHAUSTED after {processed} images: {e}")
+                print("Safe to resume -- cached images will be skipped.")
+                break
+            except Exception as e:
+                print(f"FAIL ({e})")
+                failed.append(photo.name)
+
+            if i < len(photos):
+                time.sleep(args.delay)
+
+    print(f"\nAPI calls done: {processed} processed, {len(failed)} failed")
+    if failed:
+        print(f"  Failed: {', '.join(failed[:10])}")
+
+    if args.no_aggregate:
+        n_cached = len(list(cache_dir.glob("*.json")))
+        print(f"\n--no-aggregate: {n_cached} JSONs in {cache_dir}")
+        print(f"Aggregate locally with:")
+        print(f"  python scripts/15_active_selection/15y_species_distribution.py \\")
+        print(f"      --survey-dir {cache_dir}")
+        return
+
+    # --- Aggregate (same as 15c) ---
+    print("\nAggregating ...")
+    json_files = sorted(cache_dir.glob("*.json"))
+    if not json_files:
+        sys.exit("No cached JSONs to aggregate")
+
+    sys.path.insert(0, str(REPO / "scripts" / "15_active_selection"))
+    from importlib import import_module
+    agg = import_module("15c_aggregate_survey")
+
+    embeddings: dict[str, list[float]] = {}
+    dataset_species: dict[str, list] = {}
+    for jf in json_files:
+        global_key = agg._norm_key(jf.name)
+        parsed = agg.parse_survey_json(jf)
+        if parsed is None:
+            continue
+        emb = agg.aggregate_photo_embedding(parsed)
+        if emb is not None:
+            embeddings[global_key] = emb.tolist()
+        if parsed["species"]:
+            dataset_species[global_key] = parsed["species"]
+
+    emb_path = out_dir / "survey_embeddings.json"
+    with open(emb_path, "w") as f:
+        json.dump(embeddings, f)
+    print(f"  Embeddings: {len(embeddings)} photos -> {emb_path}")
+
+    import pandas as pd
+    from labelfirst.eval.species_priority import batch_scores
+
+    labeled_counts: dict[str, int] = {}
+    if args.gt.exists():
+        gt = pd.read_csv(args.gt)
+        labeled_counts = gt["wcvp_canonical_name"].value_counts().to_dict()
+        print(f"  GT: {len(labeled_counts)} species, {len(gt)} labeled")
+
+    scores = batch_scores(
+        dataset_species, labeled_counts,
+        rare_threshold=args.rare_threshold, method=args.method,
+    )
+    score_path = out_dir / "survey_species_scores.json"
+    with open(score_path, "w") as f:
+        json.dump(scores, f)
+    print(f"  Scores: {len(scores)} photos -> {score_path}")
+
+    print(f"\nDone. Feed into the scorer:")
+    print(f"  python scripts/15_active_selection/15_select_batch.py \\")
+    print(f"    --embeddings {emb_path} \\")
+    print(f"    --species-scores {score_path}")
+
+
+if __name__ == "__main__":
+    main()
