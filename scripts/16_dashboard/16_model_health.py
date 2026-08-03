@@ -127,14 +127,22 @@ def main() -> None:
 
     # How binding is the nb-results=5 cap on the filter simulation? Re-ranking can
     # only ever promote a species that is already somewhere in the returned list.
+    # Reachability must be tested on the same names the accuracy is scored on:
+    # predictions are compared after canonicalization, so a species the model
+    # returns only under a synonym IS scoreable. Testing corpus_norm alone
+    # understates reachability and disagrees with per_species_health.csv's
+    # in_corpus_vocabulary flag.
+    def reachable_gt(name: str) -> bool:
+        return name in h.corpus_norm or name in h.corpus_canon
+
     still_wrong = [r for r in sp_recs if filt[r["global_key"]] != r["gt"]]
     sw_full = sum(1 for r in still_wrong if len(r["ranked"]) == h.maxk)
     sw_short = len(still_wrong) - sw_full
     sw_full_unreachable = sum(1 for r in still_wrong
-                              if len(r["ranked"]) == h.maxk and r["gt"] not in h.corpus_norm)
+                              if len(r["ranked"]) == h.maxk and not reachable_gt(r["gt"]))
 
     # Attainable ceiling: crowns whose GT name exists somewhere in the corpus at all.
-    reachable = [r for r in sp_recs if r["gt"] in h.corpus_norm]
+    reachable = [r for r in sp_recs if reachable_gt(r["gt"])]
     r1 = sum(1 for r in reachable if top1(r) == r["gt"])
     r5 = sum(1 for r in reachable if hit(r, 5))
 
