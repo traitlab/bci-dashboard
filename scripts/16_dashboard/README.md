@@ -145,7 +145,7 @@ Both scripts accept `--gt`, `--splits`, `--cache-dir`, `--wcvp-cache`. See `--he
 
 - **`labelfirst`'s CSS is copied, not imported, and not copied whole.** `import labelfirst` drags in
   numpy, scipy, scikit-learn and pandas, and these scripts must run on the stdlib alone. Every rule
-  kept is byte-identical to upstream, but 28 lines are dropped for elements this page does not have.
+  kept is byte-identical to upstream, but 27 lines are dropped for elements this page does not have.
   So a future upstream restyle cannot be picked up by plain copy-paste; the prune has to be reapplied.
 - **"Top-5" means the whole returned list, not the best 5 of a longer one.** We asked for
   `nb-results=5`. A correct answer sitting at rank 6 was never returned and is invisible here. For 45%
