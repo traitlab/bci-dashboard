@@ -1,21 +1,23 @@
-"""Static CSS/JS for the model-health dashboard. Stdlib-only, no network.
+"""Presentation layer for the model-health dashboard: CSS, JS, inline SVG, tables.
+
+Nothing here reads data or computes a number. Stdlib only, no network, no CDN.
 
 ``_BASE_CSS`` is vendored from labelfirst's report substrate
 (``labelfirst/src/labelfirst/eval/report/_html.py``, ``_CSS``) so the two
-reports look like one family, then extended by ``_EXTRA_CSS`` below for the
-wide sortable per-species table this page needs. It is vendored rather than
-imported because ``import labelfirst`` pulls numpy/scipy/scikit-learn/pandas,
-and this page must render from the stdlib alone.
+reports look like one family, then extended by ``_EXTRA_CSS`` below. It is
+vendored rather than imported because ``import labelfirst`` pulls
+numpy/scipy/scikit-learn/pandas, and this page must render from the stdlib
+alone.
 
 It is a *strict subset*, not a verbatim copy: every retained rule is
-byte-identical, and 27 lines are dropped -- the verdict-bar, pass/refuted
-badge, design-details, chart-grid and tooltip rules, for elements this page
-has none of. A future upstream ``_CSS`` change therefore cannot be picked up
-by plain copy-paste; the prune has to be reapplied.
+byte-identical, and the rules for elements this page has none of (verdict bar,
+pass/refuted badge, design details, chart grid, tooltips, key-number chips) are
+dropped. A future upstream ``_CSS`` change therefore cannot be picked up by
+plain copy-paste; the prune has to be reapplied.
 
 ``_JS`` is NOT vendored: labelfirst's script only drives tooltips for its
-trajectory chart. This page needs client-side sort and filter over 169 species
-rows instead.
+trajectory chart. This page needs client-side sort and filter over the
+per-species table instead.
 """
 
 from __future__ import annotations
@@ -32,14 +34,6 @@ body{
 }
 h1{font-size:1.6rem;font-weight:700;margin-bottom:4px;color:#212121}
 .subtitle{font-size:0.85rem;color:#757575;margin-bottom:8px}
-.key-numbers{
-  display:flex;gap:20px;flex-wrap:wrap;margin-bottom:24px;
-  font-size:0.9rem;color:#424242;
-}
-.kn{
-  padding:4px 12px;background:#fff;border:1px solid #e0e0e0;border-radius:6px;
-  font-size:0.85rem;
-}
 .card{
   background:#fff;border:1px solid #e0e0e0;border-radius:8px;
   padding:20px 24px;margin-bottom:20px;
@@ -61,10 +55,6 @@ th{
 }
 td{padding:7px 10px;border-bottom:1px solid #eeeeee}
 tr:hover td{background:#f8f9fa}
-.badge{
-  display:inline-block;padding:2px 10px;border-radius:4px;
-  font-size:0.78rem;font-weight:700;letter-spacing:0.3px;
-}
 svg{display:block;margin:0 auto 16px}
 details{margin-top:8px}
 summary{
@@ -72,21 +62,17 @@ summary{
   padding:6px 0;
 }
 summary:hover{text-decoration:underline}
-.detail-inner{padding:12px 0}
-.detail-inner table{font-size:0.8rem}
 .footer{
   margin-top:40px;padding-top:12px;border-top:1px solid #e0e0e0;
   font-size:0.75rem;color:#bdbdbd;text-align:center;
 }
 @media(max-width:640px){
   body{padding:16px 12px 40px}
-  .key-numbers{gap:8px}
   svg{width:100%!important;height:auto!important}
 }
 @media print{
   body{background:#fff;max-width:none;padding:0}
   .card{box-shadow:none;border:1px solid #ccc;break-inside:avoid}
-  .badge{print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .footer{display:none}
   summary{color:#333}
 }
@@ -96,22 +82,34 @@ summary:hover{text-decoration:underline}
 _EXTRA_CSS = """\
 body{max-width:1120px}
 h1{margin-bottom:2px}
-.lede{font-size:0.95rem;color:#424242;margin:10px 0 22px;max-width:70ch}
+.intro{font-size:0.95rem;color:#424242;margin:10px 0 22px;max-width:74ch}
 .hero{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px}
 .hero .metric{
   flex:1 1 220px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;
   padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,0.04);
 }
-.hero .metric.lead{border-color:#90caf9;background:#f3f9ff}
+.hero .metric.first{border-color:#90caf9;background:#f3f9ff}
 .hero .metric .v{font-size:2rem;font-weight:700;color:#212121;line-height:1.1}
 .hero .metric .l{font-size:0.8rem;color:#616161;margin-top:6px}
 .hero .metric .n{font-size:0.72rem;color:#9e9e9e;margin-top:4px}
-.note{font-size:0.82rem;color:#616161;margin-top:10px;max-width:78ch}
+.hero .metric .row{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.note{font-size:0.82rem;color:#616161;margin-top:10px;max-width:80ch}
 .note strong{color:#424242}
+.ask{font-size:0.88rem;color:#37474f;margin-bottom:12px;max-width:80ch}
+.ask b{color:#1a1a1a}
 .warn{
   background:#fff8e1;border:1px solid #ffe082;border-radius:6px;
   padding:12px 16px;font-size:0.83rem;color:#5d4037;margin:12px 0;max-width:82ch;
 }
+.rec{background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;
+  padding:10px 14px;font-size:0.85rem;color:#1b5e20;margin-top:10px}
+details.panel{
+  background:#fff;border:1px solid #e0e0e0;border-radius:8px;
+  margin:0 0 14px;padding:4px 20px 4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);
+}
+details.panel>summary{font-size:0.95rem;color:#0d47a1;padding:12px 0}
+details.panel[open]>summary{border-bottom:1px solid #f0f0f0;margin-bottom:4px}
+.pbody{padding:8px 0 16px}
 .controls{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
 .controls input,.controls select{
   font:inherit;font-size:0.85rem;padding:6px 10px;
@@ -124,6 +122,8 @@ th.sortable.asc:after{content:" \\2191";color:#1565c0}
 th.sortable.desc:after{content:" \\2193";color:#1565c0}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .sp{font-style:italic}
+svg.spark{display:inline-block;margin:0;vertical-align:middle}
+.nospark{font-size:0.72rem;color:#bdbdbd}
 .tag{
   display:inline-block;padding:2px 8px;border-radius:4px;
   font-size:0.74rem;font-weight:700;white-space:nowrap;
@@ -134,13 +134,12 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .tag.unmeasured{background:#fff3e0;color:#e65100}
 .tag.hard{background:#ffebee;color:#c62828}
 .tag.unreachable{background:#eceff1;color:#455a64}
-.legend{font-size:0.8rem;color:#616161;margin-bottom:14px}
-.legend li{margin:4px 0 4px 18px}
-.rec{background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;
-  padding:10px 14px;font-size:0.85rem;color:#1b5e20;margin-top:10px}
+.todo{list-style:none;font-size:0.86rem;color:#424242}
+.todo li{margin:7px 0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.todo .n{font-weight:700;color:#212121;font-variant-numeric:tabular-nums}
 tr.hidden{display:none}
-.prov{font-size:0.78rem;color:#616161}
-.prov li{margin:4px 0 4px 18px}
+.prov{font-size:0.8rem;color:#616161}
+.prov li{margin:5px 0 5px 18px}
 .prov code{
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.74rem;
   background:#f5f5f5;padding:1px 4px;border-radius:3px;
@@ -165,9 +164,8 @@ JS = """\
     var want=sel.value;
     var shown=0;
     rows.forEach(function(r){
-      var name=r.getAttribute('data-species')||'';
-      var st=r.getAttribute('data-status')||'';
-      var ok=(!needle||name.indexOf(needle)>=0)&&(want==='all'||st===want);
+      var ok=(!needle||(r.getAttribute('data-species')||'').indexOf(needle)>=0)&&
+             (want==='all'||(r.getAttribute('data-status')||'')===want);
       r.classList.toggle('hidden',!ok);
       if(ok) shown++;
     });
@@ -184,27 +182,19 @@ JS = """\
     return v;
   }
 
-  function sortBy(idx,dir){
-    var sorted=rows.slice().sort(function(a,b){
-      var x=key(a.cells[idx]),y=key(b.cells[idx]);
-      var nx=parseFloat(x),ny=parseFloat(y);
-      var c;
-      if(!isNaN(nx)&&!isNaN(ny)) c=nx-ny;
-      else c=String(x).localeCompare(String(y));
-      return dir==='asc'?c:-c;
-    });
-    sorted.forEach(function(r){tbody.appendChild(r);});
-  }
-
-  Array.prototype.slice.call(table.tHead.rows[0].cells).forEach(function(th,idx){
+  var heads=Array.prototype.slice.call(table.tHead.rows[0].cells);
+  heads.forEach(function(th,idx){
     if(!th.classList.contains('sortable')) return;
     th.addEventListener('click',function(){
       var dir=th.classList.contains('desc')?'asc':'desc';
-      Array.prototype.slice.call(table.tHead.rows[0].cells).forEach(function(o){
-        o.classList.remove('asc','desc');
-      });
+      heads.forEach(function(o){o.classList.remove('asc','desc');});
       th.classList.add(dir);
-      sortBy(idx,dir);
+      rows.slice().sort(function(a,b){
+        var x=key(a.cells[idx]),y=key(b.cells[idx]);
+        var nx=parseFloat(x),ny=parseFloat(y);
+        var c=(!isNaN(nx)&&!isNaN(ny))?nx-ny:String(x).localeCompare(String(y));
+        return dir==='asc'?c:-c;
+      }).forEach(function(r){tbody.appendChild(r);});
     });
   });
 
@@ -218,3 +208,162 @@ JS = """\
 def esc(s: object) -> str:
     """HTML-escape any value (same role as labelfirst's ``_esc``)."""
     return html.escape(str(s))
+
+
+def pctf(x, nd=1):
+    return "n/a" if x is None else f"{100.0 * x:.{nd}f}%"
+
+
+# ---------------------------------------------------------------------------
+# structure
+# ---------------------------------------------------------------------------
+def panel(summary, ask, body, *, open_=False):
+    """A collapsible panel. ``summary`` must stand alone on a closed page and
+    ``ask`` is the one sentence saying what to do with what is inside."""
+    return (f'<details class="panel"{" open" if open_ else ""}>'
+            f"<summary>{summary}</summary>"
+            f'<div class="pbody"><p class="ask">{ask}</p>{body}</div></details>')
+
+
+def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
+    """headers = [(text, is_numeric)]; rows = [[cell_html, ...]]."""
+    out = [f'<table{f" id={tid!r}" if tid else ""}>', "<thead><tr>"]
+    for i, (text, num) in enumerate(headers):
+        cls = ["num"] if num else []
+        if sortable_from is not None and i >= sortable_from:
+            cls.append("sortable")
+        c = f' class="{" ".join(cls)}"' if cls else ""
+        out.append(f"<th{c}>{text}</th>")
+    out.append("</tr></thead><tbody>")
+    for j, r in enumerate(rows):
+        out.append(f"<tr{row_attrs[j] if row_attrs else ''}>")
+        for i, cell in enumerate(r):
+            c = ' class="num"' if headers[i][1] else ""
+            out.append(f"<td{c}>{cell}</td>")
+        out.append("</tr>")
+    out.append("</tbody></table>")
+    return "\n".join(out)
+
+
+# ---------------------------------------------------------------------------
+# inline SVG (hand-written in labelfirst's report idiom: no library, no CDN)
+# ---------------------------------------------------------------------------
+def svg_hbar(rows, *, width=620, row_h=30, label_w=112, right_w=140, title=""):
+    """Horizontal bars. ``rows`` = [(label, frac, right_text, color)]."""
+    if not rows:
+        return ""
+    top = 26 if title else 8
+    bar_w = width - label_w - right_w
+    height = top + len(rows) * row_h + 26
+    out = [f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
+           f'role="img" aria-label="{esc(title or "bar chart")}">']
+    if title:
+        out.append(f'<text x="{label_w}" y="16" font-size="12" fill="#616161">'
+                   f'{esc(title)}</text>')
+    for i, (label, frac, right, color) in enumerate(rows):
+        y = top + i * row_h
+        frac = max(0.0, min(1.0, float(frac)))
+        out.append(f'<text x="{label_w - 8}" y="{y + 15}" font-size="12" fill="#424242" '
+                   f'text-anchor="end">{esc(label)}</text>'
+                   f'<rect x="{label_w}" y="{y + 4}" width="{bar_w}" height="16" '
+                   f'fill="#f1f3f4" rx="3"/>'
+                   f'<rect x="{label_w}" y="{y + 4}" width="{max(1, round(bar_w * frac))}" '
+                   f'height="16" fill="{color}" rx="3"/>'
+                   f'<text x="{label_w + bar_w + 8}" y="{y + 16}" font-size="11.5" '
+                   f'fill="#616161">{esc(right)}</text>')
+    axis_y = top + len(rows) * row_h + 4
+    out.append(f'<line x1="{label_w}" y1="{axis_y}" x2="{label_w + bar_w}" y2="{axis_y}" '
+               f'stroke="#e0e0e0"/>')
+    for t in (0, 25, 50, 75, 100):
+        x = label_w + bar_w * t / 100.0
+        out.append(f'<line x1="{x:.1f}" y1="{axis_y}" x2="{x:.1f}" y2="{axis_y + 4}" '
+                   f'stroke="#bdbdbd"/>'
+                   f'<text x="{x:.1f}" y="{axis_y + 17}" font-size="10.5" fill="#9e9e9e" '
+                   f'text-anchor="middle">{t}%</text>')
+    out.append("</svg>")
+    return "\n".join(out)
+
+
+def _scale(values, lo_px, hi_px):
+    """Map ``values`` onto a pixel range, flat series to the middle."""
+    lo, hi = min(values), max(values)
+    if hi - lo < 1e-12:
+        mid = (lo_px + hi_px) / 2.0
+        return [mid] * len(values)
+    return [hi_px + (v - lo) / (hi - lo) * (lo_px - hi_px) for v in values]
+
+
+def svg_spark(values, marks=(), *, width=88, height=24, empty="no trend yet"):
+    """Sparkline. ``marks`` = indices where the model iteration changed; those
+    points get a hollow ring so a model jump never reads as label drift. With
+    fewer than two snapshots there is nothing to draw, so say so rather than
+    render a flat line; ``empty=""`` suppresses even that, for table cells that
+    would otherwise repeat the same sentence on every row."""
+    if len(values) < 2:
+        return f'<span class="nospark">{empty}</span>' if empty else ""
+    xs = [3 + i * (width - 6) / (len(values) - 1) for i in range(len(values))]
+    ys = _scale(values, height - 4, 4)
+    pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
+    dots = "".join(
+        f'<circle cx="{xs[i]:.1f}" cy="{ys[i]:.1f}" r="3.2" fill="#fff" '
+        f'stroke="#c62828" stroke-width="1.8"/>' for i in marks if 0 <= i < len(values))
+    return (f'<svg class="spark" width="{width}" height="{height}" '
+            f'viewBox="0 0 {width} {height}" role="img" '
+            f'aria-label="trend across {len(values)} snapshots, '
+            f'{len(marks)} model change(s)">'
+            f'<polyline points="{pts}" fill="none" stroke="#1565c0" stroke-width="1.6"/>'
+            f'{dots}<circle cx="{xs[-1]:.1f}" cy="{ys[-1]:.1f}" r="2.2" fill="#1565c0"/>'
+            f"</svg>")
+
+
+def svg_two_series(dates, a_vals, b_vals, marks, *, a_name, b_name,
+                   a_fmt, b_fmt, width=620, height=210):
+    """Two series on two independent scales, sharing the snapshot dates.
+
+    A dashed vertical rule at every index in ``marks`` says the Pl@ntNet model
+    iteration changed there. Each series is scaled to its own min and max, so
+    the shapes are comparable but the pixel heights are not; the end labels
+    carry the actual values.
+    """
+    if len(dates) < 2:
+        return ""
+    pad_l, pad_r, pad_t, pad_b = 52, 60, 22, 40
+    xs = [pad_l + i * (width - pad_l - pad_r) / (len(dates) - 1) for i in range(len(dates))]
+    ya = _scale(a_vals, height - pad_b, pad_t)
+    yb = _scale(b_vals, height - pad_b, pad_t)
+    o = [f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
+         f'role="img" aria-label="{esc(a_name)} and {esc(b_name)} across '
+         f'{len(dates)} snapshots">',
+         f'<line x1="{pad_l}" y1="{height - pad_b}" x2="{width - pad_r}" '
+         f'y2="{height - pad_b}" stroke="#e0e0e0"/>']
+    for i in marks:
+        o.append(f'<line x1="{xs[i]:.1f}" y1="{pad_t - 6}" x2="{xs[i]:.1f}" '
+                 f'y2="{height - pad_b}" stroke="#c62828" stroke-width="1.2" '
+                 f'stroke-dasharray="4 3"/>'
+                 f'<text x="{xs[i]:.1f}" y="{pad_t - 10}" font-size="10" fill="#c62828" '
+                 f'text-anchor="middle">new model</text>')
+    for ys, col, dash, vals, show in ((ya, "#1565c0", "", a_vals, a_fmt),
+                                      (yb, "#00897b", "5 3", b_vals, b_fmt)):
+        pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
+        o.append(f'<polyline points="{pts}" fill="none" stroke="{col}" stroke-width="2"'
+                 + (f' stroke-dasharray="{dash}"' if dash else "") + "/>")
+        for i, (x, y) in enumerate(zip(xs, ys)):
+            r = 4.0 if i in marks else 2.6
+            fill = "#fff" if i in marks else col
+            o.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" fill="{fill}" '
+                     f'stroke="{col}" stroke-width="1.8"/>')
+        o.append(f'<text x="{xs[-1] + 8:.1f}" y="{ys[-1] + 4:.1f}" font-size="10.5" '
+                 f'fill="{col}">{esc(show(vals[-1]))}</text>'
+                 f'<text x="{xs[0] - 8:.1f}" y="{ys[0] + 4:.1f}" font-size="10.5" '
+                 f'fill="{col}" text-anchor="end">{esc(show(vals[0]))}</text>')
+    for i, d in enumerate(dates):
+        o.append(f'<text x="{xs[i]:.1f}" y="{height - pad_b + 15}" font-size="10" '
+                 f'fill="#9e9e9e" text-anchor="middle">{esc(d)}</text>')
+    o.append(f'<text x="{pad_l}" y="{height - 6}" font-size="10.5" fill="#1565c0">'
+             f'&#9473; {esc(a_name)}</text>'
+             f'<text x="{pad_l + 210}" y="{height - 6}" font-size="10.5" fill="#00897b">'
+             f'&#9476; {esc(b_name)}</text>'
+             f'<text x="{width - pad_r}" y="{height - 6}" font-size="10.5" fill="#c62828" '
+             f'text-anchor="end">&#9711; new Pl@ntNet model</text>')
+    o.append("</svg>")
+    return "\n".join(o)
