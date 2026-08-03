@@ -17,9 +17,9 @@ mismatch aborts the build -- the page cannot disagree with the measurement.
 from __future__ import annotations
 
 import argparse
-import csv
 import datetime as _dt
 import os
+import re
 import sys
 from collections import defaultdict
 
@@ -146,7 +146,7 @@ def pctf(x, nd=1):
 # ---------------------------------------------------------------------------
 # cross-check against the committed measurement
 # ---------------------------------------------------------------------------
-def verify_against_csvs(directory, *, per_species, buckets, bins_all):
+def verify_against_csvs(directory, *, per_species, buckets, bins_all, all_unreachable_crowns):
     """Abort the build if this page disagrees with 16_model_health.py's CSVs."""
     checks = []
 
@@ -190,6 +190,19 @@ def verify_against_csvs(directory, *, per_species, buckets, bins_all):
         if int(r["n_crowns"]) != n or int(r["n_correct"]) != k:
             raise SystemExit(f"VERIFY FAIL: conf band {band!r} counts")
     checks.append(f"confidence_calibration.csv: {len(bins_all)} confidence bands match")
+
+    # The all-GT-rows ceiling count lives in the run log's prose, not a CSV. It is the one
+    # number the page states on a denominator the CSVs never use, so check it there: this is
+    # exactly the drift that once let the report and the CSVs disagree by two crowns.
+    path = os.path.join(directory, "run_log.txt")
+    with open(path, encoding="utf-8") as f:
+        m = re.search(r"^\s*(\d+) GT crowns across (\d+) species can NEVER", f.read(), re.M)
+    if m is None:
+        raise SystemExit(f"VERIFY FAIL: no CEILING line found in {path}")
+    if int(m.group(1)) != all_unreachable_crowns:
+        raise SystemExit(f"VERIFY FAIL: all-GT unreachable crowns {all_unreachable_crowns} "
+                         f"here vs {m.group(1)} in {path}")
+    checks.append(f"run_log.txt: the {all_unreachable_crowns}-crown never-scoreable ceiling matches")
     return checks
 
 
@@ -233,8 +246,15 @@ def build(h, *, generated, verify_dir):
         bins_all.append((f"[{lo:.1f},{min(hi, 1.0):.1f})", len(sub),
                          sum(1 for r in sub if top1(r) == r["gt"])))
 
+    # The never-scoreable condition counted over every GT row rather than only the evaluation
+    # set. Two denominators, one condition; the page states both so it cannot be read as
+    # disagreeing with the run log's CEILING block, and the verifier holds it to that.
+    all_unreachable_crowns = (h.tier_crowns["e_absent_from_corpus"]
+                              + h.tier_crowns["c_genus_only_in_corpus"])
+
     checks = verify_against_csvs(verify_dir, per_species=per_species,
-                                buckets=buckets, bins_all=bins_all)
+                                buckets=buckets, bins_all=bins_all,
+                                all_unreachable_crowns=all_unreachable_crowns)
 
     # --- why a flat threshold is unsafe: error by support, at conf>=0.7 ---
     flat_by_bucket = {}
@@ -451,8 +471,8 @@ def build(h, *, generated, verify_dir):
              f'them correct. Excluding them raises per-crown top-1 from {pctf(c1 / n)} to '
              f'{pctf(reach_top1)} on {len(reach_recs):,} crowns. '
              f'Counted across all {len(h.gt_rows):,} labelled crowns rather than only the '
-             f'evaluated ones, the same condition covers 87 crowns; this panel uses the '
-             f'evaluation set, like every other number on the page.</p>')
+             f'evaluated ones, the same condition covers {all_unreachable_crowns} crowns; this '
+             f'panel uses the evaluation set, like every other number on the page.</p>')
     P.append(table([("Species", False), ("Labelled crowns", True)],
                    [[f'<span class="sp">{esc(d["species"][:1].upper() + d["species"][1:])}</span>',
                      f'{d["n_labelled_crowns"]:,}']
@@ -479,7 +499,7 @@ def build(h, *, generated, verify_dir):
              f'so these rates transfer to unlabelled crowns only under an assumption that '
              f'cannot be tested offline.</li>')
     P.append('<li>Every number on this page is recomputed from the source data at build time '
-             'and cross-checked against the committed measurement CSVs:'
+             'and cross-checked against the committed measurement artifacts:'
              '<ul>' + "".join(f"<li>{esc(c)}</li>" for c in checks) + '</ul>'
              'A mismatch aborts the build.</li>')
     P.append('<li>Rebuild: <code>python3 scripts/16_dashboard/16_model_health.py</code> then '
