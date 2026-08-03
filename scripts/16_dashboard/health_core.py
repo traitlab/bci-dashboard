@@ -18,8 +18,9 @@ import os
 import re
 import unicodedata
 from collections import Counter, defaultdict
-from dataclasses import dataclass, field
-from typing import Callable, Optional
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Optional
 
 # --------------------------------------------------------------------------
 # INPUT PATHS (constants -- edit here if the sources move)
@@ -83,7 +84,8 @@ def canonical_binomial(name):
     if len(tok) < 2:
         return None
     genus, epithet = tok[0], tok[1]
-    if not genus[:1].isupper() or not epithet.isalpha() or not epithet.islower():
+    core = epithet.replace("-", "").replace("×", "")
+    if not genus[:1].isupper() or not core.isalpha() or not core.islower():
         return None
     return f"{genus} {epithet}"
 
