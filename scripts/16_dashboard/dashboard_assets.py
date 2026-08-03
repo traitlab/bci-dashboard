@@ -8,7 +8,7 @@ imported because ``import labelfirst`` pulls numpy/scipy/scikit-learn/pandas,
 and this page must render from the stdlib alone.
 
 It is a *strict subset*, not a verbatim copy: every retained rule is
-byte-identical, and 28 lines are dropped -- the verdict-bar, pass/refuted
+byte-identical, and 27 lines are dropped -- the verdict-bar, pass/refuted
 badge, design-details, chart-grid and tooltip rules, for elements this page
 has none of. A future upstream ``_CSS`` change therefore cannot be picked up
 by plain copy-paste; the prune has to be reapplied.
