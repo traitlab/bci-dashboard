@@ -1,11 +1,17 @@
 """Static CSS/JS for the model-health dashboard. Stdlib-only, no network.
 
-CSS is vendored verbatim from labelfirst's report substrate
+``_BASE_CSS`` is vendored from labelfirst's report substrate
 (``labelfirst/src/labelfirst/eval/report/_html.py``, ``_CSS``) so the two
 reports look like one family, then extended by ``_EXTRA_CSS`` below for the
 wide sortable per-species table this page needs. It is vendored rather than
 imported because ``import labelfirst`` pulls numpy/scipy/scikit-learn/pandas,
 and this page must render from the stdlib alone.
+
+It is a *strict subset*, not a verbatim copy: every retained rule is
+byte-identical, and 28 lines are dropped -- the verdict-bar, pass/refuted
+badge, design-details, chart-grid and tooltip rules, for elements this page
+has none of. A future upstream ``_CSS`` change therefore cannot be picked up
+by plain copy-paste; the prune has to be reapplied.
 
 ``_JS`` is NOT vendored: labelfirst's script only drives tooltips for its
 trajectory chart. This page needs client-side sort and filter over 169 species
