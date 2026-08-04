@@ -284,6 +284,47 @@ def svg_hbar(rows, *, width=620, row_h=30, label_w=112, right_w=140, title=""):
     return "\n".join(out)
 
 
+def svg_weight_pair(rows, *, label_a, label_b, width=620, bar_h=28, pad_l=168):
+    """Two full-width bars over the same bands, each split by a different weight.
+
+    ``rows`` = ``[(band, share_a, share_b, note, colour)]``, each set of shares
+    summing to 1. The point is the comparison: the same bands in the same
+    colours, so the reader sees the weight move from one bar to the other
+    without doing any arithmetic.
+    """
+    if not rows:
+        return ""
+    bar_w = width - pad_l - 10
+    leg_h, gap = 19, 12
+    height = 8 + 2 * bar_h + gap + 16 + leg_h * len(rows)
+    o = [f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
+         f'role="img" aria-label="{esc(label_a)} against {esc(label_b)}">']
+    for i, (label, key) in enumerate(((label_a, 1), (label_b, 2))):
+        y = 8 + i * (bar_h + gap)
+        o.append(f'<text x="{pad_l - 10}" y="{y + bar_h / 2 + 4:.0f}" font-size="11.5" '
+                 f'fill="#424242" text-anchor="end">{esc(label)}</text>')
+        x = pad_l
+        for r in rows:
+            w = bar_w * float(r[key])
+            o.append(f'<rect x="{x:.1f}" y="{y}" width="{max(0.7, w):.1f}" '
+                     f'height="{bar_h}" fill="{r[4]}"/>')
+            # Below this a two-character percentage collides with the band edges,
+            # so the number lives only in the key underneath.
+            if w >= 25:
+                o.append(f'<text x="{x + w / 2:.1f}" y="{y + bar_h / 2 + 4:.0f}" '
+                         f'font-size="11" fill="#fff" text-anchor="middle">'
+                         f'{100 * float(r[key]):.0f}%</text>')
+            x += w
+    y = 8 + 2 * bar_h + gap + 14
+    for i, r in enumerate(rows):
+        o.append(f'<rect x="{pad_l - 10}" y="{y + i * leg_h - 8}" width="10" height="10" '
+                 f'fill="{r[4]}" rx="2"/>'
+                 f'<text x="{pad_l + 6}" y="{y + i * leg_h}" font-size="11" fill="#616161">'
+                 f'{esc(r[0])}: {esc(r[3])}</text>')
+    o.append("</svg>")
+    return "\n".join(o)
+
+
 def _scale(values, lo_px, hi_px, span=0.0):
     """Map ``values`` onto a pixel range, flat series to the middle.
 
