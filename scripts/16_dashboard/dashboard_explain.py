@@ -57,13 +57,15 @@ def candidates_panel(*, recs, gen_n, gen_none):
         f'<p class="note">Every time we sent Pl@ntNet a photo we added one instruction: '
         f'<em>reply with your {top} best guesses, best first</em>. In the request that is the '
         f'setting <code>nb-results={top}</code>. Pl@ntNet\'s own documentation calls it a way '
-        f'to "restrict size of output list of probable species" and adds that "fewer results '
-        f'improve response time", so leaving it out returns a longer list. The number {top} '
-        f'lives in one line of <code>config.yaml</code> '
-        f'(<code>identify_nb_results: {top}</code>) and was written when this pipeline was '
-        f'first built, before any of the accuracy on this page had been measured. Nobody '
-        f'picked it after looking at evidence, so it is a setting to revisit rather than a '
-        f'fact about the model.</p>'
+        f'to "restrict size of output list of probable species", says only that it takes "an '
+        f'integer &gt;= 1", and adds that "fewer results improve response time". So there is '
+        f'no published maximum and no published default: the ceiling on a longer request is '
+        f'however many candidates the model itself has for the photo. The number {top} lives '
+        f'in one line of <code>config.yaml</code> '
+        f'(<code>identify_nb_results: {top}</code>), carried over from the Amazon pipeline this '
+        f'project was built from, with no recorded reason and long before any of the accuracy '
+        f'on this page had been measured. It is a setting to revisit rather than a fact about '
+        f'the model.</p>'
         + svg_hbar(rows, title=f"how long the returned list actually was, {len(recs):,} crowns")
         + f'<p class="note">{full:,} of {len(recs):,} photos came back with a full {top} '
           f'({pctf(full / len(recs))}), and none came back with more, which is the limit doing '
@@ -79,7 +81,14 @@ def candidates_panel(*, recs, gen_n, gen_none):
           f'<p class="note">Raising it is not free. These answers are cached, so rebuilding '
           f'this page costs nothing, but a longer list means asking Pl@ntNet again for every '
           f'photo in the collection at one paid call each. That is a decision to take, not a '
-          f'rebuild to run.</p>')
+          f'rebuild to run.</p>'
+          f'<p class="note"><b>If that call is ever made, ask for more than a longer list.</b> '
+          f'The same endpoint takes <code>detailed=true</code>, which the documentation says '
+          f'returns "extra identification results such as results per family and results per '
+          f'genus" under <code>otherResults</code>. Those are exactly the answers this page has '
+          f'to fake today: a genus label is scored by chopping the genus off a predicted '
+          f'species name, and a family label cannot be scored offline at all. Pl@ntNet will '
+          f'state both directly if asked.</p>')
 
 
 def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp):
