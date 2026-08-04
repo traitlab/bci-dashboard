@@ -245,7 +245,13 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
              f'<span class="tag {k}">{esc(lab)}</span> {esc(act)}</li>'
              for k, (lab, act) in STATUS.items()]
     body.append(f'</ul><p class="note">Each of the {n_sp} species sits in exactly one row. '
-                f'The numbers behind each status are in the species table below.</p>')
+                f'The numbers behind each status are in the species table below.</p>'
+                f'<p class="note"><strong>Cheaper still, and not counted in any row above: '
+                f'{gen_one:,} crowns whose botanist label stops at the genus and whose five '
+                f'candidates contain exactly one species from that genus.</strong> The question '
+                f'there is yes or no, not which of 169. Those crowns are outside the {n_sp} '
+                f'species scored on this page because they never named a species; see the '
+                f'genus paragraph near the foot of the page.</p>')
     P.append(panel(f"Where to spend botanist time next: {counts['ranking']} species are a "
                    f"cheap confirmation, {counts['unreachable']} are not worth any time",
                    "<b>Work top to bottom.</b> Rows are ordered cheapest useful work first, "
@@ -469,11 +475,15 @@ def main() -> None:
                          cache_dir=args.cache_dir)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    with open(args.out, "w", encoding="utf-8") as f:
-        f.write(page)
+    # Encode here rather than letting open() do it, so the reported size is the
+    # size on disk. Accented species names cost more than one byte apiece, so
+    # len(page) undercounts by ten and a reader comparing against ls is misled.
+    blob = page.encode("utf-8")
+    with open(args.out, "wb") as f:
+        f.write(blob)
     for c in checks:
         print(f"  verified  {c}")
-    print(f"  wrote     {args.out}  ({len(page):,} bytes)")
+    print(f"  wrote     {args.out}  ({len(blob):,} bytes)")
 
 
 if __name__ == "__main__":
