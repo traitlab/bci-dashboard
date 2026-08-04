@@ -214,6 +214,33 @@ JS = """\
   sel.addEventListener('change',apply);
   apply();
 })();
+
+// Printing. Only two panels are open by default, so printing the page as it sits
+// would hand someone a sheet of headings. Open everything for the print, then put
+// it back, and keep this out of the block above, which returns early when there is
+// no species table. A reader who prints from a browser without these events still
+// gets whatever they had open, which is the old behaviour, not a worse one.
+(function(){
+  var forced=[];
+  function expand(){
+    forced=[];
+    Array.prototype.forEach.call(document.querySelectorAll('details:not([open])'),
+      function(d){ forced.push(d); d.open=true; });
+  }
+  function restore(){
+    forced.forEach(function(d){ d.open=false; });
+    forced=[];
+  }
+  window.addEventListener('beforeprint',expand);
+  window.addEventListener('afterprint',restore);
+  // Safari fires no print events; matchMedia is the path that works there.
+  if(window.matchMedia){
+    var mq=window.matchMedia('print');
+    var onChange=function(e){ e.matches?expand():restore(); };
+    if(mq.addEventListener) mq.addEventListener('change',onChange);
+    else if(mq.addListener) mq.addListener(onChange);
+  }
+})();
 """
 
 
