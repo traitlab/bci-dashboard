@@ -65,6 +65,17 @@ HEADLINES = [
 ]
 
 
+def is_family(n: str) -> bool:
+    """A one-word label ending in -aceae is a family, not a genus.
+
+    Every botanical family name carries that suffix and no accepted genus does,
+    so the test is exact rather than a heuristic. It matters because a family
+    label can never equal a predicted genus, so counting those crowns into a
+    genus-level rate would report guaranteed misses as measured ones.
+    """
+    return n.strip().lower().endswith("aceae")
+
+
 def diagnose(row: dict) -> str:
     """Per-species status. First matching rule wins; the order is the point.
 
@@ -187,8 +198,19 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                         if rest else None))
     best = next(o for o in ops if o["gate"] and abs(o["thr"] - RECOMMENDED_CONF) < 1e-9)
 
-    gn = len(h.genus_recs)
-    gg1 = sum(1 for r in h.genus_recs if hc.genus_of(r["ranked"][0][0]) == r["gt"])
+    # Labels above species split two ways, and mixing them understates the genus
+    # rate: a family name can never equal a predicted genus, so every family-only
+    # crown is a guaranteed miss at genus level rather than a measured one.
+    fam_recs = [r for r in h.genus_recs if is_family(r["gt"])]
+    gen_recs = [r for r in h.genus_recs if not is_family(r["gt"])]
+    gn, fam_n = len(gen_recs), len(fam_recs)
+    gg1 = sum(1 for r in gen_recs if hc.genus_of(r["ranked"][0][0]) == r["gt"])
+    fam_names = len({r["gt"] for r in fam_recs})
+    # Genus-only crowns whose right answer is narrowed to one in-genus candidate:
+    # the cheapest confirmation on the page, a yes/no rather than an identification.
+    in_gen = [sum(1 for b, _ in r["ranked"][:5] if hc.genus_of(b) == r["gt"]) for r in gen_recs]
+    gen_any = sum(1 for k in in_gen if k)
+    gen_one = sum(1 for k in in_gen if k == 1)
 
     # --- page ---
     P = ['<h1>Pl@ntNet on BCI: per-species model health</h1>',
@@ -385,9 +407,19 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
               f'a gain already banked, not as a source of error.</p>'
               f'<p class="note"><strong>{gn:,} further crowns carry only a genus '
               f'name</strong> and are left out of every species number above. Scored at '
-              f'genus level they reach {pctf(gg1 / gn) if gn else "n/a"}. Whether taking '
-              f'them down to species is worth expert time is a prioritisation question, not '
-              f'a model question.</p>')
+              f'genus level they reach {pctf(gg1 / gn) if gn else "n/a"}. Of them, '
+              f'{gen_any:,} have at least one candidate in the right genus among the five, '
+              f'and <strong>{gen_one:,} have exactly one</strong>, which turns the question '
+              f'into a yes or no rather than an identification. Whether taking them down to '
+              f'species is worth expert time is a prioritisation question, not a model '
+              f'question.</p>'
+              f'<p class="note">A further {fam_n} crowns are labelled to '
+              f'{fam_names} <em>families</em> rather than genera. They are excluded from the '
+              f'genus rate above and cannot be scored at all offline: a family name can never '
+              f'match a predicted species name, and mapping predictions up to family would '
+              f'need a family lookup covering Pl@ntNet\'s vocabulary, which we do not have '
+              f'here. Counting them in would have reported '
+              f'{pctf(gg1 / (gn + fam_n))} instead of {pctf(gg1 / gn)}.</p>')
     P.append(panel(f"What labelling cannot fix: {len(never)} species, {never_crowns} crowns "
                    f"the model never named, and why the five-candidate cap may be the cause",
                    "<b>Do not spend expert time renaming or relabelling these.</b> Either the "
