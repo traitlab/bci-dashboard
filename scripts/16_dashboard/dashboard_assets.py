@@ -284,16 +284,38 @@ def svg_hbar(rows, *, width=620, row_h=30, label_w=112, right_w=140, title=""):
     return "\n".join(out)
 
 
-def _scale(values, lo_px, hi_px):
-    """Map ``values`` onto a pixel range, flat series to the middle."""
+def _scale(values, lo_px, hi_px, span=0.0):
+    """Map ``values`` onto a pixel range, flat series to the middle.
+
+    ``lo_px`` is where the smallest value sits and ``hi_px`` where the largest
+    does. SVG y grows downward, so callers pass ``lo_px`` larger than ``hi_px``
+    and a rising series comes back with falling y.
+
+    ``span`` is the smallest range the axis is allowed to show. Without it a
+    series that wobbles by one point fills the whole plot and reads as a
+    collapse, so rates pass their own floor and counts leave it at zero.
+    """
     lo, hi = min(values), max(values)
+    if hi - lo < span:
+        mid = (lo + hi) / 2.0
+        lo, hi = mid - span / 2.0, mid + span / 2.0
     if hi - lo < 1e-12:
         mid = (lo_px + hi_px) / 2.0
         return [mid] * len(values)
-    return [hi_px + (v - lo) / (hi - lo) * (lo_px - hi_px) for v in values]
+    return [lo_px + (v - lo) / (hi - lo) * (hi_px - lo_px) for v in values]
 
 
-def svg_spark(values, marks=(), *, width=88, height=24, empty="no trend yet"):
+def orientation_ok() -> bool:
+    """A rising series must be drawn with falling y, because SVG y grows down.
+
+    Getting this backwards flips every chart on the page while leaving every
+    number on it correct, so nothing else here would catch it.
+    """
+    ys = _scale([1.0, 2.0], 100.0, 0.0)
+    return ys[0] > ys[1] and abs(ys[0] - 100.0) < 1e-9 and abs(ys[1]) < 1e-9
+
+
+def svg_spark(values, marks=(), *, width=88, height=24, empty="no trend yet", span=0.0):
     """Sparkline. ``marks`` = indices where the model iteration changed; those
     points get a hollow ring so a model jump never reads as label drift. With
     fewer than two snapshots there is nothing to draw, so say so rather than
@@ -302,7 +324,7 @@ def svg_spark(values, marks=(), *, width=88, height=24, empty="no trend yet"):
     if len(values) < 2:
         return f'<span class="nospark">{empty}</span>' if empty else ""
     xs = [3 + i * (width - 6) / (len(values) - 1) for i in range(len(values))]
-    ys = _scale(values, height - 4, 4)
+    ys = _scale(values, height - 4, 4, span)
     pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
     dots = "".join(
         f'<circle cx="{xs[i]:.1f}" cy="{ys[i]:.1f}" r="3.2" fill="#fff" '
@@ -317,19 +339,19 @@ def svg_spark(values, marks=(), *, width=88, height=24, empty="no trend yet"):
 
 
 def svg_two_series(dates, a_vals, b_vals, marks, *, a_name, b_name,
-                   a_fmt, b_fmt, width=620, height=210):
+                   a_fmt, b_fmt, width=620, height=210, a_span=0.0):
     """Two series on two independent scales, sharing the snapshot dates.
 
     A dashed vertical rule at every index in ``marks`` says the Pl@ntNet model
-    iteration changed there. Each series is scaled to its own min and max, so
-    the shapes are comparable but the pixel heights are not; the end labels
-    carry the actual values.
+    iteration changed there. Each series is scaled to its own min and max, no
+    narrower than ``a_span`` for the first one, so the shapes are comparable
+    but the pixel heights are not; the end labels carry the actual values.
     """
     if len(dates) < 2:
         return ""
     pad_l, pad_r, pad_t, pad_b = 52, 60, 22, 40
     xs = [pad_l + i * (width - pad_l - pad_r) / (len(dates) - 1) for i in range(len(dates))]
-    ya = _scale(a_vals, height - pad_b, pad_t)
+    ya = _scale(a_vals, height - pad_b, pad_t, a_span)
     yb = _scale(b_vals, height - pad_b, pad_t)
     o = [f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
          f'role="img" aria-label="{esc(a_name)} and {esc(b_name)} across '
@@ -363,7 +385,8 @@ def svg_two_series(dates, a_vals, b_vals, marks, *, a_name, b_name,
              f'&#9473; {esc(a_name)}</text>'
              f'<text x="{pad_l + 210}" y="{height - 6}" font-size="10.5" fill="#00897b">'
              f'&#9476; {esc(b_name)}</text>'
-             f'<text x="{width - pad_r}" y="{height - 6}" font-size="10.5" fill="#c62828" '
-             f'text-anchor="end">&#9711; new Pl@ntNet model</text>')
+             + (f'<text x="{width - pad_r}" y="{height - 6}" font-size="10.5" '
+                f'fill="#c62828" text-anchor="end">&#9711; new Pl@ntNet model</text>'
+                if marks else ""))
     o.append("</svg>")
     return "\n".join(o)

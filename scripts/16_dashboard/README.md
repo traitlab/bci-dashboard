@@ -27,7 +27,7 @@ next decision.
 |---|---|---|
 | | Four headline numbers | Which number to quote, and why two of them disagree |
 | **open** | Where to spend botanist time next | What to work on, ordered cheapest useful work first |
-| **open** | Trend over N snapshots | Whether a number moved because the model changed or because more crowns were labelled |
+| **open** | Trend over N points | Whether a number moved because the model changed or because more crowns were labelled |
 | **open** | Which crowns can wait | How to order the review queue |
 | | How the five candidate rules compare | Whether to move the confidence threshold |
 | | Can we trust the model's confidence? | Whether confidence alone is enough to order the queue |
@@ -94,16 +94,41 @@ model-health-<date>/`. On every build the renderer globs them, summarises each i
 headline number, a narrow trend column in the species table, and a two-series chart in the trend
 section.
 
-`history.csv` has one row per snapshot, model and metric:
+`history.csv` has one row per point, model and metric:
 
 ```
-snapshot_date,model_tag,n_crowns,metric,value
-2026-08-03,k-central-america@v7.4-2026-03-27,2589,macro_top1,0.555604
+snapshot_date,model_tag,n_crowns,metric,value,source
+2026-08-03,k-central-america@v7.4-2026-03-27,2589,macro_top1,0.555604,measured
+2026-05-25,k-central-america@v7.4-2026-03-27,1250,macro_top1,0.566169,reconstructed
 ```
 
-It is **append-only**. A snapshot's rows are written the first time that folder is seen and never
+It is **append-only**. A point's rows are written the first time it is seen and never
 rewritten, so the trend cannot be quietly re-authored by a later run. If a snapshot is re-measured,
 delete its rows and rebuild; a verification check makes that failure loud rather than silent.
+
+### Backfilled points
+
+Health was first measured on one day, which would leave one point and no trend. But the predictions
+arrived in batches and every cached response carries the day it was fetched, so each evaluated crown
+can be attributed to its batch. Scoring the crowns fetched up to each batch date gives the numbers
+this page would have printed then, marked `source=reconstructed`. On the current cache that is
+two extra points, 2026-05-25 (1250 crowns) and 2026-05-27 (all 2589).
+
+The reconstruction is honest about the data mix and silent about the model: it re-scores old crowns
+with today's predictions, so a backfilled point cannot show what an older Pl@ntNet model would have
+said. It refuses to run at all if any crown cannot be dated or if every crown shares one date, so a
+cache copied without its mtimes shows as no history rather than as a false one. Two checks hold it
+down: the newest reconstructed point covers every crown, so it must equal the live measurement, and
+every stored reconstructed point must still recompute to its stored value.
+
+What the backfill actually shows here is the composition trap, not progress. Under one frozen model
+crown-weighted top-1 rose 76.3% to 81.3% while per-species top-1 fell 56.6% to 55.6%: the second
+batch added crowns of species already covered, which lifts the crown-weighted number, plus new rare
+species, which drags the per-species one down. Neither move is learning. Pl@ntNet never sees these
+labels.
+
+Accuracy axes never draw narrower than 10 points (`RATE_SPAN`), so a one-point wobble reads as a
+wobble instead of filling the plot.
 
 **The trap.** Pl@ntNet ships a new model every few months, on its own schedule rather than the
 labelling programme's. So a metric that moves can mean a new model **or** more labels, and a page
@@ -113,7 +138,7 @@ dashed rule, on the small trend lines as well as the chart, and the caption unde
 how much **each** axis moved and says outright that the step cannot attribute one to the other. A
 jump at a model boundary therefore looks different from drift under a constant model.
 
-With one snapshot on disk the section says "first snapshot, no trend yet" and draws nothing.
+With one point the section says "first snapshot, no trend yet" and draws nothing.
 
 ### `model_tag`
 
@@ -168,8 +193,8 @@ screenshotted into the wrong claim.
 
 ## The per-species statuses
 
-Each of the 169 species gets exactly one status. First matching rule wins, and the to-do list is
-ordered cheapest useful work first.
+Each of the 169 species gets exactly one status. First matching rule wins, and the "where to spend
+botanist time next" panel is ordered cheapest useful work first.
 
 | Status | Rule | What to do about it |
 |---|---|---|
@@ -187,7 +212,7 @@ The rule order is not the display order, and both are deliberate:
   at 90% does not need re-ranking.
 - **Too few labels to judge** is matched *after* **Right name in the list, not first**, so a thinly
   labelled species whose answer is already in the returned list still surfaces as the cheap win it is.
-- The to-do list then shows them cheapest-first, with the two rows you can skip last.
+- The panel then shows them cheapest-first, with the two rows you can skip last.
 
 Click any header in the species table to sort. Filter by name or by status.
 
@@ -202,14 +227,17 @@ verified  per_species_health.csv: 169 species, crowns and both rates match
 verified  support_buckets.csv: 5 labelled-crown groups match
 verified  confidence_calibration.csv: 5 confidence bands match
 verified  run_log.txt: the 86-crown ceiling, the 64 unscoreable evaluated crowns and the 2075-hit unreconciled baseline match
-verified  history.csv: 1 snapshot(s); the newest one's crown count and both headline rates match
+verified  history.csv: 3 point(s), 2 reconstructed from ingest dates; the newest measured and newest reconstructed point both match the live crown count and both headline rates
+verified  charts: a rising series is drawn rising
 ```
 
 The fourth check covers the three figures that live in the run log's prose rather than in any CSV,
 because the page states them on denominators the CSVs never use. It earned its place: an earlier
 version had the ceiling count typed into the page as a literal, inside the very panel claiming
 nothing on the page is hardcoded. The fifth defends the append-only trend store, where a re-measured
-snapshot would otherwise leave a stale point behind.
+snapshot would otherwise leave a stale point behind. The sixth is geometric rather than numeric: a
+sign slip in the pixel scaling flips every chart on the page while leaving every number on it
+correct, which is exactly what happened once, so a rising series is now asserted to rise.
 
 Repeated runs are byte-identical (pass `--generated <date>` to freeze the one date stamp). The HTML
 contains no URL, no `<link>`, no `<img>` and exactly one inline `<script>`, so it works from a

@@ -24,14 +24,18 @@ moved. Stdlib only, no network.
 from __future__ import annotations
 
 import csv
+import datetime
 import glob
 import os
 import re
 
 import health_core as hc
-from dashboard_assets import esc, panel, pctf, svg_spark, svg_two_series
+from dashboard_assets import esc, orientation_ok, panel, pctf, svg_spark, svg_two_series
 
-HISTORY_COLS = ["snapshot_date", "model_tag", "n_crowns", "metric", "value"]
+HISTORY_COLS = ["snapshot_date", "model_tag", "n_crowns", "metric", "value", "source"]
+# Narrowest accuracy axis any chart may draw, so a one-point wobble looks like a
+# wobble instead of filling the plot.
+RATE_SPAN = 0.10
 SNAPSHOT_DIR = re.compile(r"model-health-(\d{4}-\d{2}-\d{2})$")
 
 
@@ -103,6 +107,9 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, trend, n_crown
                   f"evaluated crowns and the {strict_hits}-hit unreconciled baseline match")
 
     checks.append(trend.check(n_crowns=n_crowns, macro1=macro1, micro1=micro1))
+    if not orientation_ok():
+        fail("charts are drawn upside down: a rising series must have falling y")
+    checks.append("charts: a rising series is drawn rising")
     return checks
 
 
@@ -139,20 +146,80 @@ def snapshot_rows(snap_dir: str) -> list[tuple[str, int, float]]:
                    float(r["top1_accuracy"])) for r in rows]
 
 
+def cache_dates(cache_dir: str) -> dict[str, str]:
+    """Cache file stem -> the day its Pl@ntNet response landed on disk.
+
+    The cached responses carry no timestamp of their own and neither ground
+    truth CSV has a date column, so the file's own mtime is the only record of
+    when each prediction arrived. It is a proxy: copying the cache with a tool
+    that does not preserve mtimes would reset every date to the copy day. The
+    reconstruction below refuses to invent a trend from a single date, and its
+    newest point is checked against the live measurement, so a flattened cache
+    shows as no history rather than as a false one.
+    """
+    out = {}
+    for f in glob.glob(os.path.join(cache_dir, "*.json")):
+        out[os.path.basename(f)[: -len(".json")]] = (
+            datetime.date.fromtimestamp(os.path.getmtime(f)).isoformat())
+    return out
+
+
+def reconstructed_rows(sp_recs, cache_dir: str) -> list[tuple[str, str, int, float]]:
+    """(date, metric, n_crowns, value) for each ingest day, cumulative.
+
+    Model health was first measured on one day, so history.csv would hold one
+    point and no trend. But the predictions arrived in batches, and every
+    evaluated crown can be attributed to the batch that fetched it. Scoring the
+    crowns fetched up to each batch date gives the numbers this page would have
+    printed on that date, under the same frozen model. Returns nothing if any
+    crown cannot be dated or if every crown shares one date.
+    """
+    when = cache_dates(cache_dir)
+    dated = []
+    for r in sp_recs:
+        gk = r["global_key"]
+        stem = gk[len(hc.GT_KEY_PREFIX):] if gk.startswith(hc.GT_KEY_PREFIX) else gk
+        if stem not in when:
+            return []
+        dated.append((when[stem], r))
+    cuts = sorted({d for d, _ in dated})
+    if len(cuts) < 2:
+        return []
+    rows = []
+    for cut in cuts:
+        by: dict[str, list] = {}
+        for d, r in dated:
+            if d <= cut:
+                by.setdefault(r["gt"], []).append(r)
+        per = [(sp, len(rs),
+                sum(1 for r in rs if r["ranked"][0][0] == sp),
+                sum(1 for r in rs if sp in [b for b, _ in r["ranked"][:5]]))
+               for sp, rs in by.items()]
+        n = sum(m for _, m, _, _ in per)
+        rows += [(cut, "macro_top1", n, sum(k1 / m for _, m, k1, _ in per) / len(per)),
+                 (cut, "macro_top5", n, sum(k5 / m for _, m, _, k5 in per) / len(per)),
+                 (cut, "micro_top1", n, sum(k1 for _, _, k1, _ in per) / n),
+                 (cut, "micro_top5", n, sum(k5 for _, _, _, k5 in per) / n)]
+        rows += [(cut, f"species:{sp}:top1", m, k1 / m) for sp, m, k1, _ in per]
+    return rows
+
+
 class Trend:
     """Every snapshot's headline and per-species rates, oldest first."""
 
     def __init__(self, path, rows):
         self.path = path
-        tags, crowns, self.series = {}, {}, {}
+        tags, crowns, self.series, self.source = {}, {}, {}, {}
         for r in rows:
             date = r["snapshot_date"]
             tags[date] = r["model_tag"]
+            self.source[date] = r.get("source") or "measured"
             if r["metric"] == "micro_top1":
                 crowns[date] = int(r["n_crowns"])
             self.series.setdefault(r["metric"], {})[date] = float(r["value"])
         self.dates = sorted(tags)
         self.snaps = [(d, tags[d], crowns.get(d, 0)) for d in self.dates]
+        self.rebuilt = [d for d in self.dates if self.source[d] == "reconstructed"]
         # Indices where the model iteration differs from the previous snapshot.
         self.marks = [i for i in range(1, len(self.snaps))
                       if self.snaps[i][1] != self.snaps[i - 1][1]]
@@ -167,23 +234,54 @@ class Trend:
 
     def spark(self, metric: str, empty: str = "no trend yet") -> str:
         got = self.series.get(metric, {})
-        return svg_spark([got[d] for d in self.dates if d in got], self.marks, empty=empty)
+        return svg_spark([got[d] for d in self.dates if d in got], self.marks, empty=empty,
+                         span=RATE_SPAN)
 
     def check(self, *, n_crowns, macro1, micro1) -> str:
         """history.csv is append-only, so a re-measured snapshot would leave its
         stored trend point behind. Hold the newest point to the live numbers.
         Per-species rates are stored to 4 dp, so their mean carries that much
         rounding error."""
-        if self.snaps:
-            date = self.latest
-            if self.snaps[-1][2] != n_crowns:
-                stale(f"{self.snaps[-1][2]} crowns for {date}", n_crowns, self.path)
+        # The newest measured point and the newest reconstructed point both cover
+        # every evaluated crown, so both must equal the live numbers.
+        for date in [d for d in (self.latest,) if self.snaps] + self.rebuilt[-1:]:
+            if self.snaps[self.dates.index(date)][2] != n_crowns:
+                stale(f"{self.snaps[self.dates.index(date)][2]} crowns for {date}",
+                      n_crowns, self.path)
             for metric, got in (("macro_top1", macro1), ("micro_top1", micro1)):
                 if abs(self.series[metric][date] - got) > 1e-4:
                     stale(f"{metric} for {date} is {self.series[metric][date]}",
                           got, self.path)
-        return (f"history.csv: {len(self.snaps)} snapshot(s); the newest one's crown count "
-                f"and both headline rates match")
+        return (f"history.csv: {len(self.snaps)} point(s), {len(self.rebuilt)} reconstructed "
+                f"from ingest dates; the newest measured and newest reconstructed point both "
+                f"match the live crown count and both headline rates")
+
+    def _composition(self) -> str:
+        """Both headline rates over the same window, and what a gap between them
+        means. Reports what the numbers did rather than asserting a direction."""
+        mac, mic = self.series.get("macro_top1", {}), self.series.get("micro_top1", {})
+        d0, d1 = self.dates[0], self.dates[-1]
+        if not all(d in s for s in (mac, mic) for d in (d0, d1)):
+            return ""
+        dm, di = 100 * (mac[d1] - mac[d0]), 100 * (mic[d1] - mic[d0])
+        held = ("under one constant model" if not self.marks
+                else "across a Pl@ntNet model change, so read it with that in mind")
+        head = (f'<p class="note"><strong>Between {esc(d0)} and {esc(d1)} crown-weighted '
+                f'top-1 moved {di:+.1f} points and per-species top-1 moved {dm:+.1f} '
+                f'points</strong>, {held}. ')
+        if dm * di < 0:
+            tail = ('They moved in opposite directions, which is only possible because the '
+                    'crown mix changed. The later batches added crowns of species that were '
+                    'already covered, which lifts the crown-weighted number, plus a handful '
+                    'of newly photographed rare species, which drags the per-species one '
+                    'down. Neither move is the model learning: Pl@ntNet never sees these '
+                    'labels.')
+        else:
+            tail = ('Watch the gap between the two rather than either one alone. The '
+                    'crown-weighted number rises whenever more crowns of already well-covered '
+                    'species arrive. Only the per-species number rises when coverage widens '
+                    'to species the model handles badly.')
+        return head + tail + "</p>"
 
     def render(self) -> str:
         """The trend panel. Degrades to a plain sentence on a single snapshot."""
@@ -201,7 +299,7 @@ class Trend:
         acc = [self.series["macro_top1"][d] for d in self.dates]
         body = [svg_two_series(self.dates, acc, [c for _, _, c in self.snaps], self.marks,
                                a_name="accuracy per species", b_name="labelled crowns",
-                               a_fmt=pctf, b_fmt=lambda v: f"{int(v):,}")]
+                               a_fmt=pctf, b_fmt=lambda v: f"{int(v):,}", a_span=RATE_SPAN)]
         for i in self.marks:
             body.append(
                 f'<p class="note"><strong>{esc(self.dates[i])}: new Pl@ntNet model '
@@ -213,13 +311,30 @@ class Trend:
                 f'steps under one constant model.</p>')
         if not self.marks:
             body.append(f'<p class="note">The model tag is <code>{esc(self.tag)}</code> for '
-                        f'all {len(self.snaps)} snapshots, so every movement here is more '
-                        f'labels arriving under one constant model.</p>')
-        body.append('<p class="note">A red ring marks a snapshot where the Pl@ntNet model '
-                    'changed, on the small trend lines too. Never read a step across a red '
-                    'ring as progress from labelling.</p>')
-        return panel(f"Trend over {len(self.snaps)} snapshots, {len(self.marks)} Pl@ntNet "
-                     f"model change(s) marked", ask, "\n".join(body), open_=True)
+                        f'all {len(self.snaps)} points, so every movement here is more '
+                        f'crowns arriving under one constant model.</p>')
+        body.append(self._composition())
+        if self.rebuilt:
+            body.append(
+                f'<p class="note"><strong>Where these points come from.</strong> '
+                f'{len(self.rebuilt)} of them ({esc(", ".join(self.rebuilt))}) were '
+                f'reconstructed, not measured on the day. Every prediction file on disk '
+                f'carries the day it was fetched, so each crown can be scored against the '
+                f'batch it arrived in, giving the numbers this page would have printed on '
+                f'those dates. The reconstruction re-uses today\'s predictions, so '
+                f'it is honest about the data mix and silent about the model: if Pl@ntNet had '
+                f'already changed, an older point would still be scored with the current '
+                f'model.</p>')
+        if self.marks:
+            body.append('<p class="note">A red ring marks a point where the Pl@ntNet model '
+                        'changed, on the small trend lines beside each headline number too. '
+                        'Never read a step across a red ring as progress from labelling.</p>')
+        title = f"Trend over {len(self.snaps)} points"
+        if self.rebuilt:
+            title += f", {len(self.rebuilt)} reconstructed from ingest dates"
+        if self.marks:
+            title += f", {len(self.marks)} Pl@ntNet model change(s) marked"
+        return panel(title, ask, "\n".join(body), open_=True)
 
 
 def stale(found, here, path):
@@ -227,15 +342,19 @@ def stale(found, here, path):
                      f"snapshot's rows and re-run.")
 
 
-def load_trend(snap_dir: str, fallback_tag: str) -> Trend:
-    """Append any snapshot missing from history.csv, then return the whole thing.
+def load_trend(snap_dir: str, fallback_tag: str, *, sp_recs=None, cache_dir=None) -> Trend:
+    """Append anything missing from history.csv, then return the whole thing.
 
-    Existing rows are never rewritten, so a snapshot's trend point is fixed the
-    first time it is seen and ``Trend.check`` catches any later drift.
+    Two kinds of point go in: one per dated ``model-health-<date>/`` folder,
+    measured when that folder was written, and one per prediction-ingest day,
+    reconstructed from the cache. Existing rows are never rewritten, so a point
+    is fixed the first time it is seen; a stored reconstructed point that no
+    longer recomputes to its stored value is a hard failure, because that means
+    the cache dates moved under it.
     """
     path = os.path.join(snap_dir, "history.csv")
     have = hc.read_csv_rows(path) if os.path.exists(path) else []
-    seen = {(r["snapshot_date"], r["metric"]) for r in have}
+    seen = {(r["snapshot_date"], r["metric"]): r for r in have}
     fresh = []
     for d in sorted(glob.glob(os.path.join(os.path.dirname(snap_dir), "model-health-*"))):
         m = SNAPSHOT_DIR.search(d)
@@ -243,8 +362,17 @@ def load_trend(snap_dir: str, fallback_tag: str) -> Trend:
             continue
         tag = model_tag_of(d, fallback_tag)
         fresh += [dict(snapshot_date=m.group(1), model_tag=tag, n_crowns=k, metric=metric,
-                       value=f"{v:.6f}")
+                       value=f"{v:.6f}", source="measured")
                   for metric, k, v in snapshot_rows(d) if (m.group(1), metric) not in seen]
+    if sp_recs and cache_dir:
+        tag = model_tag_of(snap_dir, fallback_tag)
+        for date, metric, k, v in reconstructed_rows(sp_recs, cache_dir):
+            was = seen.get((date, metric))
+            if was is None:
+                fresh.append(dict(snapshot_date=date, model_tag=tag, n_crowns=k,
+                                  metric=metric, value=f"{v:.6f}", source="reconstructed"))
+            elif was.get("source") == "reconstructed" and abs(float(was["value"]) - v) > 1e-6:
+                stale(f"reconstructed {metric} for {date} is {was['value']}", f"{v:.6f}", path)
     if fresh:
         with open(path, "a", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=HISTORY_COLS)
