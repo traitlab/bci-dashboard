@@ -237,7 +237,9 @@ Click any header in the species table to sort. Filter by name or by status.
 ## Why you can trust the numbers
 
 The renderer does not read the CSVs and reformat them. It **recomputes** every number from the source
-data, then compares its own results against the committed CSVs from `16_model_health.py`. A mismatch
+data, then compares its own results against the CSVs `16_model_health.py` wrote. Those CSVs are build
+outputs and are not tracked in git, so the check binds the page to whatever measurement is on disk
+right now; run the measurement script first, or the renderer has nothing to check against. A mismatch
 aborts the build, so the page cannot quietly drift away from the measurement it claims to show:
 
 ```

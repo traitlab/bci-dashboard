@@ -150,7 +150,12 @@ section.grp>h2{
   font-size:1.15rem;font-weight:700;color:#212121;
   border-bottom:2px solid #d5dde5;padding-bottom:6px;margin-bottom:4px;
 }
-.lede{font-size:0.86rem;color:#607d8b;margin:0 0 14px}
+.lede{font-size:0.86rem;color:#546e7a;margin:0 0 14px}
+/* Contrast override, not a restyle. #757575 on this background is 4.37:1, under the
+   4.5:1 WCAG AA floor for text this size, and the subtitle is the only line on the
+   page carrying the snapshot date and the model tag. The rule it overrides is inside
+   the vendored block above, which stays byte-identical to labelfirst's. */
+.subtitle{color:#6d6d6d}
 """
 
 CSS = _BASE_CSS + _EXTRA_CSS
