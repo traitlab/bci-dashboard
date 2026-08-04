@@ -19,13 +19,14 @@ works in the field with no signal.
 
 ## How the page is laid out
 
-It opens as a short summary. Three sections are expanded on arrival, six are folded away behind a
+It opens as a short summary. Four sections are expanded on arrival, six are folded away behind a
 one-line heading that says what is inside, so nobody has to scroll past a 169-row table to reach the
 next decision.
 
 | | Section | The decision it supports |
 |---|---|---|
 | | Four headline numbers | Which number to quote, and why two of them disagree |
+| **open** | Why one score says 81% and the other 56% | Which of the two headline scores answers the question you are asking |
 | **open** | Where to spend botanist time next | What to work on, ordered cheapest useful work first |
 | **open** | Trend over N points | Whether a number moved because the model changed or because more crowns were labelled |
 | **open** | Which crowns can wait | How to order the review queue |
@@ -50,9 +51,11 @@ The same model has two accuracy numbers, and knowing why is most of the value he
 | **81.3%** | per **crown** | Pick a labelled crown at random. This is the chance Pl@ntNet's first guess is right |
 | **55.6%** | per **species** | Pick a *species*. This is its average chance, with every species counting once |
 
-Both are correct. The gap is crowding: 26 abundant species account for most of the 2,589 evaluated
-crowns, so a per-crown average mostly reports how the model does on those few. Give every species an
-equal vote and the model looks much weaker.
+Both are correct. Two things make the gap: 26 abundant species hold 1,856 of the 2,589 evaluated
+crowns, and accuracy climbs with abundance (23.4% right for species with a single labelled crown,
+86.1% for those with 25 or more). So a per-crown average mostly reports how the model does on the few
+species it already knows best. Give every species an equal vote and the model looks much weaker. The
+page draws this as two bars over the same five groups, one weighted per species and one per crown.
 
 **The 55.6% is the number a labelling programme exists to move**, so it is the number the page leads
 with. Quoting 81.3% is not wrong, it just answers a question nobody in this project is asking.
@@ -252,6 +255,7 @@ contains no URL, no `<link>`, no `<img>` and exactly one inline `<script>`, so i
 | `16b_dashboard.py` | The page. Calls `load_health()`, recomputes every figure, emits one HTML file |
 | `dashboard_history.py` | Everything that reads the measurement *back*. `verify_snapshot()` aborts the build when the page and the snapshot disagree; `load_trend()` reads the sibling snapshot folders, maintains `history.csv`, derives `model_tag`, and renders the sparklines and the two-series chart |
 | `dashboard_assets.py` | Presentation only, and nothing here reads data or computes a number: CSS, JS, the collapsible-panel and table helpers, and the inline SVG charts. The CSS is a hand-pruned subset of `labelfirst`'s report styling so both reports look like one family |
+| `dashboard_explain.py` | The two panels that are mostly explanation: why the two headline scores differ (with the weighting chart), and how the measurement was made. Its figures are recomputed from the same records as the rest of the page, never hardcoded |
 
 One reader, two consumers. That is the point: a number cannot differ between the CSV and the page
 because neither one computes it independently.
