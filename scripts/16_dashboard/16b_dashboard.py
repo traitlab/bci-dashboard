@@ -53,8 +53,10 @@ STATUS = {
 }
 
 HEADLINES = [
-    ("macro_top1", "Average across species", "each species counts once, whatever its size"),
-    ("micro_top1", "Average across crowns", "one vote per labelled crown"),
+    ("macro_top1", "Average across species",
+     "per-species top-1: each species counts once, whatever its size"),
+    ("micro_top1", "Average across crowns",
+     "crown-weighted top-1: one vote per labelled crown"),
     ("macro_top5", "Right name in the list, per species",
      "the best a smarter ranking could reach"),
     ("micro_top5", "Right name in the list, per crown",
@@ -82,7 +84,7 @@ def diagnose(row: dict) -> str:
     return "hard" if a1 < 0.70 else "adequate"
 
 
-def build(h, *, generated, verify_dir, fallback_tag):
+def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     sp_recs, per_species = h.sp_recs, h.per_species
     n, n_sp = len(sp_recs), len(per_species)
 
@@ -142,7 +144,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
     short5 = sum(1 for r in sp_recs + h.genus_recs if len(r["ranked"]) < 5)
     n_pred = len(sp_recs) + len(h.genus_recs)
 
-    trend = load_trend(verify_dir, fallback_tag)
+    trend = load_trend(verify_dir, fallback_tag, sp_recs=sp_recs, cache_dir=cache_dir)
     checks = verify_snapshot(
         verify_dir, per_species=per_species, buckets=buckets, bins_all=bins_all,
         trend=trend, n_crowns=n, macro1=now["macro_top1"], micro1=now["micro_top1"],
@@ -196,25 +198,36 @@ def build(h, *, generated, verify_dir, fallback_tag):
          f'offline, no API key</div>',
          '<p class="intro">This page says where botanist time is worth spending. Pl@ntNet has '
          'already guessed a species for every labelled crown photo and we know the right '
-         'answer for those, so we can say per species how often it is right. Read the four '
-         'numbers and the to-do list; everything else is folded away until you want it.</p>',
+         'answer for those, so we can say per species how often it is right.</p>',
          '<div class="hero">']
     for i, (metric, label, note) in enumerate(HEADLINES):
         P.append(f'<div class="metric{" first" if i == 0 else ""}"><div class="row">'
                  f'<div class="v">{pctf(now[metric])}</div>{trend.spark(metric)}</div>'
                  f'<div class="l">{label}</div><div class="n">{note}</div></div>')
-    P.append(f'</div><p class="note">The first two numbers describe the same model and both '
-             f'are correct. The gap is crowding: the {len(top26)} most-labelled species '
-             f'carry {sum(d["n_labelled_crowns"] for d in top26):,} of the {n:,} crowns, so '
-             f'a per-crown average mostly reports how the model does on those. <strong>The '
+    big = top26[0]
+    singles = sum(1 for d in per_species if d["n_labelled_crowns"] == 1)
+    P.append(f'</div><p class="note"><strong>The first two numbers are one model scored two '
+             f'ways, and both are correct.</strong> The crown-weighted one counts every '
+             f'labelled crown once, so species with many crowns pull it hard. The per-species '
+             f'one scores each species on its own crowns first, then averages those {n_sp} '
+             f'rates, so a species with a single crown counts as much as the biggest one. '
+             f'Take the two ends of this dataset: <em>{esc(big["species"])}</em> has '
+             f'{big["n_labelled_crowns"]:,} labelled crowns at {pctf(big["top1_accuracy"])}, '
+             f'and {singles} species have one crown each. Crown-weighted, that one species '
+             f'casts {big["n_labelled_crowns"]:,} votes and each of those {singles} casts one. '
+             f'Per species, every one of them casts one. That is the whole gap: the '
+             f'{len(top26)} most-labelled species carry '
+             f'{sum(d["n_labelled_crowns"] for d in top26):,} of the {n:,} crowns, so the '
+             f'crown-weighted number mostly reports how the model does on those. <strong>The '
              f'per-species number is the one a labelling programme exists to move.</strong>'
              f'</p><p class="note"><strong>Of the crowns this evaluation can possibly score, '
              f'{pctf(reach1)} are right: {sum(1 for r in reach if top1(r) == r["gt"]):,} of '
              f'{len(reach):,}.</strong> The other {n - len(reach):,} crowns belong to '
              f'{len(never)} species the model never names, so they are wrong at every '
-             f'threshold and no amount of work on our side can score them. Read the folded '
-             f'section on what labelling cannot fix before treating that as the model\'s '
-             f'limit; it is partly ours.</p>')
+             f'threshold and no amount of work on our side can score them. That is partly our '
+             f'own doing rather than the model\'s limit: we asked for only five candidates per '
+             f'photo, so a species Pl@ntNet knows but never ranked in the top five looks '
+             f'identical here to one it has never heard of.</p>')
 
     # ---- to-do list ----
     body = ['<ul class="todo">']
@@ -458,7 +471,8 @@ def main() -> None:
     h = hc.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
                        wcvp_cache=args.wcvp_cache)
     page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),
-                         verify_dir=args.verify_against, fallback_tag=args.model_tag)
+                         verify_dir=args.verify_against, fallback_tag=args.model_tag,
+                         cache_dir=args.cache_dir)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:
