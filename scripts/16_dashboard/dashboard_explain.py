@@ -14,6 +14,7 @@ recomputed here from the same records. Nothing is hardcoded.
 """
 
 from collections import Counter
+from statistics import median
 
 import health_core as hc
 from dashboard_assets import esc, panel, pctf, svg_hbar, svg_weight_pair
@@ -50,10 +51,22 @@ def candidates_panel(*, recs, gen_n, gen_none):
     rows = [(f"{k} guess{'' if k == 1 else 'es'}", lens[k] / len(recs),
              f"{lens[k]:,} crowns", "#1b5e20" if k == top else "#78909c")
             for k in range(1, top + 1) if lens[k]]
+    # Two independent cuts, one from each end of the list. Ours is nb-results;
+    # Pl@ntNet's is a floor on the confidence of a candidate worth returning,
+    # which is why a list can come back shorter than we asked for. The floor is
+    # read off the data rather than assumed: it is the smallest score anyone got.
+    scores = [s for r in recs for _, s in r["ranked"]]
+    floor = min(scores)
+    hidden = {n: median([1.0 - sum(s for _, s in r["ranked"])
+                         for r in recs if len(r["ranked"]) == n])
+              for n in lens if lens[n]}
+    half = sum(1 for r in recs
+               if len(r["ranked"]) == top and sum(s for _, s in r["ranked"]) < 0.5)
     return panel(
         f"Why only {top} guesses per photo, and what that hides",
-        f"<b>We asked for {top}. Pl@ntNet did not stop at {top} on its own.</b> That choice "
-        f"puts a ceiling on every number above it, so it is worth knowing where it came from.",
+        f"<b>Two different limits cut that list, one at each end.</b> We asked for the best "
+        f"{top}, and Pl@ntNet drops anything it scores below {floor:.1%} whether we asked for "
+        f"it or not. Both put a ceiling on the numbers above.",
         f'<p class="note">Every time we sent Pl@ntNet a photo we added one instruction: '
         f'<em>reply with your {top} best guesses, best first</em>. In the request that is the '
         f'setting <code>nb-results={top}</code>. Pl@ntNet\'s own documentation calls it a way '
@@ -68,16 +81,26 @@ def candidates_panel(*, recs, gen_n, gen_none):
         f'the model.</p>'
         + svg_hbar(rows, title=f"how long the returned list actually was, {len(recs):,} crowns")
         + f'<p class="note">{full:,} of {len(recs):,} photos came back with a full {top} '
-          f'({pctf(full / len(recs))}), and none came back with more, which is the limit doing '
-          f'its work. The shorter lists are Pl@ntNet returning fewer than we asked for, so '
-          f'those are its ceiling rather than ours.</p>'
-          f'<p class="note"><b>What it hides: a right answer sitting in position '
-          f'{top + 1}.</b> If the correct species was Pl@ntNet\'s next guess after the ones we '
-          f'asked for, this page cannot tell that apart from Pl@ntNet never having heard of the '
-          f'plant. Both look like a miss. The clearest sign of it is among the {gen_n:,} crowns '
-          f'whose botanist label stops at the genus: {gen_none:,} of them have no species from '
-          f'that genus anywhere in the {top}, and for a genus the model plainly knows, some of '
-          f'those are very likely sitting just below the cut.</p>'
+          f'({pctf(full / len(recs))}) and none came back with more, so our cut is real. The '
+          f'shorter lists are the other cut: <b>Pl@ntNet never returns a species it scores '
+          f'below {floor:.1%}</b>. Across all {len(scores):,} guesses on this page not one '
+          f'scores less than that, and the smallest is exactly {floor:.3f}. A short list means '
+          f'fewer than {top} species cleared that bar, not that we cut it.</p>'
+          f'<p class="note"><b>A short list is not a finished list either.</b> Pl@ntNet spreads '
+          f'100% of its confidence across every species it knows. Add up what came back and a '
+          f'one-guess photo accounts for {pctf(1 - hidden[1])} of it, a four-guess photo '
+          f'{pctf(1 - hidden[4])}: the small remainder sits in species that each scored under '
+          f'{floor:.1%}, too low for Pl@ntNet to bother sending. <b>A full list of {top} '
+          f'accounts for only {pctf(1 - hidden[top])}</b>, so on those photos a typical '
+          f'{pctf(hidden[top])} of Pl@ntNet\'s confidence is on species we never received, and '
+          f'on {half:,} of the {full:,} full lists ({pctf(half / full)}) more than half of it '
+          f'is. That is the part of the model this page is blind to.</p>'
+          f'<p class="note"><b>So what the cap hides is a right answer in position '
+          f'{top + 1}</b>, which this page cannot tell apart from Pl@ntNet never having heard '
+          f'of the plant. Both look like a miss. The clearest symptom is among the {gen_n:,} '
+          f'crowns whose botanist label stops at the genus: {gen_none:,} of them have no '
+          f'species from that genus anywhere in the {top}, and for a genus the model plainly '
+          f'knows, some of those are sitting in that unseen confidence.</p>'
           f'<p class="note">Raising it is not free. These answers are cached, so rebuilding '
           f'this page costs nothing, but a longer list means asking Pl@ntNet again for every '
           f'photo in the collection at one paid call each. That is a decision to take, not a '

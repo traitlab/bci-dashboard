@@ -74,9 +74,18 @@ than it looks. We asked Pl@ntNet for its best five candidates per photo. A speci
 perfectly well, but which never reached anyone's top five on a BCI photo, is indistinguishable here
 from a species it genuinely cannot return.
 
-The five-candidate cap is what hides the difference, and it did not bite everywhere: on 1,318 of the
-3,248 crowns with a cached answer (40.6%) fewer than five candidates came back, so nothing was cut
-off. On the other 1,930 the list was full and anything ranked sixth or lower is invisible to us.
+Two limits cut that list, one at each end, and only one of them is ours. We cut at five from the top.
+Pl@ntNet cuts from the bottom: across the 12,754 guesses behind this page not one scores below
+0.1%, and the smallest is exactly 0.001, so a list comes back short when fewer than five species
+clear that floor. That happened on 1,318 of the 3,248 crowns with a cached answer (40.6%), where
+our cap never bit. On the other 1,930 the list was full and anything ranked sixth is invisible.
+
+A short list is not an exhausted one. Pl@ntNet spreads 100% of its confidence over every species it
+knows, and the returned scores account for a median 96.7% of it on one-guess photos and 93.2% on
+four-guess photos, the remainder being species that each scored under 0.1%. A full list of five
+accounts for a median 71.4%, so on those photos roughly 28.6% of the model's confidence sits on
+species we never received, and on 589 of the 1,930 (30.5%) more than half of it does. **That** is
+the size of the blind spot, and it is measured, not assumed.
 
 **The fix is re-ingesting the predictions with more results requested, not more name cleaning.** A
 re-ingest should also pass `detailed=true`, which the same endpoint documents as returning "extra
