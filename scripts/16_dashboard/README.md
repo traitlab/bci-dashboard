@@ -78,9 +78,14 @@ The five-candidate cap is what hides the difference, and it did not bite everywh
 3,248 crowns with a cached answer (40.6%) fewer than five candidates came back, so nothing was cut
 off. On the other 1,930 the list was full and anything ranked sixth or lower is invisible to us.
 
-**The fix is re-ingesting the predictions with more results requested, not more name cleaning.** The
-page says so on the panel, because "the model never names it" reads like a model verdict and is not
-one.
+**The fix is re-ingesting the predictions with more results requested, not more name cleaning.** A
+re-ingest should also pass `detailed=true`, which the same endpoint documents as returning "extra
+identification results such as results per family and results per genus" under `otherResults`.
+That removes two workarounds at once: genus-only labels are currently scored by chopping the genus
+off a predicted binomial, and the 95 family-only labels cannot be scored offline at all, because
+the local WCVP cache carries a family only for the 249 BCI names and not for Pl@ntNet's vocabulary.
+The page says all of this on its own panel, because "the model never names it" reads like a model
+verdict and is not one.
 
 ### Name matching is a gain, not a cost
 
@@ -275,10 +280,13 @@ and `--out`. See `--help`.
   a future upstream restyle cannot be picked up by plain copy-paste; the prune has to be reapplied.
 - **"Right name in the list" means the whole returned list, not the best 5 of a longer one.** We
   asked for `nb-results=5`, sent explicitly on every request from `config.yaml`
-  `plantnet.identify_nb_results`, which has held 5 since the identify pipeline was first written on
-  2026-03-26, before any of this accuracy existed. It is not an API default: Pl@ntNet documents the
-  parameter as a way to "restrict size of output list of probable species" and notes that "fewer
-  results improve response time", and publishes no default, so omitting it returns a longer list. A
+  `plantnet.identify_nb_results`. That 5 is inherited: it enters the reference Amazon pipeline
+  (`elaliberte/labelbox_plantnet`, `d10364f`, 2026-02-16) and arrives here on 2026-03-26 with the
+  first identify script, with no recorded rationale in either repo. It is not an API default either:
+  Pl@ntNet documents the parameter as a way to "restrict size of output list of probable species",
+  states only that it takes "an integer >= 1", and notes that "fewer results improve response
+  time". So no maximum and no default are published, and the real ceiling on a bigger request is how
+  many candidates the model has for that photo. A
   correct answer sitting at rank 6 was never returned and is invisible here. On 1,318 of the 3,248
   crowns with a cached answer (40.6%) fewer than 5 candidates came back at all, so for those the cap
   was not even binding; on the other 1,930 it was. This is the same cap that makes "the model never
