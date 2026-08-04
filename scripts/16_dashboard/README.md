@@ -231,7 +231,7 @@ verified  support_buckets.csv: 5 labelled-crown groups match
 verified  confidence_calibration.csv: 5 confidence bands match
 verified  run_log.txt: the 86-crown ceiling, the 64 unscoreable evaluated crowns and the 2075-hit unreconciled baseline match
 verified  history.csv: 3 point(s), 2 reconstructed from ingest dates; the newest measured and newest reconstructed point both match the live crown count and both headline rates
-verified  charts: a rising series is drawn rising
+verified  charts: a rising series is drawn rising and a bigger share is drawn wider
 ```
 
 The fourth check covers the three figures that live in the run log's prose rather than in any CSV,
@@ -240,7 +240,9 @@ version had the ceiling count typed into the page as a literal, inside the very 
 nothing on the page is hardcoded. The fifth defends the append-only trend store, where a re-measured
 snapshot would otherwise leave a stale point behind. The sixth is geometric rather than numeric: a
 sign slip in the pixel scaling flips every chart on the page while leaving every number on it
-correct, which is exactly what happened once, so a rising series is now asserted to rise.
+correct, which is exactly what happened once, so a rising series is now asserted to rise. It also
+covers the weighting bars, where a share read off the wrong denominator would draw a bar that stops
+short of full width without changing a single printed number.
 
 Repeated runs are byte-identical (pass `--generated <date>` to freeze the one date stamp). The HTML
 contains no URL, no `<link>`, no `<img>` and exactly one inline `<script>`, so it works from a

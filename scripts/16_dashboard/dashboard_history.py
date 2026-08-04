@@ -30,7 +30,8 @@ import os
 import re
 
 import health_core as hc
-from dashboard_assets import esc, orientation_ok, panel, pctf, svg_spark, svg_two_series
+from dashboard_assets import (
+    esc, orientation_ok, panel, pctf, svg_spark, svg_two_series, weight_pair_ok)
 
 HISTORY_COLS = ["snapshot_date", "model_tag", "n_crowns", "metric", "value", "source"]
 # Narrowest accuracy axis any chart may draw, so a one-point wobble looks like a
@@ -109,7 +110,9 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, trend, n_crown
     checks.append(trend.check(n_crowns=n_crowns, macro1=macro1, micro1=micro1))
     if not orientation_ok():
         fail("charts are drawn upside down: a rising series must have falling y")
-    checks.append("charts: a rising series is drawn rising")
+    if not weight_pair_ok():
+        fail("the weighting bars are drawn wrong: a bigger share must be a wider band")
+    checks.append("charts: a rising series is drawn rising and a bigger share is drawn wider")
     return checks
 
 
