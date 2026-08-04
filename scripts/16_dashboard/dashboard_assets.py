@@ -23,6 +23,7 @@ per-species table instead.
 from __future__ import annotations
 
 import html
+import re
 
 # --- vendored from labelfirst.eval.report._html._CSS -----------------------
 _BASE_CSS = """\
@@ -291,9 +292,18 @@ def svg_weight_pair(rows, *, label_a, label_b, width=620, bar_h=28, pad_l=168):
     summing to 1. The point is the comparison: the same bands in the same
     colours, so the reader sees the weight move from one bar to the other
     without doing any arithmetic.
+
+    Both columns have to sum to 1 or the bars stop being comparable, and a
+    wrong denominator would draw a short bar rather than a wrong number, which
+    no recompute-and-compare check can see. So it is asserted here.
     """
     if not rows:
         return ""
+    for key in (1, 2):
+        total = sum(float(r[key]) for r in rows)
+        if abs(total - 1.0) > 1e-6:
+            raise ValueError(f"weight column {key} sums to {total}, not 1; "
+                             "the shares are against the wrong denominator")
     bar_w = width - pad_l - 10
     leg_h, gap = 19, 12
     height = 8 + 2 * bar_h + gap + 16 + leg_h * len(rows)
@@ -354,6 +364,22 @@ def orientation_ok() -> bool:
     """
     ys = _scale([1.0, 2.0], 100.0, 0.0)
     return ys[0] > ys[1] and abs(ys[0] - 100.0) < 1e-9 and abs(ys[1]) < 1e-9
+
+
+def weight_pair_ok() -> bool:
+    """The bigger share must be drawn wider, and a band must keep its colour.
+
+    Same blind spot as ``orientation_ok``: swapping the two share columns, or
+    reading a share off the wrong denominator, changes the picture and no
+    printed number with it.
+    """
+    rows = [("a", 0.25, 0.75, "", "#111111"), ("b", 0.75, 0.25, "", "#222222")]
+    svg = svg_weight_pair(rows, label_a="A", label_b="B")
+    got = re.findall(r'<rect x="([\d.]+)" y="(\d+)" width="([\d.]+)"[^>]*fill="(#\w+)"', svg)
+    top = [g for g in got if g[1] == "8"]
+    if len(top) != 2 or top[0][3] != "#111111" or top[1][3] != "#222222":
+        return False
+    return float(top[0][2]) < float(top[1][2]) and float(top[0][0]) < float(top[1][0])
 
 
 def svg_spark(values, marks=(), *, width=88, height=24, empty="no trend yet", span=0.0):
