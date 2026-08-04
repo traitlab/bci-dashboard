@@ -263,6 +263,23 @@ Repeated runs are byte-identical (pass `--generated <date>` to freeze the one da
 contains no URL, no `<link>`, no `<img>` and exactly one inline `<script>`, so it works from a
 `file://` path with no network.
 
+## Why one HTML file, and not a `labelfirst` report
+
+The readers are botanists and a PI, and most of them have no Python environment. One file that opens
+from a `file://` path attaches to an email, sits in a shared folder beside the snapshot it describes,
+and still opens in five years. That is the whole requirement, and it decides the format.
+
+It follows that the page cannot import `labelfirst` or `speciesfirst`. `import labelfirst` pulls
+numpy, scipy, scikit-learn and pandas; this page needs none of them, and adding them would make the
+artifact depend on an environment that has to be resolvable at read time rather than at build time.
+So these scripts run on the standard library alone, and `labelfirst`'s report CSS is vendored as a
+hand-pruned copy rather than imported. The cost is stated in Gotchas below: an upstream restyle has
+to be re-pruned by hand, and the two report families drift until someone does it.
+
+What is shared with `labelfirst` and `speciesfirst` is the decision, not the code. The
+deprioritization rule here orders a botanist's queue exactly as it does there, and it never writes a
+prediction into ground truth in any of the three.
+
 ## Files
 
 | File | Role |
