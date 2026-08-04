@@ -13,8 +13,10 @@ Every figure either arrives already verified from ``health_core`` or is
 recomputed here from the same records. Nothing is hardcoded.
 """
 
+from collections import Counter
+
 import health_core as hc
-from dashboard_assets import esc, panel, pctf, svg_weight_pair
+from dashboard_assets import esc, panel, pctf, svg_hbar, svg_weight_pair
 
 # One colour and one plain-English name per labelled-crown band, shared by both
 # bars of the weighting chart so a band is recognisable across them. The ramp
@@ -34,6 +36,50 @@ def _near_miss(recs):
     wrong = [r for r in recs if r["ranked"][0][0] != r["gt"]]
     got = sum(1 for r in wrong if r["gt"] in [b for b, _ in r["ranked"][:5]])
     return len(wrong), got / len(wrong) if wrong else 0.0
+
+
+def candidates_panel(*, recs, gen_n, gen_none):
+    """Where the five-candidate limit comes from, and what it hides.
+
+    ``recs`` is every crown that got a prediction, species-level or not, so the
+    list-length picture covers the same photos the rest of the page scores.
+    """
+    lens = Counter(len(r["ranked"]) for r in recs)
+    top = max(lens)
+    full = lens[top]
+    rows = [(f"{k} guess{'' if k == 1 else 'es'}", lens[k] / len(recs),
+             f"{lens[k]:,} crowns", "#1b5e20" if k == top else "#78909c")
+            for k in range(1, top + 1) if lens[k]]
+    return panel(
+        f"Why only {top} guesses per photo, and what that hides",
+        f"<b>We asked for {top}. Pl@ntNet did not stop at {top} on its own.</b> That choice "
+        f"puts a ceiling on every number above it, so it is worth knowing where it came from.",
+        f'<p class="note">Every time we sent Pl@ntNet a photo we added one instruction: '
+        f'<em>reply with your {top} best guesses, best first</em>. In the request that is the '
+        f'setting <code>nb-results={top}</code>. Pl@ntNet\'s own documentation calls it a way '
+        f'to "restrict size of output list of probable species" and adds that "fewer results '
+        f'improve response time", so leaving it out returns a longer list. The number {top} '
+        f'lives in one line of <code>config.yaml</code> '
+        f'(<code>identify_nb_results: {top}</code>) and was written when this pipeline was '
+        f'first built, before any of the accuracy on this page had been measured. Nobody '
+        f'picked it after looking at evidence, so it is a setting to revisit rather than a '
+        f'fact about the model.</p>'
+        + svg_hbar(rows, title=f"how long the returned list actually was, {len(recs):,} crowns")
+        + f'<p class="note">{full:,} of {len(recs):,} photos came back with a full {top} '
+          f'({pctf(full / len(recs))}), and none came back with more, which is the limit doing '
+          f'its work. The shorter lists are Pl@ntNet returning fewer than we asked for, so '
+          f'those are its ceiling rather than ours.</p>'
+          f'<p class="note"><b>What it hides: a right answer sitting in position '
+          f'{top + 1}.</b> If the correct species was Pl@ntNet\'s next guess after the ones we '
+          f'asked for, this page cannot tell that apart from Pl@ntNet never having heard of the '
+          f'plant. Both look like a miss. The clearest sign of it is among the {gen_n:,} crowns '
+          f'whose botanist label stops at the genus: {gen_none:,} of them have no species from '
+          f'that genus anywhere in the {top}, and for a genus the model plainly knows, some of '
+          f'those are very likely sitting just below the cut.</p>'
+          f'<p class="note">Raising it is not free. These answers are cached, so rebuilding '
+          f'this page costs nothing, but a longer list means asking Pl@ntNet again for every '
+          f'photo in the collection at one paid call each. That is a decision to take, not a '
+          f'rebuild to run.</p>')
 
 
 def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp):
@@ -113,10 +159,12 @@ def method_panel(*, tag, n, n_sp, checks):
             f'<li>Predictions: <code>identify/k-central-america</code>, model run '
             f'<code>{esc(tag)}</code>. The Central America regional model, not the '
             f'worldwide one, so a regional restriction is already in place.</li>'
-            f'<li>Request settings: <code>nb-results=5</code> (our choice, not a model '
-            f'limit), no reject option, organs detected automatically, on a 1280&nbsp;px '
-            f'centre crop of each crown photo. A correct answer at position 6 or beyond was '
-            f'never returned and cannot be seen here.</li>'
+            f'<li>Request settings: <code>nb-results=5</code>, sent explicitly on every '
+            f'request from <code>config.yaml</code> <code>identify_nb_results</code> and not '
+            f'an API default, plus <code>no-reject=true</code>, organs detected '
+            f'automatically, and <code>include-related-images=false</code>, on a '
+            f'1280&nbsp;px centre crop of each crown photo. A correct answer at position 6 '
+            f'or beyond was never returned and cannot be seen here.</li>'
             f'<li>Evaluated set: {n:,} crowns across {n_sp} species carrying a botanist '
             f'label that names a species rather than only a genus. They are the historical '
             f'labelling record, not a random draw, so these rates carry over to unlabelled '

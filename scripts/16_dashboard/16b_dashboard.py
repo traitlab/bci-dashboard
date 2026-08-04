@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import health_core as hc  # noqa: E402
 from dashboard_assets import CSS, JS, esc, panel, pctf, svg_hbar, table  # noqa: E402
-from dashboard_explain import method_panel, weighting_panel  # noqa: E402
+from dashboard_explain import candidates_panel, method_panel, weighting_panel  # noqa: E402
 from dashboard_history import load_trend, verify_snapshot  # noqa: E402
 
 # A species is "rarely labelled" below this many crowns. Same threshold as the
@@ -211,6 +211,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     in_gen = [sum(1 for b, _ in r["ranked"][:5] if hc.genus_of(b) == r["gt"]) for r in gen_recs]
     gen_any = sum(1 for k in in_gen if k)
     gen_one = sum(1 for k in in_gen if k == 1)
+    gen_none = len(in_gen) - gen_any
 
     # --- page ---
     P = ['<h1>Pl@ntNet on BCI: per-species model health</h1>',
@@ -233,7 +234,11 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
              f'threshold and no amount of work on our side can score them. That is partly our '
              f'own doing rather than the model\'s limit: we asked for only five candidates per '
              f'photo, so a species Pl@ntNet knows but never ranked in the top five looks '
-             f'identical here to one it has never heard of.</p>')
+             f'identical here to one it has never heard of. The next panel says where that '
+             f'five came from.</p>')
+
+    # ---- the five-candidate ceiling the numbers above sit under ----
+    P.append(candidates_panel(recs=sp_recs + h.genus_recs, gen_n=gn, gen_none=gen_none))
 
     # ---- why the two headline numbers differ ----
     P.append(weighting_panel(per_species=per_species, sp_recs=sp_recs, support=support,

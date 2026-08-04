@@ -26,6 +26,7 @@ next decision.
 | | Section | The decision it supports |
 |---|---|---|
 | | Four headline numbers | Which number to quote, and why two of them disagree |
+| **open** | Why only 5 guesses per photo | Whether to spend credits on a re-ingest with a longer candidate list |
 | **open** | Why one score says 81% and the other 56% | Which of the two headline scores answers the question you are asking |
 | **open** | Where to spend botanist time next | What to work on, ordered cheapest useful work first |
 | **open** | Trend over N points | Whether a number moved because the model changed or because more crowns were labelled |
@@ -257,7 +258,7 @@ contains no URL, no `<link>`, no `<img>` and exactly one inline `<script>`, so i
 | `16b_dashboard.py` | The page. Calls `load_health()`, recomputes every figure, emits one HTML file |
 | `dashboard_history.py` | Everything that reads the measurement *back*. `verify_snapshot()` aborts the build when the page and the snapshot disagree; `load_trend()` reads the sibling snapshot folders, maintains `history.csv`, derives `model_tag`, and renders the sparklines and the two-series chart |
 | `dashboard_assets.py` | Presentation only, and nothing here reads data or computes a number: CSS, JS, the collapsible-panel and table helpers, and the inline SVG charts. The CSS is a hand-pruned subset of `labelfirst`'s report styling so both reports look like one family |
-| `dashboard_explain.py` | The two panels that are mostly explanation: why the two headline scores differ (with the weighting chart), and how the measurement was made. Its figures are recomputed from the same records as the rest of the page, never hardcoded |
+| `dashboard_explain.py` | The three panels that are mostly explanation: where the five-candidate limit came from, why the two headline scores differ (with the weighting chart), and how the measurement was made. Its figures are recomputed from the same records as the rest of the page, never hardcoded |
 
 One reader, two consumers. That is the point: a number cannot differ between the CSV and the page
 because neither one computes it independently.
@@ -273,10 +274,15 @@ and `--out`. See `--help`.
   kept is byte-identical to upstream, but rules for elements this page does not have are dropped. So
   a future upstream restyle cannot be picked up by plain copy-paste; the prune has to be reapplied.
 - **"Right name in the list" means the whole returned list, not the best 5 of a longer one.** We
-  asked for `nb-results=5`. A correct answer sitting at rank 6 was never returned and is invisible
-  here. On 1,318 of the 3,248 crowns with a cached answer (40.6%) fewer than 5 candidates came back
-  at all, so for those the cap was not even binding; on the other 1,930 it was. This is the same cap
-  that makes "the model never names it" unfalsifiable offline.
+  asked for `nb-results=5`, sent explicitly on every request from `config.yaml`
+  `plantnet.identify_nb_results`, which has held 5 since the identify pipeline was first written on
+  2026-03-26, before any of this accuracy existed. It is not an API default: Pl@ntNet documents the
+  parameter as a way to "restrict size of output list of probable species" and notes that "fewer
+  results improve response time", and publishes no default, so omitting it returns a longer list. A
+  correct answer sitting at rank 6 was never returned and is invisible here. On 1,318 of the 3,248
+  crowns with a cached answer (40.6%) fewer than 5 candidates came back at all, so for those the cap
+  was not even binding; on the other 1,930 it was. This is the same cap that makes "the model never
+  names it" unfalsifiable offline, and the page now says so in its own panel.
 - **The evaluation set is the historical labelling record, not a random sample.** These rates carry
   over to unlabelled crowns only under an assumption that cannot be tested offline. If you want a
   number that generalises, a random holdout has to be set aside before the next batch goes out, and it
