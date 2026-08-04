@@ -27,7 +27,8 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import health_core as hc  # noqa: E402
-from dashboard_assets import CSS, JS, esc, panel, pctf, svg_hbar, table  # noqa: E402
+from dashboard_assets import (CSS, JS, cap, esc, panel, pctf, section,  # noqa: E402
+                              svg_hbar, table)
 from dashboard_explain import candidates_panel, method_panel, weighting_panel  # noqa: E402
 from dashboard_history import load_trend, verify_snapshot  # noqa: E402
 
@@ -105,9 +106,6 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
 
     def conf(r):
         return r["ranked"][0][1]
-
-    def cap(s):
-        return s[:1].upper() + s[1:]
 
     c1 = sum(1 for r in sp_recs if top1(r) == r["gt"])
     c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:5]])
@@ -217,8 +215,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     P = ['<h1>Pl@ntNet on BCI: per-species model health</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(trend.latest)} &middot; Pl@ntNet model <code>{esc(trend.tag)}</code> '
-         f'&middot; {n:,} labelled crowns &middot; {n_sp} species &middot; computed '
-         f'offline, no API key</div>',
+         f'&middot; {n:,} labelled crowns &middot; {n_sp} species</div>',
          '<p class="intro">This page says where botanist time is worth spending. Pl@ntNet has '
          'already guessed a species for every labelled crown photo and we know the right '
          'answer for those, so we can say per species how often it is right.</p>',
@@ -231,18 +228,19 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
              f'{pctf(reach1)} are right: {sum(1 for r in reach if top1(r) == r["gt"]):,} of '
              f'{len(reach):,}.</strong> The other {n - len(reach):,} crowns belong to '
              f'{len(never)} species the model never names, so they are wrong at every '
-             f'threshold and no amount of work on our side can score them. That is partly our '
-             f'own doing rather than the model\'s limit: we asked for only five candidates per '
-             f'photo, so a species Pl@ntNet knows but never ranked in the top five looks '
-             f'identical here to one it has never heard of. The next panel says where that '
-             f'five came from.</p>')
+             f'threshold and no amount of work on our side can score them. We asked for only '
+             f'five candidates per photo, so a species Pl@ntNet knows but never ranked in the '
+             f'top five is indistinguishable here from one it cannot return. '
+             f'&ldquo;What this cannot tell you&rdquo; says where that five came from.</p>')
 
-    # ---- the five-candidate ceiling the numbers above sit under ----
-    P.append(candidates_panel(recs=sp_recs + h.genus_recs, gen_n=gn, gen_none=gen_none))
+    # Panels are built in reading order but emitted in section order at the foot of
+    # this function, so a comment here names the panel, never its position.
+    # ---- the five-candidate ceiling ----
+    p_candidates = candidates_panel(recs=sp_recs + h.genus_recs, gen_n=gn, gen_none=gen_none)
 
     # ---- why the two headline numbers differ ----
-    P.append(weighting_panel(per_species=per_species, sp_recs=sp_recs, support=support,
-                             buckets=buckets, now=now, n=n, n_sp=n_sp))
+    p_weighting = weighting_panel(per_species=per_species, sp_recs=sp_recs, support=support,
+                                  buckets=buckets, now=now, n=n, n_sp=n_sp)
 
     # ---- to-do list ----
     body = ['<ul class="todo">']
@@ -256,14 +254,21 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                 f'candidates contain exactly one species from that genus.</strong> The question '
                 f'there is yes or no, not which of 169. Those crowns are outside the {n_sp} '
                 f'species scored on this page because they never named a species; see the '
-                f'genus paragraph near the foot of the page.</p>')
-    P.append(panel(f"Where to spend botanist time next: {counts['ranking']} species are a "
+                f'genus paragraph under &ldquo;What this cannot tell you&rdquo;.</p>')
+    p_todo = panel(f"Where to spend botanist time next: {counts['ranking']} species are a "
                    f"cheap confirmation, {counts['unreachable']} are not worth any time",
                    "<b>Work top to bottom.</b> Rows are ordered cheapest useful work first, "
                    "and the last two rows are work you can skip.",
-                   "\n".join(body), open_=True))
+                   "\n".join(body), open_=True)
 
-    P.append(trend.render())
+    # dashboard_history.py opens its own panel, and only the first panel of each
+    # section here opens. Collapse the one leading tag rather than reach into that
+    # module, and refuse to build if it stops being the tag we expect.
+    p_trend = trend.render()
+    if not p_trend.startswith('<details class="panel" open>'):
+        raise SystemExit("16b: trend.render() no longer starts with an open panel tag; "
+                         "re-check the collapse here against dashboard_history.py")
+    p_trend = p_trend.replace('<details class="panel" open>', '<details class="panel">', 1)
 
     # ---- deprioritization ----
     body = (f'<div class="rec"><strong>Suggested rule: leave a crown for later when '
@@ -283,11 +288,11 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             f'<p class="note">{len(eligible)} species clear the {WAIT_SUPPORT_MIN}-crown gate, '
             f'counted from <code>train</code> crowns only, and the error rate above is then '
             f'measured on the {len(test_recs):,} <code>test</code> crowns only.</p>')
-    P.append(panel(f"Which crowns can wait: {best['n']:,} of {len(test_recs):,} test crowns, "
+    p_wait = panel(f"Which crowns can wait: {best['n']:,} of {len(test_recs):,} test crowns, "
                    f"revocable at the next model change",
                    "<b>Use this to order the queue, not to close crowns.</b> These are the "
                    "crowns to look at last, and the ranking is recomputed from scratch "
-                   "whenever Pl@ntNet updates.", body, open_=True))
+                   "whenever Pl@ntNet updates.", body)
 
     # ---- rule comparison ----
     body = table([("rule", False), ("crowns that can wait", True),
@@ -300,12 +305,11 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     body += (f'<p class="note">A species with fewer than {RARE_MAX_SUPPORT} labelled crowns '
              f'counts as rarely labelled: {len(rare)} of {n_sp} species, {n_rare_test} of '
              f'the {len(test_recs):,} test crowns. No rarely-labelled crown can be '
-             f'deprioritized under a gated rule, because the gate excludes them, so the last '
-             f'column is the gate doing its job rather than separate evidence for it.</p>')
-    P.append(panel("How the five candidate rules compare, including the ungated ones",
-                   "<b>Read this only if you want to move the threshold.</b> Each row trades "
-                   "queue reduction against how often a deprioritized crown was actually "
-                   "misidentified.", body))
+             f'deprioritized under a gated rule, because the gate excludes them.</p>')
+    p_rules = panel("How the five candidate rules compare, including the ungated ones",
+                    "<b>Read this only if you want to move the threshold.</b> Each row trades "
+                    "queue reduction against how often a deprioritized crown was actually "
+                    "misidentified.", body)
 
     # ---- confidence ----
     body = (svg_hbar([(band, k / nn if nn else 0.0,
@@ -327,9 +331,9 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             + '<p class="note">Raising the confidence threshold does not repair this. '
               'Requiring the species to have been measured first does, which is why the '
               'suggested rule has two conditions.</p>')
-    P.append(panel("Can we trust the model's confidence? In bulk yes, on rare species no",
+    p_conf = panel("Can we trust the model's confidence? In bulk yes, on rare species no",
                    "<b>This is the evidence behind the two-part rule above.</b> Read it if "
-                   "someone proposes ordering the queue on confidence alone.", body))
+                   "someone proposes ordering the queue on confidence alone.", body)
 
     # ---- labelled crowns vs accuracy ----
     body = (svg_hbar([(f"{lab} crowns", buckets[lab]["c1"] / buckets[lab]["n_crowns"],
@@ -348,10 +352,10 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
               'photos inside Pl@ntNet. What extra labels buy is knowledge: below about '
               f'{WAIT_SUPPORT_MIN} crowns a per-species accuracy jumps around too much to '
               f'act on, and above it the species can enter the queue-ordering rule.</div>')
-    P.append(panel("Does accuracy rise with more labels? It rises with abundance, and the "
-                   "model is frozen",
-                   "<b>Use this to see where the measurement is solid enough to act on.</b> "
-                   "Do not use it to argue that labelling raises accuracy.", body))
+    p_labels = panel("Does accuracy rise with more labels? It rises with abundance, and the "
+                     "model is frozen",
+                     "<b>Use this to see where the measurement is solid enough to act on.</b> "
+                     "Do not use it to argue that labelling raises accuracy.", body)
 
     # ---- per-species table ----
     sp_rows, attrs = [], []
@@ -380,18 +384,17 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                      ("First guess right", True), ("Right name in the list", True),
                      ("Model's confidence", True), ("Trend", False), ("Status", False)],
                     sp_rows, tid="species-table", sortable_from=0, row_attrs=attrs))
-    P.append(panel(f"Look up one species: all {n_sp}, sortable and filterable",
-                   "<b>Find a species you care about and read its status.</b> Click any "
-                   "heading to sort, type to filter. The trend column needs two or more "
-                   "snapshots before it draws anything.", body))
+    p_species = panel(f"Look up one species: all {n_sp}, sortable and filterable",
+                      "<b>Find a species you care about and read its status.</b> Click any "
+                      "heading to sort, type to filter. The trend column needs two or more "
+                      "snapshots before it draws anything.", body)
 
     # ---- ceiling ----
     body = (f'<p class="note"><strong>{len(never)} species ({never_crowns} of the {n:,} '
             f'evaluated crowns) never appear in any answer the model gave us.</strong> '
             f'Leaving them out raises the per-crown rate from {pctf(c1 / n)} to '
             f'{pctf(reach1)} on {len(reach):,} crowns. Across all {len(h.gt_rows):,} labelled '
-            f'crowns the same condition covers {never_all} crowns; this panel uses the '
-            f'evaluated set, like every other number here.</p>'
+            f'crowns the same condition covers {never_all} crowns.</p>'
             f'<div class="warn"><strong>This is a limit of the question we asked, not proof '
             f'the model has never heard of these species.</strong> The only test we can run '
             f'offline is whether a species name turns up somewhere in the cached answers, and '
@@ -431,24 +434,37 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
               f'need a family lookup covering Pl@ntNet\'s vocabulary, which we do not have '
               f'here. Counting them in would have reported '
               f'{pctf(gg1 / (gn + fam_n))} instead of {pctf(gg1 / gn)}.</p>')
-    P.append(panel(f"What labelling cannot fix: {len(never)} species, {never_crowns} crowns "
-                   f"the model never named, and why the five-candidate cap may be the cause",
-                   "<b>Do not spend expert time renaming or relabelling these.</b> Either the "
-                   "model cannot return the species or we never asked for enough candidates "
-                   "to find out, and only re-running the predictions can tell the two apart.",
-                   body))
+    p_ceiling = panel(f"What labelling cannot fix: {len(never)} species, {never_crowns} crowns "
+                      f"the model never named, and why the five-candidate cap may be the cause",
+                      "<b>Do not spend expert time renaming or relabelling these.</b> Either "
+                      "the model cannot return the species or we never asked for enough "
+                      "candidates to find out, and only re-running the predictions can tell "
+                      "the two apart.", body)
 
     # ---- method ----
-    P.append(method_panel(tag=trend.tag, n=n, n_sp=n_sp, checks=checks))
+    p_method = method_panel(tag=trend.tag, n=n, n_sp=n_sp, checks=checks)
+
+    # ---- three groups, so the page reads as decide, then interpret, then caveat ----
+    P.append(section("What to do next",
+                     "Which species need botanist time, which crowns can wait, and how any "
+                     "one species is doing.",
+                     "\n".join([p_todo, p_wait, p_rules, p_species])))
+    P.append(section("How to read the numbers",
+                     "The two headline scores disagree. These panels say why, and whether the "
+                     "model's own confidence can be trusted.",
+                     "\n".join([p_weighting, p_conf, p_labels, p_trend])))
+    P.append(section("What this cannot tell you",
+                     "The ceilings on every number above.",
+                     "\n".join([p_candidates, p_ceiling, p_method])))
 
     return ("<!DOCTYPE html>\n"
             '<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             "<title>Pl@ntNet on BCI - per-species model health</title>"
+            # No footer: the subtitle already carries the build date, the snapshot and
+            # the model tag, and a second copy at the foot said nothing new.
             f"<style>{CSS}</style></head><body>" + "\n".join(P)
-            + '<div class="footer">generated offline from cached predictions '
-              "&middot; no network, no API key</div>"
-            f"<script>{JS}</script></body></html>"), checks
+            + f"<script>{JS}</script></body></html>"), checks
 
 
 def main() -> None:

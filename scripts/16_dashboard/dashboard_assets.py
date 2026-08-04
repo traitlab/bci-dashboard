@@ -83,7 +83,7 @@ summary:hover{text-decoration:underline}
 _EXTRA_CSS = """\
 body{max-width:1120px}
 h1{margin-bottom:2px}
-.intro{font-size:0.95rem;color:#424242;margin:10px 0 22px;max-width:74ch}
+.intro{font-size:0.95rem;color:#424242;margin:10px 0 22px}
 .hero{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px}
 .hero .metric{
   flex:1 1 220px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;
@@ -94,13 +94,13 @@ h1{margin-bottom:2px}
 .hero .metric .l{font-size:0.8rem;color:#616161;margin-top:6px}
 .hero .metric .n{font-size:0.72rem;color:#9e9e9e;margin-top:4px}
 .hero .metric .row{display:flex;align-items:center;gap:10px;justify-content:space-between}
-.note{font-size:0.82rem;color:#616161;margin-top:10px;max-width:80ch}
+.note{font-size:0.82rem;color:#616161;margin-top:10px}
 .note strong{color:#424242}
-.ask{font-size:0.88rem;color:#37474f;margin-bottom:12px;max-width:80ch}
+.ask{font-size:0.88rem;color:#37474f;margin-bottom:12px}
 .ask b{color:#1a1a1a}
 .warn{
   background:#fff8e1;border:1px solid #ffe082;border-radius:6px;
-  padding:12px 16px;font-size:0.83rem;color:#5d4037;margin:12px 0;max-width:82ch;
+  padding:12px 16px;font-size:0.83rem;color:#5d4037;margin:12px 0;
 }
 .rec{background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;
   padding:10px 14px;font-size:0.85rem;color:#1b5e20;margin-top:10px}
@@ -145,6 +145,12 @@ tr.hidden{display:none}
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.74rem;
   background:#f5f5f5;padding:1px 4px;border-radius:3px;
 }
+section.grp{margin:38px 0 34px}
+section.grp>h2{
+  font-size:1.15rem;font-weight:700;color:#212121;
+  border-bottom:2px solid #d5dde5;padding-bottom:6px;margin-bottom:4px;
+}
+.lede{font-size:0.86rem;color:#607d8b;margin:0 0 14px}
 """
 
 CSS = _BASE_CSS + _EXTRA_CSS
@@ -211,6 +217,14 @@ def esc(s: object) -> str:
     return html.escape(str(s))
 
 
+def cap(s: str) -> str:
+    """Capitalise a scientific name for display. The CSVs hold names lowercased
+    because that is the join key against the GBIF and WCVP backbones, but a
+    binomial is written with the genus capitalised, so every render site goes
+    through here rather than printing the key."""
+    return s[:1].upper() + s[1:]
+
+
 def pctf(x, nd=1):
     return "n/a" if x is None else f"{100.0 * x:.{nd}f}%"
 
@@ -224,6 +238,16 @@ def panel(summary, ask, body, *, open_=False):
     return (f'<details class="panel"{" open" if open_ else ""}>'
             f"<summary>{summary}</summary>"
             f'<div class="pbody"><p class="ask">{ask}</p>{body}</div></details>')
+
+
+def section(title, lede, panels):
+    """A named group of panels: a heading band, one orienting line, then the panels.
+
+    ``panels`` is already-rendered panel HTML. The band is what makes a long page
+    scannable when closed, so it carries the group's question, not a label.
+    """
+    return (f'<section class="grp"><h2>{title}</h2>'
+            f'<p class="lede">{lede}</p>\n{panels}</section>')
 
 
 def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
@@ -396,10 +420,19 @@ def svg_spark(values, marks=(), *, width=88, height=24, empty="no trend yet", sp
     dots = "".join(
         f'<circle cx="{xs[i]:.1f}" cy="{ys[i]:.1f}" r="3.2" fill="#fff" '
         f'stroke="#c62828" stroke-width="1.8"/>' for i in marks if 0 <= i < len(values))
+    # A <title> child is the browser's own tooltip. These lines are drawn beside the
+    # headline numbers and in every species row, so most readers meet one long before
+    # the panel that explains them; hovering has to be enough.
+    tip = (f"Oldest snapshot on the left, newest on the right, {len(values)} points. "
+           f"Scaled to its own range, so its steepness is not comparable with another "
+           f"line's.")
+    if marks:
+        tip += " A hollow red ring is a snapshot where the Pl@ntNet model changed."
     return (f'<svg class="spark" width="{width}" height="{height}" '
             f'viewBox="0 0 {width} {height}" role="img" '
             f'aria-label="trend across {len(values)} snapshots, '
             f'{len(marks)} model change(s)">'
+            f"<title>{tip}</title>"
             f'<polyline points="{pts}" fill="none" stroke="#1565c0" stroke-width="1.6"/>'
             f'{dots}<circle cx="{xs[-1]:.1f}" cy="{ys[-1]:.1f}" r="2.2" fill="#1565c0"/>'
             f"</svg>")

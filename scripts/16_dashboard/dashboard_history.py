@@ -286,6 +286,25 @@ class Trend:
                     'to species the model handles badly.')
         return head + tail + "</p>"
 
+    def _spark_key(self) -> str:
+        """The one place on the page that explains the small trend lines.
+
+        They are drawn beside each headline number and in every species row by
+        other modules, so without a single key a reader meets an unlabelled
+        squiggle four times before reaching this panel.
+        """
+        return (
+            '<details><summary>How to read these trend lines</summary>'
+            f'<p class="note">Left to right is snapshots, oldest to newest, one point per '
+            f'snapshot ({len(self.snaps)} so far). Every line is scaled to its own range, '
+            f'so a steep line beside one number is not a bigger move than a flat line '
+            f'beside another, and an accuracy line never shows a range narrower than '
+            f'{pctf(RATE_SPAN)}, so a small wobble is drawn as a wobble rather than '
+            f'collapsing to nothing. The filled dot at the right end is the current value, '
+            f'and a hollow red ring is a snapshot where the Pl@ntNet model changed. The '
+            f'lines in the species table read the same way, on that one species.</p>'
+            '</details>')
+
     def render(self) -> str:
         """The trend panel. Degrades to a plain sentence on a single snapshot."""
         ask = ("<b>Check whether a number moved because the model changed or because more "
@@ -297,12 +316,22 @@ class Trend:
                 f'there is nothing to compare against. Re-run '
                 f'<code>16_model_health.py</code> into a new '
                 f'<code>model-health-&lt;date&gt;/</code> folder in a few months and the '
-                f'charts and the small lines beside each headline number fill in.</p>',
+                f'charts and the small lines beside each headline number fill in, one '
+                f'point per snapshot, showing accuracy per species against the '
+                f'labelled-crown count with any Pl@ntNet model change marked in red.</p>',
                 open_=True)
         acc = [self.series["macro_top1"][d] for d in self.dates]
         body = [svg_two_series(self.dates, acc, [c for _, _, c in self.snaps], self.marks,
                                a_name="accuracy per species", b_name="labelled crowns",
                                a_fmt=pctf, b_fmt=lambda v: f"{int(v):,}", a_span=RATE_SPAN)]
+        body.append(
+            '<p class="note"><strong>Reading the chart.</strong> The two lines sit on '
+            'separate scales, so the vertical gap between them means nothing and only the '
+            'shape of each line carries information. The number printed at each end of a '
+            "line is that line's value on the oldest and the newest snapshot. A dashed "
+            'red rule and hollow rings mark a snapshot where the Pl@ntNet model '
+            'changed.</p>')
+        body.append(self._spark_key())
         for i in self.marks:
             body.append(
                 f'<p class="note"><strong>{esc(self.dates[i])}: new Pl@ntNet model '
@@ -329,9 +358,10 @@ class Trend:
                 f'already changed, an older point would still be scored with the current '
                 f'model.</p>')
         if self.marks:
-            body.append('<p class="note">A red ring marks a point where the Pl@ntNet model '
-                        'changed, on the small trend lines beside each headline number too. '
-                        'Never read a step across a red ring as progress from labelling.</p>')
+            body.append('<p class="note"><strong>Never read a step across a red ring as '
+                        'progress from labelling.</strong> A red ring marks a point where '
+                        'the Pl@ntNet model changed, here and on the small trend lines '
+                        'beside each headline number.</p>')
         title = f"Trend over {len(self.snaps)} points"
         if self.rebuilt:
             title += f", {len(self.rebuilt)} reconstructed from ingest dates"
