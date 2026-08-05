@@ -22,10 +22,31 @@ from dashboard_assets import cap, esc, panel, pctf, svg_hbar, svg_weight_pair
 # One colour and one plain-English name per labelled-crown band, shared by both
 # bars of the weighting chart so a band is recognisable across them. The ramp
 # runs bad to good, all dark enough to carry a white number inside the bar.
-BAND_COLOR = {"1": "#b71c1c", "2-4": "#d84315", "5-9": "#8d6e00",
-              "10-24": "#558b2f", "25+": "#1b5e20"}
+#
+# "Dark enough" is 4.5:1 against white, and two of these did not meet it before
+# being darkened: 2-4 sat at 4.44 and 10-24 at 4.10, so the percentages drawn
+# inside those two bands were the least readable text on the page. The shift is
+# 2% and 7% of each channel, which holds the hue and the five-step identity.
+#
+# What this ramp still cannot do is survive red-green colour blindness, and the
+# reason is worse than close steps: it does not order by lightness at all.
+# Luminance runs 0.110, 0.180, 0.168, 0.175, 0.083 down the five bands, so
+# adjacent steps differ by only 1.03:1 to 1.69:1 and the two ends, worst band
+# and best band, are the closest pair in the set at 1.20:1. Strip the hue and
+# the ramp carries no order. The key rows below print every count, but the tie
+# from a key row to a bar segment is hue plus left-to-right position only: the
+# in-bar text is a bare percentage drawn just when the segment is at least 25px
+# wide, and it never repeats the band name. Fixing this means a palette that
+# also ramps in lightness, which is a design change, not a contrast tweak.
+BAND_COLOR = {"1": "#b71c1c", "2-4": "#d44215", "5-9": "#8d6e00",
+              "10-24": "#4f812c", "25+": "#1b5e20"}
 BAND_WORD = {"1": "1 crown", "2-4": "2 to 4 crowns", "5-9": "5 to 9 crowns",
              "10-24": "10 to 24 crowns", "25+": "25 or more crowns"}
+# The same bands short enough for a chart row label or a narrow table cell. Two
+# callers were building these as f"{key} crowns", which reads "1 crowns" for the
+# band that holds 47 of the 169 species.
+BAND_SHORT = {"1": "1 crown", "2-4": "2-4 crowns", "5-9": "5-9 crowns",
+              "10-24": "10-24 crowns", "25+": "25+ crowns"}
 
 # Crowns at or below this many labels are "thin" in the near-miss comparison.
 THIN_MAX = 4
