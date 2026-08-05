@@ -23,6 +23,7 @@ per-species table instead.
 from __future__ import annotations
 
 import html
+import math
 import re
 
 # --- vendored from labelfirst.eval.report._html._CSS -----------------------
@@ -92,7 +93,10 @@ h1{margin-bottom:2px}
 .hero .metric.first{border-color:#90caf9;background:#f3f9ff}
 .hero .metric .v{font-size:2rem;font-weight:700;color:#212121;line-height:1.1}
 .hero .metric .l{font-size:0.8rem;color:#616161;margin-top:6px}
-.hero .metric .n{font-size:0.72rem;color:#9e9e9e;margin-top:4px}
+/* #6d6d6d, not a lighter grey: this is the line that explains every headline
+   number, and it sits on white and on the tinted first card. It clears 4.5:1 on
+   both (5.17 and 4.88) and still reads a step quieter than the #616161 label. */
+.hero .metric .n{font-size:0.72rem;color:#6d6d6d;margin-top:4px}
 .hero .metric .row{display:flex;align-items:center;gap:10px;justify-content:space-between}
 .note{font-size:0.82rem;color:#616161;margin-top:10px}
 .note strong{color:#424242}
@@ -118,13 +122,15 @@ details.panel[open]>summary{border-bottom:1px solid #f0f0f0;margin-bottom:4px}
 }
 .controls .count{font-size:0.8rem;color:#757575}
 th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
-th.sortable:after{content:" \\2195";color:#bdbdbd;font-size:0.75rem}
+/* The arrow is the only thing telling the reader these headings sort, so it has
+   to survive the #f5f5f5 header fill: 4.75:1 here against 1.72:1 before. */
+th.sortable:after{content:" \\2195";color:#6d6d6d;font-size:0.75rem}
 th.sortable.asc:after{content:" \\2191";color:#1565c0}
 th.sortable.desc:after{content:" \\2193";color:#1565c0}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .sp{font-style:italic}
 svg.spark{display:inline-block;margin:0;vertical-align:middle}
-.nospark{font-size:0.72rem;color:#bdbdbd}
+.nospark{font-size:0.72rem;color:#6d6d6d}
 .tag{
   display:inline-block;padding:2px 8px;border-radius:4px;
   font-size:0.74rem;font-weight:700;white-space:nowrap;
@@ -132,7 +138,9 @@ svg.spark{display:inline-block;margin:0;vertical-align:middle}
 .tag.reliable{background:#e8f5e9;color:#2e7d32}
 .tag.adequate{background:#e3f2fd;color:#1565c0}
 .tag.ranking{background:#ede7f6;color:#5e35b1}
-.tag.unmeasured{background:#fff3e0;color:#e65100}
+/* 78 of the 169 species carry this badge, which makes it the most common one on
+   the page; #e65100 on this fill was 3.46:1, #bf360c is 5.11:1. */
+.tag.unmeasured{background:#fff3e0;color:#bf360c}
 .tag.hard{background:#ffebee;color:#c62828}
 .tag.unreachable{background:#eceff1;color:#455a64}
 .todo{list-style:none;font-size:0.86rem;color:#424242}
@@ -305,12 +313,50 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
 # ---------------------------------------------------------------------------
 # inline SVG (hand-written in labelfirst's report idiom: no library, no CDN)
 # ---------------------------------------------------------------------------
+_NARROW = set(" .,;:'!|iljtfr()[]·")
+_WIDE = set("ABCDEFGHIJKLMNOPQRSTUVWXYZmw%@")
+
+
+def _text_w(text: str, font_px: float) -> float:
+    """Upper bound on the rendered width of ``text`` at ``font_px``.
+
+    Nothing here can measure a glyph. The page ships as one file with no
+    library, and ``system-ui`` resolves to whatever the reader's machine has, so
+    the true width is unknowable at build time. Three character classes plus a
+    per-string 0.26em for side bearings, calibrated against
+    ``getComputedTextLength`` for 14 of this page's own labels under SF NS, with
+    a 1.06 factor that keeps the estimate above all 14.
+
+    Do not read that as a headroom figure for the page. The calibration set is 14
+    labels, not the 59 the page draws, and the margin on the rest is unmeasured
+    per label. Treat the factor as the thing that must not be spent, not as slack
+    with a known size.
+
+    The bound leans high on purpose. Overshooting spends whitespace,
+    undershooting clips the text, and a clipped label is the failure that ships:
+    every numeric check on this page passed while five of them read "1,856 cr".
+    Segoe UI and Roboto are the other likely resolutions and both run narrower
+    than SF NS at the same size, so the headroom covers them too.
+    """
+    em = 0.26 + sum(0.28 if c in _NARROW else 0.72 if c in _WIDE else 0.60 for c in text)
+    return 1.06 * em * font_px
+
+
 def svg_hbar(rows, *, width=620, row_h=30, label_w=112, right_w=140, title=""):
-    """Horizontal bars. ``rows`` = [(label, frac, right_text, color)]."""
+    """Horizontal bars. ``rows`` = [(label, frac, right_text, color)].
+
+    ``right_w`` is the room reserved for the value label, and it grows to fit
+    the longest one rather than truncating it. Text past the viewBox is clipped
+    by the SVG viewport, no CSS reaches inside to rescue it, and every numeric
+    check on this page still passes while a label reads "1,856 cr". The bars
+    keep the length ``right_w`` asked for; only the chart gets wider.
+    """
     if not rows:
         return ""
     top = 26 if title else 8
     bar_w = width - label_w - right_w
+    right_w = max(right_w, math.ceil(8 + max(_text_w(r[2], 11.5) for r in rows) + 6))
+    width = label_w + bar_w + right_w
     height = top + len(rows) * row_h + 26
     out = [f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
            f'role="img" aria-label="{esc(title or "bar chart")}">']
@@ -333,9 +379,13 @@ def svg_hbar(rows, *, width=620, row_h=30, label_w=112, right_w=140, title=""):
                f'stroke="#e0e0e0"/>')
     for t in (0, 25, 50, 75, 100):
         x = label_w + bar_w * t / 100.0
+        # The tick mark stays faint at 1.72:1 because it carries nothing: every
+        # value on this chart is also printed at the end of its bar. The number
+        # under it is text a reader has to read, so it goes to 4.5:1 and up to
+        # 11px, which is the smallest size the rest of the page uses.
         out.append(f'<line x1="{x:.1f}" y1="{axis_y}" x2="{x:.1f}" y2="{axis_y + 4}" '
                    f'stroke="#bdbdbd"/>'
-                   f'<text x="{x:.1f}" y="{axis_y + 17}" font-size="10.5" fill="#9e9e9e" '
+                   f'<text x="{x:.1f}" y="{axis_y + 17}" font-size="11" fill="#6d6d6d" '
                    f'text-anchor="middle">{t}%</text>')
     out.append("</svg>")
     return "\n".join(out)
@@ -352,6 +402,11 @@ def svg_weight_pair(rows, *, label_a, label_b, width=620, bar_h=28, pad_l=168):
     Both columns have to sum to 1 or the bars stop being comparable, and a
     wrong denominator would draw a short bar rather than a wrong number, which
     no recompute-and-compare check can see. So it is asserted here.
+
+    ``pad_l`` is the room for the row labels, and it grows to fit the longer of
+    the two. The labels are right-anchored against the bars, so one that does
+    not fit runs off the left edge of the viewBox and loses its first character
+    with no warning from any check on this page.
     """
     if not rows:
         return ""
@@ -361,6 +416,8 @@ def svg_weight_pair(rows, *, label_a, label_b, width=620, bar_h=28, pad_l=168):
             raise ValueError(f"weight column {key} sums to {total}, not 1; "
                              "the shares are against the wrong denominator")
     bar_w = width - pad_l - 10
+    pad_l = max(pad_l, math.ceil(2 + max(_text_w(label_a, 11.5), _text_w(label_b, 11.5)) + 10))
+    width = pad_l + bar_w + 10
     leg_h, gap = 19, 12
     height = 8 + 2 * bar_h + gap + 16 + leg_h * len(rows)
     o = [f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
@@ -497,7 +554,7 @@ def svg_two_series(dates, a_vals, b_vals, marks, *, a_name, b_name,
                  f'<text x="{xs[i]:.1f}" y="{pad_t - 10}" font-size="10" fill="#c62828" '
                  f'text-anchor="middle">new model</text>')
     for ys, col, dash, vals, show in ((ya, "#1565c0", "", a_vals, a_fmt),
-                                      (yb, "#00897b", "5 3", b_vals, b_fmt)):
+                                      (yb, "#00796b", "5 3", b_vals, b_fmt)):
         pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
         o.append(f'<polyline points="{pts}" fill="none" stroke="{col}" stroke-width="2"'
                  + (f' stroke-dasharray="{dash}"' if dash else "") + "/>")
@@ -511,11 +568,11 @@ def svg_two_series(dates, a_vals, b_vals, marks, *, a_name, b_name,
                  f'<text x="{xs[0] - 8:.1f}" y="{ys[0] + 4:.1f}" font-size="10.5" '
                  f'fill="{col}" text-anchor="end">{esc(show(vals[0]))}</text>')
     for i, d in enumerate(dates):
-        o.append(f'<text x="{xs[i]:.1f}" y="{height - pad_b + 15}" font-size="10" '
-                 f'fill="#9e9e9e" text-anchor="middle">{esc(d)}</text>')
+        o.append(f'<text x="{xs[i]:.1f}" y="{height - pad_b + 15}" font-size="11" '
+                 f'fill="#6d6d6d" text-anchor="middle">{esc(d)}</text>')
     o.append(f'<text x="{pad_l}" y="{height - 6}" font-size="10.5" fill="#1565c0">'
              f'&#9473; {esc(a_name)}</text>'
-             f'<text x="{pad_l + 210}" y="{height - 6}" font-size="10.5" fill="#00897b">'
+             f'<text x="{pad_l + 210}" y="{height - 6}" font-size="10.5" fill="#00796b">'
              f'&#9476; {esc(b_name)}</text>'
              + (f'<text x="{width - pad_r}" y="{height - 6}" font-size="10.5" '
                 f'fill="#c62828" text-anchor="end">&#9711; new Pl@ntNet model</text>'

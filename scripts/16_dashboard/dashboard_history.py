@@ -292,7 +292,13 @@ class Trend:
         They are drawn beside each headline number and in every species row by
         other modules, so without a single key a reader meets an unlabelled
         squiggle four times before reaching this panel.
+
+        The ring clause is conditional because the ring is. Describing a marker
+        that no chart on the page draws sends the reader hunting for it, and it
+        contradicts the sentence below that says the model tag never changed.
         """
+        ring = (" A hollow red ring is a snapshot where the Pl@ntNet model changed."
+                if self.marks else "")
         return (
             '<details><summary>How to read these trend lines</summary>'
             f'<p class="note">Left to right is snapshots, oldest to newest, one point per '
@@ -300,9 +306,10 @@ class Trend:
             f'so a steep line beside one number is not a bigger move than a flat line '
             f'beside another, and an accuracy line never shows a range narrower than '
             f'{pctf(RATE_SPAN)}, so a small wobble is drawn as a wobble rather than '
-            f'collapsing to nothing. The filled dot at the right end is the current value, '
-            f'and a hollow red ring is a snapshot where the Pl@ntNet model changed. The '
-            f'lines in the species table read the same way, on that one species.</p>'
+            f'collapsing to nothing. The filled dot at the right end is the current '
+            f'value.{ring} The lines in the species table read the same way, on that one '
+            f'species, and only where the species has enough crowns for the rate to '
+            f'mean anything.</p>'
             '</details>')
 
     def render(self) -> str:
@@ -328,9 +335,10 @@ class Trend:
             '<p class="note"><strong>Reading the chart.</strong> The two lines sit on '
             'separate scales, so the vertical gap between them means nothing and only the '
             'shape of each line carries information. The number printed at each end of a '
-            "line is that line's value on the oldest and the newest snapshot. A dashed "
-            'red rule and hollow rings mark a snapshot where the Pl@ntNet model '
-            'changed.</p>')
+            "line is that line's value on the oldest and the newest snapshot."
+            + (' A dashed red rule and hollow rings mark a snapshot where the Pl@ntNet '
+               'model changed.' if self.marks else '')
+            + '</p>')
         body.append(self._spark_key())
         for i in self.marks:
             body.append(

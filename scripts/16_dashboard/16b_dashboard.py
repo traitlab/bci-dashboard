@@ -29,7 +29,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import health_core as hc  # noqa: E402
 from dashboard_assets import (CSS, JS, cap, esc, panel, pctf, section,  # noqa: E402
                               svg_hbar, table)
-from dashboard_explain import candidates_panel, method_panel, weighting_panel  # noqa: E402
+from dashboard_explain import (BAND_SHORT, candidates_panel, method_panel,  # noqa: E402
+                              weighting_panel)
 from dashboard_history import load_trend, verify_snapshot  # noqa: E402
 
 # A species is "rarely labelled" below this many crowns. Same threshold as the
@@ -312,8 +313,11 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                     "misidentified.", body)
 
     # ---- confidence ----
+    # Same blue as the support-bucket chart in the next panel. Both draw the same
+    # measure, and a reader comparing the two should not have to decide whether a
+    # colour change means something. Green is spoken for by the status tags.
     body = (svg_hbar([(band, k / nn if nn else 0.0,
-                       f'{pctf(k / nn) if nn else "n/a"}  ·  {nn:,} crowns', "#2e7d32")
+                       f'{pctf(k / nn) if nn else "n/a"}  ·  {nn:,} crowns', "#1565c0")
                       for band, nn, k in bins_all],
                      title="how often the first guess is right, by the model's own confidence")
             + '<p class="note">Over all crowns at once the confidence score is trustworthy: '
@@ -325,7 +329,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             + table([("labelled crowns for that species", False),
                      ("crowns at confidence &ge; 0.7", True),
                      ("of those, first guess wrong", True)],
-                    [[f"{lab} crowns", f"{flat[lab][0]:,}",
+                    [[BAND_SHORT[lab], f"{flat[lab][0]:,}",
                       pctf(flat[lab][1] / flat[lab][0])]
                      for lab in hc.BUCKET_ORDER if lab in flat])
             + '<p class="note">Raising the confidence threshold does not repair this. '
@@ -336,7 +340,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                    "someone proposes ordering the queue on confidence alone.", body)
 
     # ---- labelled crowns vs accuracy ----
-    body = (svg_hbar([(f"{lab} crowns", buckets[lab]["c1"] / buckets[lab]["n_crowns"],
+    body = (svg_hbar([(BAND_SHORT[lab], buckets[lab]["c1"] / buckets[lab]["n_crowns"],
                        f'{pctf(buckets[lab]["c1"] / buckets[lab]["n_crowns"])}  ·  '
                        f'{buckets[lab]["n_species"]} spp, {buckets[lab]["n_crowns"]:,} '
                        f'crowns', "#1565c0")
@@ -368,7 +372,14 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             f'<span data-sort="{d["top5_accuracy"]:.6f}">{pctf(d["top5_accuracy"])}</span>',
             f'<span data-sort="{d["mean_top1_confidence"]:.6f}">'
             f'{d["mean_top1_confidence"]:.2f}</span>',
-            trend.spark(f"species:{sp}:top1", empty=""),
+            # A sparkline over 1 to 4 crowns draws a coin flip as a trend: 49 of
+            # them run rail to rail on a single crown changing answer, and 55 are
+            # the same flat line for accuracies from 0 to 1. The model is frozen,
+            # so none of that movement is learning. Below the support floor the
+            # cell says so instead of drawing a shape the panel text retracts.
+            (trend.spark(f"species:{sp}:top1", empty="")
+             if d["n_labelled_crowns"] >= WAIT_SUPPORT_MIN
+             else '<span class="nospark">too few crowns</span>'),
             f'<span class="tag {st}" data-sort="{esc(STATUS[st][0])}">'
             f'{esc(STATUS[st][0])}</span>'])
         attrs.append(f' data-species="{esc(sp)}" data-status="{st}"')
@@ -386,8 +397,10 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                     sp_rows, tid="species-table", sortable_from=0, row_attrs=attrs))
     p_species = panel(f"Look up one species: all {n_sp}, sortable and filterable",
                       "<b>Find a species you care about and read its status.</b> Click any "
-                      "heading to sort, type to filter. The trend column needs two or more "
-                      "snapshots before it draws anything.", body)
+                      "heading to sort, type to filter. The trend column draws a line only "
+                      f"where there are two or more snapshots and at least {WAIT_SUPPORT_MIN} "
+                      "labelled crowns, because below that one crown changing answer swings "
+                      "the line from end to end.", body)
 
     # ---- ceiling ----
     body = (f'<p class="note"><strong>{len(never)} species ({never_crowns} of the {n:,} '
