@@ -28,6 +28,7 @@ import datetime
 import glob
 import os
 import re
+from collections import Counter
 
 import health_core as hc
 from dashboard_assets import (
@@ -41,8 +42,16 @@ SNAPSHOT_DIR = re.compile(r"model-health-(\d{4}-\d{2}-\d{2})$")
 
 
 def verify_snapshot(directory, *, per_species, buckets, bins_all, trend, n_crowns, macro1,
-                    micro1, never_all, unscoreable, strict_hits):
-    """Abort the build if the page disagrees with 16_model_health.py's snapshot."""
+                    micro1, never_all, unscoreable, strict_hits,
+                    queue_counts=None, n_no_answer=None, review_counts=None):
+    """Abort the build if the page disagrees with 16_model_health.py's snapshot.
+
+    ``queue_counts`` maps queue name to crown count over the unlabelled pool,
+    ``n_no_answer`` counts unlabelled crowns whose candidate list came back
+    empty, and ``review_counts`` is (crowns, distinct confusion pairs) for the
+    high-confidence label disagreements. All three are checked against the two
+    queue CSVs when given.
+    """
     def fail(msg):
         raise SystemExit(f"VERIFY FAIL: {msg}")
 
@@ -107,7 +116,37 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, trend, n_crown
     checks.append(f"run_log.txt: the {never_all}-crown ceiling, the {unscoreable} unscoreable "
                   f"evaluated crowns and the {strict_hits}-hit unreconciled baseline match")
 
+    if n_no_answer is not None:
+        m = re.search(r"unlabelled crowns with NO answer\s*:\s*(\d+)", log)
+        if m is None:
+            fail(f"no no-answer line in {path}")
+        if int(m.group(1)) != n_no_answer:
+            fail(f"no-answer unlabelled crowns: {n_no_answer} here vs {m.group(1)} in {path}")
+
     checks.append(trend.check(n_crowns=n_crowns, macro1=macro1, micro1=micro1))
+
+    if queue_counts is not None:
+        path = os.path.join(directory, "send_first_queue.csv")
+        ref = Counter(r["queue"] for r in hc.read_csv_rows(path))
+        for q, k in queue_counts.items():
+            if ref.get(q, 0) != k:
+                fail(f"send-first queue {q!r}: {k} here vs {ref.get(q, 0)} in {path}")
+        if set(ref) - set(queue_counts):
+            fail(f"send-first queues {sorted(set(ref) - set(queue_counts))} only in {path}")
+        checks.append(f"send_first_queue.csv: {sum(ref.values()):,} unlabelled crowns across "
+                      f"{len(ref)} queues match")
+
+    if review_counts is not None:
+        path = os.path.join(directory, "label_review_queue.csv")
+        ref = hc.read_csv_rows(path)
+        pairs = {(r["gt_species"], r["predicted_species"]) for r in ref}
+        if len(ref) != review_counts[0]:
+            fail(f"label review queue: {review_counts[0]} here vs {len(ref)} in {path}")
+        if len(pairs) != review_counts[1]:
+            fail(f"label review pairs: {review_counts[1]} here vs {len(pairs)} in {path}")
+        checks.append(f"label_review_queue.csv: {len(ref)} crowns, {len(pairs)} confusion "
+                      f"pairs match")
+
     if not orientation_ok():
         fail("charts are drawn upside down: a rising series must have falling y")
     if not weight_pair_ok():

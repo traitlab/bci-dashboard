@@ -19,7 +19,7 @@ works in the field with no signal.
 
 ## How the page is laid out
 
-It opens as a short summary. Four sections are expanded on arrival, six are folded away behind a
+It opens as a short summary. Four sections are expanded on arrival, eight are folded away behind a
 one-line heading that says what is inside, so nobody has to scroll past a 169-row table to reach the
 next decision.
 
@@ -31,10 +31,12 @@ next decision.
 | **open** | Where to spend botanist time next | What to work on, ordered cheapest useful work first |
 | **open** | Trend over N points | Whether a number moved because the model changed or because more crowns were labelled |
 | **open** | Which crowns can wait | How to order the review queue |
+| | What to send to the botanist first | Which of the unlabelled photos are the next batch: the long tail first, then weak guesses on usually-right species |
 | | How the five candidate rules compare | Whether to move the confidence threshold |
 | | Can we trust the model's confidence? | Whether confidence alone is enough to order the queue |
 | | Does accuracy rise with more labels? | Where the measurement is solid enough to act on |
 | | Look up one species | The status of a species you care about |
+| | Labels worth a second look | Which labelled crowns to send back for review: confident disagreements between model and botanist |
 | | What labelling cannot fix | Which gaps no labelling can close, and which of those need a re-ingest rather than expert hours |
 | | How this was measured | What was measured, on what, under which assumptions |
 
@@ -42,6 +44,15 @@ Every section starts with one sentence, before any number, saying what to do wit
 page is written for a reader who knows trees and does not know machine learning, so it says "right
 name in the list" rather than "top-5", "labelled crowns" rather than "support", and no section
 assumes you read the one above it.
+
+The send-first order comes from the 2026-08-05 call: the two things to focus
+labelling on are the long tail (species barely labelled, or wrong even with enough labels) and
+low-confidence guesses on species the model usually gets right. Confident disagreements with the
+botanist label go back for review only after those queues, scoped on the call as later work: each
+one is either a rare confident model error or a label error, and offline there is no way to tell
+which, so resolving them costs expert minutes that the long tail spends better first. Junk photos are not auto-filtered (the call was explicit that no rule recognises
+them), but the page counts the unlabelled photos whose candidate list came back empty, the one
+signal Pl@ntNet gives, so a by-eye sample costs minutes.
 
 ## Read this before you read the page
 
@@ -248,18 +259,21 @@ verified  support_buckets.csv: 5 labelled-crown groups match
 verified  confidence_calibration.csv: 5 confidence bands match
 verified  run_log.txt: the 86-crown ceiling, the 64 unscoreable evaluated crowns and the 2075-hit unreconciled baseline match
 verified  history.csv: 3 point(s), 2 reconstructed from ingest dates; the newest measured and newest reconstructed point both match the live crown count and both headline rates
+verified  send_first_queue.csv: 4,420 unlabelled crowns across 4 queues match
+verified  label_review_queue.csv: 33 crowns, 30 confusion pairs match
 verified  charts: a rising series is drawn rising and a bigger share is drawn wider
 ```
 
 The fourth check covers the three figures that live in the run log's prose rather than in any CSV,
-because the page states them on denominators the CSVs never use. It earned its place: an earlier
-version had the ceiling count typed into the page as a literal, inside the very panel claiming
-nothing on the page is hardcoded. The fifth defends the append-only trend store, where a re-measured
-snapshot would otherwise leave a stale point behind. The sixth is geometric rather than numeric: a
-sign slip in the pixel scaling flips every chart on the page while leaving every number on it
-correct, which is exactly what happened once, so a rising series is now asserted to rise. It also
-covers the weighting bars, where a share read off the wrong denominator would draw a bar that stops
-short of full width without changing a single printed number.
+because the page states them on denominators the CSVs never use, plus the count of unlabelled
+photos whose candidate list came back empty, which lives in the same prose. It earned its place: an
+earlier version had the ceiling count typed into the page as a literal, inside the very panel
+claiming nothing on the page is hardcoded. The fifth defends the append-only trend store, where a
+re-measured snapshot would otherwise leave a stale point behind. The last is geometric rather than
+numeric: a sign slip in the pixel scaling flips every chart on the page while leaving every number
+on it correct, which is exactly what happened once, so a rising series is now asserted to rise. It
+also covers the weighting bars, where a share read off the wrong denominator would draw a bar that
+stops short of full width without changing a single printed number.
 
 Repeated runs are byte-identical (pass `--generated <date>` to freeze the one date stamp). The HTML
 contains no URL, no `<link>`, no `<img>` and exactly one inline `<script>`, so it works from a
@@ -286,8 +300,8 @@ prediction into ground truth in any of the three.
 
 | File | Role |
 |---|---|
-| `health_core.py` | The data layer, and the only thing that reads the inputs. `load_health()` parses the prediction cache, joins it to ground truth, reconciles names via WCVP, aggregates per species, returns one `Health` record |
-| `16_model_health.py` | The measurement. Headline, support buckets, filter simulation, ceiling, calibration. Writes 5 CSVs + `run_log.txt` |
+| `health_core.py` | The data layer, and the only thing that reads the inputs. `load_health()` parses the prediction cache, joins it to ground truth, reconciles names via WCVP, aggregates per species, returns one `Health` record. Also holds `queue_of_prediction()`, the send-first queue logic shared by both scripts so they cannot drift apart |
+| `16_model_health.py` | The measurement. Headline, support buckets, filter simulation, ceiling, calibration, send-first queue, label review queue. Writes 7 CSVs + `run_log.txt` |
 | `16b_dashboard.py` | The page. Calls `load_health()`, recomputes every figure, emits one HTML file |
 | `dashboard_history.py` | Everything that reads the measurement *back*. `verify_snapshot()` aborts the build when the page and the snapshot disagree; `load_trend()` reads the sibling snapshot folders, maintains `history.csv`, derives `model_tag`, and renders the sparklines and the two-series chart |
 | `dashboard_assets.py` | Presentation only, and nothing here reads data or computes a number: CSS, JS, the collapsible-panel and table helpers, and the inline SVG charts. The CSS is a hand-pruned subset of `labelfirst`'s report styling so both reports look like one family |

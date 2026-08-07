@@ -156,10 +156,43 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     n_pred = len(sp_recs) + len(h.genus_recs)
 
     trend = load_trend(verify_dir, fallback_tag, sp_recs=sp_recs, cache_dir=cache_dir)
+
+    # --- send-first queue over the unlabelled pool, and labels worth a second look.
+    # Both come from the 2026-08-05 call: prioritise the long tail and
+    # low-confidence guesses on usually-right species, and send confident disagreements
+    # back for review once the cheap work is done. The queue logic itself lives in
+    # health_core so this page and 16_model_health.py cannot drift apart.
+    acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
+    joined_stems = {stem for _, stem, _ in h.joined}
+    queue_counts = {}
+    lt_species = defaultdict(int)
+    n_no_answer = 0
+    for stem in sorted(h.predictions):
+        if stem in joined_stems:
+            continue
+        ranked = [(h.canon(b), s) for b, s in h.predictions[stem]]
+        if not ranked:
+            n_no_answer += 1
+            continue
+        pred, cf = ranked[0]
+        q = hc.queue_of_prediction(pred, cf, support, acc_of)
+        queue_counts[q] = queue_counts.get(q, 0) + 1
+        if q == "long_tail":
+            lt_species[pred] += 1
+    n_unlab = sum(queue_counts.values())
+
+    review = [r for r in sp_recs
+              if top1(r) != r["gt"] and conf(r) >= hc.REVIEW_CONF]
+    review_pairs = defaultdict(list)
+    for r in review:
+        review_pairs[(r["gt"], top1(r))].append(conf(r))
+    review_counts = (len(review), len(review_pairs))
+
     checks = verify_snapshot(
         verify_dir, per_species=per_species, buckets=buckets, bins_all=bins_all,
         trend=trend, n_crowns=n, macro1=now["macro_top1"], micro1=now["micro_top1"],
-        never_all=never_all, unscoreable=n - len(reach), strict_hits=strict1)
+        never_all=never_all, unscoreable=n - len(reach), strict_hits=strict1,
+        queue_counts=queue_counts, n_no_answer=n_no_answer, review_counts=review_counts)
 
     # --- why confidence alone is unsafe: error by labelled crowns, at conf>=0.7 ---
     flat = {}
@@ -261,6 +294,74 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                    "<b>Work top to bottom.</b> Rows are ordered cheapest useful work first, "
                    "and the last two rows are work you can skip.",
                    "\n".join(body), open_=True)
+
+    # ---- what to send first: the unlabelled pool, ordered ----
+    QL = {"long_tail": ("Species we barely have",
+                        "The guess points at a species with fewer than 10 labelled crowns, "
+                        "or one the model gets wrong even with more. These crowns fill the "
+                        "long tail the labelling programme exists for"),
+          "low_conf_known": ("A usually-right species, guessed weakly",
+                             "The species is normally identified well but the model is "
+                             "unsure here, so the photo is either an odd one worth having "
+                             "or a quiet miss"),
+          "normal": ("Everything else", "The ordinary queue"),
+          "can_wait": ("Confident on a well-covered species",
+                       "The two-part rule below says these can wait; look at them last")}
+    body = table([("queue", False), ("unlabelled crowns", True),
+                  ("share of the pool", True)],
+                 [[f'<strong>{esc(QL[q][0])}</strong>' if q in ("long_tail", "low_conf_known")
+                   else esc(QL[q][0]),
+                   f'{queue_counts.get(q, 0):,}',
+                   pctf(queue_counts.get(q, 0) / n_unlab if n_unlab else None)]
+                  for q in hc.QUEUE_ORDER])
+    top_lt = sorted(lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
+    body += (f'<p class="note">Most-named species in the first queue: '
+             + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
+             + '.</p>'
+             f'<p class="note">Every crown, in order, is in <code>send_first_queue.csv</code> '
+             f'in the snapshot folder: queue, photo key, the guess and its confidence, and '
+             f'how well that species is already measured. Weakest confidence first inside '
+             f'each queue, so the top of the file is the next batch.</p>'
+             f'<p class="note"><strong>{n_no_answer} unlabelled photos got no answer at '
+             f'all</strong>: the candidate list came back empty. Those are the '
+             f'candidate junk or non-plant photos (leaves in the water, bare trunks). There '
+             f'is no reliable automatic rule for junk, so check that handful by eye before '
+             f'queueing them rather than filtering on it.</p>'
+             f'<p class="note">The pool is {n_unlab:,} of {len(h.split_rows):,} photos: the '
+             f'crowns with a cached Pl@ntNet answer and no botanist label. The species '
+             f'record behind each queue is the one measured above, so a model update '
+             f're-sorts this queue exactly as it re-sorts the can-wait one.</p>')
+    p_send = panel(f"What to send to the botanist first: {queue_counts.get('long_tail', 0):,} "
+                   f"of {n_unlab:,} unlabelled photos point at species we barely have",
+                   "<b>Work the queues top to bottom.</b> The first two are the ones the "
+                   "2026-08-05 call asked for: the long tail, and the photos where a "
+                   "usually-right species is guessed weakly.", body)
+
+    # ---- labels worth a second look ----
+    pair_rows = sorted(review_pairs.items(), key=lambda kv: -len(kv[1]))[:10]
+    body = (table([("botanist label", False), ("Pl@ntNet's first guess", False),
+                   ("crowns", True), ("mean confidence", True)],
+                  [[f'<span class="sp">{esc(cap(gt))}</span>',
+                    f'<span class="sp">{esc(cap(pr))}</span>',
+                    f"{len(cs):,}", f"{sum(cs) / len(cs):.2f}"]
+                   for (gt, pr), cs in pair_rows])
+            if pair_rows else '<p class="note">None at this threshold.</p>')
+    body += (f'<p class="note">Each row is a labelled crown where the model is at least '
+             f'{hc.REVIEW_CONF:.1f} confident in a <em>different</em> species. Confident '
+             f'first guesses are right about 98% of the time in bulk, so each of these is '
+             f'either a rare confident model error or a label error, and a label error '
+             f'found this way is the cheapest label fix available. Offline there is no way '
+             f'to tell which; that is the botanist\'s minute. '
+             f'Every crown is in <code>label_review_queue.csv</code> in the snapshot folder, '
+             f'most confident first.</p>'
+             f'<p class="note">Not urgent: work this list after the send-first queues. A '
+             f'confusion pair that keeps recurring is a signal about the species, not just '
+             f'the photo.</p>')
+    p_review = panel(f"Labels worth a second look: {review_counts[0]} crowns where Pl@ntNet "
+                     f"confidently disagrees",
+                     "<b>Possible label errors, possible model errors.</b> Either way they "
+                     "are the disagreements most worth an expert's minute, once the cheap "
+                     "queues above are worked through.", body)
 
     # dashboard_history.py opens its own panel, and only the first panel of each
     # section here opens. Collapse the one leading tag rather than reach into that
@@ -459,9 +560,9 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
 
     # ---- three groups, so the page reads as decide, then interpret, then caveat ----
     P.append(section("What to do next",
-                     "Which species need botanist time, which crowns can wait, and how any "
-                     "one species is doing.",
-                     "\n".join([p_todo, p_wait, p_rules, p_species])))
+                     "Which crowns to send first, which can wait, which labels deserve a "
+                     "second look, and how any one species is doing.",
+                     "\n".join([p_todo, p_send, p_wait, p_rules, p_species, p_review])))
     P.append(section("How to read the numbers",
                      "The two headline scores disagree. These panels say why, and whether the "
                      "model's own confidence can be trusted.",
