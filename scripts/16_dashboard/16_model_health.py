@@ -4,7 +4,8 @@ Pl@ntNet-on-BCI model health, computed entirely offline from cached API response
 
 Run:  python3 16_model_health.py
 Writes per_species_health.csv, support_buckets.csv, filter_gain.csv,
-confidence_calibration.csv, name_reconciliation.csv and run_log.txt to
+confidence_calibration.csv, name_reconciliation.csv, send_first_queue.csv,
+label_review_queue.csv and run_log.txt to
 --out-dir (default: this directory), and prints headline numbers to stdout.
 
 Stdlib only (no pandas/numpy). Deterministic. No network calls.
@@ -16,13 +17,14 @@ import argparse
 import csv
 import os
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from health_core import (
     load_health,
-    pct, ratio, fmt, genus_of, normalize,
+    pct, ratio, fmt, genus_of, normalize, queue_of_prediction,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
-    GT_CSV, SPLITS_CSV, CACHE_DIR, WCVP_CACHE_JSON,
+    QUEUE_ORDER, REVIEW_CONF,
+    GT_KEY_PREFIX, GT_CSV, SPLITS_CSV, CACHE_DIR, WCVP_CACHE_JSON,
 )
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -308,9 +310,76 @@ def main() -> None:
                 f"{pct(len(sub) - k, len(sub)):>11}")
         log("")
 
+    # ---------------- 12. send-first queue over the unlabelled pool ----------------
+    # The other half of the 2026-08-05 call: which of the crowns
+    # WITHOUT a label should reach the botanist first. Every cached response
+    # whose stem no GT row joined to is an unlabelled photo with a prediction.
+    joined_stems = {stem for _, stem, _ in h.joined}
+    support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
+    top1_of = {d["species"]: d["top1_accuracy"] for d in per_species}
+    queue_rows = []
+    q_counts = Counter()
+    n_no_answer = 0
+    for stem in sorted(h.predictions):
+        if stem in joined_stems:
+            continue
+        ranked = [(h.canon(b), s) for b, s in h.predictions[stem]]
+        gk = GT_KEY_PREFIX + stem
+        if not ranked:
+            n_no_answer += 1
+            continue
+        pred, conf = ranked[0]
+        q = queue_of_prediction(pred, conf, support, top1_of)
+        q_counts[q] += 1
+        queue_rows.append([q, gk, h.split_of.get(gk, ""), pred, f"{conf:.6f}",
+                           support.get(pred, 0),
+                           fmt(top1_of.get(pred)) if pred in top1_of else ""])
+
+    with open(os.path.join(out_dir, "send_first_queue.csv"), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["queue", "global_key", "split", "predicted_species", "confidence",
+                    "species_labelled_crowns", "species_top1_accuracy"])
+        # Queue order first, then weakest confidence first inside a queue: the
+        # most uncertain crown of a group is the one most worth an expert look.
+        queue_rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), float(r[4]), r[1]))
+        w.writerows(queue_rows)
+
+    n_unlab = sum(q_counts.values())
+    log("--- SEND-FIRST QUEUE (cached predictions with no GT label) ---")
+    log(f"  unlabelled crowns with a prediction : {n_unlab}")
+    for q in QUEUE_ORDER:
+        log(f"    {q:<16}: {q_counts[q]}")
+    log(f"  unlabelled crowns with NO answer    : {n_no_answer}  (empty candidate list;")
+    log("    possible junk or non-plant photos; check a sample")
+    log("    by eye before queueing, no automatic rule)")
+    log("")
+
+    # ---------------- 13. labels worth a second look ----------------
+    # Confident disagreement with the botanist: first guess wrong at high
+    # confidence. Either the label or the model is wrong, and the call
+    # was that these go back for review once the cheap queues are worked
+    # through. Sorted most confident first.
+    review_rows = [[r["global_key"], r["split"], r["gt"], top1(r),
+                    f"{r['ranked'][0][1]:.6f}"]
+                   for r in sp_recs
+                   if top1(r) != r["gt"] and r["ranked"][0][1] >= REVIEW_CONF]
+    review_rows.sort(key=lambda r: (-float(r[4]), r[1], r[0]))
+    with open(os.path.join(out_dir, "label_review_queue.csv"), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["global_key", "split", "gt_species", "predicted_species", "confidence"])
+        w.writerows(review_rows)
+
+    pairs = Counter((r[2], r[3]) for r in review_rows)
+    log("--- LABELS WORTH A SECOND LOOK ---")
+    log(f"  first guess wrong at confidence >= {REVIEW_CONF} : {len(review_rows)} "
+        f"of {n} evaluated crowns ({pct(len(review_rows), n)})")
+    log(f"  distinct species-to-species confusions  : {len(pairs)}")
+    log("")
+
     log("--- FILES WRITTEN ---")
     for fn in ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
-               "confidence_calibration.csv", "name_reconciliation.csv", "run_log.txt"):
+               "confidence_calibration.csv", "name_reconciliation.csv",
+               "send_first_queue.csv", "label_review_queue.csv", "run_log.txt"):
         log(f"  {os.path.join(out_dir, fn)}")
 
     with open(os.path.join(out_dir, "run_log.txt"), "w", encoding="utf-8") as f:

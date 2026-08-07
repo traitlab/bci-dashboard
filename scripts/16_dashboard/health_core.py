@@ -47,6 +47,21 @@ SUPPORT_BUCKETS = [(1, 1, "1"), (2, 4, "2-4"), (5, 9, "5-9"),
 BUCKET_ORDER = [lab for _, _, lab in SUPPORT_BUCKETS]
 WELL_SAMPLED_MIN_N = 10
 
+# Send-first queue thresholds, from the 2026-08-05 call: the two
+# things to focus labelling on are the long tail (species we don't have yet or
+# the model does badly on) and low-confidence guesses on species it usually
+# gets right. Below LOW_CONF the calibration table shows the first guess is
+# right only ~38% of the time, which is "really not confident at all".
+LOW_CONF = 0.5
+WAIT_CONF = 0.8
+# A species with at least this many labelled crowns and this measured top-1 is
+# "usually right"; below HARD_MAX_TOP1 with enough crowns it is "hard".
+RELIABLE_MIN_TOP1 = 0.90
+HARD_MAX_TOP1 = 0.70
+# A confident first guess that still disagrees with the botanist label is worth
+# a second look: either the label or the model is wrong.
+REVIEW_CONF = 0.8
+
 
 # --------------------------------------------------------------------------
 # Name handling
@@ -184,6 +199,29 @@ def bucket_label(n: int) -> str:
         if lo <= n <= hi:
             return lab
     return "?"
+
+
+# Queue names, in the order a botanist should work through them.
+QUEUE_ORDER = ["long_tail", "low_conf_known", "normal", "can_wait"]
+
+
+def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> str:
+    """Which queue an unlabelled crown lands in, from its first guess alone.
+
+    ``support`` maps a GT species to its labelled-crown count, ``top1`` to its
+    measured first-guess accuracy; a predicted species absent from both has
+    never been labelled. First matching rule wins, so a weak guess on a rare
+    species stays with the long tail rather than the anomaly queue.
+    """
+    n = support.get(pred, 0)
+    a = top1.get(pred)
+    if n < WELL_SAMPLED_MIN_N or (a is not None and a < HARD_MAX_TOP1):
+        return "long_tail"
+    if a is not None and a >= RELIABLE_MIN_TOP1 and conf < LOW_CONF:
+        return "low_conf_known"
+    if conf >= WAIT_CONF and n >= WELL_SAMPLED_MIN_N:
+        return "can_wait"
+    return "normal"
 
 
 # --------------------------------------------------------------------------
