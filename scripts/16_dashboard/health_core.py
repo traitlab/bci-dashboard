@@ -224,6 +224,29 @@ def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> st
     return "normal"
 
 
+def diagnose(row: dict) -> str:
+    """Per-species status. First matching rule wins; the order is the point.
+
+    ``unreachable`` outranks everything because no amount of labelling moves it.
+    ``reliable`` outranks ``ranking`` because a species already at >=90% does not
+    need a re-rank. ``unmeasured`` sits below ``ranking`` so a thinly labelled
+    species whose answer is in the list is still the cheap win it is.
+
+    Lives here, not in a page module, so every dashboard renders the same
+    status for the same species (same reason queue_of_prediction lives here).
+    """
+    n, a1, a5 = row["n_labelled_crowns"], row["top1_accuracy"], row["top5_accuracy"]
+    if not row["in_corpus_vocabulary"]:
+        return "unreachable"
+    if n >= WELL_SAMPLED_MIN_N and a1 >= 0.90:
+        return "reliable"
+    if a5 - a1 >= 0.20 and a5 >= 0.60:
+        return "ranking"
+    if n < WELL_SAMPLED_MIN_N:
+        return "unmeasured"
+    return "hard" if a1 < 0.70 else "adequate"
+
+
 # --------------------------------------------------------------------------
 @dataclass
 class Health:
