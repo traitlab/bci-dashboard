@@ -78,24 +78,10 @@ def is_family(n: str) -> bool:
     return n.strip().lower().endswith("aceae")
 
 
-def diagnose(row: dict) -> str:
-    """Per-species status. First matching rule wins; the order is the point.
-
-    ``unreachable`` outranks everything because no amount of labelling moves it.
-    ``reliable`` outranks ``ranking`` because a species already at >=90% does not
-    need a re-rank. ``unmeasured`` sits below ``ranking`` so a thinly labelled
-    species whose answer is in the list is still the cheap win it is.
-    """
-    n, a1, a5 = row["n_labelled_crowns"], row["top1_accuracy"], row["top5_accuracy"]
-    if not row["in_corpus_vocabulary"]:
-        return "unreachable"
-    if n >= WAIT_SUPPORT_MIN and a1 >= 0.90:
-        return "reliable"
-    if a5 - a1 >= 0.20 and a5 >= 0.60:
-        return "ranking"
-    if n < WAIT_SUPPORT_MIN:
-        return "unmeasured"
-    return "hard" if a1 < 0.70 else "adequate"
+# diagnose lives in health_core so every dashboard renders the same status for
+# the same species. WAIT_SUPPORT_MIN above is deliberately equal to
+# hc.WELL_SAMPLED_MIN_N, the threshold diagnose uses.
+diagnose = hc.diagnose
 
 
 def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
