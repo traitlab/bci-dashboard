@@ -73,6 +73,21 @@ def latest_snapshot_dir() -> str:
     return found[-1]
 
 
+def gt_provenance(gt_csv: str) -> str:
+    """One line saying where the ground truth came from.
+
+    The merge script (15a2) writes a sidecar next to the GT at merge time, so
+    the page describes the current batch rather than a baked-in one. Without a
+    sidecar, fall back to the file's own date: vague, but never stale.
+    """
+    sidecar = os.path.splitext(gt_csv)[0] + ".provenance.txt"
+    if os.path.exists(sidecar):
+        with open(sidecar, encoding="utf-8") as f:
+            return f.read().strip()
+    mtime = _dt.date.fromtimestamp(os.path.getmtime(gt_csv)).isoformat()
+    return f"Ground truth: {os.path.basename(gt_csv)}, dated {mtime}."
+
+
 def trend_sentence(trend, metric="macro_top1"):
     """The trend in words: both endpoints, and whether the model changed between them.
 
@@ -97,7 +112,7 @@ def trend_sentence(trend, metric="macro_top1"):
     return s
 
 
-def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
+def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
     sp_recs, per_species = h.sp_recs, h.per_species
     n, n_sp = len(sp_recs), len(per_species)
 
@@ -234,8 +249,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                    "<b>Click a heading to sort, type to filter.</b>", body, open_=True))
 
     # ---- provenance, one line ----
-    P.append(f'<p class="note">Ground truth: July 2026 botanist revision (Labelbox '
-             f'project <code>2024_bci</code>, exported 2026-08-06), not yet reviewed. '
+    P.append(f'<p class="note">{esc(gt_provenance(gt_csv))} '
              f'{n:,} labelled crowns, {n_sp} species; numbers recomputed from source at '
              f'build time.</p>')
 
@@ -270,7 +284,8 @@ def main() -> None:
                        wcvp_cache=args.wcvp_cache)
     page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),
                          verify_dir=args.verify_against or latest_snapshot_dir(),
-                         fallback_tag=args.model_tag, cache_dir=args.cache_dir)
+                         fallback_tag=args.model_tag, cache_dir=args.cache_dir,
+                         gt_csv=args.gt)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     blob = page.encode("utf-8")

@@ -32,6 +32,7 @@ import csv
 import json
 import re
 from collections import Counter, defaultdict
+from datetime import date
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -83,6 +84,10 @@ def main() -> None:
     ap.add_argument("--export", required=True, help="Labelbox project export NDJSON")
     ap.add_argument("--gt", default=str(GT), help="existing gt_dominant_taxon.csv")
     ap.add_argument("--splits", default=str(SPLITS), help="splits.csv (corpus keys)")
+    ap.add_argument("--note", default=None,
+                    help="one-line provenance note for the merged GT, e.g. the batch "
+                         "name and its review status; written to a sidecar the "
+                         "dashboards read, so the page never quotes a stale batch")
     args = ap.parse_args()
 
     with open(args.splits, newline="", encoding="utf-8") as f:
@@ -106,6 +111,12 @@ def main() -> None:
         w = csv.writer(f)
         w.writerow(["global_key", "wcvp_canonical_name"])
         w.writerows(out)
+
+    note = args.note or (f"Ground truth merged from Labelbox export "
+                         f"{Path(args.export).name} on {date.today().isoformat()}.")
+    sidecar = Path(args.gt).with_suffix(".provenance.txt")
+    sidecar.write_text(note + "\n", encoding="utf-8")
+    print(f"provenance note                            -> {sidecar}")
 
     n_agree = len(july) - len(revised) - len(new)
     print(f"export photos in corpus with a species label : {len(july)}")
