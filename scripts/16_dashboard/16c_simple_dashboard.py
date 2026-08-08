@@ -117,7 +117,9 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
     n, n_sp = len(sp_recs), len(per_species)
 
     c1 = sum(1 for r in sp_recs if r["ranked"][0][0] == r["gt"])
+    c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:5]])
     macro1 = sum(d["top1_accuracy"] for d in per_species) / n_sp
+    macro5 = sum(d["top5_accuracy"] for d in per_species) / n_sp
     micro1 = c1 / n
 
     # --- the quantities the verifier holds against the snapshot CSVs.
@@ -136,6 +138,11 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
                  sum(1 for r in sub if r["ranked"][0][0] == r["gt"]))
                 for lo, hi in hc.CONF_BINS
                 for sub in ([r for r in sp_recs if lo <= r["ranked"][0][1] < hi],)]
+    # Accuracy at or above the can-wait confidence threshold, from the same bins.
+    hi = [(nn, k) for (band, nn, k), (lo, _) in zip(bins_all, hc.CONF_BINS)
+          if lo >= hc.WAIT_CONF - 1e-9]
+    conf_n, conf_k = sum(nn for nn, _ in hi), sum(k for _, k in hi)
+    conf_acc = conf_k / conf_n if conf_n else None
     never_sp = {d["species"] for d in per_species if not d["in_corpus_vocabulary"]}
     never_all = h.tier_crowns["e_absent_from_corpus"] + h.tier_crowns["c_genus_only_in_corpus"]
     reach = [r for r in sp_recs if r["gt"] not in never_sp]
@@ -195,7 +202,12 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
          f'right ({c1:,} of {n:,}). Ground truth covers {len(h.gt_rows):,} of '
          f'{len(h.split_rows):,} photos. <strong>{counts["fine"]} species doing fine, '
          f'{counts["send"]} need more photos, {counts["unreachable"]} Pl@ntNet never '
-         f'names.</strong></p>']
+         f'names.</strong></p>'
+         f'<p class="note">The right name is somewhere in the 5-guess list for '
+         f'<strong>{pctf(macro5)}</strong> of species ({pctf(c5 / n)} of crowns), and '
+         f'when Pl@ntNet is at least {hc.WAIT_CONF:.0%} confident it is right '
+         f'<strong>{pctf(conf_acc)}</strong> of the time ({conf_n:,} crowns, '
+         f'{pctf(conf_n / n)} of the set).</p>']
 
     # ---- what to send next ----
     top_lt = sorted(lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
