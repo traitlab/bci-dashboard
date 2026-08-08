@@ -144,19 +144,16 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
          f'&middot; {n:,} labelled crowns &middot; {n_sp} species</div>',
          '<p class="intro"><b>Send the botanist more photos of the species marked '
          '&ldquo;Send more photos&rdquo; below, starting with the queue in the next '
-         'panel.</b> This page is the short version; the full dashboard has the '
-         'reasoning and the caveats.</p>',
+         'panel.</b></p>',
          '<div class="hero">',
          '<div class="metric first"><div class="row">'
          f'<div class="v">{pctf(macro1)}</div>{trend.spark("macro_top1")}</div>'
          '<div class="l">Right first guess, averaged across species</div>'
          '<div class="n">each species counts once, whatever its size</div></div>',
          '</div>',
-         f'<p class="note">Averaged across crowns instead of species, the first guess is '
-         f'right {pctf(micro1)} of the time ({c1:,} of {n:,}); common species weigh more '
-         f'in that average. Ground truth covers {len(h.gt_rows):,} of '
-         f'{len(h.split_rows):,} photos.</p>',
-         f'<p class="note"><strong>{counts["fine"]} species are doing fine, '
+         f'<p class="note">Averaged across crowns instead of species: {pctf(micro1)} '
+         f'right ({c1:,} of {n:,}). Ground truth covers {len(h.gt_rows):,} of '
+         f'{len(h.split_rows):,} photos. <strong>{counts["fine"]} species doing fine, '
          f'{counts["send"]} need more photos, {counts["unreachable"]} the model cannot '
          f'name.</strong></p>']
 
@@ -171,16 +168,12 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     body += (f'<p class="note">Most-named species in the first queue: '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
              + '.</p>'
-             f'<p class="note">Every photo, in order, is in <code>send_first_queue.csv</code> '
-             f'in the snapshot folder. The top of that file is the next batch.</p>'
-             f'<p class="note">{n_no_answer} unlabelled photos got no answer at all and are '
-             f'likely junk (water, bare trunks); check that handful by eye rather than '
-             f'queueing them.</p>')
+             f'<p class="note">The top of <code>send_first_queue.csv</code> in the '
+             f'snapshot folder is the next batch. {n_no_answer} photos got no answer at '
+             f'all, likely junk; check those by eye.</p>')
     P.append(panel(f"What to send next: {queue_counts.get('long_tail', 0):,} of "
                    f"{n_unlab:,} unlabelled photos point at species we barely have",
-                   "<b>Work the queues top to bottom.</b> The first two are the priority: "
-                   "the long tail, and photos where a usually-right species is guessed "
-                   "weakly.", body, open_=True))
+                   "<b>Work the queues top to bottom.</b>", body, open_=True))
 
     # ---- the species table ----
     sp_rows, attrs = [], []
@@ -207,26 +200,13 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                      ("First guess right", True), ("What to do", False)],
                     sp_rows, tid="species-table", sortable_from=0, row_attrs=attrs))
     P.append(panel(f"All {n_sp} species, most labelled first",
-                   "<b>Find a species and read what to do about it.</b> Click a heading to "
-                   "sort, type to filter.", body, open_=True))
+                   "<b>Click a heading to sort, type to filter.</b>", body, open_=True))
 
-    # ---- method, short ----
-    body = ('<ul class="prov">'
-            '<li>Ground truth: the July 2026 revision pass on Labelbox project '
-            '<code>2024_bci</code> (exported 2026-08-06), merged over the older offline '
-            'labels. The July batch has had no review step on Labelbox yet.</li>'
-            f'<li>Evaluated set: {n:,} crowns across {n_sp} species with a species-level '
-            'botanist label. They are the historical labelling record, not a random draw, '
-            'so these rates carry over to unlabelled crowns only under an assumption that '
-            'cannot be tested offline.</li>'
-            '<li>Every number is recomputed from the source data at build time and '
-            'cross-checked against the committed snapshot; a mismatch aborts the build. '
-            'The full dashboard (model_health_dashboard.html) lists the checks and the '
-            'caveats.</li>'
-            '<li>Rebuild: <code>python3 scripts/16_dashboard/16c_simple_dashboard.py</code>. '
-            'Standard library only, no network.</li></ul>')
-    P.append(panel("How this was measured",
-                   "<b>Read this before quoting the number outside the team.</b>", body))
+    # ---- provenance, one line ----
+    P.append(f'<p class="note">Ground truth: July 2026 botanist revision (Labelbox '
+             f'project <code>2024_bci</code>, exported 2026-08-06), not yet reviewed. '
+             f'{n:,} labelled crowns, {n_sp} species; numbers recomputed from source at '
+             f'build time.</p>')
 
     return ("<!DOCTYPE html>\n"
             '<html lang="en"><head><meta charset="utf-8">'
