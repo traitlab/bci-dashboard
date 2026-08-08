@@ -165,6 +165,12 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                    f'{queue_counts.get(q, 0):,}',
                    pctf(queue_counts.get(q, 0) / n_unlab if n_unlab else None)]
                   for q in hc.QUEUE_ORDER])
+    body += (f'<p class="note">&ldquo;Barely have&rdquo; is under {hc.WELL_SAMPLED_MIN_N} '
+             f'labelled crowns or a first guess right under {hc.HARD_MAX_TOP1:.0%} of the '
+             f'time; &ldquo;weakly&rdquo; is confidence under {hc.LOW_CONF:.0%} on a '
+             f'species right at least {hc.RELIABLE_MIN_TOP1:.0%} of the time; '
+             f'&ldquo;can wait&rdquo; is confidence of {hc.WAIT_CONF:.0%} or more on a '
+             f'species with {hc.WELL_SAMPLED_MIN_N} or more labelled crowns.</p>')
     body += (f'<p class="note">Most-named species in the first queue: '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
              + '.</p>'
