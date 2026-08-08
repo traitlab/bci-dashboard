@@ -44,7 +44,7 @@ SIMPLE_STATUS = {
     "ranking": ("send", "Send more photos"),
     "unmeasured": ("send", "Send more photos"),
     "hard": ("send", "Send more photos"),
-    "unreachable": ("unreachable", "Model cannot name it"),
+    "unreachable": ("unreachable", "Pl@ntNet never names it"),
 }
 TAG_CLASS = {"fine": "reliable", "send": "unmeasured", "unreachable": "unreachable"}
 
@@ -71,6 +71,30 @@ def latest_snapshot_dir() -> str:
     if not found:
         raise SystemExit(f"VERIFY FAIL: no {SNAPSHOT_GLOB} folder under {docs}")
     return found[-1]
+
+
+def trend_sentence(trend, metric="macro_top1"):
+    """The trend in words: both endpoints, and whether the model changed between them.
+
+    A bare sparkline misleads here: measured and reconstructed points sit side
+    by side, and a ground-truth revision moves the line without the model
+    changing. Naming the endpoints and saying whether the model tag moved is
+    what a reader actually needs.
+    """
+    got = trend.series.get(metric, {})
+    pts = [d for d in trend.dates if d in got]
+    if len(pts) < 2:
+        return "First measurement, no trend yet."
+    crowns = {d: c for d, _, c in trend.snaps}
+    d0, d1 = pts[0], pts[-1]
+    s = (f"Trend: {pctf(got[d0])} on {d0} ({crowns.get(d0, 0):,} crowns) &rarr; "
+         f"{pctf(got[d1])} on {d1} ({crowns.get(d1, 0):,} crowns).")
+    if trend.marks:
+        s += " The model changed between those points, so compare them with care."
+    else:
+        s += (" Same model throughout: the move reflects ground truth growth and "
+              "revision, not a model change.")
+    return s
 
 
 def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
@@ -146,16 +170,17 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
          '&ldquo;Send more photos&rdquo; below, starting with the queue in the next '
          'panel.</b></p>',
          '<div class="hero">',
-         '<div class="metric first"><div class="row">'
-         f'<div class="v">{pctf(macro1)}</div>{trend.spark("macro_top1")}</div>'
+         '<div class="metric first">'
+         f'<div class="v">{pctf(macro1)}</div>'
          '<div class="l">Right first guess, averaged across species</div>'
          '<div class="n">each species counts once, whatever its size</div></div>',
          '</div>',
+         f'<p class="note">{trend_sentence(trend)}</p>',
          f'<p class="note">Averaged across crowns instead of species: {pctf(micro1)} '
          f'right ({c1:,} of {n:,}). Ground truth covers {len(h.gt_rows):,} of '
          f'{len(h.split_rows):,} photos. <strong>{counts["fine"]} species doing fine, '
-         f'{counts["send"]} need more photos, {counts["unreachable"]} the model cannot '
-         f'name.</strong></p>']
+         f'{counts["send"]} need more photos, {counts["unreachable"]} Pl@ntNet never '
+         f'names.</strong></p>']
 
     # ---- what to send next ----
     top_lt = sorted(lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
@@ -200,7 +225,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             '<option value="all">every status</option>'
             '<option value="send">Send more photos</option>'
             '<option value="fine">Doing fine</option>'
-            '<option value="unreachable">Model cannot name it</option>'
+            '<option value="unreachable">Pl@ntNet never names it</option>'
             '</select><span class="count" id="species-count"></span></div>'
             + table([("Species", False), ("Labelled crowns", True),
                      ("First guess right", True), ("What to do", False)],
