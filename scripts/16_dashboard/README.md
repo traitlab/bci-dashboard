@@ -307,6 +307,7 @@ prediction into ground truth in any of the three.
 | `dashboard_history.py` | Everything that reads the measurement *back*. `verify_snapshot()` aborts the build when the page and the snapshot disagree; `load_trend()` reads the sibling snapshot folders, maintains `history.csv`, derives `model_tag`, and renders the sparklines and the two-series chart |
 | `dashboard_assets.py` | Presentation only, and nothing here reads data or computes a number: CSS, JS, the collapsible-panel and table helpers, and the inline SVG charts. The CSS is a hand-pruned subset of `labelfirst`'s report styling so both reports look like one family |
 | `dashboard_explain.py` | The three panels that are mostly explanation: where the five-candidate limit came from, why the two headline scores differ (with the weighting chart), and how the measurement was made. Its figures are recomputed from the same records as the rest of the page, never hardcoded |
+| `16d_export_only_dashboard.py` | A one-off, ad hoc page: scores Pl@ntNet only on the crowns one Labelbox export itself labels, ignoring the cumulative GT, the corpus, and the send-first queues entirely. Not part of the daily refresh loop; run it by hand against any export file. See its own docstring for the scope it deliberately excludes |
 
 One reader, two consumers. That is the point: a number cannot differ between the CSV and the page
 because neither one computes it independently.
