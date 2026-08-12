@@ -135,6 +135,13 @@ svg.spark{display:inline-block;margin:0;vertical-align:middle}
   display:inline-block;padding:2px 8px;border-radius:4px;
   font-size:0.74rem;font-weight:700;white-space:nowrap;
 }
+.status-wrap{display:inline-flex;align-items:center;gap:4px}
+.info-tip{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:1rem;height:1rem;border-radius:999px;
+  background:#eceff1;color:#546e7a;font-size:0.66rem;
+  font-weight:700;cursor:help;flex:0 0 auto;
+}
 .tag.reliable{background:#e8f5e9;color:#2e7d32}
 .tag.adequate{background:#e3f2fd;color:#1565c0}
 .tag.ranking{background:#ede7f6;color:#5e35b1}
@@ -143,6 +150,21 @@ svg.spark{display:inline-block;margin:0;vertical-align:middle}
 .tag.unmeasured{background:#fff3e0;color:#bf360c}
 .tag.hard{background:#ffebee;color:#c62828}
 .tag.unreachable{background:#eceff1;color:#455a64}
+.rule-card{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:10px 0 4px}
+.chip{
+  display:inline-flex;align-items:center;gap:6px;padding:4px 10px;
+  border-radius:999px;font-size:0.78rem;font-weight:600;
+  border:1px solid #cfd8dc;background:#eceff1;color:#546e7a;
+}
+.chip.on{background:#e8f5e9;border-color:#a5d6a7;color:#2e7d32}
+.chip .dot{width:0.55rem;height:0.55rem;border-radius:999px;background:#90a4ae;flex:0 0 auto}
+.chip.on .dot{background:#2e7d32}
+.rule-badge{
+  display:inline-block;padding:4px 12px;border-radius:6px;
+  font-size:0.8rem;font-weight:700;
+}
+.rule-badge.wait{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}
+.rule-badge.review{background:#fff3e0;color:#bf360c;border:1px solid #ffcc80}
 .todo{list-style:none;font-size:0.86rem;color:#424242}
 .todo li{margin:7px 0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .todo .n{font-weight:700;color:#212121;font-variant-numeric:tabular-nums}
@@ -308,6 +330,83 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
         out.append("</tr>")
     out.append("</tbody></table>")
     return "\n".join(out)
+
+
+def filterable_table(headers, rows, *, options, table_id="species-table",
+                     input_id="species-filter", select_id="status-filter",
+                     count_id="species-count", placeholder="filter species&hellip;",
+                     input_label="filter species", select_label="filter by status",
+                     all_label="every status", row_attrs=None, sortable_from=0):
+    """A search/filter strip followed by a sortable table."""
+    opts = "".join(
+        f'<option value="{esc(value)}">{esc(label)}</option>' for value, label in options
+    )
+    controls = (
+        '<div class="controls">'
+        f'<input id="{input_id}" type="search" placeholder="{placeholder}" size="28" '
+        f'aria-label="{input_label}">'
+        f'<select id="{select_id}" aria-label="{select_label}">'
+        f'<option value="all">{esc(all_label)}</option>'
+        f"{opts}</select><span class=\"count\" id=\"{count_id}\"></span></div>"
+    )
+    return controls + table(headers, rows, tid=table_id, sortable_from=sortable_from,
+                            row_attrs=row_attrs)
+
+
+def info_tip(reason: str) -> str:
+    """A standalone hover-explanation icon, same markup as ``status_with_reason``'s
+    icon, for attaching a denominator or definition to a plain number or label."""
+    reason = esc(reason)
+    return f'<span class="info-tip" title="{reason}" aria-label="{reason}">i</span>'
+
+
+def funnel_list(steps: list[tuple[int, str]]) -> str:
+    """A count-then-label list, reusing the existing to-do-list markup
+    (``.todo``/``.n``) already styled for 16b's per-species counts, so a
+    photo-to-crown funnel gets no CSS of its own.
+
+    ``steps`` is ``[(count, label), ...]``, outermost first.
+    """
+    rows = "".join(f'<li><span class="n">{count:,}</span> {esc(label)}</li>'
+                   for count, label in steps)
+    return f'<ul class="todo">{rows}</ul>'
+
+
+def status_with_reason(cls: str, label: str, reason: str, *, sort_key: str | None = None) -> str:
+    """Render a status tag with a compact hover explanation."""
+    sort = esc(sort_key if sort_key is not None else label)
+    return (f'<span class="status-wrap" data-sort="{sort}">'
+            f'<span class="tag {esc(cls)}">{esc(label)}</span>'
+            f'{info_tip(reason)}'
+            '</span>')
+
+
+def threshold_card(conf_thresh: float, support_thresh: int) -> str:
+    """The 'why this threshold is safe' card: two chips plus a decision badge.
+
+    Both chips are drawn "on" together, the only state the rule ever lets
+    reach the "Can wait" badge: fail either one and review-now is always the
+    answer, so a single worked example next to the two live chips is enough to
+    make the AND explicit without a second, contradictory example to maintain.
+    """
+    chip_a = (f'<span class="chip on"><span class="dot"></span>'
+              f'confidence &ge; {conf_thresh:.0%}</span>')
+    chip_b = (f'<span class="chip on"><span class="dot"></span>'
+              f'support &ge; {support_thresh} crowns</span>')
+    badge = '<span class="rule-badge wait">Can wait</span>'
+    return (
+        f'<p class="ask">We only auto-deprioritise a crown when the model is confident '
+        f'({conf_thresh:.0%}+) and we already have enough examples for that species '
+        f'({support_thresh}+ crowns). If either condition fails, the crown stays in the '
+        'review queues above.</p>'
+        f'<div class="rule-card">{chip_a}{chip_b}<span>&rarr;</span>{badge}</div>'
+        '<p class="note">&ldquo;Confidence&rdquo; is the model&rsquo;s certainty for its '
+        'top guess. &ldquo;Support&rdquo; is how many labelled crowns that species has in '
+        'this snapshot. Both chips must be green (as drawn) for the crown to wait; one '
+        'grey chip and the badge reads &ldquo;Review now&rdquo; instead. The rule is '
+        'measured on this snapshot, not validated on held-out crowns, so it will be '
+        're-checked once split tags let us score it out of sample.</p>'
+    )
 
 
 # ---------------------------------------------------------------------------

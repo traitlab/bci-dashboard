@@ -27,8 +27,8 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import health_core as hc  # noqa: E402
-from dashboard_assets import (CSS, JS, cap, esc, panel, pctf, section,  # noqa: E402
-                              svg_hbar, table)
+from dashboard_assets import (CSS, JS, cap, esc, filterable_table, panel, pctf, section,  # noqa: E402
+                              status_with_reason, svg_hbar, table)
 from dashboard_explain import (BAND_SHORT, candidates_panel, method_panel,  # noqa: E402
                               weighting_panel)
 from dashboard_history import load_trend, verify_snapshot  # noqa: E402
@@ -53,6 +53,15 @@ STATUS = {
     "reliable": ("Usually right", "Lowest priority. Spot-check a few and move on"),
     "unreachable": ("Model never names it",
                     "Nothing to do. The model cannot return this species"),
+}
+
+STATUS_REASON = {
+    "ranking": "The right name is already in the five, so this is the cheapest confirmation work.",
+    "unmeasured": "Fewer than 10 labelled crowns, so the score is too thin to trust yet.",
+    "hard": "Enough crowns, but the first guess is still weak, so more labels will not fix it.",
+    "adequate": "Mixed results, so keep it in the normal review queue.",
+    "reliable": "Usually right, so this species is low priority for extra work.",
+    "unreachable": "The model never names it in the cached answers, so current labelling will not recover it.",
 }
 
 HEADLINES = [
@@ -467,21 +476,17 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             (trend.spark(f"species:{sp}:top1", empty="")
              if d["n_labelled_crowns"] >= WAIT_SUPPORT_MIN
              else '<span class="nospark">too few crowns</span>'),
-            f'<span class="tag {st}" data-sort="{esc(STATUS[st][0])}">'
-            f'{esc(STATUS[st][0])}</span>'])
+            status_with_reason(st, STATUS[st][0], STATUS_REASON[st])])
         attrs.append(f' data-species="{esc(sp)}" data-status="{st}"')
-    body = ('<div class="controls">'
-            '<input id="species-filter" type="search" placeholder="filter species&hellip;" '
-            'size="28" aria-label="filter species">'
-            '<select id="status-filter" aria-label="filter by status">'
-            '<option value="all">every status</option>'
-            + "".join(f'<option value="{k}">{esc(v[0])}</option>'
-                      for k, v in STATUS.items())
-            + '</select><span class="count" id="species-count"></span></div>'
-            + table([("Species", False), ("Labelled crowns", True),
-                     ("First guess right", True), ("Right name in the list", True),
-                     ("Model's confidence", True), ("Trend", False), ("Status", False)],
-                    sp_rows, tid="species-table", sortable_from=0, row_attrs=attrs))
+    body = ('<p class="note">Hover the info icon for the reason behind each status.</p>'
+            + filterable_table(
+        [("Species", False), ("Labelled crowns", True),
+         ("First guess right", True), ("Right name in the list", True),
+         ("Model's confidence", True), ("Trend", False), ("Status", False)],
+        sp_rows,
+        options=[(k, v[0]) for k, v in STATUS.items()],
+        row_attrs=attrs,
+    ))
     p_species = panel(f"Look up one species: all {n_sp}, sortable and filterable",
                       "<b>Find a species you care about and read its status.</b> Click any "
                       "heading to sort, type to filter. The trend column draws a line only "

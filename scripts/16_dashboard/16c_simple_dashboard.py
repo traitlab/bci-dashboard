@@ -30,7 +30,8 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import health_core as hc  # noqa: E402
-from dashboard_assets import CSS, JS, cap, esc, panel, pctf, table  # noqa: E402
+from dashboard_assets import (CSS, JS, cap, esc, filterable_table, funnel_list, info_tip, panel, pctf,
+                              status_with_reason, table, threshold_card)  # noqa: E402
 from dashboard_history import load_trend, verify_snapshot  # noqa: E402
 
 # The six-way diagnosis from health_core collapsed to the three actions this
@@ -47,6 +48,17 @@ SIMPLE_STATUS = {
     "unreachable": ("unreachable", "Pl@ntNet never names it"),
 }
 TAG_CLASS = {"fine": "reliable", "send": "unmeasured", "unreachable": "unreachable"}
+
+SIMPLE_REASON = {
+    "ranking": "The right name is already in the shortlist, so this is cheap confirmation work.",
+    "unmeasured": "Fewer than 10 labelled crowns, so the score is too thin to trust yet.",
+    "hard": "Enough crowns, but the first guess is still weak, so more photos are the useful move.",
+    "reliable": "Usually right, so this species is low priority for extra work.",
+    "adequate": "Mixed results, but not enough to move it ahead of the send queue.",
+    "unreachable": "The model never names it in the cached answers, so current labelling will not recover it.",
+}
+
+STATUS_PRIORITY = {"send": 0, "fine": 1, "unreachable": 2}
 
 QUEUE_NAMES = {
     "long_tail": "Species we barely have",
@@ -155,6 +167,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
     acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     joined_stems = {stem for _, stem, _ in h.joined}
     queue_counts = {}
+    queue_pressure = defaultdict(int)
     lt_species = defaultdict(int)
     n_no_answer = 0
     for stem in sorted(h.predictions):
@@ -167,6 +180,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
         pred, cf = ranked[0]
         q = hc.queue_of_prediction(pred, cf, support, acc_of)
         queue_counts[q] = queue_counts.get(q, 0) + 1
+        if q in ("long_tail", "low_conf_known"):
+            queue_pressure[pred] += 1
         if q == "long_tail":
             lt_species[pred] += 1
     n_unlab = sum(queue_counts.values())
@@ -179,6 +194,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
 
     # --- statuses, six-way diagnosis collapsed to three actions ---
     simple = {d["species"]: SIMPLE_STATUS[hc.diagnose(d)] for d in per_species}
+    reasons = {d["species"]: SIMPLE_REASON[hc.diagnose(d)] for d in per_species}
     counts = defaultdict(int)
     for key, _ in simple.values():
         counts[key] += 1
@@ -187,13 +203,23 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
     P = ['<h1>Pl@ntNet on BCI: how the model is doing</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(trend.latest)} &middot; Pl@ntNet model <code>{esc(trend.tag)}</code> '
-         f'&middot; {n:,} labelled crowns &middot; {n_sp} species</div>',
+         f'&middot; {n:,} labelled crowns'
+         f'{info_tip(f"Photos that carry both a ground-truth species label and a cached "
+                     f"Pl@ntNet prediction, so they can be scored. {len(h.gt_rows):,} photos "
+                     f"are labelled in total; see \u2018Where these numbers come from\u2019 below "
+                     f"for how that splits.")}'
+         f' &middot; {n_sp} species</div>',
          '<p class="intro"><b>Send the botanist more photos of the species marked '
          '&ldquo;Send more photos&rdquo; below, starting with the queue in the next '
          'panel.</b></p>',
          '<div class="hero">',
          '<div class="metric first">'
-         f'<div class="v">{pctf(macro1)}</div>'
+         f'<div class="v">{pctf(macro1)}'
+         f'{info_tip("Provisional: split tags (train/valid/test) are not in this "
+                     "NDJSON export, so this is measured over all labelled crowns "
+                     "together, not held out. It will tighten to a held-out score "
+                     "once split metadata is available.")}'
+         '</div>'
          '<div class="l">Right first guess, averaged across species</div>'
          '<div class="n">each species counts once, whatever its size</div></div>',
          '</div>',
@@ -208,6 +234,33 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
          f'when Pl@ntNet is at least {hc.WAIT_CONF:.0%} confident it is right '
          f'<strong>{pctf(conf_acc)}</strong> of the time ({conf_n:,} crowns, '
          f'{pctf(conf_n / n)} of the set).</p>']
+
+    # ---- where the headline numbers come from ----
+    gt_date = _dt.date.fromtimestamp(os.path.getmtime(gt_csv)).isoformat()
+    funnel_body = funnel_list([
+        (len(h.split_rows), "photos in the whole BCI corpus"),
+        (len(h.gt_rows), "already carry a ground-truth species label \u2014 every "
+                         f"label collected to date, including the {gt_date} "
+                         "Labelbox export"),
+        (n, "of the labelled photos also have a cached Pl@ntNet prediction \u2014 "
+            "every accuracy figure on this page is measured on this set"),
+        (n_unlab, "have a prediction but no label yet \u2014 these sit in the "
+                  "send-first queue below"),
+        (n_no_answer, "got no prediction at all \u2014 check those by eye"),
+    ])
+    funnel_body += (
+        '<p class="note">A Labelbox export only adds or revises some of the photos '
+        'above; it does not replace the set. That is why one export\u2019s row count '
+        'never matches the corpus, ground-truth, evaluated, or queue counts here: '
+        'each of those counts a different thing, not the same thing measured twice.</p>'
+        '<p class="note">Split tags (train/valid/test) are not present in this NDJSON '
+        'export, so every metric on this page is computed over all labelled crowns '
+        'together, not held out by split. Treat the numbers as <b>provisional '
+        'all-label metrics</b>: they will become strict once split metadata is '
+        'available and a held-out evaluation can be run.</p>')
+    P.append(panel("Where these numbers come from",
+                   "<b>Read this if a count looks off, or before quoting a rate as final.</b>",
+                   funnel_body))
 
     # ---- what to send next ----
     top_lt = sorted(lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
@@ -227,37 +280,52 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
              + '.</p>'
              f'<p class="note">The top of <code>send_first_queue.csv</code> in the '
-             f'snapshot folder is the next batch. {n_no_answer} photos got no answer at '
+             f'snapshot folder is the next batch, chunked into <code>send_batches.csv</code> '
+             f'(one species per batch, at most {hc.BATCH_SIZE} crowns each) so it drops '
+             f'straight into a Labelbox send. {n_no_answer} photos got no answer at '
              f'all, likely junk; check those by eye.</p>')
     P.append(panel(f"What to send next: {queue_counts.get('long_tail', 0):,} of "
                    f"{n_unlab:,} unlabelled photos point at species we barely have",
                    "<b>Work the queues top to bottom.</b>", body, open_=True))
 
+    # ---- why the "can wait" threshold is safe ----
+    P.append(panel("Why this threshold is safe",
+                   "<b>Both must be green before a crown can wait.</b>",
+                   threshold_card(hc.WAIT_CONF, hc.WELL_SAMPLED_MIN_N), open_=True))
+
     # ---- the species table ----
     sp_rows, attrs = [], []
-    for d in sorted(per_species, key=lambda x: (-x["n_labelled_crowns"], x["species"])):
+    def species_rank(d):
+        sp = d["species"]
+        action = simple[sp][0]
+        if action == "send":
+            return (STATUS_PRIORITY[action], -queue_pressure[sp], d["n_labelled_crowns"],
+                    d["top1_accuracy"], sp)
+        if action == "fine":
+            return (STATUS_PRIORITY[action], d["n_labelled_crowns"], -d["top1_accuracy"], sp)
+        return (STATUS_PRIORITY[action], d["n_labelled_crowns"], sp)
+
+    for d in sorted(per_species, key=species_rank):
         sp = d["species"]
         key, label = simple[sp]
         sp_rows.append([
             f'<span class="sp" data-sort="{esc(sp)}">{esc(cap(sp))}</span>',
             f'<span data-sort="{d["n_labelled_crowns"]}">{d["n_labelled_crowns"]:,}</span>',
             f'<span data-sort="{d["top1_accuracy"]:.6f}">{pctf(d["top1_accuracy"])}</span>',
-            f'<span class="tag {TAG_CLASS[key]}" data-sort="{esc(label)}">'
-            f'{esc(label)}</span>'])
+            status_with_reason(TAG_CLASS[key], label, reasons[sp], sort_key=label)])
         attrs.append(f' data-species="{esc(sp)}" data-status="{key}"')
-    body = ('<div class="controls">'
-            '<input id="species-filter" type="search" placeholder="filter species&hellip;" '
-            'size="28" aria-label="filter species">'
-            '<select id="status-filter" aria-label="filter by status">'
-            '<option value="all">every status</option>'
-            '<option value="send">Send more photos</option>'
-            '<option value="fine">Doing fine</option>'
-            '<option value="unreachable">Pl@ntNet never names it</option>'
-            '</select><span class="count" id="species-count"></span></div>'
-            + table([("Species", False), ("Labelled crowns", True),
-                     ("First guess right", True), ("What to do", False)],
-                    sp_rows, tid="species-table", sortable_from=0, row_attrs=attrs))
-    P.append(panel(f"All {n_sp} species, most labelled first",
+    body = ('<p class="note">Hover the info icon for the reason behind each action. '
+            'The default order starts with the species that need work now.</p>'
+            + filterable_table(
+        [("Species", False), ("Labelled crowns", True),
+         ("First guess right", True), ("What to do", False)],
+        sp_rows,
+        options=[("send", "Send more photos"),
+                 ("fine", "Doing fine"),
+                 ("unreachable", "Pl@ntNet never names it")],
+        row_attrs=attrs,
+    ))
+    P.append(panel(f"All {n_sp} species, priority first",
                    "<b>Click a heading to sort, type to filter.</b>", body, open_=True))
 
     # ---- provenance, one line ----
