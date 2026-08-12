@@ -260,6 +260,7 @@ verified  confidence_calibration.csv: 5 confidence bands match
 verified  run_log.txt: the 86-crown ceiling, the 64 unscoreable evaluated crowns and the 2075-hit unreconciled baseline match
 verified  history.csv: 3 point(s), 2 reconstructed from ingest dates; the newest measured and newest reconstructed point both match the live crown count and both headline rates
 verified  send_first_queue.csv: 4,420 unlabelled crowns across 4 queues match
+verified  send_batches.csv: N rows in M batches, one species and at most 100 rows each
 verified  label_review_queue.csv: 33 crowns, 30 confusion pairs match
 verified  charts: a rising series is drawn rising and a bigger share is drawn wider
 ```

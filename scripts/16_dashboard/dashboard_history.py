@@ -133,8 +133,32 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, trend, n_crown
                 fail(f"send-first queue {q!r}: {k} here vs {ref.get(q, 0)} in {path}")
         if set(ref) - set(queue_counts):
             fail(f"send-first queues {sorted(set(ref) - set(queue_counts))} only in {path}")
-        checks.append(f"send_first_queue.csv: {sum(ref.values()):,} unlabelled crowns across "
+        n_unlab = sum(ref.values())
+        checks.append(f"send_first_queue.csv: {n_unlab:,} unlabelled crowns across "
                       f"{len(ref)} queues match")
+
+        # send_batches.csv must be a species-homogeneous, capped-size repartition
+        # of the exact same rows: same total, every batch one species and no
+        # more than BATCH_SIZE of them, no global_key skipped or duplicated.
+        bpath = os.path.join(directory, "send_batches.csv")
+        brows = hc.read_csv_rows(bpath)
+        by_batch: dict = {}
+        for r in brows:
+            by_batch.setdefault(r["batch_id"], []).append(r)
+        for bid, rows in by_batch.items():
+            if len(rows) > hc.BATCH_SIZE:
+                fail(f"send_batches.csv batch {bid}: {len(rows)} rows exceeds "
+                     f"BATCH_SIZE={hc.BATCH_SIZE}")
+            species = {r["species_group"] for r in rows}
+            if len(species) != 1:
+                fail(f"send_batches.csv batch {bid}: mixes species {sorted(species)}")
+        if len(brows) != n_unlab:
+            fail(f"send_batches.csv: {len(brows)} rows vs {n_unlab} in {path}")
+        if {r["global_key"] for r in brows} != {r["global_key"]
+                                                 for r in hc.read_csv_rows(path)}:
+            fail(f"send_batches.csv: global_key set does not match {path}")
+        checks.append(f"send_batches.csv: {len(brows):,} rows in {len(by_batch)} batches, "
+                      f"one species and at most {hc.BATCH_SIZE} rows each")
 
     if review_counts is not None:
         path = os.path.join(directory, "label_review_queue.csv")

@@ -5,7 +5,7 @@ Pl@ntNet-on-BCI model health, computed entirely offline from cached API response
 Run:  python3 16_model_health.py
 Writes per_species_health.csv, support_buckets.csv, filter_gain.csv,
 confidence_calibration.csv, name_reconciliation.csv, send_first_queue.csv,
-label_review_queue.csv and run_log.txt to
+send_batches.csv, label_review_queue.csv and run_log.txt to
 --out-dir (default: this directory), and prints headline numbers to stdout.
 
 Stdlib only (no pandas/numpy). Deterministic. No network calls.
@@ -21,9 +21,9 @@ from collections import Counter, defaultdict
 
 from health_core import (
     load_health,
-    pct, ratio, fmt, genus_of, normalize, queue_of_prediction,
+    pct, ratio, fmt, genus_of, normalize, queue_of_prediction, chunk_send_batches,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
-    QUEUE_ORDER, REVIEW_CONF,
+    QUEUE_ORDER, REVIEW_CONF, BATCH_SIZE,
     GT_KEY_PREFIX, GT_CSV, SPLITS_CSV, CACHE_DIR, WCVP_CACHE_JSON,
 )
 
@@ -344,11 +344,23 @@ def main() -> None:
         queue_rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), float(r[4]), r[1]))
         w.writerows(queue_rows)
 
+    # Species-grouped Labelbox send batches over the same priority order, capped
+    # at BATCH_SIZE rows each: the CSV policy is priority-first globally, then
+    # one species per batch so a send is never a mixed bag.
+    batch_rows = chunk_send_batches(queue_rows, batch_size=BATCH_SIZE)
+    with open(os.path.join(out_dir, "send_batches.csv"), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["batch_id", "species_group", "global_key", "queue"])
+        w.writerows(batch_rows)
+
     n_unlab = sum(q_counts.values())
+    n_batches = batch_rows[-1][0] if batch_rows else 0
     log("--- SEND-FIRST QUEUE (cached predictions with no GT label) ---")
     log(f"  unlabelled crowns with a prediction : {n_unlab}")
     for q in QUEUE_ORDER:
         log(f"    {q:<16}: {q_counts[q]}")
+    log(f"  send_batches.csv                    : {len(batch_rows)} rows in {n_batches} "
+        f"batches, max {BATCH_SIZE}/batch, species-grouped")
     log(f"  unlabelled crowns with NO answer    : {n_no_answer}  (empty candidate list;")
     log("    possible junk or non-plant photos; check a sample")
     log("    by eye before queueing, no automatic rule)")
@@ -379,7 +391,8 @@ def main() -> None:
     log("--- FILES WRITTEN ---")
     for fn in ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
                "confidence_calibration.csv", "name_reconciliation.csv",
-               "send_first_queue.csv", "label_review_queue.csv", "run_log.txt"):
+               "send_first_queue.csv", "send_batches.csv", "label_review_queue.csv",
+               "run_log.txt"):
         log(f"  {os.path.join(out_dir, fn)}")
 
     with open(os.path.join(out_dir, "run_log.txt"), "w", encoding="utf-8") as f:
