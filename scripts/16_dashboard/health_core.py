@@ -204,6 +204,41 @@ def bucket_label(n: int) -> str:
 # Queue names, in the order a botanist should work through them.
 QUEUE_ORDER = ["long_tail", "low_conf_known", "normal", "can_wait"]
 
+# Labelbox send batches: no more than this many crowns per batch, so a single
+# send stays inside what one botanist session can review.
+BATCH_SIZE = 100
+
+
+def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
+    """Species-grouped, priority-first batches over an already-ordered queue.
+
+    ``queue_rows`` is send_first_queue.csv's row order: queue priority first,
+    then weakest confidence first inside a queue (see 16_model_health.py). This
+    keeps that global priority order between species -- a species is only
+    visited once, at the point its first (highest-priority) row occurs -- and
+    groups every row for that species together so a Labelbox send is
+    species-homogeneous, never spanning more than ``batch_size`` rows. Pure
+    function of its input, so the same queue always chunks the same way.
+    """
+    order: list[str] = []
+    seen: set[str] = set()
+    by_species: dict[str, list] = defaultdict(list)
+    for row in queue_rows:
+        sp = row[3]  # predicted_species
+        by_species[sp].append(row)
+        if sp not in seen:
+            seen.add(sp)
+            order.append(sp)
+    batches = []
+    batch_id = 0
+    for sp in order:
+        rows = by_species[sp]
+        for i in range(0, len(rows), batch_size):
+            batch_id += 1
+            for row in rows[i:i + batch_size]:
+                batches.append([batch_id, sp, row[1], row[0]])
+    return batches
+
 
 def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> str:
     """Which queue an unlabelled crown lands in, from its first guess alone.
