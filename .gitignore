@@ -5,3 +5,6 @@ data/embeddings/
 data/survey_jsons/
 __pycache__/
 *.pyc
+snapshots/
+data/*
+!data/wcvp_cache.json

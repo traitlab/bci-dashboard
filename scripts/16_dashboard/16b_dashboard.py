@@ -579,9 +579,7 @@ def main() -> None:
     ap.add_argument("--cache-dir", default=hc.CACHE_DIR)
     ap.add_argument("--wcvp-cache", default=hc.WCVP_CACHE_JSON)
     ap.add_argument("--verify-against",
-                    default=os.path.join(os.path.dirname(hc.REPO),
-                                         "bci_workshop_labelbox_plantnet-docs",
-                                         "model-health-2026-08-03"),
+                    default=os.path.join(hc.SNAPSHOT_DIR, "model-health-2026-08-03"),
                     help="directory holding the committed measurement CSVs to cross-check; "
                          "its siblings model-health-<date>/ are the trend history")
     ap.add_argument("--model-tag", default="unknown",

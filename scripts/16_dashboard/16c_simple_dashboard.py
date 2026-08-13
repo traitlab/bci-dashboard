@@ -71,13 +71,13 @@ SNAPSHOT_GLOB = "model-health-*"
 
 
 def latest_snapshot_dir() -> str:
-    """Newest model-health-<date>/ folder beside the docs repo.
+    """Newest model-health-<date>/ folder in the snapshot store.
 
     Defaulting to the newest rather than a fixed date keeps this page's gate
     pointed at the snapshot the GT currently reflects; the date is in the
     folder name, so sorting is unambiguous.
     """
-    docs = os.path.join(os.path.dirname(hc.REPO), "bci_workshop_labelbox_plantnet-docs")
+    docs = hc.SNAPSHOT_DIR
     found = sorted(d for d in glob.glob(os.path.join(docs, SNAPSHOT_GLOB))
                    if re.search(r"\d{4}-\d{2}-\d{2}$", d))
     if not found:

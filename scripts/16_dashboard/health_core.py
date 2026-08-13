@@ -23,19 +23,36 @@ from dataclasses import dataclass
 from typing import Optional
 
 # --------------------------------------------------------------------------
-# INPUT PATHS (constants -- edit here if the sources move)
+# INPUT PATHS
 # --------------------------------------------------------------------------
-REPO = "/Users/w/Documents/Github/bci_workshop_labelbox_plantnet"
-BASE = os.path.join(REPO, "output", "15_active_selection")
+# Every path is derived from the checkout, so a clone runs anywhere. Each one
+# takes an environment override for machines that keep the data elsewhere:
+#   BCI_DASHBOARD_REPO      checkout root            (default: two levels up)
+#   BCI_DASHBOARD_DATA      measurement inputs       (default: <repo>/output/15_active_selection)
+#   BCI_DASHBOARD_SNAPSHOTS dated snapshot store     (default: <repo>/snapshots)
+#   BCI_WCVP_CACHE          WCVP resolution cache    (default: <repo>/data/wcvp_cache.json)
+REPO = os.environ.get("BCI_DASHBOARD_REPO") or os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BASE = os.environ.get("BCI_DASHBOARD_DATA") or os.path.join(
+    REPO, "output", "15_active_selection")
 
 GT_CSV = os.path.join(BASE, "gt_dominant_taxon.csv")
 SPLITS_CSV = os.path.join(BASE, "splits.csv")
 CACHE_DIR = os.path.join(BASE, "new_ingest", "cache")
 
+# Dated model-health-<date>/ folders. Lived in a sibling -docs repo while the
+# dashboard was part of the workshop pipeline; now inside this repo, gitignored,
+# because the snapshots are the trend history and belong with the code reading
+# them.
+SNAPSHOT_DIR = os.environ.get("BCI_DASHBOARD_SNAPSHOTS") or os.path.join(REPO, "snapshots")
+
 # Local warm WCVP resolution cache (built earlier from the GBIF-hosted WCVP
 # dataset f382f0ce-323a-4091-bb9f-add557f3a9a2). Covers the ~249 BCI labels
-# only. Set to None to disable match tier (d).
-WCVP_CACHE_JSON = "/Users/w/Documents/Github/speciesfirst/demo/interface_bundle_bci/wcvp_cache.json"
+# only. None disables match tier (d).
+WCVP_CACHE_JSON = os.environ.get("BCI_WCVP_CACHE") or os.path.join(
+    REPO, "data", "wcvp_cache.json")
+if not os.path.exists(WCVP_CACHE_JSON):
+    WCVP_CACHE_JSON = None
 
 # global_key in the CSVs is "comb_<stem>.JPG"; cache file is "<stem>.JPG.json"
 GT_KEY_PREFIX = "comb_"
