@@ -8,8 +8,8 @@ snapshot's CSVs or run log, and ``load_trend``/``Trend`` turn the whole series o
 snapshots into charts.
 
 The page is meant to be re-run over months. Each run of 16_model_health.py
-leaves a snapshot folder ``bci_workshop_labelbox_plantnet-docs/
-model-health-<date>/``; this module folds every one of them into a single
+leaves a snapshot folder ``snapshots/model-health-<date>/``; this module folds
+every one of them into a single
 append-only ``history.csv`` beside the newest snapshot's CSVs, so the page
 reads one small file instead of re-parsing every snapshot.
 
