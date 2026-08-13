@@ -2,7 +2,7 @@
 """Prose panels for the model-health dashboard.
 
 Two panels that are mostly explanation rather than measurement live here, so
-16b_dashboard.py stays a page assembler:
+build_full.py stays a page assembler:
 
 - ``weighting_panel`` answers the question the two headline numbers always
   provoke, namely how one model can score 81% and 56% at once.

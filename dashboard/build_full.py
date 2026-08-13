@@ -51,8 +51,9 @@ STATUS = {
              "More labels will not fix this one. Treat it as a model limit"),
     "adequate": ("Mixed", "Keep it in the normal review queue"),
     "reliable": ("Usually right", "Lowest priority. Spot-check a few and move on"),
-    "unreachable": ("Model never names it",
-                    "Nothing to do. The model cannot return this species"),
+    "unreachable": ("Never named in five candidates",
+                    "Nothing to do until we know whether Pl@ntNet carries this "
+                    "species at all"),
 }
 
 STATUS_REASON = {
@@ -61,7 +62,8 @@ STATUS_REASON = {
     "hard": "Enough crowns, but the first guess is still weak, so more labels will not fix it.",
     "adequate": "Mixed results, so keep it in the normal review queue.",
     "reliable": "Usually right, so this species is low priority for extra work.",
-    "unreachable": "The model never names it in the cached answers, so current labelling will not recover it.",
+    "unreachable": "It never appears in the five candidates we asked for, so labelling will not "
+                   "recover it. Whether Pl@ntNet carries the species at all is not known from here.",
 }
 
 HEADLINES = [
@@ -256,10 +258,12 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     P.append(f'</div><p class="note"><strong>Of the crowns this evaluation can possibly score, '
              f'{pctf(reach1)} are right: {sum(1 for r in reach if top1(r) == r["gt"]):,} of '
              f'{len(reach):,}.</strong> The other {n - len(reach):,} crowns belong to '
-             f'{len(never)} species the model never names, so they are wrong at every '
-             f'threshold and no amount of work on our side can score them. We asked for only '
-             f'five candidates per photo, so a species Pl@ntNet knows but never ranked in the '
-             f'top five is indistinguishable here from one it cannot return. '
+             f'{len(never)} species that never appear in the five candidates, so they are wrong '
+             f'at every threshold and no amount of work on our side can score them. We asked for '
+             f'only five candidates per photo, so a species Pl@ntNet knows but never ranked in '
+             f'the top five is indistinguishable here from one it cannot return. Reading this '
+             f'{len(never)} as &ldquo;outside Pl@ntNet&rsquo;s checklist&rdquo; overstates it: '
+             f'the checklist itself is what would settle that, and we do not hold it. '
              f'&ldquo;What this cannot tell you&rdquo; says where that five came from.</p>')
 
     # Panels are built in reading order but emitted in section order at the foot of
@@ -285,7 +289,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                 f'species scored on this page because they never named a species; see the '
                 f'genus paragraph under &ldquo;What this cannot tell you&rdquo;.</p>')
     p_todo = panel(f"Where to spend botanist time next: {counts['ranking']} species are a "
-                   f"cheap confirmation, {counts['unreachable']} are not worth any time",
+                   f"cheap confirmation, {counts['unreachable']} are not worth time yet",
                    "<b>Work top to bottom.</b> Rows are ordered cheapest useful work first, "
                    "and the last two rows are work you can skip.",
                    "\n".join(body), open_=True)
