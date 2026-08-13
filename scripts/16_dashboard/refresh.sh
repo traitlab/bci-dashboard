@@ -16,8 +16,8 @@
 # Intended to be run by launchd (org.bci.dashboard-refresh.plist) or by hand.
 set -euo pipefail
 
-REPO="$REPO"
-DOCS="$(dirname "$REPO")/bci_workshop_labelbox_plantnet-docs"
+REPO="${BCI_DASHBOARD_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+DOCS="${BCI_DASHBOARD_SNAPSHOTS:-$REPO/snapshots}"
 GT="$REPO/output/15_active_selection/gt_dominant_taxon.csv"
 MARKER="$REPO/output/15_active_selection/last_merged_export.txt"
 TODAY="$(date +%F)"

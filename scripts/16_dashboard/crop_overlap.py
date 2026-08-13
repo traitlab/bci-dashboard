@@ -22,7 +22,7 @@ import collections
 import csv
 import os
 
-from health_core import normalize
+from health_core import REPO, normalize
 
 # Must match CROP_SIZE in scripts/13_single_predictions/13a_get_single_predictions.py
 CROP_SIZE = 1280
@@ -33,10 +33,7 @@ CROP_SIZE = 1280
 FRAME_W = 4000
 FRAME_H = 3000
 
-BOXES_CSV = os.path.join(
-    "$REPO",
-    "input", "boxes", "crop_bounding_boxes.csv",
-)
+BOXES_CSV = os.path.join(REPO, "input", "boxes", "crop_bounding_boxes.csv")
 
 # Default admission threshold: the dominant species must cover at least this
 # fraction of the crop.

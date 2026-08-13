@@ -3,3 +3,9 @@ requests
 python-dotenv
 pyyaml
 Pillow
+
+# 15c_aggregate_survey.py only (the --aggregate path of 15xi). The dashboard
+# itself is stdlib. labelfirst is not on PyPI: install from the traitlab repo.
+numpy
+pandas
+# labelfirst
