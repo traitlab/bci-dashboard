@@ -9,15 +9,15 @@ Two panels that are mostly explanation rather than measurement live here, so
 - ``method_panel`` names the model, the request settings, and the assumption
   that cannot be checked offline.
 
-Every figure either arrives already verified from ``health_core`` or is
+Every figure either arrives already verified from ``core`` or is
 recomputed here from the same records. Nothing is hardcoded.
 """
 
 from collections import Counter
 from statistics import median
 
-import health_core as hc
-from dashboard_assets import cap, esc, panel, pctf, svg_hbar, svg_weight_pair
+import core as hc
+from assets import cap, esc, panel, pctf, svg_hbar, svg_weight_pair
 
 # One colour and one plain-English name per labelled-crown band, shared by both
 # bars of the weighting chart so a band is recognisable across them. The ramp
@@ -197,7 +197,7 @@ def method_panel(*, tag, n, n_sp, checks):
             f'crowns only under an assumption that cannot be tested offline.</li>'
             '<li>Ground truth: the July 2026 revision pass on Labelbox project '
             '<code>2024_bci</code> (exported 2026-08-06), merged over the older offline '
-            'labels by <code>15a2_gt_from_labelbox_export.py</code>: where a photo carries '
+            'labels by <code>labelling/gt_from_export.py</code>: where a photo carries '
             'a July label it wins, everything else keeps the earlier label. The July '
             'batch has had no review step on Labelbox yet.</li>'
             f'<li>Trend: one row per snapshot folder and metric in <code>history.csv</code>, '
@@ -218,8 +218,8 @@ def method_panel(*, tag, n, n_sp, checks):
             'reapplied by hand. What it shares with those packages is the decision rather than '
             'the code: the deprioritization rule here orders a queue exactly as it does '
             'there.</li>'
-            '<li>Rebuild: <code>python3 scripts/16_dashboard/16_model_health.py</code> then '
-            '<code>python3 scripts/16_dashboard/16b_dashboard.py</code>. Standard library '
+            '<li>Rebuild: <code>python3 dashboard/measure.py</code> then '
+            '<code>python3 dashboard/build_full.py</code>. Standard library '
             'only, same output every run, no network.</li></ul>')
     return panel("How this was measured, and what it does not tell you",
                  "<b>Read this before quoting any number outside the team.</b> It names "

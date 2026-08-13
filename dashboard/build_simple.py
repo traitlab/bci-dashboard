@@ -9,12 +9,12 @@ programme asks every week, in plain English:
 2. Which species need more photos? (the whole species list, three statuses)
 3. What do we send the botanist next? (the send-first queues, ordered)
 
-Same data layer (health_core), same verification gate (dashboard_history):
+Same data layer (core), same verification gate (history):
 every number is recomputed from source and cross-checked against the
 committed snapshot CSVs, and a mismatch aborts the build, so the two pages
 cannot disagree. Stdlib only, no network, opens from a file:// URL.
 
-    python3 scripts/16_dashboard/16c_simple_dashboard.py [--out PATH]
+    python3 dashboard/build_simple.py [--out PATH]
 """
 
 from __future__ import annotations
@@ -29,12 +29,12 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import health_core as hc  # noqa: E402
-from dashboard_assets import (CSS, JS, cap, esc, filterable_table, funnel_list, info_tip, panel, pctf,
+import core as hc  # noqa: E402
+from assets import (CSS, JS, cap, esc, filterable_table, funnel_list, info_tip, panel, pctf,
                               status_with_reason, table, threshold_card)  # noqa: E402
-from dashboard_history import load_trend, verify_snapshot  # noqa: E402
+from history import load_trend, verify_snapshot  # noqa: E402
 
-# The six-way diagnosis from health_core collapsed to the three actions this
+# The six-way diagnosis from core collapsed to the three actions this
 # page exists to drive. "hard" lands in "send" on purpose: the current model
 # is frozen, but our labels feed Pl@ntNet's next retraining, and the
 # 2026-07-30 call named abundant-but-poorly-done species as the priority.
@@ -88,7 +88,7 @@ def latest_snapshot_dir() -> str:
 def gt_provenance(gt_csv: str) -> str:
     """One line saying where the ground truth came from.
 
-    The merge script (15a2) writes a sidecar next to the GT at merge time, so
+    The merge script (labelling/gt_from_export.py) writes a sidecar next to the GT at merge time, so
     the page describes the current batch rather than a baked-in one. Without a
     sidecar, fall back to the file's own date: vague, but never stale.
     """
@@ -163,7 +163,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
 
     trend = load_trend(verify_dir, fallback_tag, sp_recs=sp_recs, cache_dir=cache_dir)
 
-    # --- send-first queue over the unlabelled pool (logic lives in health_core).
+    # --- send-first queue over the unlabelled pool (logic lives in core).
     acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     joined_stems = {stem for _, stem, _ in h.joined}
     queue_counts = {}
@@ -353,7 +353,7 @@ def main() -> None:
     ap.add_argument("--model-tag", default="unknown",
                     help="Pl@ntNet model iteration to record for a snapshot whose "
                          "run_log.txt does not name one")
-    ap.add_argument("--out", default=os.path.join(hc.REPO, "output", "16_dashboard",
+    ap.add_argument("--out", default=os.path.join(hc.REPO, "build",
                                                   "simple_dashboard.html"))
     ap.add_argument("--generated", default=None,
                     help="build date string; defaults to today (pass a fixed value for "

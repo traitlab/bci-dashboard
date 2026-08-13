@@ -24,12 +24,12 @@ Input:
   input/boxes/bci_images_for_plantnet_w_split.csv     - base frame URLs
 
 Output:
-  output/18_crown_predictions/cache/<crown_id>.json   - per-crown cache
-  output/18_crown_predictions/run_log.txt
+  data/crowns/cache/<crown_id>.json   - per-crown cache
+  data/crowns/run_log.txt
 
 Usage:
-  python scripts/18_crown_predictions/18a_get_crown_predictions.py
-  python scripts/18_crown_predictions/18a_get_crown_predictions.py --run --max-calls 9500
+  python predict/crown.py
+  python predict/crown.py --run --max-calls 9500
 """
 
 import argparse
@@ -46,7 +46,7 @@ import yaml
 from dotenv import load_dotenv
 from PIL import Image
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[1]
 
 BOXES_CSV = REPO / "input" / "boxes" / "crop_bounding_boxes.csv"
 FRAMES_CSV = REPO / "input" / "boxes" / "bci_images_for_plantnet_w_split.csv"
@@ -66,10 +66,10 @@ def _load_13a():
     """Reuse 13a's API client rather than restating it.
 
     Module name starts with a digit so it cannot be imported normally; the
-    by-path import is the same idiom 16d uses for 15a2.
+    by-path import is the same idiom build_export_only.py uses.
     """
-    path = REPO / "scripts" / "13_single_predictions" / "13a_get_single_predictions.py"
-    spec = importlib.util.spec_from_file_location("_pn13a", path)
+    path = REPO / "predict" / "photo.py"
+    spec = importlib.util.spec_from_file_location("_predict_photo", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -156,7 +156,7 @@ def main() -> None:
     with open(REPO / "config.yaml") as fh:
         config = yaml.safe_load(fh)
 
-    out_dir = REPO / "output" / "18_crown_predictions"
+    out_dir = REPO / "data" / "crowns"
     cache_dir = out_dir / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
 

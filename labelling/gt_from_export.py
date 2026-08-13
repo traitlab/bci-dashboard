@@ -20,10 +20,10 @@ no-cache log lines in the dashboard measurement.
 Read-only — the NDJSON is parsed, never written back to Labelbox.
 
 Usage:
-    python3 scripts/15_active_selection/15a2_gt_from_labelbox_export.py \
+    python3 labelling/gt_from_export.py \
         --export "/path/to/Export  project - 2024_bci - 8_6_2026.ndjson"
 
-Out: ``output/15_active_selection/gt_dominant_taxon.csv`` (rewritten in place)
+Out: ``data/gt_dominant_taxon.csv`` (rewritten in place)
 """
 from __future__ import annotations
 
@@ -36,8 +36,8 @@ from datetime import date
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-GT = REPO / "output" / "15_active_selection" / "gt_dominant_taxon.csv"
-SPLITS = REPO / "output" / "15_active_selection" / "splits.csv"
+GT = REPO / "data" / "gt_dominant_taxon.csv"
+SPLITS = REPO / "data" / "splits.csv"
 GT_KEY_PREFIX = "comb_"
 
 _CODE = re.compile(r"^[A-Z0-9]{2,}$")

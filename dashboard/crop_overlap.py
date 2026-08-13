@@ -1,9 +1,10 @@
 """What Pl@ntNet actually saw, and how much of the label it covered.
 
-13a/15xi send Pl@ntNet a fixed CROP_SIZE square cut from the centre of each base
-drone frame, then discard the crop offsets. Ground truth, meanwhile, comes from
-crown bounding boxes drawn anywhere in the full frame. So a prediction made from
-13.7% of the frame is scored against a label that may lie entirely outside it.
+The prediction scripts send Pl@ntNet a fixed CROP_SIZE square cut from the
+centre of each base drone frame, then discard the crop offsets. Ground truth,
+meanwhile, comes from crown bounding boxes drawn anywhere in the full frame. So
+a prediction made from 13.7% of the frame is scored against a label that may lie
+entirely outside it.
 
 This module recomputes the crop rectangle offline and measures, per frame, how
 much of that rectangle each labelled species covers. Downstream code uses the
@@ -22,14 +23,14 @@ import collections
 import csv
 import os
 
-from health_core import REPO, normalize
+from core import REPO, normalize
 
-# Must match CROP_SIZE in scripts/13_single_predictions/13a_get_single_predictions.py
+# Must match CROP_SIZE in predict/photo.py
 CROP_SIZE = 1280
 
 # Verified constant across the sampled corpus. Used only when a frame's real
-# dimensions are unknown, which is the normal case: the cache written by 15xi
-# stores no geometry.
+# dimensions are unknown, which is the normal case: the cache written by
+# predict/ingest_photos.py stores no geometry.
 FRAME_W = 4000
 FRAME_H = 3000
 
@@ -47,7 +48,7 @@ EDGE_TOLERANCE = 4
 
 
 def crop_rect(frame_w=FRAME_W, frame_h=FRAME_H, crop_size=CROP_SIZE):
-    """The rectangle 13a/15xi sent, as (x0, y0, x1, y1).
+    """The rectangle the prediction scripts sent, as (x0, y0, x1, y1).
 
     Returns None when the frame is smaller than crop_size in either dimension,
     which is the branch where center_crop_jpeg sends the whole image untouched.

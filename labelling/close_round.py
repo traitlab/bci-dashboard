@@ -11,10 +11,10 @@ GT CSV. Never modifies or deletes anything in Labelbox.
 
 Usage:
     # Dry run (show what would be appended, don't write):
-    python scripts/15_active_selection/15xiii_close_round.py --round 1 --dry-run
+    python labelling/close_round.py --round 1 --dry-run
 
     # Append new labels to GT:
-    python scripts/15_active_selection/15xiii_close_round.py --round 1
+    python labelling/close_round.py --round 1
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ from dotenv import load_dotenv
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]
-GT_CSV = REPO / "output" / "15_active_selection" / "gt_dominant_taxon.csv"
+GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
 EXPORT_TIMEOUT_SEC = 600
 TAXON_TOOL_NAME = "Planta"
 TAXON_RADIO_NAME = "Taxón"
@@ -207,8 +207,8 @@ def main() -> None:
     print(f"  Total GT rows:      {len(existing_keys) + len(new_entries)}")
     print(f"  New unique species: {len(species_counts)}")
     print(f"  GT file:            {args.gt}")
-    print(f"\n  Next: python scripts/15_active_selection/15_select_batch.py \\")
-    print(f"            --strategy coreset --round {args.round + 1} --n 200")
+    print(f"\n  Next: python3 dashboard/measure.py, then dispatch the top of")
+    print(f"        send_batches.csv with labelling/dispatch_round.py --round {args.round + 1}")
     print(f"{'=' * 50}")
 
 

@@ -1,6 +1,6 @@
 """Dispatch a round selection to Labelbox Project B.
 
-Reads a selection CSV (from 15_select_batch.py), upserts a
+Reads a selection CSV (from the send-first queue (dashboard/measure.py)), upserts a
 ``selection_round`` metadata field on the chosen data rows, and creates
 a labelling batch in Project B.
 
@@ -10,12 +10,12 @@ modifies, or moves existing resources. Follows the three-stage protocol
 
 Usage:
     # Stage 1 — test with 5 rows:
-    python scripts/15_active_selection/15xii_dispatch_round.py \\
-        --round 1 --csv output/15_active_selection/round_01_coreset_selection.csv --test
+    python labelling/dispatch_round.py \\
+        --round 1 --csv data/round_01_coreset_selection.csv --test
 
     # Stage 2 — full dispatch:
-    python scripts/15_active_selection/15xii_dispatch_round.py \\
-        --round 1 --csv output/15_active_selection/round_01_coreset_selection.csv
+    python labelling/dispatch_round.py \\
+        --round 1 --csv data/round_01_coreset_selection.csv
 """
 from __future__ import annotations
 
@@ -101,7 +101,7 @@ def main() -> None:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--round", type=int, required=True, help="round number (1, 2, ...)")
-    ap.add_argument("--csv", type=Path, required=True, help="selection CSV from 15_select_batch.py")
+    ap.add_argument("--csv", type=Path, required=True, help="selection CSV from the send-first queue (dashboard/measure.py)")
     ap.add_argument("--test", action="store_true", help="process first 5 rows only (Stage 1)")
     ap.add_argument("--priority", type=int, default=1, choices=[1, 2, 3, 4, 5],
                     help="labelling priority (1=highest, default 1)")

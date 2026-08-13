@@ -1,11 +1,11 @@
 """
-Phase 1a-single — Get Pl@ntNet single-species predictions for all BCI images.
+Pl@ntNet single-species predictions, one call per photo.
 
 Calls the Pl@ntNet /v2/identify/{project} endpoint (one call per image, 1 credit
 each) and saves the top-N species results + organ predictions per image.
 
-Uses the same center-crop (1280×1280) and disk-cache/resume pattern as
-13a_get_embeddings.py. Safe to stop and resume at any time.
+Uses a 1280x1280 centre crop and a disk-cache/resume pattern. Safe to stop and
+resume at any time.
 
 Config (config.yaml):
   plantnet.identify_url       — full API endpoint URL
@@ -14,17 +14,17 @@ Config (config.yaml):
   plantnet.identify_lang      — language for common names (default "en")
 
 Input:
-  output/05_export_for_plantnet/bci_images_for_plantnet.csv
+  input/boxes/bci_images_for_plantnet.csv
 
 Output:
-  output/13_single_predictions/cache/<global_key>.json  — per-image cache
-  output/13_single_predictions/predictions.json         — all results combined
-  output/13_single_predictions/predictions_summary.json — run statistics
+  data/photos/cache/<global_key>.json  — per-image cache
+  data/photos/predictions.json         — all results combined
+  data/photos/predictions_summary.json — run statistics
 
 Usage:
-  python scripts/13_single_predictions/13a_get_single_predictions.py --test
-  python scripts/13_single_predictions/13a_get_single_predictions.py
-  python scripts/13_single_predictions/13a_get_single_predictions.py --delay 1.0
+  python predict/photo.py --test
+  python predict/photo.py
+  python predict/photo.py --delay 1.0
 """
 
 import argparse
