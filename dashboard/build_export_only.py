@@ -16,7 +16,7 @@ trend -- none of that is "this export", so none of it is on this page.
 Read-only against Labelbox data: the export is parsed, never written back,
 and the cumulative GT file on disk is never touched (see CLAUDE.md).
 
-    python3 scripts/16_dashboard/16d_export_only_dashboard.py \\
+    python3 dashboard/build_export_only.py \\
         --export "/path/to/Export  project - 2024_bci - 8_6_2026.ndjson" \\
         [--out PATH]
 """
@@ -33,8 +33,8 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import health_core as hc  # noqa: E402
-from dashboard_assets import (
+import core as hc  # noqa: E402
+from assets import (
     CSS,
     JS,
     cap,
@@ -47,17 +47,16 @@ from dashboard_assets import (
 GT_KEY_PREFIX = hc.GT_KEY_PREFIX  # "comb_": GT/global_key convention this page reuses
 
 
-def _load_15a2():
-    """Import 15a2's ``export_dominants`` without duplicating its NDJSON parse.
+def _load_gt_from_export():
+    """Import the merge script's ``export_dominants`` without duplicating its
+    NDJSON parse.
 
-    Loaded by path, not by package import: 15_active_selection isn't a
-    package on the normal path, and this is the one function this page
-    needs from it (module-level only; ``main()`` is never called).
+    Loaded by path, not by package import: labelling/ isn't a package on the
+    normal path, and this is the one function this page needs from it
+    (module-level only; ``main()`` is never called).
     """
-    path = os.path.join(
-        hc.REPO, "scripts", "15_active_selection", "15a2_gt_from_labelbox_export.py"
-    )
-    spec = importlib.util.spec_from_file_location("_15a2", path)
+    path = os.path.join(hc.REPO, "labelling", "gt_from_export.py")
+    spec = importlib.util.spec_from_file_location("_gt_from_export", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -72,7 +71,7 @@ def export_only_health(
     file so the existing, already-verified ``load_health`` join/scoring logic
     can be reused unchanged; nothing is written under the repo.
     """
-    mod = _load_15a2()
+    mod = _load_gt_from_export()
     with open(export_path, encoding="utf-8") as f:
         n_rows = sum(1 for _ in f)
     dominants = mod.export_dominants(export_path)  # stem -> species, this export only
@@ -216,7 +215,7 @@ def main() -> None:
     ap.add_argument(
         "--out",
         default=os.path.join(
-            hc.REPO, "output", "16_dashboard", "export_only_dashboard.html"
+            hc.REPO, "build", "export_only_dashboard.html"
         ),
     )
     ap.add_argument(

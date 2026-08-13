@@ -27,23 +27,20 @@ from typing import Optional
 # --------------------------------------------------------------------------
 # Every path is derived from the checkout, so a clone runs anywhere. Each one
 # takes an environment override for machines that keep the data elsewhere:
-#   BCI_DASHBOARD_REPO      checkout root            (default: two levels up)
-#   BCI_DASHBOARD_DATA      measurement inputs       (default: <repo>/output/15_active_selection)
+#   BCI_DASHBOARD_REPO      checkout root            (default: one level up)
+#   BCI_DASHBOARD_DATA      measurement inputs       (default: <repo>/data)
 #   BCI_DASHBOARD_SNAPSHOTS dated snapshot store     (default: <repo>/snapshots)
 #   BCI_WCVP_CACHE          WCVP resolution cache    (default: <repo>/data/wcvp_cache.json)
 REPO = os.environ.get("BCI_DASHBOARD_REPO") or os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-BASE = os.environ.get("BCI_DASHBOARD_DATA") or os.path.join(
-    REPO, "output", "15_active_selection")
+    os.path.dirname(os.path.abspath(__file__)))
+BASE = os.environ.get("BCI_DASHBOARD_DATA") or os.path.join(REPO, "data")
 
 GT_CSV = os.path.join(BASE, "gt_dominant_taxon.csv")
 SPLITS_CSV = os.path.join(BASE, "splits.csv")
-CACHE_DIR = os.path.join(BASE, "new_ingest", "cache")
+CACHE_DIR = os.path.join(BASE, "predictions", "cache")
 
-# Dated model-health-<date>/ folders. Lived in a sibling -docs repo while the
-# dashboard was part of the workshop pipeline; now inside this repo, gitignored,
-# because the snapshots are the trend history and belong with the code reading
-# them.
+# Dated model-health-<date>/ folders: the trend history, kept beside the code
+# that reads it. Gitignored.
 SNAPSHOT_DIR = os.environ.get("BCI_DASHBOARD_SNAPSHOTS") or os.path.join(REPO, "snapshots")
 
 # Local warm WCVP resolution cache (built earlier from the GBIF-hosted WCVP
@@ -240,7 +237,7 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
     """Species-grouped, priority-first batches over an already-ordered queue.
 
     ``queue_rows`` is send_first_queue.csv's row order: queue priority first,
-    then weakest confidence first inside a queue (see 16_model_health.py). This
+    then weakest confidence first inside a queue (see measure.py). This
     keeps that global priority order between species -- a species is only
     visited once, at the point its first (highest-priority) row occurs -- and
     groups every row for that species together so a Labelbox send is
@@ -492,8 +489,8 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
             corpus_vocab[normalize(b)] += 1
 
     _log("--- CACHED PREDICTIONS: PROVENANCE ---")
-    _log("  Read from scripts/15_active_selection/15xi_ingest_new_photos.py + config.yaml")
-    _log("  + scripts/15_active_selection/sbatch_ingest.sh (the run that filled this cache):")
+    _log("  Read from predict/ingest_photos.py + config.yaml")
+    _log("  + bin/sbatch_ingest.sh (the run that filled this cache):")
     _log("    endpoint : https://my-api.plantnet.org/v2/identify/k-central-america")
     _log("               -> the CENTRAL AMERICA regional model, NOT the global Pl@ntNet model.")
     _log("               The sbatch job passes no --survey-endpoint, so the 2-call")
@@ -585,8 +582,8 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
 
     _log("--- NAME RECONCILIATION ---")
     _log("  GT column is called 'wcvp_canonical_name' but IS NOT WCVP-resolved: it is a")
-    _log("  string-strip of the Labelbox field label (see scripts/15_active_selection/")
-    _log("  15a_export_gt_dominant_taxon.py). Hence trailing collection codes ('-QUARAS')")
+    _log("  string-strip of the Labelbox field label (see labelling/")
+    _log("  gt_from_export.py). Hence trailing collection codes ('-QUARAS')")
     _log("  and pre-revision synonyms ('Arrabidaea candicans') survive in it.")
     _log("")
     _log("  'corpus vocabulary' = every distinct binomial appearing anywhere in the")

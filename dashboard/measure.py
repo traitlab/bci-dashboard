@@ -2,7 +2,7 @@
 """
 Pl@ntNet-on-BCI model health, computed entirely offline from cached API responses.
 
-Run:  python3 16_model_health.py
+Run:  python3 dashboard/measure.py
 Writes per_species_health.csv, support_buckets.csv, filter_gain.csv,
 confidence_calibration.csv, name_reconciliation.csv, send_first_queue.csv,
 send_batches.csv, label_review_queue.csv, coverage_gate.csv and run_log.txt to
@@ -19,7 +19,7 @@ import os
 import sys
 from collections import Counter, defaultdict
 
-from health_core import (
+from core import (
     load_health,
     pct, ratio, fmt, genus_of, normalize, queue_of_prediction, chunk_send_batches,
     coverage_gate_sweep, coverage_gate_stats, coverage_split,
@@ -279,7 +279,7 @@ def main() -> None:
         f"{gate['n_species']} species)")
     log(f"  {'species':<34} {n_sp:>12} {gate['n_species']:>12}")
     log(f"  threshold in force                  : {MIN_CROP_COVERAGE:.2f} "
-        f"(health_core.MIN_CROP_COVERAGE)")
+        f"(core.MIN_CROP_COVERAGE)")
     log(f"  {'min_coverage':>12} {'N_admitted':>12} {'crown top-1':>13} "
         f"{'macro top-1':>13} {'species':>9}")
     for g in sweep:

@@ -1,13 +1,13 @@
 """The model-health snapshots on disk: verify the build against them, plot the trend.
 
-Everything that reads 16_model_health.py's *output* lives here, so the renderer
+Everything that reads measure.py's *output* lives here, so the renderer
 only computes and renders. Two jobs, both about the snapshot folders:
 
 ``verify_snapshot`` aborts the build when the page disagrees with the current
 snapshot's CSVs or run log, and ``load_trend``/``Trend`` turn the whole series of
 snapshots into charts.
 
-The page is meant to be re-run over months. Each run of 16_model_health.py
+The page is meant to be re-run over months. Each run of measure.py
 leaves a snapshot folder ``snapshots/model-health-<date>/``; this module folds
 every one of them into a single
 append-only ``history.csv`` beside the newest snapshot's CSVs, so the page
@@ -30,8 +30,8 @@ import os
 import re
 from collections import Counter
 
-import health_core as hc
-from dashboard_assets import (
+import core as hc
+from assets import (
     esc, orientation_ok, panel, pctf, svg_spark, svg_two_series, weight_pair_ok)
 
 HISTORY_COLS = ["snapshot_date", "model_tag", "n_crowns", "metric", "value", "source"]
@@ -44,7 +44,7 @@ SNAPSHOT_DIR = re.compile(r"model-health-(\d{4}-\d{2}-\d{2})$")
 def verify_snapshot(directory, *, per_species, buckets, bins_all, trend, n_crowns, macro1,
                     micro1, never_all, unscoreable, strict_hits,
                     queue_counts=None, n_no_answer=None, review_counts=None):
-    """Abort the build if the page disagrees with 16_model_health.py's snapshot.
+    """Abort the build if the page disagrees with measure.py's snapshot.
 
     ``queue_counts`` maps queue name to crown count over the unlabelled pool,
     ``n_no_answer`` counts unlabelled crowns whose candidate list came back
@@ -384,7 +384,7 @@ class Trend:
                 "Trend over time: first snapshot, no trend yet", ask,
                 f'<p class="note">Only one snapshot is on disk ({esc(self.latest)}), so '
                 f'there is nothing to compare against. Re-run '
-                f'<code>16_model_health.py</code> into a new '
+                f'<code>measure.py</code> into a new '
                 f'<code>model-health-&lt;date&gt;/</code> folder in a few months and the '
                 f'charts and the small lines beside each headline number fill in, one '
                 f'point per snapshot, showing accuracy per species against the '

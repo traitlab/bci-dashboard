@@ -6,10 +6,10 @@ data already on disk: the botanist's labels plus cached Pl@ntNet responses. No
 network, no API key, no third-party package. The page opens from a file:// URL
 with every style, script and chart inlined.
 
-    python3 scripts/16_dashboard/16b_dashboard.py [--out PATH]
+    python3 dashboard/build_full.py [--out PATH]
 
 Numbers are recomputed here from source rather than read from the CSVs, then
-cross-checked against the committed CSVs from 16_model_health.py; a mismatch
+cross-checked against the committed CSVs from measure.py; a mismatch
 aborts the build, so the page cannot disagree with the measurement. Trend comes
 from the sibling snapshot folders model-health-<date>/, summarised once into an
 append-only history.csv beside the current snapshot's CSVs.
@@ -26,12 +26,12 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import health_core as hc  # noqa: E402
-from dashboard_assets import (CSS, JS, cap, esc, filterable_table, panel, pctf, section,  # noqa: E402
+import core as hc  # noqa: E402
+from assets import (CSS, JS, cap, esc, filterable_table, panel, pctf, section,  # noqa: E402
                               status_with_reason, svg_hbar, table)
-from dashboard_explain import (BAND_SHORT, candidates_panel, method_panel,  # noqa: E402
+from explain import (BAND_SHORT, candidates_panel, method_panel,  # noqa: E402
                               weighting_panel)
-from dashboard_history import load_trend, verify_snapshot  # noqa: E402
+from history import load_trend, verify_snapshot  # noqa: E402
 
 # A species is "rarely labelled" below this many crowns. Same threshold as the
 # deprioritization support gate, so the two panels cannot disagree.
@@ -87,7 +87,7 @@ def is_family(n: str) -> bool:
     return n.strip().lower().endswith("aceae")
 
 
-# diagnose lives in health_core so every dashboard renders the same status for
+# diagnose lives in core so every dashboard renders the same status for
 # the same species. WAIT_SUPPORT_MIN above is deliberately equal to
 # hc.WELL_SAMPLED_MIN_N, the threshold diagnose uses.
 diagnose = hc.diagnose
@@ -156,7 +156,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     # Both come from the 2026-08-05 call: prioritise the long tail and
     # low-confidence guesses on usually-right species, and send confident disagreements
     # back for review once the cheap work is done. The queue logic itself lives in
-    # health_core so this page and 16_model_health.py cannot drift apart.
+    # core so this page and measure.py cannot drift apart.
     acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     joined_stems = {stem for _, stem, _ in h.joined}
     queue_counts = {}
@@ -358,13 +358,13 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                      "are the disagreements most worth an expert's minute, once the cheap "
                      "queues above are worked through.", body)
 
-    # dashboard_history.py opens its own panel, and only the first panel of each
+    # history.py opens its own panel, and only the first panel of each
     # section here opens. Collapse the one leading tag rather than reach into that
     # module, and refuse to build if it stops being the tag we expect.
     p_trend = trend.render()
     if not p_trend.startswith('<details class="panel" open>'):
         raise SystemExit("16b: trend.render() no longer starts with an open panel tag; "
-                         "re-check the collapse here against dashboard_history.py")
+                         "re-check the collapse here against history.py")
     p_trend = p_trend.replace('<details class="panel" open>', '<details class="panel">', 1)
 
     # ---- deprioritization ----
@@ -585,7 +585,7 @@ def main() -> None:
     ap.add_argument("--model-tag", default="unknown",
                     help="Pl@ntNet model iteration to record for a snapshot whose "
                          "run_log.txt does not name one")
-    ap.add_argument("--out", default=os.path.join(hc.REPO, "output", "16_dashboard",
+    ap.add_argument("--out", default=os.path.join(hc.REPO, "build",
                                                   "model_health_dashboard.html"))
     ap.add_argument("--generated", default=None,
                     help="build date string; defaults to today (pass a fixed value for "

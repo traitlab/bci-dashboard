@@ -3,7 +3,7 @@
 For each photo, calls the Pl@ntNet identify + embeddings endpoints (the
 2-call fallback when direct survey API access isn't available), writes
 a survey-compatible JSON per image, then runs the aggregation and
-scoring steps from 15c_aggregate_survey.py.
+scoring steps from predict/aggregate_survey.py.
 
 Input: either a local directory (--photos) or a CSV with image_url
 column (--csv). The CSV mode streams each photo in memory from its URL,
@@ -19,20 +19,20 @@ Aggregated outputs (in --out-dir/):
 
 Usage:
     # Stream from CSV (no local photos needed):
-    python scripts/15_active_selection/15xi_ingest_new_photos.py \\
+    python predict/ingest_photos.py \\
         --csv input/boxes/bci_images_for_plantnet_w_split.csv
 
     # From local directory:
-    python scripts/15_active_selection/15xi_ingest_new_photos.py \\
+    python predict/ingest_photos.py \\
         --photos /data/new_drone_photos/
 
     # Direct survey endpoint (if available):
-    python scripts/15_active_selection/15xi_ingest_new_photos.py \\
+    python predict/ingest_photos.py \\
         --photos /data/new_drone_photos/ \\
         --survey-endpoint https://my-api.plantnet.org/v2/survey/k-central-america
 
     # Test mode (1 image):
-    python scripts/15_active_selection/15xi_ingest_new_photos.py \\
+    python predict/ingest_photos.py \\
         --csv input/boxes/bci_images_for_plantnet_w_split.csv --test
 """
 
@@ -51,8 +51,8 @@ import yaml
 from dotenv import load_dotenv
 from PIL import Image
 
-REPO = Path(__file__).resolve().parents[2]
-OUT = REPO / "output" / "15_active_selection"
+REPO = Path(__file__).resolve().parents[1]
+OUT = REPO / "data"
 
 CROP_SIZE = 1280
 JPEG_QUALITY = 90
@@ -314,7 +314,7 @@ def main() -> None:
                     help="GT CSV for species-priority scoring")
     ap.add_argument("--rare-threshold", type=int, default=5)
     ap.add_argument("--method", choices=["sum", "max"], default="sum")
-    ap.add_argument("--out-dir", type=Path, default=OUT / "new_ingest")
+    ap.add_argument("--out-dir", type=Path, default=OUT / "predictions")
     ap.add_argument("--delay", type=float, default=DEFAULT_DELAY,
                     help=f"delay between API calls (default {DEFAULT_DELAY}s)")
     ap.add_argument("--no-aggregate", action="store_true",
@@ -422,8 +422,7 @@ def main() -> None:
         n_cached = len(list(cache_dir.glob("*.json")))
         print(f"\n--no-aggregate: {n_cached} JSONs in {cache_dir}")
         print(f"Aggregate locally with:")
-        print(f"  python scripts/15_active_selection/15y_species_distribution.py \\")
-        print(f"      --survey-dir {cache_dir}")
+        print(f"  python3 predict/aggregate_survey.py --survey-dir {cache_dir}")
         return
 
     # --- Aggregate (same as 15c) ---
@@ -432,9 +431,9 @@ def main() -> None:
     if not json_files:
         sys.exit("No cached JSONs to aggregate")
 
-    sys.path.insert(0, str(REPO / "scripts" / "15_active_selection"))
+    sys.path.insert(0, str(REPO / "predict"))
     from importlib import import_module
-    agg = import_module("15c_aggregate_survey")
+    agg = import_module("aggregate_survey")
 
     embeddings: dict[str, list[float]] = {}
     dataset_species: dict[str, list] = {}
@@ -472,10 +471,10 @@ def main() -> None:
         json.dump(scores, f)
     print(f"  Scores: {len(scores)} photos -> {score_path}")
 
-    print(f"\nDone. Feed into the scorer:")
-    print(f"  python scripts/15_active_selection/15_select_batch.py \\")
-    print(f"    --embeddings {emb_path} \\")
-    print(f"    --species-scores {score_path}")
+    print(f"\nDone. Rebuild the dashboard over the new cache:")
+    print(f"  python3 dashboard/measure.py && python3 dashboard/build_simple.py")
+    print(f"  embeddings: {emb_path}")
+    print(f"  species scores: {score_path}")
 
 
 if __name__ == "__main__":

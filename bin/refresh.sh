@@ -16,10 +16,10 @@
 # Intended to be run by launchd (org.bci.dashboard-refresh.plist) or by hand.
 set -euo pipefail
 
-REPO="${BCI_DASHBOARD_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+REPO="${BCI_DASHBOARD_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 DOCS="${BCI_DASHBOARD_SNAPSHOTS:-$REPO/snapshots}"
-GT="$REPO/output/15_active_selection/gt_dominant_taxon.csv"
-MARKER="$REPO/output/15_active_selection/last_merged_export.txt"
+GT="$REPO/data/gt_dominant_taxon.csv"
+MARKER="$REPO/data/last_merged_export.txt"
 TODAY="$(date +%F)"
 SNAP="$DOCS/model-health-$TODAY"
 
@@ -47,7 +47,7 @@ if [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$HASH" ]; then
   exit 0
 fi
 
-# Fold the export into the GT. Back up first (the sidecar too: 15a2 rewrites
+# Fold the export into the GT. Back up first (the sidecar too: gt_from_export.py rewrites
 # it on every run, and a no-change merge must not restamp the batch's date);
 # drop the backups when the merge changed nothing.
 BAK="${GT%.csv}_$TODAY.csv"
@@ -55,7 +55,7 @@ SIDECAR="${GT%.csv}.provenance.txt"
 cp "$GT" "$BAK"
 [ -f "$SIDECAR" ] && cp "$SIDECAR" "$BAK.provenance.txt"
 BEFORE="$(md5 -q "$GT")"
-python3 scripts/15_active_selection/15a2_gt_from_labelbox_export.py \
+python3 labelling/gt_from_export.py \
   --export "$EXPORT" \
   --note "Ground truth: Labelbox project 2024_bci export of $TODAY, not yet reviewed."
 AFTER="$(md5 -q "$GT")"
@@ -69,13 +69,13 @@ if [ "$BEFORE" = "$AFTER" ]; then
 else
   echo "refresh: GT moved ($BAK kept); new snapshot $SNAP"
   mkdir -p "$SNAP"
-  python3 scripts/16_dashboard/16_model_health.py --out-dir "$SNAP" > /dev/null
+  python3 dashboard/measure.py --out-dir "$SNAP" > /dev/null
 fi
 
-python3 scripts/16_dashboard/16b_dashboard.py --verify-against "$SNAP" \
-  --out "$REPO/output/16_dashboard/model_health_dashboard.html" --generated "$TODAY"
-python3 scripts/16_dashboard/16c_simple_dashboard.py \
-  --out "$REPO/output/16_dashboard/simple_dashboard.html" --generated "$TODAY"
-cp "$REPO/output/16_dashboard/model_health_dashboard.html" "$SNAP/"
-cp "$REPO/output/16_dashboard/simple_dashboard.html" "$SNAP/"
+python3 dashboard/build_full.py --verify-against "$SNAP" \
+  --out "$REPO/build/model_health_dashboard.html" --generated "$TODAY"
+python3 dashboard/build_simple.py \
+  --out "$REPO/build/simple_dashboard.html" --generated "$TODAY"
+cp "$REPO/build/model_health_dashboard.html" "$SNAP/"
+cp "$REPO/build/simple_dashboard.html" "$SNAP/"
 echo "refresh: done; snapshot $SNAP"

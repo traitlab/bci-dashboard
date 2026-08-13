@@ -1,7 +1,7 @@
 """Aggregate Pl@ntNet survey predictions into per-photo embeddings and scores.
 
 Reads the per-image survey JSON files produced by the Pl@ntNet multi-species
-endpoint and outputs two files that 15_select_batch.py can consume:
+endpoint and outputs two files that the send-first queue (dashboard/measure.py) can consume:
 
 1. ``survey_embeddings.json``  — coverage-weighted aggregated embeddings
    (same format as embeddings.json: ``{global_key: [float x 768]}``)
@@ -16,13 +16,13 @@ The species scores use labelfirst.eval.species_priority.batch_scores to
 compute rarity-weighted coverage scores from predicted species composition.
 
 Usage:
-    python scripts/15_active_selection/15c_aggregate_survey.py \\
+    python predict/aggregate_survey.py \\
         --survey-dir /path/to/survey/jsons \\
-        --gt output/15_active_selection/gt_dominant_taxon.csv \\
+        --gt data/gt_dominant_taxon.csv \\
         --rare-threshold 5
 
     # Cold-start (no GT yet):
-    python scripts/15_active_selection/15c_aggregate_survey.py \\
+    python predict/aggregate_survey.py \\
         --survey-dir /path/to/survey/jsons
 """
 
@@ -40,7 +40,7 @@ from labelfirst.aggregate import weighted_mean_pool
 from labelfirst.eval.species_priority import SpeciesPrediction, batch_scores
 
 REPO = Path(__file__).resolve().parents[2]
-OUT = REPO / "output" / "15_active_selection"
+OUT = REPO / "data"
 EMBEDDING_DIMS = 768
 
 
@@ -123,7 +123,7 @@ def main() -> None:
     ap.add_argument("--unseen-weight", type=float, default=None,
                     help="weight for species not in GT (novel species)")
     ap.add_argument("--out-dir", type=Path, default=OUT,
-                    help="output directory (default: output/15_active_selection/)")
+                    help="output directory (default: data/)")
     args = ap.parse_args()
 
     out_dir = args.out_dir
@@ -194,7 +194,7 @@ def main() -> None:
             print(f"  min={min(nonzero):.4f}  max={max(nonzero):.4f}  "
                   f"mean={sum(nonzero)/len(nonzero):.4f}")
 
-    print("\nDone. Use with 15_select_batch.py:")
+    print("\nDone. Use with the send-first queue (dashboard/measure.py):")
     print(f"  --embeddings {emb_path}")
     print(f"  (species scores can replace the novelty axis)")
 

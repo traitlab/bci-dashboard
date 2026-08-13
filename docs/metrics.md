@@ -4,9 +4,9 @@ One HTML page that answers a question you cannot get from a single accuracy numb
 species is Pl@ntNet already good at, which ones need labelling work, and which ones are hopeless?**
 
 ```bash
-python3 scripts/16_dashboard/16_model_health.py     # measure -> 5 CSVs + run_log.txt
-python3 scripts/16_dashboard/16b_dashboard.py       # render  -> model_health_dashboard.html
-open output/16_dashboard/model_health_dashboard.html
+python3 dashboard/measure.py      # measure -> 5 CSVs + run_log.txt
+python3 dashboard/build_full.py   # render  -> model_health_dashboard.html
+open build/model_health_dashboard.html
 ```
 
 Run them in that order. The first script measures and leaves an audit trail; the second turns the
@@ -117,11 +117,10 @@ verifies the unreconciled baseline against the run log so the claim cannot drift
 
 ## The trend, and the trap in it
 
-History lives in the sibling snapshot folders `bci_workshop_labelbox_plantnet-docs/
-model-health-<date>/`. On every build the renderer globs them, summarises each into
-`history.csv` next to the current snapshot's CSVs, and draws the result: a small line beside each
-headline number, a narrow trend column in the species table, and a two-series chart in the trend
-section.
+History lives in the snapshot folders `snapshots/model-health-<date>/`. On every build the renderer
+globs them, summarises each into `history.csv` next to the current snapshot's CSVs, and draws the
+result: a small line beside each headline number, a narrow trend column in the species table, and a
+two-series chart in the trend section.
 
 `history.csv` has one row per point, model and metric:
 
@@ -248,10 +247,10 @@ Click any header in the species table to sort. Filter by name or by status.
 ## Why you can trust the numbers
 
 The renderer does not read the CSVs and reformat them. It **recomputes** every number from the source
-data, then compares its own results against the CSVs `16_model_health.py` wrote. Those CSVs are build
-outputs and are not tracked in git, so the check binds the page to whatever measurement is on disk
-right now; run the measurement script first, or the renderer has nothing to check against. A mismatch
-aborts the build, so the page cannot quietly drift away from the measurement it claims to show:
+data, then compares its own results against the CSVs `dashboard/measure.py` wrote. Those CSVs are
+build outputs and are not tracked in git, so the check binds the page to whatever measurement is on
+disk right now; run the measurement script first, or the renderer has nothing to check against. A
+mismatch aborts the build, so the page cannot quietly drift away from the measurement it claims to show:
 
 ```
 verified  per_species_health.csv: 169 species, crowns and both rates match
@@ -301,13 +300,13 @@ prediction into ground truth in any of the three.
 
 | File | Role |
 |---|---|
-| `health_core.py` | The data layer, and the only thing that reads the inputs. `load_health()` parses the prediction cache, joins it to ground truth, reconciles names via WCVP, aggregates per species, returns one `Health` record. Also holds `queue_of_prediction()`, the send-first queue logic shared by both scripts so they cannot drift apart |
-| `16_model_health.py` | The measurement. Headline, support buckets, filter simulation, ceiling, calibration, send-first queue, label review queue. Writes 7 CSVs + `run_log.txt` |
-| `16b_dashboard.py` | The page. Calls `load_health()`, recomputes every figure, emits one HTML file |
-| `dashboard_history.py` | Everything that reads the measurement *back*. `verify_snapshot()` aborts the build when the page and the snapshot disagree; `load_trend()` reads the sibling snapshot folders, maintains `history.csv`, derives `model_tag`, and renders the sparklines and the two-series chart |
-| `dashboard_assets.py` | Presentation only, and nothing here reads data or computes a number: CSS, JS, the collapsible-panel and table helpers, and the inline SVG charts. The CSS is a hand-pruned subset of `labelfirst`'s report styling so both reports look like one family |
-| `dashboard_explain.py` | The three panels that are mostly explanation: where the five-candidate limit came from, why the two headline scores differ (with the weighting chart), and how the measurement was made. Its figures are recomputed from the same records as the rest of the page, never hardcoded |
-| `16d_export_only_dashboard.py` | A one-off, ad hoc page: scores Pl@ntNet only on the crowns one Labelbox export itself labels, ignoring the cumulative GT, the corpus, and the send-first queues entirely. Not part of the daily refresh loop; run it by hand against any export file. See its own docstring for the scope it deliberately excludes |
+| `dashboard/core.py` | The data layer, and the only thing that reads the inputs. `load_health()` parses the prediction cache, joins it to ground truth, reconciles names via WCVP, aggregates per species, returns one `Health` record. Also holds `queue_of_prediction()`, the send-first queue logic shared by both scripts so they cannot drift apart |
+| `dashboard/measure.py` | The measurement. Headline, support buckets, filter simulation, ceiling, calibration, send-first queue, label review queue. Writes 7 CSVs + `run_log.txt` |
+| `dashboard/build_full.py` | The page. Calls `load_health()`, recomputes every figure, emits one HTML file |
+| `dashboard/history.py` | Everything that reads the measurement *back*. `verify_snapshot()` aborts the build when the page and the snapshot disagree; `load_trend()` reads the `snapshots/` folders, maintains `history.csv`, derives `model_tag`, and renders the sparklines and the two-series chart |
+| `dashboard/assets.py` | Presentation only, and nothing here reads data or computes a number: CSS, JS, the collapsible-panel and table helpers, and the inline SVG charts. The CSS is a hand-pruned subset of `labelfirst`'s report styling so both reports look like one family |
+| `dashboard/explain.py` | The three panels that are mostly explanation: where the five-candidate limit came from, why the two headline scores differ (with the weighting chart), and how the measurement was made. Its figures are recomputed from the same records as the rest of the page, never hardcoded |
+| `dashboard/build_export_only.py` | A one-off, ad hoc page: scores Pl@ntNet only on the crowns one Labelbox export itself labels, ignoring the cumulative GT, the corpus, and the send-first queues entirely. Not part of the daily refresh loop; run it by hand against any export file. See its own docstring for the scope it deliberately excludes |
 
 One reader, two consumers. That is the point: a number cannot differ between the CSV and the page
 because neither one computes it independently.

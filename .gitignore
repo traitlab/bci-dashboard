@@ -1,10 +1,10 @@
 .env
 .venv/
-output/
-data/embeddings/
-data/survey_jsons/
 __pycache__/
 *.pyc
+
+build/
 snapshots/
 data/*
 !data/wcvp_cache.json
+.ruff_cache/
