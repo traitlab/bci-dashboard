@@ -36,9 +36,14 @@ Two questions, in this order:
   prioritisation works for species the model already knows. For the ~282 species
   with almost no labels it says nothing, so ranking unlabelled photos by
   embedding novelty is the other half, not a nice-to-have.
-- **"Pl@ntNet never names it" is two things.** Species outside the 15,919-species
+- **"Pl@ntNet never names it" is two things.** Species outside the project
   checklist are out of scope, not errors; species inside it that never reach the
-  top 5 are real misses. Reported separately.
+  top 5 are real misses. Reported separately. Today the pages cannot tell them
+  apart: absence is inferred from the cached top-5 lists, which hold 1,567 of
+  the model's names, and 143 of those are visible only because rank 5 was
+  included. `predict/fetch_checklist.py` pulls the label set itself, which is
+  what settles it. The 15,919 figure quoted on the call is not documented by
+  Pl@ntNet; the count comes from `speciesCount` on `/v2/projects`.
 - **No trend line.** Dropped by request: what matters is where things stand with
   the model and labels in hand. Dated snapshots are still written, so a trend
   can come back without recomputation.
