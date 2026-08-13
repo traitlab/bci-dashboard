@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The short version of the model-health dashboard: one glanceable HTML page.
 
-Companion to 16b_dashboard.py, not a replacement. 16b carries the reasoning
+Companion to build_full.py, not a replacement. The full page carries the reasoning
 and the caveats; this page answers the three questions the labelling
 programme asks every week, in plain English:
 
@@ -45,7 +45,7 @@ SIMPLE_STATUS = {
     "ranking": ("send", "Send more photos"),
     "unmeasured": ("send", "Send more photos"),
     "hard": ("send", "Send more photos"),
-    "unreachable": ("unreachable", "Pl@ntNet never names it"),
+    "unreachable": ("unreachable", "Never in the 5 guesses"),
 }
 TAG_CLASS = {"fine": "reliable", "send": "unmeasured", "unreachable": "unreachable"}
 
@@ -55,7 +55,8 @@ SIMPLE_REASON = {
     "hard": "Enough crowns, but the first guess is still weak, so more photos are the useful move.",
     "reliable": "Usually right, so this species is low priority for extra work.",
     "adequate": "Mixed results, but not enough to move it ahead of the send queue.",
-    "unreachable": "The model never names it in the cached answers, so current labelling will not recover it.",
+    "unreachable": "It never appears in the five guesses we asked for, so labelling will not "
+                   "recover it. Whether Pl@ntNet carries the species at all is not known from here.",
 }
 
 STATUS_PRIORITY = {"send": 0, "fine": 1, "unreachable": 2}
@@ -135,7 +136,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
     micro1 = c1 / n
 
     # --- the quantities the verifier holds against the snapshot CSVs.
-    # Same formulas as 16b_dashboard.py; if the two ever drift apart, the
+    # Same formulas as build_full.py; if the two ever drift apart, the
     # snapshot cross-check below is what catches it.
     support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
     buckets = {}
@@ -227,8 +228,10 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
          f'<p class="note">Averaged across crowns instead of species: {pctf(micro1)} '
          f'right ({c1:,} of {n:,}). Ground truth covers {len(h.gt_rows):,} of '
          f'{len(h.split_rows):,} photos. <strong>{counts["fine"]} species doing fine, '
-         f'{counts["send"]} need more photos, {counts["unreachable"]} Pl@ntNet never '
-         f'names.</strong></p>'
+         f'{counts["send"]} need more photos, {counts["unreachable"]} never turn up in '
+         f'the 5-guess list.</strong> That last group is not the same as species '
+         f'Pl@ntNet does not carry: we only ever asked for five names, so the two look '
+         f'alike from here.</p>'
          f'<p class="note">The right name is somewhere in the 5-guess list for '
          f'<strong>{pctf(macro5)}</strong> of species ({pctf(c5 / n)} of crowns), and '
          f'when Pl@ntNet is at least {hc.WAIT_CONF:.0%} confident it is right '
@@ -322,7 +325,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
         sp_rows,
         options=[("send", "Send more photos"),
                  ("fine", "Doing fine"),
-                 ("unreachable", "Pl@ntNet never names it")],
+                 ("unreachable", "Never in the 5 guesses")],
         row_attrs=attrs,
     ))
     P.append(panel(f"All {n_sp} species, priority first",
