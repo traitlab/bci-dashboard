@@ -5,8 +5,8 @@ to botanists next. Standalone: no Labelbox access, no network calls, no pandas.
 Every number is recomputed offline from cached API responses and a Labelbox
 export you drop on disk.
 
-Extracted from the `bci_workshop_labelbox_plantnet` workshop pipeline, keeping
-only the dashboard's own history.
+Extracted from the workshop pipeline it grew in, keeping only the dashboard's
+own history.
 
 ## What it is for
 
@@ -26,7 +26,7 @@ Two questions, in this order:
   covers at least `T` of the crop. `T = 0.50` agreed, gated and ungated reported
   side by side because they are different populations.
 - **Per crown, not per photo.** Scoring each crown box directly removes the
-  problem instead of filtering around it (`18a_get_crown_predictions.py`).
+  problem instead of filtering around it (`predict/crown.py`).
   Becomes the primary number once the run lands.
 - **Then tiles.** A sliding window over the frame, each tile with its own
   prediction and embedding. The only route to lianas, which rarely sit in the
@@ -46,43 +46,50 @@ Two questions, in this order:
 ## Layout
 
 ```
-scripts/16_dashboard/          the dashboard itself, stdlib only
-  16_model_health.py           measurement pass -> CSVs + run_log.txt
-  16b_dashboard.py             full HTML page
-  16c_simple_dashboard.py      one-page companion
-  16d_export_only_dashboard.py scores a single export in isolation
-  health_core.py               loading, joining, scoring, queues
-  crop_overlap.py              what the model actually saw, per frame
-  dashboard_{assets,explain,history}.py
-  refresh.sh                   export -> GT merge -> measure -> rebuild -> snapshot
-scripts/18_crown_predictions/  per-crown Pl@ntNet calls
-scripts/15_active_selection/   ingest, dispatch a round, close a round
-scripts/13_single_predictions/ per-photo Pl@ntNet calls (used by 18a)
-input/boxes/                   crown boxes and the frame list (tracked)
-output/                        measurement inputs and built pages (gitignored)
-snapshots/                     dated model-health-<date>/ folders (gitignored)
-data/wcvp_cache.json           warm WCVP name resolution
+dashboard/            the pages, stdlib only
+  measure.py          measurement pass -> CSVs + run_log.txt
+  build_full.py       full HTML page
+  build_simple.py     one-page companion
+  build_export_only.py  scores a single export in isolation
+  core.py             loading, joining, scoring, queues
+  crop_overlap.py     what the model actually saw, per frame
+  assets.py explain.py history.py
+predict/              Pl@ntNet calls
+  photo.py            per photo, centre crop
+  crown.py            per crown box
+  ingest_photos.py    bulk ingest: predictions + embeddings -> data/predictions/cache
+  aggregate_survey.py
+labelling/            Labelbox side
+  gt_from_export.py   fold an export into the ground truth
+  dispatch_round.py   send a batch
+  close_round.py      fold the returned labels back in
+bin/refresh.sh        export -> GT merge -> measure -> rebuild -> snapshot
+input/boxes/          crown boxes and the frame list (tracked)
+data/                 GT, splits, cached predictions, WCVP cache (gitignored)
+snapshots/            dated model-health-<date>/ folders (gitignored)
+build/                the built HTML pages (gitignored)
 ```
 
 ## Run
 
 ```bash
-scripts/16_dashboard/refresh.sh                 # newest export in output or ~/Downloads
-scripts/16_dashboard/refresh.sh path/to/export.ndjson
+bin/refresh.sh                          # newest export in data/exports or ~/Downloads
+bin/refresh.sh path/to/export.ndjson
 ```
 
 Or the measurement pass alone:
 
 ```bash
-python scripts/16_dashboard/16_model_health.py --out-dir snapshots/model-health-$(date +%F)
+python3 dashboard/measure.py --out-dir snapshots/model-health-$(date +%F)
+python3 dashboard/build_simple.py --out build/simple_dashboard.html
 ```
 
 Paths default to the checkout and can be overridden:
 `BCI_DASHBOARD_REPO`, `BCI_DASHBOARD_DATA`, `BCI_DASHBOARD_SNAPSHOTS`,
 `BCI_WCVP_CACHE`.
 
-The dashboard needs no API key. The fetch scripts (`13a`, `18a`, `15xi`) need
+The dashboard needs no API key. The fetch scripts under `predict/` need
 `PLANTNET_API_KEY` in `.env` and the packages in `requirements.txt`.
 
-See `scripts/16_dashboard/README.md` for what each number means and how it is
+See `docs/metrics.md` for what each number means and how it is
 computed.
