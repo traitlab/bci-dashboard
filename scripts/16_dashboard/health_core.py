@@ -62,6 +62,16 @@ HARD_MAX_TOP1 = 0.70
 # a second look: either the label or the model is wrong.
 REVIEW_CONF = 0.8
 
+# Predictions come from a fixed centre crop of the frame, while ground truth comes
+# from crown boxes drawn anywhere in that frame, so a prediction can be scored
+# against a label lying outside what the model was sent. A frame is admitted only
+# when its dominant labelled species covers at least this fraction of the crop.
+# Same value as crop_overlap.DEFAULT_MIN_COVERAGE.
+MIN_CROP_COVERAGE = 0.50
+# Reported as a sweep, so the gate's effect on the headline is visible rather than
+# assumed from one threshold.
+CROP_COVERAGE_SWEEP = (0.0, 0.3, 0.5, 0.8)
+
 
 # --------------------------------------------------------------------------
 # Name handling
@@ -283,6 +293,75 @@ def diagnose(row: dict) -> str:
 
 
 # --------------------------------------------------------------------------
+# Crop coverage gate
+# --------------------------------------------------------------------------
+def load_crop_coverage(boxes_csv=None):
+    """-> (base_image -> coverage record, frames whose geometry is not trusted).
+
+    Imported inside the function on purpose: crop_overlap imports ``normalize``
+    from this module, so a module-level import here would close the cycle.
+    """
+    import crop_overlap
+    return crop_overlap.build(**({"path": boxes_csv} if boxes_csv else {}))
+
+
+def strip_collection_codes(name: str) -> str:
+    """normalize() drops one trailing BCI collection code; the box CSV labels carry
+    two ('apeiba membranacea-apeime-apem'), so apply it until nothing more comes
+    off. Without this a box label never compares equal to a GT species name.
+    """
+    s, prev = normalize(name), None
+    while s != prev:
+        prev, s = s, normalize(s)
+    return s
+
+
+def coverage_split(recs, min_coverage=MIN_CROP_COVERAGE):
+    """(admitted, rejected) over records carrying a ``crop_coverage`` field.
+
+    A record whose frame has no measured box geometry carries None and is
+    rejected: the gate admits only frames measured to be covered, never assumed
+    ones. Rejected is therefore 'not admitted', which includes 'unknown'.
+    """
+    admitted, rejected = [], []
+    for r in recs:
+        c = r.get("crop_coverage")
+        (admitted if c is not None and c >= min_coverage else rejected).append(r)
+    return admitted, rejected
+
+
+def coverage_gate_stats(recs, min_coverage=MIN_CROP_COVERAGE):
+    """Headline numbers over the admitted subset of ``recs``.
+
+    ``macro_top1`` averages per-species top-1 over the admitted rows only, and
+    the species set shrinks with the threshold, so it is a different quantity
+    from the ungated macro average: report it beside that number, never in place
+    of it, and always with ``n_admitted``.
+    """
+    admitted, rejected = coverage_split(recs, min_coverage)
+    by_sp = defaultdict(list)
+    for r in admitted:
+        by_sp[r["gt"]].append(r)
+    hits = sum(1 for r in admitted if r["ranked"][0][0] == r["gt"])
+    per = [sum(1 for r in rs if r["ranked"][0][0] == sp) / len(rs)
+           for sp, rs in by_sp.items()]
+    return {
+        "min_coverage": min_coverage,
+        "n_admitted": len(admitted),
+        "n_rejected": len(rejected),
+        "n_correct_top1": hits,
+        "micro_top1": ratio(hits, len(admitted)),
+        "macro_top1": (sum(per) / len(per)) if per else None,
+        "n_species": len(by_sp),
+    }
+
+
+def coverage_gate_sweep(recs, thresholds=CROP_COVERAGE_SWEEP):
+    """One coverage_gate_stats dict per threshold, in the order given."""
+    return [coverage_gate_stats(recs, t) for t in thresholds]
+
+
+# --------------------------------------------------------------------------
 @dataclass
 class Health:
     gt_rows: list
@@ -319,10 +398,18 @@ class Health:
     per_species: list
     by_sp: dict
     canon: Callable[[str], str]
+    crop_frames: dict
+    crop_suspect: list
+    crop_min_coverage: float
+    n_crop_joined: int
+    crop_admitted: list
+    crop_rejected: list
 
 
 def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
-                wcvp_cache=WCVP_CACHE_JSON, log: Optional[Callable[[str], None]] = None) -> Health:
+                wcvp_cache=WCVP_CACHE_JSON, boxes_csv=None,
+                min_coverage=MIN_CROP_COVERAGE,
+                log: Optional[Callable[[str], None]] = None) -> Health:
     def _log(msg: str = "") -> None:
         if log is not None:
             log(msg)
@@ -529,9 +616,15 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
         nn = normalize(name)
         return crosswalk.get(nn, nn)
 
+    # Coverage of the crop the model was sent, joined on base_image. GT keys carry
+    # the GT_KEY_PREFIX and the box CSV does not, so the same stem used for the
+    # cache join is the join key here too.
+    crop_frames, crop_suspect = load_crop_coverage(boxes_csv)
+
     records = []
     for gk, stem, gt_name in joined:
         gt_c = canon(gt_name)
+        cov = crop_frames.get(stem)
         records.append({
             "global_key": gk,
             "split": split_of.get(gk, ""),
@@ -541,10 +634,34 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
             "species_level": is_species_level(gt_c),
             "ranked": [(canon(b), s) for b, s in predictions[stem]],
             "ranked_strict": [(normalize(b), s) for b, s in predictions[stem]],
+            # None means the frame has no box row at all, so its coverage is
+            # unknown rather than zero. The dominant name is put through the same
+            # canonicalisation as the GT label so the two are comparable.
+            "crop_coverage": cov["coverage"] if cov else None,
+            "crop_dominant": (canon(strip_collection_codes(cov["dominant"]))
+                              if cov and cov["dominant"] else None),
         })
 
     sp_recs = [r for r in records if r["species_level"] and r["ranked"]]
     genus_recs = [r for r in records if not r["species_level"] and r["ranked"]]
+
+    n_crop_joined = sum(1 for r in records if r["crop_coverage"] is not None)
+    crop_admitted, crop_rejected = coverage_split(sp_recs, min_coverage)
+    _log("--- CROP COVERAGE GATE ---")
+    _log("  Predictions were made from a fixed centre crop of each frame; ground truth")
+    _log("  boxes are drawn anywhere in the frame. A frame is admitted only when its")
+    _log("  dominant labelled species covers at least the threshold share of that crop.")
+    _log(f"  box geometry available for          : {len(crop_frames)} base frames "
+         f"({len(crop_suspect)} frames not trusted and excluded)")
+    _log(f"  joined to a GT record               : {n_crop_joined} / {len(records)} "
+         f"({pct(n_crop_joined, len(records))})")
+    n_sp_cov = sum(1 for r in sp_recs if r["crop_coverage"] is not None)
+    _log(f"  joined within the primary set       : {n_sp_cov} / {len(sp_recs)} "
+         f"({pct(n_sp_cov, len(sp_recs))})")
+    _log(f"  admitted at coverage >= {min_coverage:.2f}        : {len(crop_admitted)} "
+         f"(rejected {len(crop_rejected)}, of which "
+         f"{len(sp_recs) - n_sp_cov} for unknown geometry)")
+    _log("")
 
     # ---------------- 7. per-species ----------------
     def top1(r, key="ranked"):
@@ -592,4 +709,7 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
         genus_only_gt=genus_only_gt, genus_in_corpus_only=genus_in_corpus_only,
         records=records, sp_recs=sp_recs, genus_recs=genus_recs,
         per_species=per_species, by_sp=by_sp, canon=canon,
+        crop_frames=crop_frames, crop_suspect=crop_suspect,
+        crop_min_coverage=min_coverage, n_crop_joined=n_crop_joined,
+        crop_admitted=crop_admitted, crop_rejected=crop_rejected,
     )

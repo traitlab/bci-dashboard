@@ -5,7 +5,7 @@ Pl@ntNet-on-BCI model health, computed entirely offline from cached API response
 Run:  python3 16_model_health.py
 Writes per_species_health.csv, support_buckets.csv, filter_gain.csv,
 confidence_calibration.csv, name_reconciliation.csv, send_first_queue.csv,
-send_batches.csv, label_review_queue.csv and run_log.txt to
+send_batches.csv, label_review_queue.csv, coverage_gate.csv and run_log.txt to
 --out-dir (default: this directory), and prints headline numbers to stdout.
 
 Stdlib only (no pandas/numpy). Deterministic. No network calls.
@@ -22,8 +22,9 @@ from collections import Counter, defaultdict
 from health_core import (
     load_health,
     pct, ratio, fmt, genus_of, normalize, queue_of_prediction, chunk_send_batches,
+    coverage_gate_sweep, coverage_gate_stats, coverage_split,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
-    QUEUE_ORDER, REVIEW_CONF, BATCH_SIZE,
+    QUEUE_ORDER, REVIEW_CONF, BATCH_SIZE, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
     GT_KEY_PREFIX, GT_CSV, SPLITS_CSV, CACHE_DIR, WCVP_CACHE_JSON,
 )
 
@@ -225,6 +226,21 @@ def main() -> None:
                             fmt(ratio(k, len(sub))), fmt(ratio(len(sub), len(rs))),
                             k, len(sub) - k, fmt(ratio(len(sub) - k, len(sub)))])
 
+    # ---------------- 10b. crop-coverage gate ----------------
+    # A prediction was made from a fixed centre crop of the frame; the label comes
+    # from a crown box drawn anywhere in it. The sweep says how the headline moves
+    # once only frames whose dominant labelled species actually fills the crop are
+    # scored. Both rates are kept, so neither replaces the other.
+    sweep = coverage_gate_sweep(sp_recs, CROP_COVERAGE_SWEEP)
+    gate = coverage_gate_stats(sp_recs, MIN_CROP_COVERAGE)
+    with open(os.path.join(out_dir, "coverage_gate.csv"), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["min_coverage", "n_frames_admitted", "crown_top1",
+                    "macro_per_species_top1", "n_species"])
+        for g in sweep:
+            w.writerow([f"{g['min_coverage']:.2f}", g["n_admitted"],
+                        fmt(g["micro_top1"]), fmt(g["macro_top1"]), g["n_species"]])
+
     # ---------------- 11. report ----------------
     log("=" * 84)
     log(f"HEADLINE  (species-level GT, joined, >=1 cached prediction: n={n} crowns, {n_sp} species)")
@@ -248,6 +264,38 @@ def main() -> None:
     log(f"  genus-only GT crowns (n={gn}), scored at genus level:")
     log(f"    genus top-1                       : {pct(gg1, gn)}   ({gg1}/{gn})")
     log(f"    genus top-5                       : {pct(gg5, gn)}   ({gg5}/{gn})")
+    log("")
+    log("--- CROP-COVERAGE GATE: GATED AND UNGATED, SIDE BY SIDE ---")
+    log("  Ungated scores every evaluated crown. Gated scores only the frames whose")
+    log("  dominant labelled species covers at least the threshold share of the centre")
+    log("  crop the model was actually sent, so the label was inside the model's view.")
+    log("  The two are different populations. Neither replaces the other.")
+    log(f"  {'quantity':<34} {'ungated':>12} {'gated':>12}")
+    log(f"  {'crowns (N)':<34} {n:>12} {gate['n_admitted']:>12}")
+    log(f"  {'crown top-1':<34} {pct(c1, n):>12} {pct(gate['n_correct_top1'], gate['n_admitted']):>12}"
+        f"   (N_admitted={gate['n_admitted']})")
+    log(f"  {'macro per-species top-1':<34} {macro1 * 100:>11.2f}% "
+        f"{gate['macro_top1'] * 100:>11.2f}%   (N_admitted={gate['n_admitted']}, "
+        f"{gate['n_species']} species)")
+    log(f"  {'species':<34} {n_sp:>12} {gate['n_species']:>12}")
+    log(f"  threshold in force                  : {MIN_CROP_COVERAGE:.2f} "
+        f"(health_core.MIN_CROP_COVERAGE)")
+    log(f"  {'min_coverage':>12} {'N_admitted':>12} {'crown top-1':>13} "
+        f"{'macro top-1':>13} {'species':>9}")
+    for g in sweep:
+        log(f"  {g['min_coverage']:>12.2f} {g['n_admitted']:>12} "
+            f"{pct(g['n_correct_top1'], g['n_admitted']):>13} "
+            f"{(g['macro_top1'] * 100):>12.2f}% {g['n_species']:>9}")
+    n_unknown = sum(1 for r in sp_recs if r["crop_coverage"] is None)
+    log(f"  crowns with no box geometry, rejected at every threshold : {n_unknown} "
+        f"({pct(n_unknown, n)})")
+    admitted, _ = coverage_split(sp_recs, MIN_CROP_COVERAGE)
+    mism = sum(1 for r in admitted if r["crop_dominant"] != r["gt"])
+    log(f"  admitted crowns whose crop-dominant species differs from the GT label : "
+        f"{mism}")
+    log("  A difference there means the crop is filled by a species other than the one")
+    log("  the frame is labelled with, so admission alone does not make the label the")
+    log("  right answer for what the model saw.")
     log("")
     log("--- SUPPORT BUCKETS (species-level GT) ---")
     log(f"  {'bucket':<8} {'species':>8} {'crowns':>8} {'top-1':>9} {'top-5':>9}")
@@ -392,7 +440,7 @@ def main() -> None:
     for fn in ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
                "confidence_calibration.csv", "name_reconciliation.csv",
                "send_first_queue.csv", "send_batches.csv", "label_review_queue.csv",
-               "run_log.txt"):
+               "coverage_gate.csv", "run_log.txt"):
         log(f"  {os.path.join(out_dir, fn)}")
 
     with open(os.path.join(out_dir, "run_log.txt"), "w", encoding="utf-8") as f:
