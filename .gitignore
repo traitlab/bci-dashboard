@@ -8,3 +8,4 @@ snapshots/
 data/*
 !data/wcvp_cache.json
 .ruff_cache/
+.claude-flow/
