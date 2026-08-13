@@ -1,53 +1,19 @@
-labelbox:
-  # Dataset names to export (all datasets matching this prefix)
-  dataset_prefix: 2024_bci
-  # Demo dataset for Stage 1 testing (read-only, safe)
-  demo_dataset_name: Brazilian Amazon Trees - Demo
-  # Projects from which to import labels (all others, e.g. demo projects, are excluded)
-  label_projects:
-    - 2024_BCI
-    - 2024_BCI_Off-island
-    - 2024_BCI_northeast_old
-    - 2024_BCI_plots_old
-    - 2024_BCI_plots
-  # Project A (all label types)
-  project_a_name: BCI Workshop - All Label Types
-  project_a_ontology_name: BCI Workshop - All Label Types
-  # Source ontology ID for Project B taxon list
-  project_b_source_ontology_id: cm9fy6wm00xis073obwoa5228
-  # Project B (botanist labelling)
-  project_b_name: BCI Workshop - Botanist Labelling
-  project_b_ontology_name: BCI Workshop - Botanist Labelling
-  # Name of the new combined dataset to create (Phase 0e)
-  combined_dataset_name: BCI Workshop - Drone Photos
-
 plantnet:
-  embeddings_api_url: https://my-api.plantnet.org/v2/embeddings
   identify_url: https://my-api.plantnet.org/v2/identify/k-central-america
+  embeddings_api_url: https://my-api.plantnet.org/v2/embeddings
   identify_nb_results: 5
   identify_organs: auto
   identify_lang: en
+  # Recorded in run_log.txt and quoted on the pages, so the model behind a
+  # snapshot stays identifiable after Pl@ntNet ships a new version.
   single_model_name: Pl@ntNet Single - Central America
   single_model_run_name: v7.4-2026-03-27
-  # Multi-species (survey) predictions
-  multi_model_name: Pl@ntNet Multi - Central America
-  multi_model_run_name: v7.4-2026-03-28
-  multi_model_b_name: Pl@ntNet Multi - Botanist
-  multi_model_run_b_name: v7.4-2026-03-28
-  multi_predictions_dir: data/survey_jsons
-  confidence_threshold_boxes: 0.05
-  multi_embedding_name: PlantNet-v7.4-multi
+
+labelbox:
+  # Read only by labelling/dispatch_round.py and labelling/close_round.py.
+  combined_dataset_name: BCI Workshop - Drone Photos
+  project_b_name: BCI Workshop - Botanist Labelling
 
 folders:
-  output: output
-  exports: output/00_exports
-  crosswalk: output/01_crosswalk
-  species_list: output/02_species_list
-  dataset: output/03_dataset
-  project_a: output/04_project_a
-  export_for_plantnet: output/05_export_for_plantnet
-  project_b: output/06_project_b
-  predictions: output/07_predictions
-  single_predictions: output/13_single_predictions
-  embeddings: output/08_embeddings
-  multi_predictions: output/14_multi_predictions
+  export_for_plantnet: input/boxes
+  single_predictions: data/photos
