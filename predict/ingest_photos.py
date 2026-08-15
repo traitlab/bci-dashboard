@@ -60,6 +60,12 @@ MAX_RETRIES = 3
 BACKOFF = [1, 5, 10]
 API_TIMEOUT = 60
 DEFAULT_DELAY = 0.5
+
+# The quadrat endpoint. The path documented as /v2/survey/<project> returns 404;
+# this is the one that answers, and the trailing 'tiles' is the flavor.
+SURVEY_TILES_URL = "https://my-api.plantnet.org/v2/survey/tiles/k-central-america"
+# One call runs 140 sub-queries over a 4000x3000 frame, so it is not a 60s job.
+SURVEY_TIMEOUT = 300
 IMG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
 
@@ -162,13 +168,22 @@ def call_embeddings(jpeg_bytes: bytes, filename: str, api_key: str,
 
 
 def call_survey(jpeg_bytes: bytes, filename: str, api_key: str,
-                survey_url: str) -> dict:
+                survey_url: str = SURVEY_TILES_URL) -> dict:
+    """Quadrat: the API slides a 518px window over the whole frame itself.
+
+    The field is 'image', singular, unlike identify's 'images'. Sending the
+    plural name returns HTTP 400 '"image" is required', which is how this was
+    found: the endpoint had been assumed unavailable on this key when in fact
+    only the request was malformed. 'organs' is not accepted here either.
+
+    Verified 2026-08-15 against a 4000x3000 frame: 140 sub-queries at
+    tile_size 518 / tile_stride 259, and the quadrat quota counter did not move.
+    """
     resp = requests.post(
         survey_url,
-        files=[("images", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
-        data={"organs": "auto"},
+        files=[("image", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
         params={"api-key": api_key},
-        timeout=API_TIMEOUT,
+        timeout=SURVEY_TIMEOUT,
     )
     if resp.status_code == 429:
         raise QuotaExceededError(f"Quota exceeded (HTTP 429)")
