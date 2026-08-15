@@ -90,28 +90,30 @@ def download_image_bytes(url: str) -> bytes:
     return resp.content
 
 
-def center_crop_jpeg_from_bytes(raw: bytes) -> tuple[bytes, int, int]:
+def center_crop_jpeg_from_bytes(raw: bytes) -> tuple[bytes, int, int, tuple]:
+    """-> (jpeg, frame_w, frame_h, box) where box is the rectangle that was sent.
+
+    The box is returned rather than recomputed downstream. A prediction is only
+    interpretable against the region the model saw, and that region used to be
+    reconstructed afterwards from the frame size and CROP_SIZE, which works only
+    while every frame is the same shape. A frame smaller than the crop is sent
+    whole, and its box is the whole frame.
+    """
     img = Image.open(io.BytesIO(raw)).convert("RGB")
     w, h = img.size
+    box = (0, 0, w, h)
     if w >= CROP_SIZE and h >= CROP_SIZE:
         left = (w - CROP_SIZE) // 2
         top = (h - CROP_SIZE) // 2
-        img = img.crop((left, top, left + CROP_SIZE, top + CROP_SIZE))
+        box = (left, top, left + CROP_SIZE, top + CROP_SIZE)
+        img = img.crop(box)
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=JPEG_QUALITY)
-    return buf.getvalue(), w, h
+    return buf.getvalue(), w, h, box
 
 
-def center_crop_jpeg(image_path: Path) -> tuple[bytes, int, int]:
-    img = Image.open(image_path).convert("RGB")
-    w, h = img.size
-    if w >= CROP_SIZE and h >= CROP_SIZE:
-        left = (w - CROP_SIZE) // 2
-        top = (h - CROP_SIZE) // 2
-        img = img.crop((left, top, left + CROP_SIZE, top + CROP_SIZE))
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=JPEG_QUALITY)
-    return buf.getvalue(), w, h
+def center_crop_jpeg(image_path: Path) -> tuple[bytes, int, int, tuple]:
+    return center_crop_jpeg_from_bytes(image_path.read_bytes())
 
 
 def _api_call_with_retry(fn, *args, **kwargs):
@@ -219,6 +221,24 @@ def identify_to_survey_json(identify_resp: dict, emb_resp: dict) -> dict:
     }
 
 
+def stamp_geometry(result: dict, frame_w: int, frame_h: int, box: tuple) -> dict:
+    """Record the region that was actually sent, alongside the API's answer.
+
+    Without this the cache says what the model replied and not what it was
+    looking at, so any later comparison against a crown box has to assume every
+    frame is 4000x3000 and the crop is always the same rectangle. That is true
+    of the corpus today and is not a property of the data.
+    """
+    result["crop"] = {
+        "box": {"x_min": box[0], "y_min": box[1], "x_max": box[2], "y_max": box[3]},
+        "frame_width": frame_w,
+        "frame_height": frame_h,
+        "crop_size": CROP_SIZE,
+        "unit": "photo",
+    }
+    return result
+
+
 def process_photo(
     photo_path: Path,
     api_key: str,
@@ -233,7 +253,7 @@ def process_photo(
         with open(cache_file) as f:
             return json.load(f)
 
-    jpeg_bytes, orig_w, orig_h = center_crop_jpeg(photo_path)
+    jpeg_bytes, orig_w, orig_h, crop_box = center_crop_jpeg(photo_path)
 
     if survey_url:
         raw = _api_call_with_retry(call_survey, jpeg_bytes, filename, api_key, survey_url)
@@ -251,6 +271,8 @@ def process_photo(
             call_embeddings, jpeg_bytes, filename, api_key, embeddings_url
         )
         result = identify_to_survey_json(id_resp, emb_resp)
+
+    stamp_geometry(result, orig_w, orig_h, crop_box)
 
     tmp = cache_file.with_suffix(".tmp")
     with open(tmp, "w") as f:
@@ -274,7 +296,7 @@ def process_url(
             return json.load(f)
 
     raw_image = download_image_bytes(url)
-    jpeg_bytes, _, _ = center_crop_jpeg_from_bytes(raw_image)
+    jpeg_bytes, orig_w, orig_h, crop_box = center_crop_jpeg_from_bytes(raw_image)
 
     if survey_url:
         result = _api_call_with_retry(call_survey, jpeg_bytes, filename, api_key, survey_url)
@@ -291,6 +313,8 @@ def process_url(
             call_embeddings, jpeg_bytes, filename, api_key, embeddings_url
         )
         result = identify_to_survey_json(id_resp, emb_resp)
+
+    stamp_geometry(result, orig_w, orig_h, crop_box)
 
     tmp = cache_file.with_suffix(".tmp")
     with open(tmp, "w") as f:
