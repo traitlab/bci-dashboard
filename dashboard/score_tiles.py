@@ -87,7 +87,7 @@ def main():
     if not TILES.exists():
         sys.exit(f"no tiles cache at {TILES}; run predict/tiles.py first")
     frames, _ = crop_overlap.build()
-    canon = core.load_wcvp_crosswalk()[0]
+    canon = core.load_wcvp_crosswalk(core.WCVP_CACHE_JSON)[0]
 
     def norm(name):
         n = core.normalize(name or "")
@@ -106,6 +106,8 @@ def main():
             "tiles": [norm(x) for x in tiles_ranked(doc)],
             "crop": [norm(x) for x in tiles_in_rect_ranked(doc, rect)],
             "uncovered": doc["results"]["uncovered"],
+            "tiles_cov": max((s["coverage"] for s in doc["results"]["species"]),
+                             default=0.0),
             "cover": frames.get(base, {}).get("coverage"),
         })
     rows = [r for r in rows if r["gt"] and r["photo"]]
@@ -131,14 +133,47 @@ def main():
     # it buys nothing the gate does not.
     admitted = [r for r in rows if (r["cover"] or 0) >= 0.50]
     rejected = [r for r in rows if (r["cover"] or 0) < 0.50]
-    log(f"split by the published coverage gate (T=0.50)")
+    log("split by the published coverage gate (T=0.50)")
     for label, sub in (("admitted", admitted), ("not admitted", rejected)):
         if not sub:
             continue
         line = "  ".join(
-            f"{a}={sum(1 for r in sub if r['gt'] == r[a][:1][0] if r[a]) / len(sub) * 100:5.1f}%"
+            f"{a}={sum(1 for r in sub if r['gt'] in r[a][:1]) / len(sub) * 100:5.1f}%"
             for a in arms)
         log(f"  {label:13s} n={len(sub):4d}  {line}")
+
+    # A whole-frame arm sees more trees, so it has more chances to land on
+    # whichever species is common in the plot. If that is all the gain is, it
+    # should disappear on frames whose labelled species is rare, where guessing
+    # the abundant one is punished rather than rewarded.
+    freq = {}
+    for r in rows:
+        freq[r["gt"]] = freq.get(r["gt"], 0) + 1
+    common = sorted(freq, key=lambda s: -freq[s])[:5]
+    log("\nrefutation: is the tiles gain just naming the abundant species?")
+    for label, sub in (("gt is top-5 abundant", [r for r in rows if r["gt"] in common]),
+                       ("gt is anything else", [r for r in rows if r["gt"] not in common])):
+        if not sub:
+            continue
+        line = "  ".join(
+            f"{a}={sum(1 for r in sub if r['gt'] in r[a][:1]) / len(sub) * 100:5.1f}%"
+            for a in arms)
+        log(f"  {label:21s} n={len(sub):4d}  {line}")
+
+    # The published gate reads a botanist's boxes, so it cannot run on a photo
+    # nobody has labelled, which is every photo the model would be deployed on.
+    # The quadrat call reports its own top species' share of the frame. If that
+    # share separates right from wrong the same way, the gate becomes something
+    # the pipeline can compute for itself.
+    log("\nthe tiles' own coverage as a gate, no boxes needed")
+    log(f"  {'threshold':>9}  {'kept':>5}  {'share':>6}  {'tiles top-1':>11}")
+    for thr in (0.0, 0.2, 0.4, 0.5, 0.6, 0.8):
+        kept = [r for r in rows if r["tiles"] and r["tiles_cov"] >= thr]
+        if not kept:
+            continue
+        hit = sum(1 for r in kept if r["gt"] in r["tiles"][:1])
+        log(f"  {thr:9.2f}  {len(kept):5d}  {len(kept) / len(rows) * 100:5.1f}%  "
+            f"{hit / len(kept) * 100:10.1f}%")
 
 
 if __name__ == "__main__":
