@@ -23,7 +23,7 @@ import collections
 import csv
 import os
 
-from core import REPO, normalize
+from core import REPO, strip_collection_codes
 
 # Must match CROP_SIZE in predict/photo.py
 CROP_SIZE = 1280
@@ -69,14 +69,21 @@ def _intersect_area(box, rect):
 
 
 def load_boxes(path=BOXES_CSV):
-    """base_image -> list of (x0, y0, x1, y1, normalized_species)."""
+    """base_image -> list of (x0, y0, x1, y1, normalized_species).
+
+    lb_label carries trailing BCI collection codes ('Hura crepitans-HURACR-HURC').
+    They come off here rather than downstream, because they are recognised by
+    being upper case: once normalize() has lowered the string a code can no
+    longer be told from a hyphenated epithet, and the name would never compare
+    equal to a GT species again.
+    """
     frames = collections.defaultdict(list)
     with open(path, newline="") as fh:
         for r in csv.DictReader(fh):
             frames[r["base_image"]].append((
                 int(r["x_min"]), int(r["y_min"]),
                 int(r["x_max"]), int(r["y_max"]),
-                normalize(r["lb_label"]),
+                strip_collection_codes(r["lb_label"]),
             ))
     return frames
 
