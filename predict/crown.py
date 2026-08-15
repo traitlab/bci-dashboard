@@ -206,7 +206,7 @@ def frame_gt_map(core):
     return out, canon
 
 
-def frame_paired_todo(todo, n_frames, seed, cache_dir):
+def frame_paired_todo(frames, urls, n_frames, seed, cache_dir, min_box_side):
     """One crown per frame, plus a second where the frame allows it.
 
     The question a pilot has to answer is whether a crown's own pixels beat the
@@ -221,39 +221,53 @@ def frame_paired_todo(todo, n_frames, seed, cache_dir):
     The largest alone would measure crown cropping at its best case while the
     photo arm runs as it is, which answers a narrower question than the one asked.
 
-    Frames already holding a cached crown are skipped, so this sample stays
-    independent of the first pilot instead of partly repeating it.
+    Eligibility is judged against every matching box for the frame (cached or
+    not), not against `plan()`'s cache-filtered todo: that todo already drops
+    a crown the moment it is cached, so a frame with its largest crown done and
+    its second still missing would otherwise look identical to a frame with
+    nothing done at all. A frame is skipped only once both crowns it would emit
+    are already cached (or its one crown, for a frame with no second candidate),
+    so re-running the same command resumes a quota-interrupted pilot instead of
+    drawing a fresh set of frames on top of it.
     """
     core = _load_core()
     gt, canon = frame_gt_map(core)
     photo_cache = REPO / "data" / "predictions" / "cache"
 
-    by_frame = collections.defaultdict(list)
-    for t in todo:
-        by_frame[t[0]].append(t)
-
     eligible = {}
-    for base, items in by_frame.items():
+    for base, boxes in frames.items():
+        url = urls.get(base)
         g = gt.get(base)
-        if not g or not (photo_cache / f"{base}.json").exists():
+        if url is None or not g or not (photo_cache / f"{base}.json").exists():
             continue
-        if any(cache_dir.glob(f"{base[:-4] if base.lower().endswith('.jpg') else base}__*.json")):
-            continue
-        match = [t for t in items
-                 if canon(core.strip_collection_codes(t[2][4])) == g]
+        match = [(base, url, box) for box in boxes
+                 if (box[2] - box[0]) >= min_box_side
+                 and (box[3] - box[1]) >= min_box_side
+                 and canon(core.strip_collection_codes(box[4])) == g]
         if match:
             eligible[base] = match
+
+    def is_cached(t):
+        return (cache_dir / f"{crown_id(t[0], t[2])}.json").exists()
 
     rng = random.Random(seed)
     chosen = sorted(eligible)
     rng.shuffle(chosen)
     out = []
-    for base in chosen[:n_frames]:
+    drawn = 0
+    for base in chosen:
+        if drawn >= n_frames:
+            break
         match = eligible[base]
         largest = max(match, key=lambda t: ((t[2][2] - t[2][0]) * (t[2][3] - t[2][1])))
-        out.append(largest)
         rest = [t for t in match if t is not largest]
-        if rest:
+        second_done = any(is_cached(t) for t in rest)
+        if is_cached(largest) and (not rest or second_done):
+            continue  # both crowns this frame would emit are already cached
+        drawn += 1
+        if not is_cached(largest):
+            out.append(largest)
+        if rest and not second_done:
             out.append(rng.choice(rest))
     return out, len(eligible)
 
@@ -288,11 +302,16 @@ def main() -> None:
     urls = load_frame_urls()
     n_boxes = sum(len(v) for v in frames.values())
 
-    lines = []
+    # Truncated up front, then appended to on every log() call below, so a
+    # background run can be tailed while it is alive instead of only reading
+    # back once the process has already exited.
+    run_log_path = out_dir / "run_log.txt"
+    run_log_path.write_text("", encoding="utf-8")
 
     def log(msg=""):
-        print(msg)
-        lines.append(msg)
+        print(msg, flush=True)
+        with open(run_log_path, "a", encoding="utf-8") as fh:
+            fh.write(msg + "\n")
 
     log("--- INPUT ---")
     log(f"  frames with boxes            : {len(frames)}")
@@ -307,7 +326,7 @@ def main() -> None:
     n_eligible = None
     if args.frame_paired:
         todo, n_eligible = frame_paired_todo(
-            todo, args.frame_paired, args.seed, cache_dir)
+            frames, urls, args.frame_paired, args.seed, cache_dir, args.min_box_side)
     elif args.sample:
         todo = sample_todo(todo, args.sample, args.sample_frames, args.seed)
     log("")
@@ -395,8 +414,6 @@ def main() -> None:
     log(f"  requested ok : {ok}")
     log(f"  errors       : {errors}")
     log(f"  cache        : {cache_dir}")
-
-    (out_dir / "run_log.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
