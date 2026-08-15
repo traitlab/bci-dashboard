@@ -30,6 +30,7 @@ Output:
 Usage:
   python predict/crown.py
   python predict/crown.py --run --max-calls 9500
+  python predict/crown.py --run --sample 500          # size-spanning pilot
 """
 
 import argparse
@@ -38,6 +39,7 @@ import csv
 import importlib.util
 import io
 import os
+import random
 import sys
 import time
 from pathlib import Path
@@ -142,6 +144,38 @@ def plan(frames, urls, cache_dir, min_box_side=MIN_BOX_SIDE):
     return todo, {"too_small": too_small, "no_frame_url": no_url, "cached": cached}
 
 
+def sample_todo(todo, n, n_frames, seed, bins=5):
+    """A size-spanning subset of `todo`, cheap to fetch.
+
+    Taking the first n entries would run the alphabetically earliest missions,
+    and drawing n crowns at random would download nearly n frames at ~8 MB each.
+    So frames are drawn first, then crowns within them are spread evenly over
+    quantile bins of the shorter box side: the pilot has to say how the score
+    varies with crown size, which needs the small and the large ones both.
+    """
+    rng = random.Random(seed)
+    frames = sorted({t[0] for t in todo})
+    chosen = set(rng.sample(frames, min(n_frames, len(frames))))
+    pool = [t for t in todo if t[0] in chosen]
+    if len(pool) <= n:
+        return pool
+
+    def short_side(t):
+        return min(t[2][2] - t[2][0], t[2][3] - t[2][1])
+
+    pool.sort(key=short_side)
+    edges = [len(pool) * i // bins for i in range(bins + 1)]
+    buckets = [pool[edges[i]:edges[i + 1]] for i in range(bins)]
+    for b in buckets:
+        rng.shuffle(b)
+    out = []
+    while len(out) < n and any(buckets):
+        for b in buckets:
+            if b and len(out) < n:
+                out.append(b.pop())
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Pl@ntNet predictions per crown.")
     ap.add_argument("--run", action="store_true",
@@ -150,6 +184,11 @@ def main() -> None:
                     help=f"stop after this many calls (default {DEFAULT_MAX_CALLS})")
     ap.add_argument("--delay", type=float, default=DEFAULT_DELAY)
     ap.add_argument("--min-box-side", type=int, default=MIN_BOX_SIDE)
+    ap.add_argument("--sample", type=int,
+                    help="pilot on this many crowns, spread over box sizes")
+    ap.add_argument("--sample-frames", type=int, default=100,
+                    help="frames the sample is drawn from (default 100)")
+    ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
 
     load_dotenv(REPO / ".env")
@@ -180,11 +219,21 @@ def main() -> None:
             "cannot be fetched")
 
     todo, dropped = plan(frames, urls, cache_dir, args.min_box_side)
+    if args.sample:
+        todo = sample_todo(todo, args.sample, args.sample_frames, args.seed)
     log("")
     log("--- PLAN ---")
     log(f"  already cached               : {dropped['cached']}")
     log(f"  skipped, side < {args.min_box_side} px      : {dropped['too_small']}")
     log(f"  skipped, no frame URL        : {dropped['no_frame_url']}")
+    if args.sample:
+        sides = sorted(min(t[2][2] - t[2][0], t[2][3] - t[2][1]) for t in todo)
+        log(f"  SAMPLE of {args.sample} over {args.sample_frames} frames, seed {args.seed}")
+        if sides:
+            log(f"  sampled shorter side px      : min {sides[0]}, "
+                f"median {sides[len(sides) // 2]}, max {sides[-1]}")
+            log(f"  sampled below 518 px         : "
+                f"{sum(1 for s in sides if s < 518)} of {len(sides)}")
     log(f"  to request                   : {len(todo)}  (1 credit each)")
     log(f"  this run will stop after     : {min(len(todo), args.max_calls)} calls")
     log(f"  frames to download           : {len({t[0] for t in todo[:args.max_calls]})}")
