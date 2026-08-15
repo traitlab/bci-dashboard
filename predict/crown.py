@@ -31,6 +31,7 @@ Usage:
   python predict/crown.py
   python predict/crown.py --run --max-calls 9500
   python predict/crown.py --run --sample 500          # size-spanning pilot
+  python predict/crown.py --run --frame-paired 700    # paired crown-vs-crop pilot
 """
 
 import argparse
@@ -176,6 +177,87 @@ def sample_todo(todo, n, n_frames, seed, bins=5):
     return out
 
 
+def _load_core():
+    """dashboard/core.py by path, for the name rules the GT join depends on."""
+    path = REPO / "dashboard" / "core.py"
+    spec = importlib.util.spec_from_file_location("_dashboard_core", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_dashboard_core"] = mod   # a @dataclass in core.py needs this
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def frame_gt_map(core):
+    """base frame -> canonical GT species, for species-level GT only."""
+    crosswalk, _ = core.load_wcvp_crosswalk(REPO / "data" / "wcvp_cache.json")
+
+    def canon(name):
+        n = core.normalize(name or "")
+        return crosswalk.get(n, n)
+
+    out = {}
+    with open(REPO / "data" / "gt_dominant_taxon.csv", newline="", encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            gk = r["global_key"]
+            stem = gk[len(core.GT_KEY_PREFIX):] if gk.startswith(core.GT_KEY_PREFIX) else gk
+            g = canon(r["wcvp_canonical_name"])
+            if g and core.is_species_level(g):
+                out[stem] = g
+    return out, canon
+
+
+def frame_paired_todo(todo, n_frames, seed, cache_dir):
+    """One crown per frame, plus a second where the frame allows it.
+
+    The question a pilot has to answer is whether a crown's own pixels beat the
+    centre crop of the same frame. That comparison is paired on the FRAME, so
+    sending five crowns from one frame buys one comparison at five times the
+    price: the first pilot spent 500 credits to reach 74 paired frames.
+
+    A frame qualifies only if it can be compared at all: it needs a species-level
+    GT label, a photo-cache entry scored from the centre crop, and at least one
+    crown whose own label is that same species. Two crowns are sent per frame
+    where possible, the largest matching crown and one other drawn at random.
+    The largest alone would measure crown cropping at its best case while the
+    photo arm runs as it is, which answers a narrower question than the one asked.
+
+    Frames already holding a cached crown are skipped, so this sample stays
+    independent of the first pilot instead of partly repeating it.
+    """
+    core = _load_core()
+    gt, canon = frame_gt_map(core)
+    photo_cache = REPO / "data" / "predictions" / "cache"
+
+    by_frame = collections.defaultdict(list)
+    for t in todo:
+        by_frame[t[0]].append(t)
+
+    eligible = {}
+    for base, items in by_frame.items():
+        g = gt.get(base)
+        if not g or not (photo_cache / f"{base}.json").exists():
+            continue
+        if any(cache_dir.glob(f"{base[:-4] if base.lower().endswith('.jpg') else base}__*.json")):
+            continue
+        match = [t for t in items
+                 if canon(core.strip_collection_codes(t[2][4])) == g]
+        if match:
+            eligible[base] = match
+
+    rng = random.Random(seed)
+    chosen = sorted(eligible)
+    rng.shuffle(chosen)
+    out = []
+    for base in chosen[:n_frames]:
+        match = eligible[base]
+        largest = max(match, key=lambda t: ((t[2][2] - t[2][0]) * (t[2][3] - t[2][1])))
+        out.append(largest)
+        rest = [t for t in match if t is not largest]
+        if rest:
+            out.append(rng.choice(rest))
+    return out, len(eligible)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Pl@ntNet predictions per crown.")
     ap.add_argument("--run", action="store_true",
@@ -184,6 +266,9 @@ def main() -> None:
                     help=f"stop after this many calls (default {DEFAULT_MAX_CALLS})")
     ap.add_argument("--delay", type=float, default=DEFAULT_DELAY)
     ap.add_argument("--min-box-side", type=int, default=MIN_BOX_SIDE)
+    ap.add_argument("--frame-paired", type=int, metavar="N_FRAMES",
+                    help="pilot on N frames, up to 2 crowns each, for the paired "
+                         "crown-vs-centre-crop test")
     ap.add_argument("--sample", type=int,
                     help="pilot on this many crowns, spread over box sizes")
     ap.add_argument("--sample-frames", type=int, default=100,
@@ -219,14 +304,25 @@ def main() -> None:
             "cannot be fetched")
 
     todo, dropped = plan(frames, urls, cache_dir, args.min_box_side)
-    if args.sample:
+    n_eligible = None
+    if args.frame_paired:
+        todo, n_eligible = frame_paired_todo(
+            todo, args.frame_paired, args.seed, cache_dir)
+    elif args.sample:
         todo = sample_todo(todo, args.sample, args.sample_frames, args.seed)
     log("")
     log("--- PLAN ---")
     log(f"  already cached               : {dropped['cached']}")
     log(f"  skipped, side < {args.min_box_side} px      : {dropped['too_small']}")
     log(f"  skipped, no frame URL        : {dropped['no_frame_url']}")
-    if args.sample:
+    if args.frame_paired:
+        n_f = len({t[0] for t in todo})
+        log(f"  FRAME-PAIRED sample, seed {args.seed}")
+        log(f"  frames comparable in both arms : {n_eligible} "
+            f"(species-level GT, a photo-cache entry, and a crown of that species)")
+        log(f"  frames drawn                   : {n_f}")
+        log(f"  frames giving a second crown   : {len(todo) - n_f}")
+    if args.sample and not args.frame_paired:
         sides = sorted(min(t[2][2] - t[2][0], t[2][3] - t[2][1]) for t in todo)
         log(f"  SAMPLE of {args.sample} over {args.sample_frames} frames, seed {args.seed}")
         if sides:
