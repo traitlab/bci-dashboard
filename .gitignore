@@ -9,3 +9,9 @@ data/*
 !data/wcvp_cache.json
 .ruff_cache/
 .claude-flow/
+
+# Generated dashboard tables. Regenerate with dashboard/measure.py; the numbers
+# are carried by the handoff, not by git, so a stale file cannot be mistaken for
+# a current run.
+dashboard/*.csv
+dashboard/run_log.txt

@@ -199,7 +199,7 @@ def frame_gt_map(core):
     with open(REPO / "data" / "gt_dominant_taxon.csv", newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
             gk = r["global_key"]
-            stem = gk[len(core.GT_KEY_PREFIX):] if gk.startswith(core.GT_KEY_PREFIX) else gk
+            stem = gk.removeprefix(core.GT_KEY_PREFIX)
             g = canon(r["wcvp_canonical_name"])
             if g and core.is_species_level(g):
                 out[stem] = g
@@ -287,6 +287,10 @@ def main() -> None:
                     help="pilot on this many crowns, spread over box sizes")
     ap.add_argument("--sample-frames", type=int, default=100,
                     help="frames the sample is drawn from (default 100)")
+    ap.add_argument("--only-frames", metavar="FILE",
+                    help="restrict to the base_image names in FILE, one per "
+                         "line. Lets a specific question be answered for a few "
+                         "hundred credits instead of running the whole corpus")
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
 
@@ -300,6 +304,15 @@ def main() -> None:
 
     frames, dupes = load_crowns()
     urls = load_frame_urls()
+
+    # Applied before anything is counted, so the PLAN block reports the cost of
+    # the restricted job rather than the whole corpus.
+    only = None
+    if args.only_frames:
+        with open(args.only_frames, encoding="utf-8") as fh:
+            only = {line.strip() for line in fh if line.strip()}
+        frames = {b: v for b, v in frames.items() if b in only}
+
     n_boxes = sum(len(v) for v in frames.values())
 
     # Truncated up front, then appended to on every log() call below, so a
@@ -314,6 +327,8 @@ def main() -> None:
             fh.write(msg + "\n")
 
     log("--- INPUT ---")
+    if only is not None:
+        log(f"  RESTRICTED to {len(only)} frames from {args.only_frames}")
     log(f"  frames with boxes            : {len(frames)}")
     log(f"  distinct crowns              : {n_boxes}  ({dupes} duplicate rows collapsed)")
     log(f"  frames with a known URL      : {sum(1 for b in frames if b in urls)}")

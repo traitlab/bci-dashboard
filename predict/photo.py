@@ -37,12 +37,13 @@ import time
 from pathlib import Path
 
 import requests
-from PIL import Image
-from dotenv import load_dotenv
 import yaml
+from dotenv import load_dotenv
+from PIL import Image
 
 CROP_SIZE     = 1280
 DEFAULT_DELAY = 0.5
+DEFAULT_MAX_CALLS = 9500
 MAX_RETRIES   = 3
 API_TIMEOUT   = 60
 BACKOFF       = [1, 5, 10]
@@ -60,6 +61,16 @@ def load_config():
 def load_image_list(csv_path: Path) -> list[dict]:
     with open(csv_path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
+
+
+def cache_name(global_key: str) -> str:
+    """Cache file stem for a global key.
+
+    Current-ingest keys carry the flight folder (``<folder>/DJI_...tele.JPG``),
+    so the raw key is not a legal file name. Legacy ``comb_``/``migrated`` keys
+    hold no slash, which makes this a no-op for the cached corpus.
+    """
+    return global_key.replace("/", "__")
 
 
 def center_crop_jpeg(image_bytes: bytes) -> tuple[bytes, int, int, int | None]:
@@ -190,6 +201,13 @@ def main():
     parser.add_argument("--test",  action="store_true", help="Process 1 image only (verbose)")
     parser.add_argument("--delay", type=float, default=DEFAULT_DELAY,
                         help=f"Delay between API calls in seconds (default {DEFAULT_DELAY})")
+    parser.add_argument("--input", help="Image list CSV (global_key,image_url). "
+                                        "Default: the configured BCI export list.")
+    parser.add_argument("--out-dir", help="Output directory. Default: the configured "
+                                          "single-prediction folder.")
+    parser.add_argument("--max-calls", type=int, default=DEFAULT_MAX_CALLS,
+                        help=f"Stop after this many API calls (default {DEFAULT_MAX_CALLS}). "
+                             "Guards the daily quota so a run cannot strand a later job.")
     args = parser.parse_args()
 
     load_dotenv()
@@ -205,8 +223,10 @@ def main():
     organs     = pn_cfg.get("identify_organs", "auto")
     lang       = pn_cfg.get("identify_lang", "en")
 
-    images_csv  = Path(config["folders"]["export_for_plantnet"]) / "bci_images_for_plantnet.csv"
-    output_dir  = Path(config["folders"]["single_predictions"])
+    images_csv  = (Path(args.input) if args.input else
+                   Path(config["folders"]["export_for_plantnet"]) / "bci_images_for_plantnet.csv")
+    output_dir  = (Path(args.out_dir) if args.out_dir else
+                   Path(config["folders"]["single_predictions"]))
     cache_dir   = output_dir / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -220,7 +240,11 @@ def main():
 
     # Find already-cached images
     cached = {p.stem for p in cache_dir.glob("*.json")}
-    to_process = [r for r in rows if r["global_key"] not in cached]
+    to_process = [r for r in rows if cache_name(r["global_key"]) not in cached]
+    if len(to_process) > args.max_calls:
+        print(f"  CAPPED at --max-calls={args.max_calls} "
+              f"(of {len(to_process)} outstanding)")
+        to_process = to_process[:args.max_calls]
     print(f"\nStep 2 - Calling Pl@ntNet API ({api_url})...")
     print(f"  Already cached: {len(cached)}")
     print(f"  To process:     {len(to_process)}")
@@ -236,7 +260,7 @@ def main():
     for i, row in enumerate(to_process):
         gk        = row["global_key"]
         image_url = row["image_url"]
-        cache_path = cache_dir / f"{gk}.json"
+        cache_path = cache_dir / f"{cache_name(gk)}.json"
 
         try:
             # Download image
@@ -255,7 +279,7 @@ def main():
             )
 
             if args.test:
-                print(f"\n  Raw API response:")
+                print("\n  Raw API response:")
                 print(json.dumps(response, indent=2))
 
             # Parse and cache
@@ -265,7 +289,7 @@ def main():
             last_remaining = entry.get("remaining_credits")
 
             if args.test:
-                print(f"\n  Parsed entry:")
+                print("\n  Parsed entry:")
                 print(f"  Best match:  {entry['best_match']}")
                 print(f"  Results:     {len(entry['results'])} species")
                 for r in entry["results"]:
