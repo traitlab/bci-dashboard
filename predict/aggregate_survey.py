@@ -35,7 +35,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 from labelfirst.aggregate import weighted_mean_pool
 from labelfirst.eval.species_priority import SpeciesPrediction, batch_scores
 
@@ -196,7 +195,7 @@ def main() -> None:
 
     print("\nDone. Use with the send-first queue (dashboard/measure.py):")
     print(f"  --embeddings {emb_path}")
-    print(f"  (species scores can replace the novelty axis)")
+    print("  (species scores can replace the novelty axis)")
 
 
 if __name__ == "__main__":

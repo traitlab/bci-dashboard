@@ -26,8 +26,8 @@ from collections import Counter
 from pathlib import Path
 
 import labelbox as lb
-from dotenv import load_dotenv
 import yaml
+from dotenv import load_dotenv
 
 REPO = Path(__file__).resolve().parents[1]
 GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
@@ -116,7 +116,7 @@ def main() -> None:
         sys.exit(f"ERROR: No batch matching 'Round {args.round} -' found in project.")
     print(f"  Found batch: {batch.name}")
 
-    print(f"\nStep 3 - Exporting labels from batch...")
+    print("\nStep 3 - Exporting labels from batch...")
     export_task = project.export(
         params={
             "data_row_details": True,
@@ -142,7 +142,7 @@ def main() -> None:
     )
     print(f"  Exported {len(rows)} data rows")
 
-    print(f"\nStep 4 - Parsing dominant species per image...")
+    print("\nStep 4 - Parsing dominant species per image...")
     existing_keys = load_existing_gt(args.gt)
     new_entries: list[tuple[str, str]] = []
     skipped_existing = 0
@@ -207,7 +207,7 @@ def main() -> None:
     print(f"  Total GT rows:      {len(existing_keys) + len(new_entries)}")
     print(f"  New unique species: {len(species_counts)}")
     print(f"  GT file:            {args.gt}")
-    print(f"\n  Next: python3 dashboard/measure.py, then dispatch the top of")
+    print("\n  Next: python3 dashboard/measure.py, then dispatch the top of")
     print(f"        send_batches.csv with labelling/dispatch_round.py --round {args.round + 1}")
     print(f"{'=' * 50}")
 
