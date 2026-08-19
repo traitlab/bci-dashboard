@@ -32,12 +32,13 @@ import csv
 import json
 import re
 from collections import Counter, defaultdict
-from datetime import date
+from datetime import datetime, timezone
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[1]
 GT = REPO / "data" / "gt_dominant_taxon.csv"
 SPLITS = REPO / "data" / "splits.csv"
+BOXES = REPO / "data" / "export_boxes.csv"
 GT_KEY_PREFIX = "comb_"
 
 _CODE = re.compile(r"^[A-Z0-9]{2,}$")
@@ -55,9 +56,21 @@ def strip_codes(name: str) -> str:
     return "-".join(parts) if parts else str(name)
 
 
-def export_dominants(ndjson_path: Path) -> dict[str, str]:
-    """Basename -> dominant taxon by summed box area, from the export."""
+def export_dominants(ndjson_path: Path) -> tuple[dict[str, str], list[dict]]:
+    """Basename -> dominant taxon by summed box area, plus every labelled box.
+
+    The boxes are returned as well as the dominants because they are the current
+    crown geometry. ``input/boxes/crop_bounding_boxes.csv`` predates the July
+    2026 revision and disagrees with the export badly: on the frames both cover
+    it holds twice as many boxes per frame, only 35% of them are the same crown
+    at IoU 0.5, and a fifth of even those carry a superseded species. Anything
+    that needs to know where a crown is should read the export, not that file.
+
+    Emitted in the column shape of crop_bounding_boxes.csv so that the coverage
+    code can read either source without a second parser.
+    """
     area = defaultdict(Counter)
+    boxes: list[dict] = []
     with open(ndjson_path, encoding="utf-8") as f:
         for line in f:
             row = json.loads(line)
@@ -74,9 +87,21 @@ def export_dominants(ndjson_path: Path) -> dict[str, str]:
                         if sp is None:
                             continue
                         bb = obj.get("bounding_box") or {}
-                        area[stem][sp] += bb.get("width", 0) * bb.get("height", 0)
-    return {stem: counts.most_common(1)[0][0]
-            for stem, counts in area.items() if counts}
+                        w, h = bb.get("width", 0), bb.get("height", 0)
+                        area[stem][sp] += w * h
+                        if not (w and h):
+                            continue
+                        x0, y0 = int(bb["left"]), int(bb["top"])
+                        boxes.append({
+                            "base_image": stem,
+                            "x_min": x0, "y_min": y0,
+                            "x_max": x0 + int(w), "y_max": y0 + int(h),
+                            "width": int(w), "height": int(h),
+                            "lb_label": sp,
+                        })
+    dominants = {stem: counts.most_common(1)[0][0]
+                 for stem, counts in area.items() if counts}
+    return dominants, boxes
 
 
 def main() -> None:
@@ -84,6 +109,8 @@ def main() -> None:
     ap.add_argument("--export", required=True, help="Labelbox project export NDJSON")
     ap.add_argument("--gt", default=str(GT), help="existing gt_dominant_taxon.csv")
     ap.add_argument("--splits", default=str(SPLITS), help="splits.csv (corpus keys)")
+    ap.add_argument("--boxes-out", default=str(BOXES),
+                    help="where to write the export crown geometry")
     ap.add_argument("--note", default=None,
                     help="one-line provenance note for the merged GT, e.g. the batch "
                          "name and its review status; written to a sidecar the "
@@ -96,7 +123,17 @@ def main() -> None:
     with open(args.gt, newline="", encoding="utf-8") as f:
         base_gt = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
 
-    july = export_dominants(Path(args.export))
+    july, boxes = export_dominants(Path(args.export))
+
+    fields = ["base_image", "x_min", "y_min", "x_max", "y_max",
+              "width", "height", "lb_label"]
+    with open(args.boxes_out, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fields)
+        w.writeheader()
+        w.writerows(boxes)
+    print(f"export crown boxes {len(boxes)} on "
+          f"{len({b['base_image'] for b in boxes})} frames -> {args.boxes_out}")
+
     july = {GT_KEY_PREFIX + stem: sp for stem, sp in july.items()
             if GT_KEY_PREFIX + stem in corpus}
 
@@ -113,7 +150,7 @@ def main() -> None:
         w.writerows(out)
 
     note = args.note or (f"Ground truth merged from Labelbox export "
-                         f"{Path(args.export).name} on {date.today().isoformat()}.")
+                         f"{Path(args.export).name} on {datetime.now(timezone.utc).date().isoformat()}.")
     sidecar = Path(args.gt).with_suffix(".provenance.txt")
     sidecar.write_text(note + "\n", encoding="utf-8")
     print(f"provenance note                            -> {sidecar}")

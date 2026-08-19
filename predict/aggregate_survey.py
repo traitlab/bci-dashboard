@@ -39,7 +39,7 @@ import pandas as pd
 from labelfirst.aggregate import weighted_mean_pool
 from labelfirst.eval.species_priority import SpeciesPrediction, batch_scores
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "data"
 EMBEDDING_DIMS = 768
 

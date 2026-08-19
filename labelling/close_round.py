@@ -29,7 +29,7 @@ import labelbox as lb
 from dotenv import load_dotenv
 import yaml
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[1]
 GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
 EXPORT_TIMEOUT_SEC = 600
 TAXON_TOOL_NAME = "Planta"

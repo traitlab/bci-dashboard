@@ -11,7 +11,13 @@ much of that rectangle each labelled species covers. Downstream code uses the
 coverage fraction to admit or reject a frame: admit only if one species covers at
 least T of the region the model saw.
 
-Nothing here calls an API or touches Labelbox. It reads crop_bounding_boxes.csv.
+Nothing here calls an API or touches Labelbox. It reads crown geometry from
+two files and prefers the newer one per frame. ``data/export_boxes.csv`` comes
+from the Labelbox export (labelling/gt_from_export.py) and matches the July 2026
+botanist revision. ``input/boxes/crop_bounding_boxes.csv`` predates it and is
+kept only for the frames the export does not cover: where both describe a frame,
+the old file holds twice as many boxes, only 35% of them are the same crown at
+IoU 0.5, and a fifth of even those carry a superseded species.
 
 Frame geometry: all 16 randomly sampled base frames (2024-2026, zoom and tele)
 measured exactly FRAME_W x FRAME_H, so the crop rectangle is constant. Frames
@@ -35,6 +41,7 @@ FRAME_W = 4000
 FRAME_H = 3000
 
 BOXES_CSV = os.path.join(REPO, "input", "boxes", "crop_bounding_boxes.csv")
+EXPORT_BOXES_CSV = os.path.join(REPO, "data", "export_boxes.csv")
 
 # Default admission threshold: the dominant species must cover at least this
 # fraction of the crop.
@@ -68,15 +75,8 @@ def _intersect_area(box, rect):
     return max(0, w) * max(0, h)
 
 
-def load_boxes(path=BOXES_CSV):
-    """base_image -> list of (x0, y0, x1, y1, normalized_species).
-
-    lb_label carries trailing BCI collection codes ('Hura crepitans-HURACR-HURC').
-    They come off here rather than downstream, because they are recognised by
-    being upper case: once normalize() has lowered the string a code can no
-    longer be told from a hyphenated epithet, and the name would never compare
-    equal to a GT species again.
-    """
+def _read_boxes(path):
+    """One geometry file -> base_image -> list of (x0, y0, x1, y1, species)."""
     frames = collections.defaultdict(list)
     with open(path, newline="") as fh:
         for r in csv.DictReader(fh):
@@ -86,6 +86,37 @@ def load_boxes(path=BOXES_CSV):
                 strip_collection_codes(r["lb_label"]),
             ))
     return frames
+
+
+def load_boxes(path=BOXES_CSV, export_path=EXPORT_BOXES_CSV):
+    """base_image -> list of (x0, y0, x1, y1, normalized_species).
+
+    Export geometry wins per frame, whole. The two sources are not merged box by
+    box: a frame the botanists revised has a complete, current set of crowns, and
+    mixing superseded boxes back in would reintroduce exactly the crowns they
+    removed. Frames absent from the export keep their old boxes, flagged by
+    ``stale_frames`` so a caller can tell which is which.
+
+    Pass ``export_path=None`` to read the old file alone, which is what the
+    regression tests do.
+
+    lb_label carries trailing BCI collection codes ('Hura crepitans-HURACR-HURC').
+    They come off here rather than downstream, because they are recognised by
+    being upper case: once normalize() has lowered the string a code can no
+    longer be told from a hyphenated epithet, and the name would never compare
+    equal to a GT species again.
+    """
+    frames = _read_boxes(path)
+    if export_path and os.path.exists(export_path):
+        frames.update(_read_boxes(export_path))
+    return frames
+
+
+def stale_frames(path=BOXES_CSV, export_path=EXPORT_BOXES_CSV):
+    """base_images still described only by the pre-revision geometry."""
+    if not (export_path and os.path.exists(export_path)):
+        return set(_read_boxes(path))
+    return set(_read_boxes(path)) - set(_read_boxes(export_path))
 
 
 def frame_coverage(boxes, rect):
@@ -108,7 +139,7 @@ def frame_coverage(boxes, rect):
 
 
 def build(path=BOXES_CSV, frame_w=FRAME_W, frame_h=FRAME_H,
-          crop_size=CROP_SIZE):
+          crop_size=CROP_SIZE, export_path=EXPORT_BOXES_CSV):
     """Per-frame view of what the model saw.
 
     Returns (frames, suspect_frames) where frames maps base_image to a dict:
@@ -128,7 +159,7 @@ def build(path=BOXES_CSV, frame_w=FRAME_W, frame_h=FRAME_H,
             "13a sends such frames uncropped, so there is no rectangle to score"
         )
     out, suspect = {}, []
-    for base, boxes in load_boxes(path).items():
+    for base, boxes in load_boxes(path, export_path).items():
         if any(b[2] > frame_w + EDGE_TOLERANCE or b[3] > frame_h + EDGE_TOLERANCE
                for b in boxes):
             suspect.append(base)
