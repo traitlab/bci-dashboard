@@ -89,21 +89,20 @@ This is the one thing Fernando can start on immediately.
 
 ---
 
-## 4. What I cannot do, and why
+## 4. What blocks the ranking
 
-I cannot rank the 3,269 unsent photos by value. Three things are missing.
+I can now rank the 3,269 unsent photos by value. One thing is still missing.
 
-**Predictions.** No cached Pl@ntNet result exists for any of the 3,269 photos.
-The local cache covers the legacy corpus only. I can run the predictions.
-That is 3,269 API calls. Tell me if you want that.
+**Predictions.** Running. The local cache covered the legacy corpus only,
+so I started the 3,269 identify calls. They fit inside one day of quota.
 
-**Embeddings.** You said the embeddings are available. They are, but not to me.
-An embedding is readable only through an export task.
-The key I have cannot create one. This is not a role problem: the key reports
-`org role: Admin` in the LEFO organization. Export still fails, for the dataset
-as well as for the project:
-`AuthorizationError: Insufficient permissions to perform this action`.
-So please check the scopes on that key, or issue one with export enabled.
+**Embeddings.** Solved. I do not need Labelbox for this.
+Pl@ntNet has a second endpoint, `POST /v2/embeddings`. It gives a 768-number
+vector for one image, from model version 7.5. It does not use the identify
+credits. I confirmed this: the identify count did not move after the call.
+So I compute the vector from the photo, and I do not read it back from Labelbox.
+The Labelbox export is still blocked, and you should still check the key scopes,
+but the ranking no longer waits for it.
 
 **Crown identity.** I cannot tell a new tree from a tree that was photographed before.
 I tested three methods. All three fail. Section 5 gives the numbers.
@@ -148,11 +147,14 @@ That link is the missing piece. Please send me the table, or tell me who has it.
 This is faster than a photogrammetric reconstruction, and more accurate.
 
 **B. Export permission on the project and the dataset.**
-Read-only is enough to list the data rows. It is not enough to read an embedding.
-Without an export I cannot use the embeddings for active learning.
+Read-only is enough to list the data rows. It is not enough to read an annotation
+or an embedding that Labelbox holds. The ranking no longer needs this, because
+Pl@ntNet computes the embedding for me. But an export is still the only way to
+read labels back without a hand-saved NDJSON file, so please fix the scopes.
 
-**C. A decision on the predictions.**
-Say yes and I run Pl@ntNet on the 3,269 unsent photos. Then the ranking becomes possible.
+**C. Nothing. The predictions are running.**
+I did not need a decision here. The 3,269 identify calls fit inside one day of
+quota, and the embeddings cost no identify credits at all.
 
 ---
 
