@@ -148,6 +148,10 @@ def parse_response(response: dict, global_key: str, image_url: str,
     Extract top-N results and organ predictions from API response.
     Each result entry: {rank, score, scientific_name, family, genus, gbif_id, powo_id}
     Organs: list of unique organ strings from predictedOrgans (e.g. ["leaf", "flower"])
+
+    The whole response is kept under "raw". Re-asking Pl@ntNet costs a credit per
+    photo, so anything the parser does not model today (similar-image references,
+    fields added by a later API version) would otherwise have to be bought twice.
     """
     # Organs are in a separate top-level array, not nested per result
     organs_seen = []
@@ -158,17 +162,21 @@ def parse_response(response: dict, global_key: str, image_url: str,
 
     results = []
     for rank, r in enumerate(response.get("results", []), start=1):
-        sp   = r.get("species", {})
-        gbif = r.get("gbif",   {})
-        powo = r.get("powo",   {})
+        # `or {}` rather than a .get default: Pl@ntNet sends the key with an
+        # explicit null for taxa it cannot resolve, and a default only applies
+        # when the key is absent. The chained lookup below then fails on None
+        # and the crown costs a credit for nothing.
+        sp   = r.get("species") or {}
+        gbif = r.get("gbif")    or {}
+        powo = r.get("powo")    or {}
 
         results.append({
             "rank":                rank,
             "score":               r.get("score"),
             "scientific_name":     sp.get("scientificNameWithoutAuthor"),
             "scientific_name_full": sp.get("scientificName"),
-            "family":              sp.get("family", {}).get("scientificNameWithoutAuthor"),
-            "genus":               sp.get("genus",  {}).get("scientificNameWithoutAuthor"),
+            "family":              (sp.get("family") or {}).get("scientificNameWithoutAuthor"),
+            "genus":               (sp.get("genus")  or {}).get("scientificNameWithoutAuthor"),
             "gbif_id":             gbif.get("id"),
             "powo_id":             powo.get("id"),
         })
@@ -185,6 +193,7 @@ def parse_response(response: dict, global_key: str, image_url: str,
         "crop_size":         crop_size,
         "results":           results,
         "organs":            organs_seen,
+        "raw":               response,
     }
 
 

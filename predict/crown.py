@@ -287,6 +287,12 @@ def main() -> None:
                     help="pilot on this many crowns, spread over box sizes")
     ap.add_argument("--sample-frames", type=int, default=100,
                     help="frames the sample is drawn from (default 100)")
+    ap.add_argument("--boxes-csv", default=str(BOXES_CSV),
+                    help="crown geometry. Default is the 2024 file, which "
+                         "predates the July 2026 revision; pass "
+                         "data/export_boxes.csv for current geometry")
+    ap.add_argument("--frames-csv", default=str(FRAMES_CSV),
+                    help="frame URLs (global_key,image_url)")
     ap.add_argument("--only-frames", metavar="FILE",
                     help="restrict to the base_image names in FILE, one per "
                          "line. Lets a specific question be answered for a few "
@@ -302,8 +308,8 @@ def main() -> None:
     cache_dir = out_dir / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    frames, dupes = load_crowns()
-    urls = load_frame_urls()
+    frames, dupes = load_crowns(args.boxes_csv)
+    urls = load_frame_urls(args.frames_csv)
 
     # Applied before anything is counted, so the PLAN block reports the cost of
     # the restricted job rather than the whole corpus.
