@@ -231,7 +231,7 @@ botanist time next" panel is ordered cheapest useful work first.
 | **Wrong even with enough labels** | 10+ crowns and first guess < 70% | More labels will not fix this one. Treat it as a model limit |
 | **Mixed** | everything else | Keep it in the normal review queue |
 | **Usually right** | 10+ crowns and first guess ≥ 90% | Lowest priority. Spot-check a few and move on |
-| **Model never names it** | never appears in any prediction | Nothing to do. The model cannot return this species |
+| **Model never names it** | never appears in any cached top-5 list | More labelling will not move it. Whether Pl@ntNet can name it at all is unsettled: we hold no project checklist |
 
 The rule order is not the display order, and both are deliberate:
 

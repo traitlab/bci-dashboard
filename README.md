@@ -26,22 +26,35 @@ Two questions, in this order:
   covers at least `T` of the crop. `T = 0.50` agreed, gated and ungated reported
   side by side because they are different populations.
 - **Per crown, not per photo.** Scoring each crown box directly removes the
-  problem instead of filtering around it (`predict/crown.py`).
-  Becomes the primary number once the run lands.
-- **Then tiles.** A sliding window over the frame, each tile with its own
-  prediction and embedding. The only route to lianas, which rarely sit in the
-  centre. Centre crop is the degenerate one-box case, so the box-level code path
-  generalises without a rewrite.
+  problem instead of filtering around it (`predict/crown.py`). Built and run:
+  7,967 crown predictions cached across `data/crowns/` and `data/crowns_export/`,
+  each carrying the box it was cut from, scored by `predict/crown_accuracy.py`.
+  Not the primary number yet: `dashboard/core.py` still evaluates one row per
+  photo against a per-photo dominant taxon, so nothing joins the crown cache
+  into the pages.
+- **Tiles, built and measured.** `predict/tiles.py` calls the Pl@ntNet quadrat
+  endpoint, which slides the window itself: 518 px, stride 259, 140 sub-queries
+  per 4000x3000 frame. `dashboard/score_tiles.py` scores three arms against the
+  same ground truth, `photo`, `tiles`, and `tiles@crop`, the third holding the
+  region fixed so only the pooling changes. 143 frames cached. The tiles carry
+  per-tile positions but no per-tile embeddings, so the liana route is measured,
+  not yet delivered.
 - **Predictions cover the head, embeddings cover the tail.** Confidence-based
   prioritisation works for species the model already knows. For the ~282 species
   with almost no labels it says nothing, so ranking unlabelled photos by
-  embedding novelty is the other half, not a nice-to-have.
+  embedding novelty is the other half, not a nice-to-have. Built and run:
+  `predict/embed.py` fetched 768-dim embeddings for all 3,269 unsent photos and
+  1,719 labelled ones, at no cost in identify credits, and
+  `labelling/rank_unsent.py` ranks the unsent pool by CoreSet coverage into
+  `data/next_batch/queue_ranked.csv`. The pages do not read it: the queue they
+  show is still bucketed by confidence and support in `dashboard/core.py`.
 - **"Pl@ntNet never names it" is two things.** Species outside the project
   checklist are out of scope, not errors; species inside it that never reach the
   top 5 are real misses. Reported separately. Today the pages cannot tell them
   apart: absence is inferred from the cached top-5 lists, which hold 1,567 of
-  the model's names, and 143 of those are visible only because rank 5 was
-  included. `predict/fetch_checklist.py` pulls the label set itself, which is
+  the model's names corpus-wide. Of the 957 binomials carried by species-level GT
+  crowns, 143 are visible only because rank 5 was included. The 143 is measured
+  over those 957, not over the 1,567. `predict/fetch_checklist.py` pulls the label set itself, which is
   what settles it. The 15,919 figure quoted on the call is not documented by
   Pl@ntNet; the count comes from `speciesCount` on `/v2/projects`.
 - **No trend line.** Dropped by request: what matters is where things stand with
