@@ -89,20 +89,50 @@ This is the one thing Fernando can start on immediately.
 
 ---
 
-## 4. What blocks the ranking
+## 4. The ranking is ready. This is the answer to your question
 
-I can now rank the 3,269 unsent photos by value. One thing is still missing.
+`data/next_batch/queue_ranked.csv` puts all 3,269 unsent photos in order.
+Send them from the top. This replaces `queue_photos.csv`, which was a dispatch
+order and not a ranking.
 
-**Predictions.** Running. The local cache covered the legacy corpus only,
-so I started the 3,269 identify calls. They fit inside one day of quota.
+**How the order is made.** I give each photo to Pl@ntNet and get back a list of
+768 numbers that describes what the photo looks like. Then I take the photo that
+looks least like everything already chosen, and I repeat. The method is the
+CoreSet rule in the `speciesfirst` package.
 
-**Embeddings.** Solved. I do not need Labelbox for this.
-Pl@ntNet has a second endpoint, `POST /v2/embeddings`. It gives a 768-number
-vector for one image, from model version 7.5. It does not use the identify
-credits. I confirmed this: the identify count did not move after the call.
-So I compute the vector from the photo, and I do not read it back from Labelbox.
-The Labelbox export is still blocked, and you should still check the key scopes,
-but the ranking no longer waits for it.
+**The order uses no species name.** It cannot, because no unsent photo has a
+label yet. This is also what makes the test below honest.
+
+**The test.** I did the same thing to the 1,719 old photos that *do* have a
+botanist label. The selector saw only the numbers. I then used the labels to
+count how fast each order finds new species. The labels score the order.
+They never choose it.
+
+| To cover | Ranked order | Random order | Gain |
+|---|---|---|---|
+| Half of the 155 species | 129 photos | 346 photos | **2.7x fewer** |
+| 90% of the 155 species | 467 photos | 1,288 photos | **2.8x fewer** |
+
+The ranked order won against every random draw, not only the average.
+
+**It also works on the new photos.** The 3,269 have no labels, so I score with
+the Pl@ntNet prediction instead. This is weaker evidence, but it points the same way:
+the first 200 ranked photos hold 124 different predicted species; 200 random photos
+hold 83. The first 500 hold 195 against 127.
+
+**One more thing the order does by itself.** In the whole pool, 49% of photos get a
+top score below 0.3. In the first 500 ranked photos, 69% do. So the order finds the
+photos the model is least sure about, and it does this without ever reading a score.
+That matters, because section 5 shows the score cannot be trusted on this camera.
+
+**What this means for the botanist.** To see most of the species on the island,
+Fernando does not label 3,269 photos. He labels the first few hundred in this order.
+
+### Two things that are still open
+
+**Export permission.** Pl@ntNet gives me the 768 numbers, so the ranking no longer
+waits for Labelbox. But an export is still the only way to read labels back without
+a hand-saved file. Please check the key scopes.
 
 **Crown identity.** I cannot tell a new tree from a tree that was photographed before.
 I tested three methods. All three fail. Section 6 gives the numbers.
@@ -211,9 +241,9 @@ or an embedding that Labelbox holds. The ranking no longer needs this, because
 Pl@ntNet computes the embedding for me. But an export is still the only way to
 read labels back without a hand-saved NDJSON file, so please fix the scopes.
 
-**C. Nothing. The predictions are running.**
-I did not need a decision here. The 3,269 identify calls fit inside one day of
-quota, and the embeddings cost no identify credits at all.
+**C. Nothing. The predictions are done.**
+I did not need a decision here. All 3,269 identify calls are complete, and the
+embeddings cost no identify credits at all.
 
 ---
 
@@ -223,17 +253,26 @@ quota, and the embeddings cost no identify credits at all.
 python3 labelling/fetch_dataset.py                       # read-only, ~45 s, 5201 rows
 python3 labelling/next_batch.py \
     --export "Export  project - 2024_bci - 8_6_2026.ndjson"
+
+python3 predict/embed.py                                 # 768 numbers per photo, no identify credits
+python3 labelling/rank_unsent.py                         # writes queue_ranked.csv
+python3 predict/crown_accuracy.py                        # the table in section 5, offline
 ```
+
+Every one of these resumes. Stop it at any time and run it again.
+`predict/embed.py` and `predict/crown.py` skip whatever is already cached, so a
+stop on quota costs nothing.
 
 Outputs, in `data/next_batch/`:
 
 | File | Rows | Use |
 |---|---|---|
+| `queue_ranked.csv` | 3,269 | **Send from the top.** The ranking in section 4. |
 | `queue_contradictions.csv` | 76 | 5 are real. The `verdict` column says which. |
 | `queue_missions.csv` | 32 | The unsent flights, largest first. |
-| `queue_photos.csv` | 3,269 | Dispatch order only. Not a priority ranking. |
+| `queue_photos.csv` | 3,269 | Dispatch order only. Superseded by `queue_ranked.csv`. |
 | `report.txt` | - | Every number on this page, with its test. |
 
-`queue_photos.csv` sorts by flight, then by camera, then by file size.
-The file size is a proxy for detail. I did not test it on these photos.
-Do not read it as a measure of value.
+Use `queue_ranked.csv`. The older `queue_photos.csv` sorts by flight, then by
+camera, then by file size. The file size is a proxy for detail. I did not test it
+on these photos. Do not read it as a measure of value.
