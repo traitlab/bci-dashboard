@@ -184,15 +184,17 @@ them. Bad labels make the model look worse than it is. They cannot explain a
 difference of 32 points, and they do not explain the confidence problem. But
 measure this again after Fernando confirms that batch.
 
-Second, the two rows use box geometry from different files. The tele crowns come
-from your export. The zoom crowns come from the older
+Second, the two rows first used box geometry from different files. The tele
+crowns come from your export. The zoom crowns came from the older
 `input/boxes/crop_bounding_boxes.csv`, because the export boxes for those frames
-have moved (only 58 of 2,177 zoom boxes still match the export exactly). Each row
-is correct in itself: in both, the box and the label come from the same file. But
-I cannot yet say that no part of the 33-point gap comes from the change of file.
-I am cutting the zoom crowns again from the export geometry. That is about 6,000
-API calls, one day of quota. Then both rows use one source and the comparison is
-exact.
+have moved (only 58 of 2,177 zoom boxes still match the export exactly). I cut
+the zoom crowns again from the export geometry to remove that difference.
+
+**The result does not change.** On export geometry, zoom gives 85.3% top-1 on
+4,914 crowns and 151 species, against 85.4% on 2,177 crowns from the old file.
+The gap to tele is not an effect of the box source. The last 475 zoom crowns and
+the 517 tele crowns run after the quota resets, and then one cache holds both
+cameras.
 
 Reproduce the whole table, offline, with `python3 predict/crown_accuracy.py`.
 
@@ -262,6 +264,18 @@ python3 predict/crown_accuracy.py                        # the table in section 
 Every one of these resumes. Stop it at any time and run it again.
 `predict/embed.py` and `predict/crown.py` skip whatever is already cached, so a
 stop on quota costs nothing.
+
+**Two facts about the Pl@ntNet quota.** The allowance is 10,000 `identify`
+requests each day, and it resets at 00:00 UTC, not at local midnight. Work done
+in the evening here already counts against the next UTC day. Do not poll before
+the reset, because the count cannot move. Wait for the time in the `Retry-After`
+header of the 429 response.
+
+Do not trust `/v2/quota/daily`. It reported 10,000 requests remaining at the same
+moment that `identify` returned 429 with `remaining: 0`. The true figures are
+`remainingIdentificationRequests` in the body of an `identify` response, and the
+`Retry-After` header. `predict/embed.py` does not use the identify allowance at
+all, so the ranking can be rebuilt on any day.
 
 Outputs, in `data/next_batch/`:
 
