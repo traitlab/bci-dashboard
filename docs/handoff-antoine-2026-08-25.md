@@ -105,11 +105,70 @@ The Labelbox export is still blocked, and you should still check the key scopes,
 but the ranking no longer waits for it.
 
 **Crown identity.** I cannot tell a new tree from a tree that was photographed before.
-I tested three methods. All three fail. Section 5 gives the numbers.
+I tested three methods. All three fail. Section 6 gives the numbers.
 
 ---
 
-## 5. Three tests that failed
+## 5. The model is much weaker on the tele camera
+
+This is the most important number on this page. Read it before you plan the next batch.
+
+I sent Pl@ntNet the crown box pixels, for every crown that has a botanist label.
+Then I split the result by camera.
+
+| Camera | Crowns | Species | Top-1 | Top-5 | Genus |
+|---|---|---|---|---|---|
+| zoom, 2024 season, labels `DONE` | 2,177 | 139 | **85.4%** | 91.6% | 88.2% |
+| tele, 2026 pilot, labels `IN_REVIEW` | 461 | 45 | **51.8%** | 69.0% | 62.0% |
+
+All 3,269 unsent photos come from the tele camera. So the accuracy that matters
+for the next batch is 52%, not 85%.
+
+I tried to remove the difference. I could not.
+
+- **Different species?** No. Use only the 34 species that both cameras show: 90.6% against 58.8%.
+- **Smaller crowns?** No. The tele crown boxes are larger (971 px against 840 px, median short side).
+  Compare boxes of the same size, 512 px and up: 91.4% against 59.4%.
+- **Old box geometry?** No. All 461 tele crowns come from the boxes in your export.
+- **Wrong label on the wrong box?** No. In frames with two or more crowns, 217 tele
+  predictions are wrong. **Zero** of them name a different labelled crown in the same frame.
+
+**The confidence score also stops working.** When the top-1 score is 0.5 or more,
+the zoom prediction is correct 94.3% of the time. The tele prediction is correct
+only 71.7% of the time. The median top-1 score falls from 0.857 to 0.587.
+So you must not re-use a threshold that was set on the 2024 photos.
+The 0.5 cut in the contradiction queue is one of these thresholds.
+
+**The model fails per species, almost completely.**
+It is correct for Jacaranda copaia (70 of 70), Hieronyma alchorneoides (30 of 30),
+and Poulsenia armata (13 of 13). It is wrong for Apeiba tibourbou (0 of 20),
+Protium tenuifolium (0 of 24), and Apeiba membranacea (3 of 46).
+The errors repeat: `Apeiba membranacea` becomes `Quararibea stenophylla` 24 times,
+and `Protium tenuifolium` becomes `Protium stevensonii` 17 times.
+These species are the best first task for Fernando.
+
+**Two warnings about this table.**
+
+First, the 461 tele crowns carry `IN_REVIEW` labels. A botanist has not confirmed
+them. Bad labels make the model look worse than it is. They cannot explain a
+difference of 32 points, and they do not explain the confidence problem. But
+measure this again after Fernando confirms that batch.
+
+Second, the two rows use box geometry from different files. The tele crowns come
+from your export. The zoom crowns come from the older
+`input/boxes/crop_bounding_boxes.csv`, because the export boxes for those frames
+have moved (only 58 of 2,177 zoom boxes still match the export exactly). Each row
+is correct in itself: in both, the box and the label come from the same file. But
+I cannot yet say that no part of the 33-point gap comes from the change of file.
+I am cutting the zoom crowns again from the export geometry. That is about 6,000
+API calls, one day of quota. Then both rows use one source and the comparison is
+exact.
+
+Reproduce the whole table, offline, with `python3 predict/crown_accuracy.py`.
+
+---
+
+## 6. Three tests that failed
 
 I write these down so that nobody repeats them.
 
@@ -138,7 +197,7 @@ the height above ground, and a canopy height model. The drone GPS point alone is
 
 ---
 
-## 6. What I need from you
+## 7. What I need from you
 
 **A. The waypoint table.** These are waypoint flights.
 Somebody made a flight plan that points the camera at chosen crowns.
@@ -158,7 +217,7 @@ quota, and the embeddings cost no identify credits at all.
 
 ---
 
-## 7. How to run it
+## 8. How to run it
 
 ```sh
 python3 labelling/fetch_dataset.py                       # read-only, ~45 s, 5201 rows
