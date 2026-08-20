@@ -298,13 +298,18 @@ def main() -> None:
                          "line. Lets a specific question be answered for a few "
                          "hundred credits instead of running the whole corpus")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--out-dir", default=None,
+                    help="where the cache and run log go. Give a separate "
+                         "directory when re-cutting the same crowns from "
+                         "different box geometry, so the two runs stay "
+                         "comparable instead of mixing in one cache")
     args = ap.parse_args()
 
     load_dotenv(REPO / ".env")
     with open(REPO / "config.yaml") as fh:
         config = yaml.safe_load(fh)
 
-    out_dir = REPO / "data" / "crowns"
+    out_dir = Path(args.out_dir) if args.out_dir else REPO / "data" / "crowns"
     cache_dir = out_dir / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
