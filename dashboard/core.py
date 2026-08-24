@@ -91,6 +91,10 @@ CROP_COVERAGE_SWEEP = (0.0, 0.3, 0.5, 0.8)
 # Name handling
 # --------------------------------------------------------------------------
 _BCI_CODE = re.compile(r"-[A-Z0-9]{5,7}$")
+# Same idea before case folding, and down to 4 characters: the second code on a
+# box label is short ('-ANAE', '-HURC', '-LUE1'). Upper case is what separates a
+# code from a hyphenated epithet, so this can only run on the raw string.
+_BCI_CODE_RAW = re.compile(r"-[A-Z0-9]{4,7}$")
 _INFRA = re.compile(r"\b(var|subsp|ssp|f|cf|aff)\.?\s+\S+.*$", re.IGNORECASE)
 _WS = re.compile(r"\s+")
 
@@ -320,14 +324,20 @@ def load_crop_coverage(boxes_csv=None):
 
 
 def strip_collection_codes(name: str) -> str:
-    """normalize() drops one trailing BCI collection code; the box CSV labels carry
-    two ('apeiba membranacea-apeime-apem'), so apply it until nothing more comes
-    off. Without this a box label never compares equal to a GT species name.
+    """Drop every trailing BCI collection code, then normalize.
+
+    The box CSV labels carry two ('Apeiba membranacea-APEIME-APEM'), and the
+    second is often shorter than the code normalize() recognises ('-ANAE').
+    Stripping has to happen before normalize() lowercases, because the codes are
+    identified by being upper case and a lowered code can no longer be told from
+    a hyphenated epithet. Without this a box label never compares equal to a GT
+    species name.
     """
-    s, prev = normalize(name), None
+    s, prev = (name or "").strip(), None
     while s != prev:
-        prev, s = s, normalize(s)
-    return s
+        prev = s
+        s = _BCI_CODE_RAW.sub("", s).strip()
+    return normalize(s)
 
 
 def coverage_split(recs, min_coverage=MIN_CROP_COVERAGE):
@@ -652,7 +662,7 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
             # unknown rather than zero. The dominant name is put through the same
             # canonicalisation as the GT label so the two are comparable.
             "crop_coverage": cov["coverage"] if cov else None,
-            "crop_dominant": (canon(strip_collection_codes(cov["dominant"]))
+            "crop_dominant": (canon(cov["dominant"])
                               if cov and cov["dominant"] else None),
         })
 
