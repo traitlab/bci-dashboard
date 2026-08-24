@@ -14,6 +14,10 @@ are not reachable this way, only identifiers, media attributes, and metadata.
 Usage:
     python labelling/fetch_dataset.py
     python labelling/fetch_dataset.py --dataset-id <id> --out data/other.jsonl
+
+Which dataset is read comes from ``LABELBOX_DATASET_ID`` if the environment or
+``.env`` carries it, and from ``config.yaml`` otherwise. ``--dataset-id`` beats
+both.
 """
 from __future__ import annotations
 
@@ -24,16 +28,16 @@ import sys
 import time
 
 import labelbox as lb
-from dotenv import load_dotenv
+import settings
 
-DATASET_ID = "cmon3zoss00wu0705ertl0vd7"  # 2024_bci
 OUT_PATH = "data/dataset_rows.jsonl"
 
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--dataset-id", default=DATASET_ID)
+    p.add_argument("--dataset-id", default=None,
+                   help="overrides LABELBOX_DATASET_ID and config.yaml")
     p.add_argument("--out", default=OUT_PATH)
     return p.parse_args(argv)
 
@@ -55,14 +59,11 @@ def row_to_dict(row) -> dict:
 
 def main(argv=None) -> int:
     args = parse_args(argv)
-    load_dotenv()
-    api_key = os.environ.get("LABELBOX_API_KEY")
-    if not api_key:
-        print("MISSING LABELBOX_API_KEY", file=sys.stderr)
-        return 2
+    dataset_id = args.dataset_id or settings.setting(
+        "labelbox", "dataset_id", env="LABELBOX_DATASET_ID")
 
-    client = lb.Client(api_key=api_key)
-    dataset = client.get_dataset(args.dataset_id)
+    client = lb.Client(api_key=settings.api_key())
+    dataset = client.get_dataset(dataset_id)
     print(f"dataset {dataset.name} ({dataset.uid}), row_count={dataset.row_count}")
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)

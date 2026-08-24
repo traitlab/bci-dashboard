@@ -20,25 +20,18 @@ from __future__ import annotations
 
 import argparse
 import csv
-import os
 import sys
 from collections import Counter
 from pathlib import Path
 
 import labelbox as lb
-import yaml
-from dotenv import load_dotenv
+import settings
 
 REPO = Path(__file__).resolve().parents[1]
 GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
 EXPORT_TIMEOUT_SEC = 600
 TAXON_TOOL_NAME = "Planta"
 TAXON_RADIO_NAME = "Taxón"
-
-
-def load_config() -> dict:
-    with open(REPO / "config.yaml") as f:
-        return yaml.safe_load(f)
 
 
 def load_existing_gt(gt_path: Path) -> set[str]:
@@ -92,12 +85,9 @@ def main() -> None:
                     help=f"GT CSV path (default: {GT_CSV.relative_to(REPO)})")
     args = ap.parse_args()
 
-    load_dotenv()
-    api_key = os.environ.get("LABELBOX_API_KEY")
-    if not api_key:
-        sys.exit("ERROR: LABELBOX_API_KEY not found in .env")
+    api_key = settings.api_key()
 
-    config = load_config()
+    config = settings.load_config()
     project_b_name = config["labelbox"]["project_b_name"]
 
     client = lb.Client(api_key=api_key)
