@@ -289,6 +289,13 @@ def main() -> None:
     n_unknown = sum(1 for r in sp_recs if r["crop_coverage"] is None)
     log(f"  crowns with no box geometry, rejected at every threshold : {n_unknown} "
         f"({pct(n_unknown, n)})")
+    # The gated N is smaller than the ungated N for two unrelated reasons, and only
+    # one of them is the gate doing its job. Splitting them keeps a missing-data
+    # count from reading as evidence about crop coverage.
+    n_low = n - n_unknown - gate["n_admitted"]
+    log(f"  so the {n - gate['n_admitted']} crowns not admitted are {n_unknown} with no box "
+        f"geometry to measure")
+    log(f"  and {n_low} measured below the {MIN_CROP_COVERAGE:.2f} threshold.")
     admitted, _ = coverage_split(sp_recs, MIN_CROP_COVERAGE)
     mism = sum(1 for r in admitted if r["crop_dominant"] != r["gt"])
     log(f"  admitted crowns whose crop-dominant species differs from the GT label : "

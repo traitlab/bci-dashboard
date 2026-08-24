@@ -1,7 +1,8 @@
 # Per-species model health dashboard
 
 One HTML page that answers a question you cannot get from a single accuracy number: **which BCI
-species is Pl@ntNet already good at, which ones need labelling work, and which ones are hopeless?**
+species is Pl@ntNet already good at, which ones need labelling work, and which ones the model cannot
+name at any threshold?**
 
 ```bash
 python3 dashboard/measure.py      # measure -> 5 CSVs + run_log.txt
@@ -76,6 +77,40 @@ There is a third denominator, and the page states it beside the headline: of the
 evaluation **can possibly score**, 83.41% are right (2106/2525). The remaining 64 crowns belong to 16
 species whose name appears in no cached prediction at all, so they are wrong at every threshold. No
 tuning and no name cleaning can ever score them.
+
+### The camera gap is reported raw, then decomposed
+
+`predict/crown_accuracy.py` scores crown boxes rather than photos and splits the
+result by camera. On the export-geometry cache it reports 86.1% top-1 on 5,388
+zoom crowns against 51.8% on 461 tele crowns. Both figures are raw: each is what
+those crowns actually scored, and each keeps the headline position.
+
+Raw alone invites the gap to be read as a property of the camera, so the tool
+also prints a `decomposition` block. It applies direct standardization: hold the
+tele species composition fixed and substitute zoom's per-species accuracy. That
+splits the 34.2 points into three named steps.
+
+| Step | Top-1 | Drop | What the step is |
+|---|---|---|---|
+| zoom, every labelled crown | 86.1% | | 5,388 crowns |
+| tele, if each species scored as it does on zoom | 70.6% | 15.5 | species composition |
+| tele, observed, species with a zoom baseline | 60.6% | 10.0 | everything else |
+| tele, observed, every labelled crown | 51.8% | 8.7 | species zoom has never seen |
+
+The last step is 83 crowns of 13 species with fewer than `MIN_BASELINE_N` zoom
+crowns, scoring 12.0%. They are excluded from the standardization because no zoom
+rate exists for them, and standardizing over them would invent one.
+
+The middle step carries the confound. All 461 tele crowns come from one mission,
+so camera, site, day, light and annotator move together in that 10 points. Zoom's
+35 missions with 30 or more crowns span 62.7% to 100%, median 87.1%, so a single
+mission at 60.6% sits inside the low part of a known spread rather than outside
+it. The decomposition says how large each part is. It does not attribute the
+middle part to the camera, and neither should anything quoting it.
+
+Control 1 in the same output subsets to the species both cameras show without
+reweighting. It answers a different question and does not detect the composition
+step.
 
 ### "The model never names it" is a claim about what we asked for
 
@@ -231,7 +266,7 @@ botanist time next" panel is ordered cheapest useful work first.
 | **Wrong even with enough labels** | 10+ crowns and first guess < 70% | More labels will not fix this one. Treat it as a model limit |
 | **Mixed** | everything else | Keep it in the normal review queue |
 | **Usually right** | 10+ crowns and first guess ≥ 90% | Lowest priority. Spot-check a few and move on |
-| **Model never names it** | never appears in any prediction | Nothing to do. The model cannot return this species |
+| **Model never names it** | never appears in any cached top-5 list | More labelling will not move it. Whether Pl@ntNet can name it at all is unsettled: we hold no project checklist |
 
 The rule order is not the display order, and both are deliberate:
 
