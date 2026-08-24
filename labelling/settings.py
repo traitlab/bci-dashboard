@@ -1,18 +1,10 @@
-"""One place to resolve a Labelbox identifier, and one place to load config.yaml.
+"""Config and credential lookup for the labelling scripts.
 
-A dataset id and a project id are not credentials. They name which workspace a
-run points at, and they open nothing without ``LABELBOX_API_KEY``. So the
-default lives in ``config.yaml`` next to the dataset and project names it goes
-with, where a reader can see what a run will touch before it touches it.
-
-What the environment adds is the ability to point a checkout at a different
-workspace without editing a tracked file. An environment variable, from the
-shell or from ``.env``, wins over the config default:
+A dataset id and a project id are not credentials: they name which workspace a
+run points at and open nothing without ``LABELBOX_API_KEY``. Defaults live in
+``config.yaml``; an environment variable, from the shell or ``.env``, wins:
 
     LABELBOX_DATASET_ID=<id> python labelling/fetch_dataset.py
-
-Both are read through ``setting()``, so a missing value fails with the name of
-the variable and the name of the config key rather than with a KeyError.
 """
 from __future__ import annotations
 
