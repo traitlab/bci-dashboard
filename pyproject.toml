@@ -1,0 +1,6 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# -ra prints a summary line for every skipped test. A silent skip is how the
+# frame-url tests sat unexecuted under an interpreter without the predict deps
+# while the run still reported OK.
+addopts = "-ra --strict-markers"

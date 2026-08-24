@@ -139,3 +139,16 @@ The dashboard needs no API key. The fetch scripts under `predict/` need
 
 See `docs/metrics.md` for what each number means and how it is
 computed.
+
+## Test
+
+```bash
+uv pip install -r requirements-dev.txt          # once, into .venv
+.venv/bin/pytest
+```
+
+Name the interpreter. The tests under `tests/` that cover `predict/` import
+`PIL`, `yaml` and `dotenv`, and skip themselves when those packages are absent.
+A system interpreter without them reports a pass on two thirds of the suite.
+`-ra` is on by default, so every skip prints its own line with the reason and a
+short run is visible as a short run.
