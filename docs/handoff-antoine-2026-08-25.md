@@ -163,6 +163,41 @@ promise about what the botanist will see in these photos.
 `m3t` gives that group its own number. Until then, each figure must say which
 group it came from.
 
+### What to send first, and why the order already covers it
+
+Send the top of `queue_ranked.csv` as it stands. No hand-picking is needed.
+
+I expected to have to reserve part of the batch for evidence, because the order
+reads only the 768 numbers and knows nothing about missions or aircraft. I
+measured the first 300 photos in the order. They already spread across 8 sites
+and 11 site-and-aircraft groups:
+
+| Site | Aircraft | Photos in the first 300 |
+|---|---|---|
+| `bcitbarbour3o` | `m3t` | 78 |
+| `2025tiputini-bcifairchild` | `m3e` | 70 |
+| `2024bci-bci25haplot` | `m3e` | 40 |
+| `2024bci-bcitbarbour3n` | `m3e` | 39 |
+| `bcitbarbour3n` | `m3t` | 18 |
+| `2024bci-bcicommtower` | `m3e` | 17 |
+| `bci25haplot` | `m3e` | 15 |
+| four more sites | `m3e` | 23 |
+
+96 of the first 300 come from `m3t`. So the first batch gives `m3t` its own
+accuracy number, and it does this without any change to the order.
+
+None of the first 300 comes from `bci50haplot`. That is the single plot behind
+every tele accuracy figure in section 5. So the first batch also gives a second
+place and a second day to compare against, which is what step 2 of the table in
+section 5 needs.
+
+The 13 species with no zoom evidence come in the same way. The order chases new
+species by construction, so it reaches them without being told to.
+
+**One number to write down when the batch comes back.** Score the returned crowns
+per site and per aircraft, not as one figure. That is what turns the 10 points in
+section 5 from one flight into a measurement.
+
 ### Two things that are still open
 
 **Export permission.** Pl@ntNet gives me the 768 numbers, so the ranking no longer
@@ -174,73 +209,102 @@ I tested three methods. All three fail. Section 6 gives the numbers.
 
 ---
 
-## 5. The model is much weaker on the tele camera
+## 5. The tele number is 52%. Here is where the 34 points go
 
 This is the most important number on this page. Read it before you plan the next batch.
 
 I sent Pl@ntNet the crown box pixels, for every crown that has a botanist label.
 Then I split the result by camera.
 
-**First, what `tele` and `zoom` mean.** They are two capture setups. The ingest
-adds the name to the file name. The drone does not. Both write an ordinary
-colour photo of 4000x3000 pixels, and both file names carry `_V_`, so neither
-one is a thermal camera.
-
-The two are close in framing. The median labelled crown fills 12.5% of a tele
-frame and 10.2% of a zoom frame. So a tree is a little larger in a tele frame,
-about 1.11 times in each direction. **Tele is not further away.** What differs
-is when they were flown: the zoom corpus is 1,719 frames from missions between
-2024-09 and 2026-01, the tele corpus is 116 frames from missions in 2026-04.
-Both are the `m3e` aircraft.
-
-Nothing on disk records the focal length, the flying height, or the ground
-sample distance. So I cannot give you the optical difference between the two.
-I can tell you that the crowns come out about the same size, and that the model
-is much worse on one of them.
-
 | Camera | Crowns | Species | Top-1 | Top-5 | Genus |
 |---|---|---|---|---|---|
 | zoom, legacy corpus, labels `DONE` | 5,388 | 152 | **86.1%** | 94.3% | 87.9% |
 | tele, 2026 pilot, labels `IN_REVIEW` | 461 | 45 | **51.8%** | 69.0% | 62.0% |
 
-All 3,269 unsent photos come from the tele camera. So the accuracy that matters
-for the next batch is 52%, not 86%.
+All 3,269 unsent photos come from the tele camera. So 52% is the figure that
+applies to the next batch.
 
-I tried to remove the difference. I could not.
+### The 34 points are three different things
 
-- **Different species?** No. Use only the 32 species that both cameras show: 92.1% against 60.6%.
-- **Smaller crowns?** No. The tele crown boxes are larger (971 px against 807 px, median short side).
-  Compare boxes of the same size, 512 px and up: 92.1% against 60.8%.
-- **A smaller tree in the picture?** No, the opposite. The median tele crown fills
-  12.5% of its frame; the median zoom crown fills 10.2%.
-- **Old box geometry?** No. All 5,388 zoom crowns and all 461 tele crowns come from
-  the boxes in your export. Both rows of the table are now cut from one cache,
-  on one geometry.
-- **Wrong label on the wrong box?** No. In frames with two or more crowns, 217 tele
-  predictions are wrong. **Zero** of them name a different labelled crown in the same frame.
+| Step | Top-1 | Points | What the step is |
+|---|---|---|---|
+| zoom, every labelled crown | 86.1% | | 5,388 crowns |
+| tele, if each species scored as it does on zoom | 70.6% | **15.5** | the species mix |
+| tele, observed, species with a zoom baseline | 60.6% | **10.0** | one flight |
+| tele, observed, every labelled crown | 51.8% | **8.7** | species zoom has never seen |
 
-**The confidence score also stops working.** When the top-1 score is 0.5 or more,
-the zoom prediction is correct 94.3% of the time. The tele prediction is correct
-only 71.7% of the time. The median top-1 score falls from 0.884 to 0.587.
-So you must not re-use a threshold that was set on the 2024 photos.
-The 0.5 cut in the contradiction queue is one of these thresholds.
+**Step 1, the species mix: 15.5 points.** The two cameras photograph different
+trees. I hold the tele species list fixed and give each species the accuracy it
+gets on zoom. The result is 70.6%. This step is arithmetic on the species list.
+It holds whatever the camera does.
 
-**The model fails per species, almost completely.**
-It is correct for Jacaranda copaia (70 of 70), Hieronyma alchorneoides (30 of 30),
-and Poulsenia armata (13 of 13). It is wrong for Apeiba tibourbou (0 of 20),
-Protium tenuifolium (0 of 24), and Apeiba membranacea (3 of 46).
-The errors repeat: `Apeiba membranacea` becomes `Quararibea stenophylla` 24 times,
-and `Protium tenuifolium` becomes `Protium stevensonii` 17 times.
-These species are the best first task for Fernando.
+**Step 2, one flight: 10.0 points.** All 461 tele crowns come from one mission,
+`20260402_bci50haplot_wptse2_m3e`. Zoom has 35 missions with 30 crowns or more.
+They score between 62.7% and 100%, and the middle one scores 87.1%. At this same
+plot, zoom missions score between 72.8% and 85.8%. So 60.6% is one flight in the
+low part of a spread I can already see. The margin on this step is 5.5 points.
+Camera, place, day, light and annotator all change together here, so I cannot say
+which one of them the 10 points belongs to.
 
-**One warning about this table.**
+**Step 3, species zoom has never seen: 8.7 points.** 83 tele crowns carry one of
+13 species that has fewer than 3 zoom crowns. They score 12.0%. The largest are
+Protium tenuifolium (0 of 24), Manilkara zapota (0 of 9), Pachira aquatica
+(0 of 7) and Andira inermis (0 of 7). The zoom evidence says nothing about these
+species.
 
-The 461 tele crowns carry `IN_REVIEW` labels. A botanist has not confirmed
-them. Bad labels make the model look worse than it is. They cannot explain a
-difference of 34 points, and they do not explain the confidence problem. But
-measure this again after Fernando confirms that batch.
+### The accuracy is a property of the species, not of the camera
 
-Reproduce the whole table, offline, with
+The model is correct for Jacaranda copaia (70 of 70), Hieronyma alchorneoides
+(30 of 30), Poulsenia armata (13 of 13) and Guatteria lucens (95.2%). It is
+wrong for Apeiba tibourbou (0 of 20), Protium tenuifolium (0 of 24) and Apeiba
+membranacea (3 of 46).
+
+The errors repeat the same pair each time. `Apeiba membranacea` becomes
+`Quararibea stenophylla` 24 times. `Protium tenuifolium` becomes
+`Protium stevensonii` 17 times. These species are the best first task for Fernando.
+
+### The confidence score stops working
+
+When the top-1 score is 0.5 or more, the zoom prediction is correct 94.3% of the
+time and the tele prediction is correct 71.7% of the time. The median top-1 score
+falls from 0.884 to 0.587. A threshold set on the 2024 photos must be set again
+before it is used on tele. The 0.5 cut in the contradiction queue is one of these
+thresholds.
+
+### Four things that are the same on both cameras
+
+I checked each of these because each one could have made the gap on its own.
+
+| | zoom | tele |
+|---|---|---|
+| Frame size | 4000x3000 | 4000x3000 |
+| Colour photo, `_V_` in the file name | yes | yes |
+| Aircraft | `m3e` | `m3e` |
+| Crown box, median short side | 807 px | 971 px |
+| Crown as a share of its frame, median | 10.2% | 12.5% |
+| Box geometry | your export | your export |
+
+The tele crown is the larger of the two, by about 1.11 times in each direction.
+Compare boxes of the same size, 512 px and up, and the figures hold: 92.1%
+against 60.8%.
+
+The words `tele` and `zoom` come from the ingest, and the drone writes neither of
+them. What separates the two corpora is the calendar: 1,719 zoom frames from
+missions between 2024-09 and 2026-01, and 116 tele frames from missions in
+2026-04. The focal length, the flying height and the ground sample distance are
+recorded nowhere on disk, so I can give you no optical figure for either one.
+
+I also checked whether a label sits on the wrong box. In frames with two crowns
+or more, 217 tele predictions are wrong, and zero of them name a different
+labelled crown in the same frame.
+
+### One warning about this table
+
+The 461 tele crowns carry `IN_REVIEW` labels. A botanist has not confirmed them.
+Bad labels make the model look worse than it is. Measure this again after
+Fernando confirms that batch.
+
+Reproduce the whole table and the three steps, offline, with
 `python3 predict/crown_accuracy.py --cache-dir data/crowns_export/cache`.
 
 ---
