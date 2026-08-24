@@ -181,9 +181,26 @@ This is the most important number on this page. Read it before you plan the next
 I sent Pl@ntNet the crown box pixels, for every crown that has a botanist label.
 Then I split the result by camera.
 
+**First, what `tele` and `zoom` mean.** They are two capture setups. The ingest
+adds the name to the file name. The drone does not. Both write an ordinary
+colour photo of 4000x3000 pixels, and both file names carry `_V_`, so neither
+one is a thermal camera.
+
+The two are close in framing. The median labelled crown fills 12.5% of a tele
+frame and 10.2% of a zoom frame. So a tree is a little larger in a tele frame,
+about 1.11 times in each direction. **Tele is not further away.** What differs
+is when they were flown: the zoom corpus is 1,719 frames from missions between
+2024-09 and 2026-01, the tele corpus is 116 frames from missions in 2026-04.
+Both are the `m3e` aircraft.
+
+Nothing on disk records the focal length, the flying height, or the ground
+sample distance. So I cannot give you the optical difference between the two.
+I can tell you that the crowns come out about the same size, and that the model
+is much worse on one of them.
+
 | Camera | Crowns | Species | Top-1 | Top-5 | Genus |
 |---|---|---|---|---|---|
-| zoom, 2024 season, labels `DONE` | 5,388 | 152 | **86.1%** | 94.3% | 87.9% |
+| zoom, legacy corpus, labels `DONE` | 5,388 | 152 | **86.1%** | 94.3% | 87.9% |
 | tele, 2026 pilot, labels `IN_REVIEW` | 461 | 45 | **51.8%** | 69.0% | 62.0% |
 
 All 3,269 unsent photos come from the tele camera. So the accuracy that matters
@@ -194,6 +211,8 @@ I tried to remove the difference. I could not.
 - **Different species?** No. Use only the 32 species that both cameras show: 92.1% against 60.6%.
 - **Smaller crowns?** No. The tele crown boxes are larger (971 px against 807 px, median short side).
   Compare boxes of the same size, 512 px and up: 92.1% against 60.8%.
+- **A smaller tree in the picture?** No, the opposite. The median tele crown fills
+  12.5% of its frame; the median zoom crown fills 10.2%.
 - **Old box geometry?** No. All 5,388 zoom crowns and all 461 tele crowns come from
   the boxes in your export. Both rows of the table are now cut from one cache,
   on one geometry.
