@@ -7,6 +7,12 @@ carries a botanist label. The split that matters is zoom against tele: the
 2024 corpus that the accuracy claims were built on is zoom, and every unsent
 photo is tele.
 
+The headline gap is reported raw and then decomposed. Raw stays the headline
+because it is what the labelled crowns actually scored. The decomposition splits
+it into the part the species mix explains, the part it does not, and the part
+carried by species the reference camera has never seen, so a reader can tell how
+much of the gap is a property of the corpus rather than of the camera.
+
 The controls exist because the headline gap invites four easy objections, and
 each one is checked here rather than argued: different species mix, smaller
 crowns, stale box geometry, and a label attached to the wrong box. The last is
@@ -38,6 +44,7 @@ EXPORT_BOXES = REPO / "data" / "export_boxes.csv"
 SIZE_BINS = ((128, 256), (256, 512), (512, 10_000))
 CONF_CUT = 0.5
 MIN_SPECIES_N = 8
+MIN_BASELINE_N = 3
 
 
 def camera_of(base_image: str) -> str:
@@ -107,6 +114,59 @@ def headline(rows: list[dict], cameras: list[str]) -> None:
         genus = sum(r["top1"].split(" ")[0] == r["gt"].split(" ")[0] for r in sel) / n
         print(f"{cam:6} {n:>7} {len({r['gt'] for r in sel}):>8} "
               f"{accuracy(sel):>7.1%} {top5:>7.1%} {genus:>7.1%}")
+
+
+def decomposition(rows: list[dict], reference: str, target: str) -> None:
+    """Split the gap between two cameras into species mix and everything else.
+
+    Direct standardization: hold the target camera's species composition and
+    substitute the reference camera's per-species accuracy. The expected figure
+    is what the target would score if every species behaved as it does on the
+    reference. The distance from the reference's own headline is the part of the
+    gap that the species mix alone explains, and the distance from the expected
+    figure to what the target actually scores is the part it does not.
+
+    Target crowns whose species has fewer than ``MIN_BASELINE_N`` reference
+    crowns are reported on their own line. No reference rate exists for them, so
+    standardizing over them would invent one.
+    """
+    ref = collections.defaultdict(list)
+    for r in rows:
+        if r["camera"] == reference:
+            ref[r["gt"]].append(r["top1"] == r["gt"])
+    based, thin = [], []
+    for r in rows:
+        if r["camera"] != target:
+            continue
+        (based if len(ref.get(r["gt"], ())) >= MIN_BASELINE_N else thin).append(r)
+    if not based:
+        return
+    expected = sum(
+        sum(ref[r["gt"]]) / len(ref[r["gt"]]) for r in based) / len(based)
+    all_ref = [r for r in rows if r["camera"] == reference]
+    all_tgt = based + thin
+
+    print(f"\ndecomposition - the {reference} to {target} gap, "
+          f"{accuracy(all_ref) - accuracy(all_tgt):.1%} in total")
+    print(f"  {'step':52} {'n':>6} {'top-1':>8} {'drop':>7}")
+    ladder = [
+        (f"{reference}, every labelled crown", all_ref, accuracy(all_ref)),
+        (f"{target}, if each species scored as it does on {reference}",
+         based, expected),
+        (f"{target}, observed, species with a {reference} baseline",
+         based, accuracy(based)),
+        (f"{target}, observed, every labelled crown", all_tgt, accuracy(all_tgt)),
+    ]
+    prev = None
+    for label, sel, rate in ladder:
+        drop = "" if prev is None else f"{prev - rate:>6.1%}"
+        print(f"  {label:52} {len(sel):>6} {rate:>7.1%} {drop:>7}")
+        prev = rate
+    if thin:
+        species = len({r["gt"] for r in thin})
+        print(f"  the last step is {len(thin)} crowns of {species} species with "
+              f"fewer than {MIN_BASELINE_N} {reference} crowns, "
+              f"scoring {accuracy(thin):.1%}")
 
 
 def controls(rows: list[dict], cameras: list[str], export_boxes: dict) -> None:
@@ -200,6 +260,8 @@ def main(argv=None) -> int:
     print(f"{len(rows)} labelled crowns from {args.cache_dir}\n")
     headline(rows, cameras)
     if len(cameras) > 1:
+        by_size = sorted(cameras, key=lambda c: sum(r["camera"] == c for r in rows))
+        decomposition(rows, reference=by_size[-1], target=by_size[0])
         controls(rows, cameras, load_export_boxes(args.export_boxes))
     confidence(rows, cameras)
     if args.per_species_camera in cameras:
