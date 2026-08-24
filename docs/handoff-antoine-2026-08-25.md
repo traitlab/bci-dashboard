@@ -128,6 +128,41 @@ That matters, because section 5 shows the score cannot be trusted on this camera
 **What this means for the botanist.** To see most of the species on the island,
 Fernando does not label 3,269 photos. He labels the first few hundred in this order.
 
+### The accuracy numbers are about a different group of photos
+
+Read this with section 5. It changes how much you can trust that table.
+
+The photos in the queue and the photos behind the accuracy numbers are not the
+same group. They are different in two ways.
+
+**The camera.** All 3,269 photos in the queue come from the tele camera. All
+5,388 labelled crowns that give the 86% come from the zoom camera. The 461 tele
+crowns give the 52%.
+
+**The aircraft.** The queue holds two aircraft:
+
+| Aircraft | Photos in the queue | Labelled crowns |
+|---|---|---|
+| `m3e` | 2,003 | all of them |
+| `m3t` | 1,266 | **zero** |
+
+Every labelled photo in the project comes from `m3e`. No photo from `m3t` has a
+botanist label. So 1,266 photos in the queue, 39% of it, come from an aircraft
+the model has never been measured on.
+
+**What this means.** The accuracy numbers are the best evidence I have. They are
+also evidence about a different group of photos. I do not give a number for
+`m3t`, because there is not one.
+
+**This does not change the order.** The ranking reads only the 768 numbers from
+the photo itself. It does not use accuracy, and it does not use a score. So the
+order is still correct. What you cannot do is read the 86% or the 52% as a
+promise about what the botanist will see in these photos.
+
+**What fixes it.** Label a small sample from each group. A few dozen crowns from
+`m3t` gives that group its own number. Until then, each figure must say which
+group it came from.
+
 ### Two things that are still open
 
 **Export permission.** Pl@ntNet gives me the 768 numbers, so the ranking no longer
@@ -148,24 +183,26 @@ Then I split the result by camera.
 
 | Camera | Crowns | Species | Top-1 | Top-5 | Genus |
 |---|---|---|---|---|---|
-| zoom, 2024 season, labels `DONE` | 2,177 | 139 | **85.4%** | 91.6% | 88.2% |
+| zoom, 2024 season, labels `DONE` | 5,388 | 152 | **86.1%** | 94.3% | 87.9% |
 | tele, 2026 pilot, labels `IN_REVIEW` | 461 | 45 | **51.8%** | 69.0% | 62.0% |
 
 All 3,269 unsent photos come from the tele camera. So the accuracy that matters
-for the next batch is 52%, not 85%.
+for the next batch is 52%, not 86%.
 
 I tried to remove the difference. I could not.
 
-- **Different species?** No. Use only the 34 species that both cameras show: 90.6% against 58.8%.
-- **Smaller crowns?** No. The tele crown boxes are larger (971 px against 840 px, median short side).
-  Compare boxes of the same size, 512 px and up: 91.4% against 59.4%.
-- **Old box geometry?** No. All 461 tele crowns come from the boxes in your export.
+- **Different species?** No. Use only the 32 species that both cameras show: 92.1% against 60.6%.
+- **Smaller crowns?** No. The tele crown boxes are larger (971 px against 807 px, median short side).
+  Compare boxes of the same size, 512 px and up: 92.1% against 60.8%.
+- **Old box geometry?** No. All 5,388 zoom crowns and all 461 tele crowns come from
+  the boxes in your export. Both rows of the table are now cut from one cache,
+  on one geometry.
 - **Wrong label on the wrong box?** No. In frames with two or more crowns, 217 tele
   predictions are wrong. **Zero** of them name a different labelled crown in the same frame.
 
 **The confidence score also stops working.** When the top-1 score is 0.5 or more,
 the zoom prediction is correct 94.3% of the time. The tele prediction is correct
-only 71.7% of the time. The median top-1 score falls from 0.857 to 0.587.
+only 71.7% of the time. The median top-1 score falls from 0.884 to 0.587.
 So you must not re-use a threshold that was set on the 2024 photos.
 The 0.5 cut in the contradiction queue is one of these thresholds.
 
@@ -177,26 +214,15 @@ The errors repeat: `Apeiba membranacea` becomes `Quararibea stenophylla` 24 time
 and `Protium tenuifolium` becomes `Protium stevensonii` 17 times.
 These species are the best first task for Fernando.
 
-**Two warnings about this table.**
+**One warning about this table.**
 
-First, the 461 tele crowns carry `IN_REVIEW` labels. A botanist has not confirmed
+The 461 tele crowns carry `IN_REVIEW` labels. A botanist has not confirmed
 them. Bad labels make the model look worse than it is. They cannot explain a
-difference of 32 points, and they do not explain the confidence problem. But
+difference of 34 points, and they do not explain the confidence problem. But
 measure this again after Fernando confirms that batch.
 
-Second, the two rows first used box geometry from different files. The tele
-crowns come from your export. The zoom crowns came from the older
-`input/boxes/crop_bounding_boxes.csv`, because the export boxes for those frames
-have moved (only 58 of 2,177 zoom boxes still match the export exactly). I cut
-the zoom crowns again from the export geometry to remove that difference.
-
-**The result does not change.** On export geometry, zoom gives 85.3% top-1 on
-4,914 crowns and 151 species, against 85.4% on 2,177 crowns from the old file.
-The gap to tele is not an effect of the box source. The last 475 zoom crowns and
-the 517 tele crowns run after the quota resets, and then one cache holds both
-cameras.
-
-Reproduce the whole table, offline, with `python3 predict/crown_accuracy.py`.
+Reproduce the whole table, offline, with
+`python3 predict/crown_accuracy.py --cache-dir data/crowns_export/cache`.
 
 ---
 
