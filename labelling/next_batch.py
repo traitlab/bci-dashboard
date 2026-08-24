@@ -44,6 +44,10 @@ Read-only. Nothing is written back to Labelbox.
 Usage:
     python3 labelling/next_batch.py \\
         --export "/path/to/Export  project - 2024_bci - 8_6_2026.ndjson"
+
+Which project block is read out of the export comes from
+``LABELBOX_PROJECT_ID`` if the environment or ``.env`` carries it, and from
+``config.yaml`` otherwise. ``--project-id`` beats both.
 """
 from __future__ import annotations
 
@@ -60,8 +64,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, "dashboard"))
 
 import core as hc
+import settings
 
-PROJECT_ID = "cmp375mkq0dhr07w92diwbmuh"  # 2024_bci
 DATASET_ROWS = "data/dataset_rows.jsonl"
 OUT_DIR = "data/next_batch"
 
@@ -88,6 +92,8 @@ def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--export", required=True, help="project export NDJSON")
+    p.add_argument("--project-id", default=None,
+                   help="overrides LABELBOX_PROJECT_ID and config.yaml")
     p.add_argument("--dataset-rows", default=DATASET_ROWS)
     p.add_argument("--out-dir", default=OUT_DIR)
     p.add_argument("--min-score", type=float, default=CONTRADICTION_MIN_SCORE)
@@ -163,15 +169,19 @@ def load_dataset_rows(path: str) -> list[dict]:
         return [json.loads(line) for line in f if line.strip()]
 
 
-def load_export(path: str) -> dict:
-    """global_key -> workflow status, for every row already in the project."""
+def load_export(path: str, project_id: str) -> dict:
+    """global_key -> workflow status, for every row already in the project.
+
+    An export carries one block per project the row belongs to, so the id is
+    what selects the project this repo reports on rather than a sibling one.
+    """
     status = {}
     with open(path) as f:
         for line in f:
             if not line.strip():
                 continue
             rec = json.loads(line)
-            project = (rec.get("projects") or {}).get(PROJECT_ID)
+            project = (rec.get("projects") or {}).get(project_id)
             if project is None:
                 continue
             details = project.get("project_details") or {}
@@ -475,8 +485,10 @@ def main(argv=None) -> int:
         print(msg)
         lines.append(msg)
 
+    project_id = args.project_id or settings.setting(
+        "labelbox", "project_id", env="LABELBOX_PROJECT_ID")
     dataset_rows = load_dataset_rows(args.dataset_rows)
-    in_project = load_export(args.export)
+    in_project = load_export(args.export, project_id)
     os.makedirs(args.out_dir, exist_ok=True)
 
     log(f"dataset rows file : {args.dataset_rows}")

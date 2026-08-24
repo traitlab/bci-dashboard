@@ -136,7 +136,16 @@ Paths default to the checkout and can be overridden:
 `BCI_WCVP_CACHE`.
 
 The dashboard needs no API key. The fetch scripts under `predict/` need
-`PLANTNET_API_KEY` in `.env` and the packages in `requirements.txt`.
+`PLANTNET_API_KEY` in `.env` and the packages in `requirements.txt`. The
+scripts under `labelling/` need `LABELBOX_API_KEY` there too. Copy
+`.env.example` and fill it in; `.env` itself is gitignored and is the only
+place a key belongs.
+
+Which Labelbox workspace those scripts point at is not a key and is not
+secret: the dataset and project ids open nothing without the API key. They sit
+in `config.yaml`, where a reader can see what a run will touch before it runs.
+`LABELBOX_DATASET_ID` and `LABELBOX_PROJECT_ID` override them, so a second
+workspace needs no edit to a tracked file.
 
 See `docs/metrics.md` for what each number means and how it is
 computed. Handovers and dated progress notes are kept out of the repo,
