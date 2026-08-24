@@ -39,6 +39,7 @@ import collections
 import csv
 import importlib.util
 import io
+import json
 import os
 import random
 import sys
@@ -53,6 +54,11 @@ REPO = Path(__file__).resolve().parents[1]
 
 BOXES_CSV = REPO / "input" / "boxes" / "crop_bounding_boxes.csv"
 FRAMES_CSV = REPO / "input" / "boxes" / "bci_images_for_plantnet_w_split.csv"
+
+# The tracked frame list covers the 2024 corpus only. Frames ingested since live
+# in the dataset inventory, under a global key that carries the flight folder.
+# Boxes for those frames resolve here or not at all.
+DATASET_ROWS = REPO / "data" / "dataset_rows.jsonl"
 
 # A crown smaller than this on either side is not worth a credit: below roughly
 # this size the crop carries too few pixels for the model to work with, and
@@ -101,12 +107,30 @@ def load_crowns(boxes_csv=BOXES_CSV):
     return frames, dupes
 
 
-def load_frame_urls(frames_csv=FRAMES_CSV):
-    """base frame filename -> URL. The CSV repeats frames, one row per crown."""
+def load_frame_urls(frames_csv=FRAMES_CSV, rows_jsonl=DATASET_ROWS):
+    """base frame filename -> URL. The CSV repeats frames, one row per crown.
+
+    Three global-key namespaces exist and only the basename is common between
+    them: `comb_NAME`, `migrated/NAME`, and `<flight_folder>/NAME`. The tracked
+    frame list keys on the bare filename and covers the 2024 corpus; anything
+    ingested since resolves only through the dataset inventory. Both are keyed
+    on the basename here, so a box finds its frame whichever namespace it came
+    from. The CSV is applied last and wins, because it is the tracked definition
+    of the population.
+    """
     urls = {}
+    if rows_jsonl and Path(rows_jsonl).exists():
+        with open(rows_jsonl, encoding="utf-8") as fh:
+            for line in fh:
+                if not line.strip():
+                    continue
+                row = json.loads(line)
+                key, url = row.get("global_key") or "", row.get("row_data") or ""
+                if key and url:
+                    urls.setdefault(key.split("/")[-1], url)
     with open(frames_csv, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
-            urls.setdefault(r["global_key"], r["image_url"])
+            urls[r["global_key"].split("/")[-1]] = r["image_url"]
     return urls
 
 
@@ -130,7 +154,7 @@ def plan(frames, urls, cache_dir, min_box_side=MIN_BOX_SIDE):
     """What a run would do, without doing any of it."""
     todo, too_small, no_url, cached = [], 0, 0, 0
     for base, boxes in frames.items():
-        url = urls.get(base)
+        url = urls.get(base) or urls.get(base.split("/")[-1])
         for box in boxes:
             if url is None:
                 no_url += 1
@@ -236,7 +260,7 @@ def frame_paired_todo(frames, urls, n_frames, seed, cache_dir, min_box_side):
 
     eligible = {}
     for base, boxes in frames.items():
-        url = urls.get(base)
+        url = urls.get(base) or urls.get(base.split("/")[-1])
         g = gt.get(base)
         if url is None or not g or not (photo_cache / f"{base}.json").exists():
             continue
@@ -272,7 +296,7 @@ def frame_paired_todo(frames, urls, n_frames, seed, cache_dir, min_box_side):
     return out, len(eligible)
 
 
-def main() -> None:
+def main(argv=None) -> int | None:
     ap = argparse.ArgumentParser(description="Pl@ntNet predictions per crown.")
     ap.add_argument("--run", action="store_true",
                     help="actually call the API and spend credits")
@@ -293,6 +317,12 @@ def main() -> None:
                          "data/export_boxes.csv for current geometry")
     ap.add_argument("--frames-csv", default=str(FRAMES_CSV),
                     help="frame URLs (global_key,image_url)")
+    ap.add_argument("--frames-jsonl", default=str(DATASET_ROWS),
+                    help="dataset inventory, used for frames the frame list does "
+                         "not carry")
+    ap.add_argument("--allow-missing-frames", action="store_true",
+                    help="proceed even though some boxes have no resolvable frame "
+                         "URL; without this a run that would drop them exits 2")
     ap.add_argument("--only-frames", metavar="FILE",
                     help="restrict to the base_image names in FILE, one per "
                          "line. Lets a specific question be answered for a few "
@@ -303,7 +333,7 @@ def main() -> None:
                          "directory when re-cutting the same crowns from "
                          "different box geometry, so the two runs stay "
                          "comparable instead of mixing in one cache")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     load_dotenv(REPO / ".env")
     with open(REPO / "config.yaml") as fh:
@@ -314,7 +344,7 @@ def main() -> None:
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     frames, dupes = load_crowns(args.boxes_csv)
-    urls = load_frame_urls(args.frames_csv)
+    urls = load_frame_urls(args.frames_csv, args.frames_jsonl)
 
     # Applied before anything is counted, so the PLAN block reports the cost of
     # the restricted job rather than the whole corpus.
@@ -360,6 +390,23 @@ def main() -> None:
     log(f"  already cached               : {dropped['cached']}")
     log(f"  skipped, side < {args.min_box_side} px      : {dropped['too_small']}")
     log(f"  skipped, no frame URL        : {dropped['no_frame_url']}")
+    # A run that cannot resolve a frame drops every crown of that frame and
+    # still reports "requested ok: 0, errors: 0", which reads as a completed
+    # job. Six such runs against the tele frames looked like success and cost
+    # three days. Refuse to be that quiet.
+    if dropped["no_frame_url"] and not args.allow_missing_frames:
+        unresolved = sorted({b for b in frames
+                             if not (urls.get(b) or urls.get(b.split("/")[-1]))})
+        log("")
+        log(f"  ERROR {dropped['no_frame_url']} crowns across {len(unresolved)} "
+            "frames have no URL and would be skipped silently.")
+        for b in unresolved[:3]:
+            log(f"    {b}")
+        if len(unresolved) > 3:
+            log(f"    ... and {len(unresolved) - 3} more")
+        log("  Add these frames to the frame list or the dataset inventory, or "
+            "pass --allow-missing-frames to accept the gap.")
+        return 2
     if args.frame_paired:
         n_f = len({t[0] for t in todo})
         log(f"  FRAME-PAIRED sample, seed {args.seed}")
@@ -443,4 +490,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
