@@ -110,6 +110,7 @@ labelling/            Labelbox side
   dispatch_round.py   send a batch
   close_round.py      fold the returned labels back in
 bin/refresh.sh        export -> GT merge -> measure -> rebuild -> snapshot
+docs/metrics.md       what every published number means
 input/boxes/          crown boxes and the frame list (tracked)
 data/                 GT, splits, cached predictions, WCVP cache (gitignored)
 snapshots/            dated model-health-<date>/ folders (gitignored)
@@ -138,7 +139,9 @@ The dashboard needs no API key. The fetch scripts under `predict/` need
 `PLANTNET_API_KEY` in `.env` and the packages in `requirements.txt`.
 
 See `docs/metrics.md` for what each number means and how it is
-computed.
+computed. Handovers and dated progress notes are kept out of the repo,
+in the sibling `bci-dashboard-docs/` directory, so a stale one cannot be
+read as current.
 
 ## Test
 

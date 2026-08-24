@@ -18,10 +18,10 @@ the falsifiable bar (does the directed order cover species faster than a random
 draw, on every seed). Those labels score the order. They never choose it.
 
 Runs against the speciesfirst virtualenv, which already carries speciesfirst and
-labelfirst:
+labelfirst. Point ``SPECIESFIRST`` at that checkout:
 
-  /Users/w/Documents/Github/speciesfirst/.venv/bin/python labelling/rank_unsent.py
-  ... --backtest --species-csv data/gt_dominant_taxon.csv
+  "$SPECIESFIRST/.venv/bin/python" labelling/rank_unsent.py \
+      --backtest --species-csv data/gt_dominant_taxon.csv
 """
 
 from __future__ import annotations
