@@ -10,9 +10,18 @@ plantnet:
   single_model_run_name: v7.4-2026-03-27
 
 labelbox:
-  # Read only by labelling/dispatch_round.py and labelling/close_round.py.
+  # Which workspace a run points at. None of this is a credential: the ids open
+  # nothing without LABELBOX_API_KEY, which lives in .env and never here. Each
+  # id can be overridden by the environment variable named beside it, so a
+  # second workspace needs no edit to a tracked file.
+  #
+  # Read by labelling/dispatch_round.py and labelling/close_round.py.
   combined_dataset_name: BCI Workshop - Drone Photos
   project_b_name: BCI Workshop - Botanist Labelling
+  # Read by labelling/fetch_dataset.py       (LABELBOX_DATASET_ID)
+  dataset_id: cmon3zoss00wu0705ertl0vd7
+  # Read by labelling/next_batch.py          (LABELBOX_PROJECT_ID)
+  project_id: cmp375mkq0dhr07w92diwbmuh
 
 folders:
   export_for_plantnet: input/boxes

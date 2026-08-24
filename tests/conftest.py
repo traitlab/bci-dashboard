@@ -39,14 +39,14 @@ def core():
     return load("_core_under_test", REPO / "dashboard" / "core.py")
 
 
-def _require(*packages):
+def _require(*packages, who="predict"):
     """Skip rather than fail when a requirements.txt package is absent.
 
     Named one by one so the skip line says which package is missing, instead of
     reporting the module under test as broken.
     """
     for name in packages:
-        pytest.importorskip(name, reason=f"predict needs {name}")
+        pytest.importorskip(name, reason=f"{who} needs {name}")
 
 
 @pytest.fixture(scope="session")
@@ -85,3 +85,17 @@ def gt_csv():
     if not GT_CSV.exists():
         pytest.skip("data/gt_dominant_taxon.csv not present")
     return GT_CSV
+
+
+@pytest.fixture
+def settings(monkeypatch):
+    """`labelling/settings.py`, with `.env` disconnected.
+
+    The resolver reads `.env` on every call, so a test that says "the
+    environment is silent" has to mean it. Left connected, adding a key to a
+    developer's own `.env` would quietly change what the suite asserts.
+    """
+    _require("yaml", "dotenv", who="labelling")
+    module = load("_settings_under_test", REPO / "labelling" / "settings.py")
+    monkeypatch.setattr(module, "load_dotenv", lambda *a, **k: None)
+    return module

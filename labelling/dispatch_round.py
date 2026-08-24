@@ -21,23 +21,16 @@ from __future__ import annotations
 
 import argparse
 import csv
-import os
 import sys
 from datetime import date
 from pathlib import Path
 
 import labelbox as lb
-from dotenv import load_dotenv
-import yaml
+import settings
 
 BATCH_SIZE = 500
 EXPORT_TIMEOUT_SEC = 300
 METADATA_SCHEMA_NAME = "selection_round"
-
-
-def load_config() -> dict:
-    with open("config.yaml") as f:
-        return yaml.safe_load(f)
 
 
 def load_selection_csv(csv_path: Path) -> list[str]:
@@ -110,12 +103,9 @@ def main() -> None:
     if not args.csv.exists():
         sys.exit(f"ERROR: {args.csv} not found.")
 
-    load_dotenv()
-    api_key = os.environ.get("LABELBOX_API_KEY")
-    if not api_key:
-        sys.exit("ERROR: LABELBOX_API_KEY not found in .env")
+    api_key = settings.api_key()
 
-    config = load_config()
+    config = settings.load_config()
     combined_dataset_name = config["labelbox"]["combined_dataset_name"]
     project_b_name = config["labelbox"]["project_b_name"]
 
