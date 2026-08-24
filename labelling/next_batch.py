@@ -1,17 +1,17 @@
 """What to send to the Labelbox project next, and why.
 
-Answers the standing question -- "the goal is to know which picture in the dataset
-to send to the project" -- from the two things a read-only key can actually
-reach: the dataset inventory (``labelling/fetch_dataset.py``) and a project
-export dropped on disk.
+Answers the standing question -- "the goal is to know which picture in the
+dataset to send to the project" -- from the two things a read-only key can
+actually reach: the dataset inventory (``labelling/fetch_dataset.py``) and a
+project export dropped on disk.
 
 What comes out, and how far each part can be trusted:
 
 ``queue_contradictions.csv``  (ready to dispatch)
     Crowns where the field label and the Pl@ntNet top-1 disagree at high
-    confidence -- the review the field team asked for -- resolved onto global keys that
-    exist in the current dataset. Every row is backed by a cached prediction
-    and a botanist label, so the ranking is a measurement.
+    confidence -- the review the field team asked for -- resolved onto global
+    keys that exist in the current dataset. Every row is backed by a cached
+    prediction and a botanist label, so the ranking is a measurement.
 
 ``queue_missions.csv``  (ready to dispatch, coarse)
     The 32 flights whose photos are in the dataset but not yet in the project,
