@@ -21,9 +21,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
-import glob
 import os
-import re
 import sys
 from collections import defaultdict
 
@@ -32,7 +30,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import core as hc  # noqa: E402
 from assets import (CSS, JS, cap, esc, filterable_table, funnel_list, info_tip, panel, pctf,
                               status_with_reason, table, threshold_card)  # noqa: E402
-from history import load_trend, verify_snapshot  # noqa: E402
+from history import (  # noqa: E402
+    latest_snapshot_dir, load_trend, verify_snapshot)
 
 # The six-way diagnosis from core collapsed to the three actions this
 # page exists to drive. "hard" lands in "send" on purpose: the current model
@@ -67,24 +66,6 @@ QUEUE_NAMES = {
     "normal": "Everything else",
     "can_wait": "Can wait: confident on a well-covered species",
 }
-
-SNAPSHOT_GLOB = "model-health-*"
-
-
-def latest_snapshot_dir() -> str:
-    """Newest model-health-<date>/ folder in the snapshot store.
-
-    Defaulting to the newest rather than a fixed date keeps this page's gate
-    pointed at the snapshot the GT currently reflects; the date is in the
-    folder name, so sorting is unambiguous.
-    """
-    docs = hc.SNAPSHOT_DIR
-    found = sorted(d for d in glob.glob(os.path.join(docs, SNAPSHOT_GLOB))
-                   if re.search(r"\d{4}-\d{2}-\d{2}$", d))
-    if not found:
-        raise SystemExit(f"VERIFY FAIL: no {SNAPSHOT_GLOB} folder under {docs}")
-    return found[-1]
-
 
 def gt_provenance(gt_csv: str) -> str:
     """One line saying where the ground truth came from.
