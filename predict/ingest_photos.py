@@ -60,6 +60,12 @@ MAX_RETRIES = 3
 BACKOFF = [1, 5, 10]
 API_TIMEOUT = 60
 DEFAULT_DELAY = 0.5
+
+# The quadrat endpoint. The path documented as /v2/survey/<project> returns 404;
+# this is the one that answers, and the trailing 'tiles' is the flavor.
+SURVEY_TILES_URL = "https://my-api.plantnet.org/v2/survey/tiles/k-central-america"
+# One call runs 140 sub-queries over a 4000x3000 frame, so it is not a 60s job.
+SURVEY_TIMEOUT = 300
 IMG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
 
@@ -90,28 +96,30 @@ def download_image_bytes(url: str) -> bytes:
     return resp.content
 
 
-def center_crop_jpeg_from_bytes(raw: bytes) -> tuple[bytes, int, int]:
+def center_crop_jpeg_from_bytes(raw: bytes) -> tuple[bytes, int, int, tuple]:
+    """-> (jpeg, frame_w, frame_h, box) where box is the rectangle that was sent.
+
+    The box is returned rather than recomputed downstream. A prediction is only
+    interpretable against the region the model saw, and that region used to be
+    reconstructed afterwards from the frame size and CROP_SIZE, which works only
+    while every frame is the same shape. A frame smaller than the crop is sent
+    whole, and its box is the whole frame.
+    """
     img = Image.open(io.BytesIO(raw)).convert("RGB")
     w, h = img.size
+    box = (0, 0, w, h)
     if w >= CROP_SIZE and h >= CROP_SIZE:
         left = (w - CROP_SIZE) // 2
         top = (h - CROP_SIZE) // 2
-        img = img.crop((left, top, left + CROP_SIZE, top + CROP_SIZE))
+        box = (left, top, left + CROP_SIZE, top + CROP_SIZE)
+        img = img.crop(box)
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=JPEG_QUALITY)
-    return buf.getvalue(), w, h
+    return buf.getvalue(), w, h, box
 
 
-def center_crop_jpeg(image_path: Path) -> tuple[bytes, int, int]:
-    img = Image.open(image_path).convert("RGB")
-    w, h = img.size
-    if w >= CROP_SIZE and h >= CROP_SIZE:
-        left = (w - CROP_SIZE) // 2
-        top = (h - CROP_SIZE) // 2
-        img = img.crop((left, top, left + CROP_SIZE, top + CROP_SIZE))
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=JPEG_QUALITY)
-    return buf.getvalue(), w, h
+def center_crop_jpeg(image_path: Path) -> tuple[bytes, int, int, tuple]:
+    return center_crop_jpeg_from_bytes(image_path.read_bytes())
 
 
 def _api_call_with_retry(fn, *args, **kwargs):
@@ -160,13 +168,22 @@ def call_embeddings(jpeg_bytes: bytes, filename: str, api_key: str,
 
 
 def call_survey(jpeg_bytes: bytes, filename: str, api_key: str,
-                survey_url: str) -> dict:
+                survey_url: str = SURVEY_TILES_URL) -> dict:
+    """Quadrat: the API slides a 518px window over the whole frame itself.
+
+    The field is 'image', singular, unlike identify's 'images'. Sending the
+    plural name returns HTTP 400 '"image" is required', which is how this was
+    found: the endpoint had been assumed unavailable on this key when in fact
+    only the request was malformed. 'organs' is not accepted here either.
+
+    Verified 2026-08-15 against a 4000x3000 frame: 140 sub-queries at
+    tile_size 518 / tile_stride 259, and the quadrat quota counter did not move.
+    """
     resp = requests.post(
         survey_url,
-        files=[("images", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
-        data={"organs": "auto"},
+        files=[("image", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
         params={"api-key": api_key},
-        timeout=API_TIMEOUT,
+        timeout=SURVEY_TIMEOUT,
     )
     if resp.status_code == 429:
         raise QuotaExceededError(f"Quota exceeded (HTTP 429)")
@@ -219,6 +236,24 @@ def identify_to_survey_json(identify_resp: dict, emb_resp: dict) -> dict:
     }
 
 
+def stamp_geometry(result: dict, frame_w: int, frame_h: int, box: tuple) -> dict:
+    """Record the region that was actually sent, alongside the API's answer.
+
+    Without this the cache says what the model replied and not what it was
+    looking at, so any later comparison against a crown box has to assume every
+    frame is 4000x3000 and the crop is always the same rectangle. That is true
+    of the corpus today and is not a property of the data.
+    """
+    result["crop"] = {
+        "box": {"x_min": box[0], "y_min": box[1], "x_max": box[2], "y_max": box[3]},
+        "frame_width": frame_w,
+        "frame_height": frame_h,
+        "crop_size": CROP_SIZE,
+        "unit": "photo",
+    }
+    return result
+
+
 def process_photo(
     photo_path: Path,
     api_key: str,
@@ -233,7 +268,7 @@ def process_photo(
         with open(cache_file) as f:
             return json.load(f)
 
-    jpeg_bytes, orig_w, orig_h = center_crop_jpeg(photo_path)
+    jpeg_bytes, orig_w, orig_h, crop_box = center_crop_jpeg(photo_path)
 
     if survey_url:
         raw = _api_call_with_retry(call_survey, jpeg_bytes, filename, api_key, survey_url)
@@ -251,6 +286,8 @@ def process_photo(
             call_embeddings, jpeg_bytes, filename, api_key, embeddings_url
         )
         result = identify_to_survey_json(id_resp, emb_resp)
+
+    stamp_geometry(result, orig_w, orig_h, crop_box)
 
     tmp = cache_file.with_suffix(".tmp")
     with open(tmp, "w") as f:
@@ -274,7 +311,7 @@ def process_url(
             return json.load(f)
 
     raw_image = download_image_bytes(url)
-    jpeg_bytes, _, _ = center_crop_jpeg_from_bytes(raw_image)
+    jpeg_bytes, orig_w, orig_h, crop_box = center_crop_jpeg_from_bytes(raw_image)
 
     if survey_url:
         result = _api_call_with_retry(call_survey, jpeg_bytes, filename, api_key, survey_url)
@@ -291,6 +328,8 @@ def process_url(
             call_embeddings, jpeg_bytes, filename, api_key, embeddings_url
         )
         result = identify_to_survey_json(id_resp, emb_resp)
+
+    stamp_geometry(result, orig_w, orig_h, crop_box)
 
     tmp = cache_file.with_suffix(".tmp")
     with open(tmp, "w") as f:
