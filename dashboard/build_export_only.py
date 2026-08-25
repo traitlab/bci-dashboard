@@ -44,8 +44,6 @@ from assets import (
     pctf,
 )  # noqa: E402
 
-GT_KEY_PREFIX = hc.GT_KEY_PREFIX  # "comb_": GT/global_key convention this page reuses
-
 
 def _load_gt_from_export():
     """Import the merge script's ``export_dominants`` without duplicating its
@@ -82,7 +80,7 @@ def export_only_health(
         w = csv.writer(tf)
         w.writerow(["global_key", "wcvp_canonical_name"])
         for stem, sp in sorted(dominants.items()):
-            w.writerow([GT_KEY_PREFIX + stem, sp])
+            w.writerow([hc.GT_KEY_PREFIX + stem, sp])
         tmp_gt = tf.name
     try:
         h = hc.load_health(

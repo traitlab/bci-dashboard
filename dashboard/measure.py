@@ -22,7 +22,7 @@ from collections import Counter, defaultdict
 from core import (
     load_health,
     pct, ratio, fmt, genus_of, normalize, queue_of_prediction, chunk_send_batches,
-    coverage_gate_sweep, coverage_gate_stats, coverage_split,
+    coverage_gate_stats, coverage_split,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     QUEUE_ORDER, REVIEW_CONF, BATCH_SIZE, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
     GT_KEY_PREFIX, GT_CSV, SPLITS_CSV, CACHE_DIR, WCVP_CACHE_JSON,
@@ -231,7 +231,7 @@ def main() -> None:
     # from a crown box drawn anywhere in it. The sweep says how the headline moves
     # once only frames whose dominant labelled species actually fills the crop are
     # scored. Both rates are kept, so neither replaces the other.
-    sweep = coverage_gate_sweep(sp_recs, CROP_COVERAGE_SWEEP)
+    sweep = [coverage_gate_stats(sp_recs, t) for t in CROP_COVERAGE_SWEEP]
     gate = coverage_gate_stats(sp_recs, MIN_CROP_COVERAGE)
     with open(os.path.join(out_dir, "coverage_gate.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)

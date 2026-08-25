@@ -94,8 +94,7 @@ def load_boxes(path=BOXES_CSV, export_path=EXPORT_BOXES_CSV):
     Export geometry wins per frame, whole. The two sources are not merged box by
     box: a frame the botanists revised has a complete, current set of crowns, and
     mixing superseded boxes back in would reintroduce exactly the crowns they
-    removed. Frames absent from the export keep their old boxes, flagged by
-    ``stale_frames`` so a caller can tell which is which.
+    removed. Frames absent from the export keep their old boxes.
 
     Pass ``export_path=None`` to read the old file alone, which is what the
     regression tests do.
@@ -110,13 +109,6 @@ def load_boxes(path=BOXES_CSV, export_path=EXPORT_BOXES_CSV):
     if export_path and os.path.exists(export_path):
         frames.update(_read_boxes(export_path))
     return frames
-
-
-def stale_frames(path=BOXES_CSV, export_path=EXPORT_BOXES_CSV):
-    """base_images still described only by the pre-revision geometry."""
-    if not (export_path and os.path.exists(export_path)):
-        return set(_read_boxes(path))
-    return set(_read_boxes(path)) - set(_read_boxes(export_path))
 
 
 def frame_coverage(boxes, rect):
@@ -179,8 +171,3 @@ def build(path=BOXES_CSV, frame_w=FRAME_W, frame_h=FRAME_H,
             "crop_rect": rect,
         }
     return out, suspect
-
-
-def admitted(frames, min_coverage=DEFAULT_MIN_COVERAGE):
-    """base_images whose dominant species covers at least min_coverage."""
-    return {b for b, f in frames.items() if f["coverage"] >= min_coverage}
