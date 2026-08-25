@@ -313,16 +313,6 @@ def diagnose(row: dict) -> str:
 # --------------------------------------------------------------------------
 # Crop coverage gate
 # --------------------------------------------------------------------------
-def load_crop_coverage(boxes_csv=None):
-    """-> (base_image -> coverage record, frames whose geometry is not trusted).
-
-    Imported inside the function on purpose: crop_overlap imports ``normalize``
-    from this module, so a module-level import here would close the cycle.
-    """
-    import crop_overlap
-    return crop_overlap.build(**({"path": boxes_csv} if boxes_csv else {}))
-
-
 def strip_collection_codes(name: str) -> str:
     """Drop every trailing BCI collection code, then normalize.
 
@@ -378,11 +368,6 @@ def coverage_gate_stats(recs, min_coverage=MIN_CROP_COVERAGE):
         "macro_top1": (sum(per) / len(per)) if per else None,
         "n_species": len(by_sp),
     }
-
-
-def coverage_gate_sweep(recs, thresholds=CROP_COVERAGE_SWEEP):
-    """One coverage_gate_stats dict per threshold, in the order given."""
-    return [coverage_gate_stats(recs, t) for t in thresholds]
 
 
 # --------------------------------------------------------------------------
@@ -643,7 +628,12 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     # Coverage of the crop the model was sent, joined on base_image. GT keys carry
     # the GT_KEY_PREFIX and the box CSV does not, so the same stem used for the
     # cache join is the join key here too.
-    crop_frames, crop_suspect = load_crop_coverage(boxes_csv)
+    #
+    # Imported here, not at module level: crop_overlap imports ``normalize``
+    # from this module, so a module-level import here would close the cycle.
+    import crop_overlap
+    crop_frames, crop_suspect = crop_overlap.build(
+        **({"path": boxes_csv} if boxes_csv else {}))
 
     records = []
     for gk, stem, gt_name in joined:
