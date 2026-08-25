@@ -202,10 +202,11 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
          '<div class="metric first">'
          '<div class="e">per species</div>'
          f'<div class="v">{pctf(macro1)}'
-         f'{info_tip("Provisional: split tags (train/valid/test) are not in this "
-                     "NDJSON export, so this is measured over all labelled crowns "
-                     "together, not held out. It will tighten to a held-out score "
-                     "once split metadata is available.")}'
+         f'{info_tip("Measured over every labelled crown, train and test together, so "
+                     "that a species with a handful of labels still appears here. It is "
+                     "therefore not a held-out score. The split tags live in "
+                     "data/splits.csv and the full page uses them: the can-wait rule is "
+                     "set on train crowns and graded on test crowns only.")}'
          '</div>'
          '<div class="l">First guess is right</div>'
          f'<div class="n">each of the {n_sp} species counts once, however few crowns '
@@ -253,11 +254,14 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
         'above; it does not replace the set. That is why one export\u2019s row count '
         'never matches the corpus, ground-truth, evaluated, or queue counts here: '
         'each of those counts a different thing, not the same thing measured twice.</p>'
-        '<p class="note">Split tags (train/valid/test) are not present in this NDJSON '
-        'export, so every metric on this page is computed over all labelled crowns '
-        'together, not held out by split. Treat the numbers as <b>provisional '
-        'all-label metrics</b>: they will become strict once split metadata is '
-        'available and a held-out evaluation can be run.</p>')
+        f'<p class="note">Every rate on this page is computed over all labelled crowns, '
+        f'train and test together, so <b>none of them is a held-out score</b>. That is '
+        f'deliberate: holding out would drop the species that have only a few labels, '
+        f'which are the ones this page exists to queue. Split tags do exist, in '
+        f'<code>data/splits.csv</code> ('
+        f'{sum(1 for r in h.sp_recs if r["split"]):,} of {len(h.sp_recs):,} scored crowns '
+        f'carry one), and the full page uses them to grade the can-wait rule out of '
+        f'sample.</p>')
     P.append(panel("Where these numbers come from",
                    "<b>Read this if a count looks off, or before quoting a rate as final.</b>",
                    funnel_body))

@@ -9,7 +9,7 @@ with every style, script and chart inlined.
     python3 dashboard/build_full.py [--out PATH]
 
 Numbers are recomputed here from source rather than read from the CSVs, then
-cross-checked against the committed CSVs from measure.py; a mismatch
+cross-checked against the CSVs measure.py wrote into the snapshot; a mismatch
 aborts the build, so the page cannot disagree with the measurement. Trend comes
 from the sibling snapshot folders model-health-<date>/, summarised once into an
 append-only history.csv beside the current snapshot's CSVs.
@@ -308,7 +308,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                 f'<p class="note"><strong>Cheaper still, and not counted in any row above: '
                 f'{gen_one:,} crowns whose botanist label stops at the genus and whose five '
                 f'candidates contain exactly one species from that genus.</strong> The question '
-                f'there is yes or no, not which of 169. Those crowns are outside the {n_sp} '
+                f'there is yes or no, not which of {n_sp}. Those crowns are outside the {n_sp} '
                 f'species scored on this page because they never named a species; see the '
                 f'genus paragraph under &ldquo;What this cannot tell you&rdquo;.</p>')
     p_todo = panel(f"Where to spend botanist time next: {counts['ranking']} species are a "
@@ -355,9 +355,10 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
              f're-sorts this queue exactly as it re-sorts the can-wait one.</p>')
     p_send = panel(f"What to send to the botanist first: {queue_counts.get('long_tail', 0):,} "
                    f"of {n_unlab:,} unlabelled photos point at species we barely have",
-                   "<b>Work the queues top to bottom.</b> The first two are the ones the "
-                   "2026-08-05 call asked for: the long tail, and the photos where a "
-                   "usually-right species is guessed weakly.", body)
+                   "<b>Work the queues top to bottom.</b> The first two buy the most per "
+                   "label: the long tail, where a species has almost nothing to be scored "
+                   "on, and the photos where a usually-right species is guessed weakly.",
+                   body)
 
     # ---- labels worth a second look ----
     pair_rows = sorted(review_pairs.items(), key=lambda kv: -len(kv[1]))[:10]
@@ -403,7 +404,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             '<p class="note"><strong>Nothing here is a label.</strong> A crown that can wait '
             'keeps whatever ground truth it already has, or none at all. No prediction is '
             'ever written into ground truth by this rule. It only pushes crowns down the '
-            "botanist's queue, the same job it does in labelfirst and speciesfirst.</p>"
+            "botanist's queue.</p>"
             f'<p class="note"><strong>The decision expires with the model.</strong> Pl@ntNet '
             f'ships a new model every few months, on its own schedule rather than ours, and '
             f'a crown deprioritized under <code>{esc(trend.tag)}</code> is not deprioritized '

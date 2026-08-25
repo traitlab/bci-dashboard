@@ -15,12 +15,13 @@ network call, reads no credential, and imports nothing outside the stdlib.
 
 ## Rules every number on the pages follows
 
-- A published number carries its population and its support count. Gated and
-  ungated are reported side by side, because they are different populations.
+- A published number carries its population and its support count.
 - A photo prediction comes from a fixed 1280x1280 centre crop, 13.7% of a
-  4000x3000 frame, while a botanist draws crowns anywhere in the frame. A frame
-  is admitted only when its dominant labelled species covers at least
-  `MIN_CROP_COVERAGE` (0.50) of that crop.
+  4000x3000 frame, while a botanist draws crowns anywhere in the frame. The
+  crop-coverage gate (`MIN_CROP_COVERAGE`, 0.50) admits a frame only when its
+  dominant labelled species covers at least half the crop. It is computed into
+  `coverage_gate.csv` and reported gated against ungated there; the pages score
+  the ungated population.
 - Crop and box geometry is read from what the fetch recorded, never recomputed
   from a constant.
 - Absence from a cached top-5 list is not evidence Pl@ntNet cannot name a
@@ -47,6 +48,8 @@ read them, so the pages do not show them. Do not assume otherwise:
   confidence and support instead.
 - **Tiles.** `dashboard/score_tiles.py` compares `photo`, `tiles` and
   `tiles@crop` against one ground truth. Nothing on the pages reads it.
+- **The crop-coverage gate.** `dashboard/measure.py` writes gated against ungated
+  to `coverage_gate.csv`. Neither page shows the comparison.
 
 ## Layout
 
