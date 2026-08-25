@@ -159,11 +159,10 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp):
     return panel(
         f"Why one score says {pctf(now['micro_top1'])} and the other {pctf(now['macro_top1'])}",
         "<b>Same model, same photos, two ways of averaging.</b>",
-        f'<p class="note"><b>Overall accuracy ({pctf(now["micro_top1"])}):</b> one vote per '
-        f'crown. Common species crowd out rare ones.<br>'
-        f'<b>Per-species accuracy ({pctf(now["macro_top1"])}):</b> one vote per species. Rare '
-        f'ones cannot hide.</p>'
-        + svg_weight_pair(rows,
+        # No note restating the two rates here: the summary above already names both,
+        # the headline cards state the same one-vote-per-what distinction, and the
+        # chart below labels its own bars with it. Three times was twice too many.
+        svg_weight_pair(rows,
                           label_a=f"one vote per species ({n_sp} votes)",
                           label_b=f"one vote per crown ({n:,} votes)")
         + f'<p class="note">Picture {n_sp} classes, one per species, {n:,} students, one quiz. '

@@ -416,10 +416,13 @@ class Trend:
                                a_name="accuracy per species", b_name="labelled crowns",
                                a_fmt=pctf, b_fmt=lambda v: f"{int(v):,}", a_span=RATE_SPAN)]
         body.append(
+            # The per-line scaling is the spark key's job, immediately below. What is
+            # true only of this chart is that two lines share one frame, so the gap
+            # between them is the thing a reader will over-read.
             '<p class="note"><strong>Reading the chart.</strong> The two lines sit on '
-            'separate scales, so the vertical gap between them means nothing and only the '
-            'shape of each line carries information. The number printed at each end of a '
-            "line is that line's value on the oldest and the newest snapshot."
+            'separate scales, so the vertical gap between them means nothing. The number '
+            "printed at each end of a line is that line's value on the oldest and the "
+            'newest snapshot.'
             + (' A dashed red rule and hollow rings mark a snapshot where the Pl@ntNet '
                'model changed.' if self.marks else '')
             + '</p>')
