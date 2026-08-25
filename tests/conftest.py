@@ -14,6 +14,7 @@ and the skip is reported by name because `addopts` carries `-ra`.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
 import pathlib
 import sys
@@ -23,6 +24,22 @@ import pytest
 REPO = pathlib.Path(__file__).resolve().parents[1]
 BOX_CSV = REPO / "input" / "boxes" / "crop_bounding_boxes.csv"
 GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
+
+
+@contextlib.contextmanager
+def _on_path(directory: pathlib.Path):
+    """`directory` on `sys.path` for the duration, and off it afterwards.
+
+    The script directories are not packages, so a module there is only
+    importable while its own folder is on the path. Leaving it on would let a
+    later test import a neighbour by accident.
+    """
+    entry = str(directory)
+    sys.path.insert(0, entry)
+    try:
+        yield
+    finally:
+        sys.path.remove(entry)
 
 
 def load(name: str, path: pathlib.Path):
@@ -64,13 +81,16 @@ def crown():
 @pytest.fixture(scope="session")
 def crop_overlap():
     """`dashboard/` on the path for the duration, and off it afterwards."""
-    path = str(REPO / "dashboard")
-    sys.path.insert(0, path)
-    try:
+    with _on_path(REPO / "dashboard"):
         import crop_overlap
         yield crop_overlap
-    finally:
-        sys.path.remove(path)
+
+
+@pytest.fixture(scope="session")
+def history():
+    with _on_path(REPO / "dashboard"):
+        import history
+        yield history
 
 
 @pytest.fixture(scope="session")

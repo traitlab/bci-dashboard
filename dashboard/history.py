@@ -39,6 +39,23 @@ HISTORY_COLS = ["snapshot_date", "model_tag", "n_crowns", "metric", "value", "so
 # wobble instead of filling the plot.
 RATE_SPAN = 0.10
 SNAPSHOT_DIR = re.compile(r"model-health-(\d{4}-\d{2}-\d{2})$")
+SNAPSHOT_GLOB = "model-health-*"
+
+
+def latest_snapshot_dir() -> str:
+    """Newest model-health-<date>/ folder in the snapshot store.
+
+    Both pages gate on a snapshot folder, and a gate aimed at a fixed date
+    silently checks today's numbers against an old measurement and appends
+    today's trend points to that old folder's history. The date is in the
+    folder name, so sorting is unambiguous.
+    """
+    found = sorted(d for d in glob.glob(os.path.join(hc.SNAPSHOT_DIR, SNAPSHOT_GLOB))
+                   if SNAPSHOT_DIR.search(d))
+    if not found:
+        raise SystemExit(
+            f"VERIFY FAIL: no {SNAPSHOT_GLOB} folder under {hc.SNAPSHOT_DIR}")
+    return found[-1]
 
 
 def verify_snapshot(directory, *, per_species, buckets, bins_all, trend, n_crowns, macro1,

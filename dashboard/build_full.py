@@ -31,7 +31,8 @@ from assets import (CSS, JS, cap, esc, filterable_table, panel, pctf, section,  
                               status_with_reason, svg_hbar, table)
 from explain import (BAND_SHORT, candidates_panel, method_panel,  # noqa: E402
                               weighting_panel)
-from history import load_trend, verify_snapshot  # noqa: E402
+from history import (  # noqa: E402
+    latest_snapshot_dir, load_trend, verify_snapshot)
 
 # A species is "rarely labelled" below this many crowns. Same threshold as the
 # deprioritization support gate, so the two panels cannot disagree.
@@ -582,10 +583,10 @@ def main() -> None:
     ap.add_argument("--splits", default=hc.SPLITS_CSV)
     ap.add_argument("--cache-dir", default=hc.CACHE_DIR)
     ap.add_argument("--wcvp-cache", default=hc.WCVP_CACHE_JSON)
-    ap.add_argument("--verify-against",
-                    default=os.path.join(hc.SNAPSHOT_DIR, "model-health-2026-08-03"),
+    ap.add_argument("--verify-against", default=None,
                     help="directory holding the committed measurement CSVs to cross-check; "
-                         "its siblings model-health-<date>/ are the trend history")
+                         "defaults to the newest model-health-<date>/ folder, whose "
+                         "siblings are the trend history")
     ap.add_argument("--model-tag", default="unknown",
                     help="Pl@ntNet model iteration to record for a snapshot whose "
                          "run_log.txt does not name one")
@@ -599,7 +600,8 @@ def main() -> None:
     h = hc.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
                        wcvp_cache=args.wcvp_cache)
     page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),
-                         verify_dir=args.verify_against, fallback_tag=args.model_tag,
+                         verify_dir=args.verify_against or latest_snapshot_dir(),
+                         fallback_tag=args.model_tag,
                          cache_dir=args.cache_dir)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
