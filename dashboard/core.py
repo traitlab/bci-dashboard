@@ -22,9 +22,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Optional
 
-# --------------------------------------------------------------------------
-# INPUT PATHS
-# --------------------------------------------------------------------------
+# --- INPUT PATHS ---
 # Every path is derived from the checkout, so a clone runs anywhere. Each one
 # takes an environment override for machines that keep the data elsewhere:
 #   BCI_DASHBOARD_REPO      checkout root            (default: one level up)
@@ -74,10 +72,9 @@ HARD_MAX_TOP1 = 0.70
 # a second look: either the label or the model is wrong.
 REVIEW_CONF = 0.8
 
-# Predictions come from a fixed centre crop of the frame, while ground truth comes
-# from crown boxes drawn anywhere in that frame, so a prediction can be scored
-# against a label lying outside what the model was sent. A frame is admitted only
-# when its dominant labelled species covers at least this fraction of the crop.
+# Predictions come from a fixed centre crop; labels come from boxes drawn anywhere
+# in the frame, so a label can lie outside what the model was sent. A frame is
+# admitted only when its dominant species fills this much of the crop.
 # Same value as crop_overlap.DEFAULT_MIN_COVERAGE.
 MIN_CROP_COVERAGE = 0.50
 # Reported as a sweep, so the gate's effect on the headline is visible rather than
@@ -85,9 +82,7 @@ MIN_CROP_COVERAGE = 0.50
 CROP_COVERAGE_SWEEP = (0.0, 0.3, 0.5, 0.8)
 
 
-# --------------------------------------------------------------------------
-# Name handling
-# --------------------------------------------------------------------------
+# --- Name handling ---
 _BCI_CODE = re.compile(r"-[A-Z0-9]{5,7}$")
 # Same idea before case folding, and down to 4 characters: the second code on a
 # box label is short ('-ANAE', '-HURC', '-LUE1'). Upper case is what separates a
@@ -139,9 +134,7 @@ def is_species_level(n: str) -> bool:
     return len(n.split(" ")) >= 2
 
 
-# --------------------------------------------------------------------------
-# Loaders
-# --------------------------------------------------------------------------
+# --- Loaders ---
 def read_csv_rows(path: str) -> list[dict]:
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
@@ -205,9 +198,7 @@ def load_wcvp_crosswalk(path):
     return mapping, raw
 
 
-# --------------------------------------------------------------------------
-# Small helpers
-# --------------------------------------------------------------------------
+# --- Small helpers ---
 def pct(num, den):
     return "n/a" if not den else f"{100.0 * num / den:.2f}%"
 
@@ -308,9 +299,7 @@ def diagnose(row: dict) -> str:
     return "hard" if a1 < 0.70 else "adequate"
 
 
-# --------------------------------------------------------------------------
-# Crop coverage gate
-# --------------------------------------------------------------------------
+# --- Crop coverage gate ---
 def strip_collection_codes(name: str) -> str:
     """Drop every trailing BCI collection code, then normalize.
 
@@ -623,12 +612,10 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
         nn = normalize(name)
         return crosswalk.get(nn, nn)
 
-    # Coverage of the crop the model was sent, joined on base_image. GT keys carry
-    # the GT_KEY_PREFIX and the box CSV does not, so the same stem used for the
-    # cache join is the join key here too.
+    # Joined on base_image: GT keys carry GT_KEY_PREFIX and the box CSV does not, so
+    # the stem used for the cache join is the join key here too.
     #
-    # Imported here, not at module level: crop_overlap imports ``normalize``
-    # from this module, so a module-level import here would close the cycle.
+    # Imported here because crop_overlap imports ``normalize`` from this module.
     import crop_overlap
     crop_frames, crop_suspect = crop_overlap.build(
         **({"path": boxes_csv} if boxes_csv else {}))
@@ -646,9 +633,8 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
             "species_level": is_species_level(gt_c),
             "ranked": [(canon(b), s) for b, s in predictions[stem]],
             "ranked_strict": [(normalize(b), s) for b, s in predictions[stem]],
-            # None means the frame has no box row at all, so its coverage is
-            # unknown rather than zero. The dominant name is put through the same
-            # canonicalisation as the GT label so the two are comparable.
+            # None means no box row at all, so coverage is unknown rather than
+            # zero. The dominant name is canonicalised like the GT label.
             "crop_coverage": cov["coverage"] if cov else None,
             "crop_dominant": (canon(cov["dominant"])
                               if cov and cov["dominant"] else None),

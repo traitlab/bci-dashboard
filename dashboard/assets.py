@@ -231,9 +231,8 @@ _INPUT_ID = "species-filter"
 _SELECT_ID = "status-filter"
 _COUNT_ID = "species-count"
 
-# Client-side sort + filter for the per-species table. Vanilla, no library.
-# $-placeholders (string.Template), not an f-string: the body is mostly JS
-# braces, which an f-string would need every one of escaped.
+# Client-side sort + filter, vanilla. string.Template, not an f-string: the
+# body is mostly JS braces an f-string would need escaped.
 JS = Template("""\
 (function(){
   var table=document.getElementById('$table_id');
@@ -350,9 +349,7 @@ def pctf(x, nd=1):
     return "n/a" if x is None else f"{100.0 * x:.{nd}f}%"
 
 
-# ---------------------------------------------------------------------------
-# structure
-# ---------------------------------------------------------------------------
+# --- structure ---
 def slug(text: str) -> str:
     """A stable id from display text: the part before the first colon, lowercased,
     non-alphanumerics collapsed to hyphens, first eight words kept.
@@ -424,9 +421,8 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
             out.append(f"<td{c}>{cell}</td>")
         out.append("</tr>")
     out.append("</tbody></table>")
-    # Wrapped so a wide table scrolls inside its own box. Without this the
-    # 7-column table sets the page width on a phone and every paragraph on
-    # the page scrolls sideways with it.
+    # Scrolls inside its own box. Otherwise the 7-column table sets the page
+    # width on a phone and every paragraph scrolls sideways with it.
     return '<div class="tscroll">' + "\n".join(out) + "</div>"
 
 
@@ -528,9 +524,7 @@ def threshold_card(conf_thresh: float, support_thresh: int) -> str:
     )
 
 
-# ---------------------------------------------------------------------------
-# inline SVG (hand-written in labelfirst's report idiom: no library, no CDN)
-# ---------------------------------------------------------------------------
+# --- inline SVG (hand-written in labelfirst's report idiom: no library, no CDN) ---
 _NARROW = set(" .,;:'!|iljtfr()[]·")
 _WIDE = set("ABCDEFGHIJKLMNOPQRSTUVWXYZmw%@")
 
@@ -737,9 +731,8 @@ def svg_spark(values, marks=(), *, empty="no trend yet", span=0.0):
     dots = "".join(
         f'<circle cx="{xs[i]:.1f}" cy="{ys[i]:.1f}" r="3.2" fill="#fff" '
         f'stroke="#c62828" stroke-width="1.8"/>' for i in marks if 0 <= i < len(values))
-    # A <title> child is the browser's own tooltip. These lines are drawn beside the
-    # headline numbers and in every species row, so most readers meet one long before
-    # the panel that explains them; hovering has to be enough.
+    # A <title> child is the browser's own tooltip. Most readers meet one of these
+    # lines long before the panel that explains them, so hovering has to be enough.
     tip = (f"Oldest snapshot on the left, newest on the right, {len(values)} points. "
            f"Scaled to its own range, so its steepness is not comparable with another "
            f"line's.")

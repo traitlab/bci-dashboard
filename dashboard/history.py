@@ -112,9 +112,8 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, trend, n_crown
             fail(f"confidence band {band!r} counts")
     checks.append(f"confidence_calibration.csv: {len(bins_all)} confidence bands match")
 
-    # These three live in the run log's prose, not in any CSV, and they are the numbers the
-    # page states on denominators the CSVs never use. Checking them here is what once caught
-    # the report and the CSVs disagreeing by two crowns.
+    # These three live in the run log's prose, on denominators no CSV uses. Checking
+    # them here once caught the report and the CSVs disagreeing by two crowns.
     path = os.path.join(directory, "run_log.txt")
     with open(path, encoding="utf-8") as f:
         log = f.read()

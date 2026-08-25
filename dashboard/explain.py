@@ -19,21 +19,18 @@ from statistics import median
 import core as hc
 from assets import cap, esc, panel, pctf, svg_hbar, svg_weight_pair
 
-# One colour and name per labelled-crown band, shared by both bars of the
-# weighting chart. All are 4.5:1 against white so the in-bar number is readable.
+# One colour and name per labelled-crown band, both bars of the weighting chart.
+# All 4.5:1 against white so the in-bar number is readable.
 #
-# Known limitation: the ramp does not order by lightness, so it carries no order
-# without hue. Luminance runs 0.110, 0.180, 0.168, 0.175, 0.083, and the two ends
-# are the closest pair at 1.20:1. A key row ties to a bar segment by hue and
-# position only. Fixing it means a palette that ramps in lightness too, which is
-# a design change rather than a contrast tweak.
+# Known limitation: the ramp does not order by lightness (luminance 0.110, 0.180,
+# 0.168, 0.175, 0.083; the two ends are the closest pair at 1.20:1), so without
+# hue it carries no order. Fixing that is a new palette, not a contrast tweak.
 BAND_COLOR = {"1": "#b71c1c", "2-4": "#d44215", "5-9": "#8d6e00",
               "10-24": "#4f812c", "25+": "#1b5e20"}
 BAND_WORD = {"1": "1 crown", "2-4": "2 to 4 crowns", "5-9": "5 to 9 crowns",
              "10-24": "10 to 24 crowns", "25+": "25 or more crowns"}
-# The same bands short enough for a chart row label or a narrow table cell. Two
-# callers were building these as f"{key} crowns", which reads "1 crowns" for the
-# band that holds 47 of the 169 species.
+# The same bands, short enough for a chart row label. Built as f"{key} crowns"
+# they read "1 crowns" for the band holding 47 of the 169 species.
 BAND_SHORT = {"1": "1 crown", "2-4": "2-4 crowns", "5-9": "5-9 crowns",
               "10-24": "10-24 crowns", "25+": "25+ crowns"}
 
@@ -65,9 +62,8 @@ def candidates_panel(*, recs, gen_n, gen_none):
     # candidate worth returning, which is why a list can come back short.
     scores = [s for r in recs for _, s in r["ranked"]]
     floor = min(scores)
-    # What makes the floor a floor rather than a coincidence: the distribution is
-    # dense right above it and stops dead on a round number, with a pile-up sitting
-    # exactly there. "Nothing scores below the minimum" is true of any list.
+    # What makes it a floor rather than a coincidence: dense right above, stopping
+    # dead on a round number. "Nothing is below the minimum" is true of any list.
     at_floor = sum(1 for s in scores if s == floor)
     just_above = sum(1 for s in scores if floor < s < 2 * floor)
     hidden = {n: median([1.0 - sum(s for _, s in r["ranked"])
@@ -151,9 +147,8 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp):
     return panel(
         f"Why one score says {pctf(now['micro_top1'])} and the other {pctf(now['macro_top1'])}",
         "<b>Same model, same photos, two ways of averaging.</b>",
-        # No note restating the two rates here: the summary above already names both,
-        # the headline cards state the same one-vote-per-what distinction, and the
-        # chart below labels its own bars with it. Three times was twice too many.
+        # No note restating the two rates: the summary names both, the headline cards
+        # state the distinction, and the chart labels its own bars with it.
         svg_weight_pair(rows,
                           label_a=f"one vote per species ({n_sp} votes)",
                           label_b=f"one vote per crown ({n:,} votes)")

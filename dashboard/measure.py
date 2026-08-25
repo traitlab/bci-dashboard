@@ -28,9 +28,8 @@ from core import (
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Every file a run produces, in the order the run reports them. Named once: the
-# module docstring, the --out-dir help and the FILES WRITTEN listing all used to
-# carry their own copy of this list, and two of them had drifted to "six".
+# Every file a run produces, in the order it reports them. Named once: three
+# places carried their own copy and two had drifted to "six".
 OUTPUTS = ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
            "confidence_calibration.csv", "name_reconciliation.csv",
            "send_first_queue.csv", "send_batches.csv", "label_review_queue.csv",
@@ -58,9 +57,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     out_dir = args.out_dir
-    # Created up front, not at the first open(): every CSV is written after
-    # load_health, so a missing directory used to surface as FileNotFoundError
-    # only once the whole measurement pass had already run.
+    # Up front, not at the first open(): every CSV is written after load_health, so
+    # a missing directory used to surface only after the whole pass had run.
     os.makedirs(out_dir, exist_ok=True)
 
     log("=" * 84)
@@ -234,10 +232,8 @@ def main() -> None:
                             k, len(sub) - k, fmt(ratio(len(sub) - k, len(sub)))])
 
     # ---------------- 10b. crop-coverage gate ----------------
-    # A prediction was made from a fixed centre crop of the frame; the label comes
-    # from a crown box drawn anywhere in it. The sweep says how the headline moves
-    # once only frames whose dominant labelled species actually fills the crop are
-    # scored. Both rates are kept, so neither replaces the other.
+    # How the headline moves once only frames whose dominant labelled species fills
+    # the crop are scored. Both rates are kept, so neither replaces the other.
     sweep = [coverage_gate_stats(sp_recs, t) for t in CROP_COVERAGE_SWEEP]
     gate = coverage_gate_stats(sp_recs, MIN_CROP_COVERAGE)
     with open(os.path.join(out_dir, "coverage_gate.csv"), "w", newline="", encoding="utf-8") as f:

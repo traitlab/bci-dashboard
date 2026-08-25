@@ -69,8 +69,8 @@ STATUS_REASON = {
                    "recover it. Whether Pl@ntNet carries the species at all is not known from here.",
 }
 
-# A 2x2 grid: question asked (rows) by how it was averaged (columns). As two
-# adjacent cards, 50.3% / 79.5% reads as one number superseding the other.
+# A 2x2 grid: question asked (rows) by how it was averaged (columns), because
+# 50.3% / 79.5% side by side reads as one superseding the other.
 # (metric, question, averaged over, note).
 HEADLINES = [
     ("macro_top1", "First guess is right", "per species",
@@ -151,9 +151,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                 for sub in ([r for r in sp_recs if lo <= conf(r) < hi],)]
 
     # --- what this evaluation cannot score, and what name matching is worth ---
-    # "Never named": the name appears in no cached candidate list, so no threshold
-    # scores those crowns. Counted over the evaluated set and over every label,
-    # because the run log the verifier checks against uses the second denominator.
+    # "Never named": in no cached candidate list, so no threshold scores it. Counted
+    # over the evaluated set and over every label; the run log uses the second.
     never = sorted((d for d in per_species if not d["in_corpus_vocabulary"]),
                    key=lambda d: -d["n_labelled_crowns"])
     never_sp = {d["species"] for d in never}
@@ -196,9 +195,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     # tells the reader to open the rest, so two sorts would be two lists.
     queue_rows.sort(key=lambda r: (hc.QUEUE_ORDER.index(r[0]), r[3], r[1]))
 
-    # Camera, read off the frame key: the drone flies a zoom and a tele lens and
-    # the filename records which. Counted rather than assumed because the two
-    # populations are not the same one -- see the note this feeds below.
+    # The drone flies a zoom and a tele lens and the filename records which.
+    # Counted, not assumed: the two populations are not the same one.
     def camera_of(key):
         low = key.lower()
         for c in ("zoom", "tele"):
@@ -211,9 +209,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     scored_cams = Counter(camera_of(r["global_key"]) for r in sp_recs)
     queue_cams = Counter(camera_of(stem) for _, stem, _, _ in queue_rows)
 
-    # How many rows of the queue to render. The page has to answer "what do I
-    # send next" without a CSV reader, and a batch is 100 crowns; the first 25
-    # is one morning's work, enough to start on and short enough to read.
+    # Enough to answer "what do I send next" without a CSV reader. A batch is 100
+    # crowns, so 25 is one morning's work and still short enough to read.
     SEND_PREVIEW = 25
 
     confident = [r for r in sp_recs if conf(r) >= hc.REVIEW_CONF]
@@ -268,9 +265,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                         if rest else None))
     best = next(o for o in ops if o["gate"] and abs(o["thr"] - RECOMMENDED_CONF) < 1e-9)
 
-    # Labels above species split two ways, and mixing them understates the genus
-    # rate: a family name can never equal a predicted genus, so every family-only
-    # crown is a guaranteed miss at genus level rather than a measured one.
+    # Kept apart from family-only labels: a family name can never equal a predicted
+    # genus, so mixing them scores guaranteed misses as measured ones.
     fam_recs = [r for r in h.genus_recs if is_family(r["gt"])]
     gen_recs = [r for r in h.genus_recs if not is_family(r["gt"])]
     gn, fam_n = len(gen_recs), len(fam_recs)
@@ -300,9 +296,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                  f'<div class="l">{question}</div>'
                  f'<div class="n">{note.format(n_sp=n_sp)}</div></div>')
     P.append(f'</div><p class="note">{HERO_READING}</p>')
-    # One sentence, not the full caveat: the ceiling panel below states the same
-    # numbers with the reasoning, and saying it twice under the headline grid was
-    # the reader's second dense paragraph before they had read a single panel.
+    # One sentence, not the full caveat: the ceiling panel states the same numbers
+    # with the reasoning, and twice made this the second dense paragraph up top.
     P.append(f'<p class="note"><strong>{n - len(reach):,} of these crowns belong to '
              f'{len(never)} species the model never names in five candidates, so they are '
              f'wrong at every threshold.</strong> Without them the per-crown rate is '
@@ -358,8 +353,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                    pctf(queue_counts.get(q, 0) / n_unlab if n_unlab else None)]
                   for q in hc.QUEUE_ORDER])
     # The list itself, not a pointer to it: the counts above say how much work
-    # there is, and until now the only way to learn which photo to send was to
-    # open a CSV in the snapshot folder.
+    # there is, and the CSV in the snapshot folder said which photo.
     head = queue_rows[:SEND_PREVIEW]
     body += ('<h3 class="sub">The next ' + f'{len(head)}' + ' photos, in order</h3>'
              + table([("#", True), ("photo", False), ("Pl@ntNet's guess", False),
@@ -426,9 +420,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                      "are the disagreements most worth an expert's minute, once the cheap "
                      "queues above are worked through.", body)
 
-    # Only the first panel of each section opens, and this one is not first.
-    # Asking history.py for a closed panel beats string-surgery on the tag it
-    # returned, which broke the moment the panel grew an id attribute.
+    # Only the first panel of a section opens, and this is not it. Asking for a
+    # closed panel beats string surgery on the tag, which broke on the id attribute.
     p_trend = trend.render(open_=False)
 
     # ---- deprioritization ----
@@ -661,9 +654,8 @@ def main() -> None:
                          cache_dir=args.cache_dir)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    # Encode here rather than letting open() do it, so the reported size is the
-    # size on disk. Accented species names cost more than one byte apiece, so
-    # len(page) undercounts by ten and a reader comparing against ls is misled.
+    # Encoded here so the reported size is the size on disk: accented species names
+    # cost more than a byte each, and len(page) undercounts by ten.
     blob = page.encode("utf-8")
     with open(args.out, "wb") as f:
         f.write(blob)
