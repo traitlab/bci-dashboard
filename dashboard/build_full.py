@@ -69,10 +69,9 @@ STATUS_REASON = {
                    "recover it. Whether Pl@ntNet carries the species at all is not known from here.",
 }
 
-# A 2x2 grid, not four unrelated numbers: the question asked (rows) crossed with
-# how the answer was averaged (columns). Laid out this way because the pair
-# 50.3% / 79.5% is unreadable as two adjacent cards -- the reader cannot tell
-# whether one supersedes the other. (metric, question, averaged over, note).
+# A 2x2 grid: question asked (rows) by how it was averaged (columns). As two
+# adjacent cards, 50.3% / 79.5% reads as one number superseding the other.
+# (metric, question, averaged over, note).
 HEADLINES = [
     ("macro_top1", "First guess is right", "per species",
      "each of the {n_sp} species counts once, however few crowns it has"),
@@ -152,10 +151,9 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                 for sub in ([r for r in sp_recs if lo <= conf(r) < hi],)]
 
     # --- what this evaluation cannot score, and what name matching is worth ---
-    # "Never named" = the species name appears nowhere in any cached candidate list, so no
-    # threshold can ever score those crowns. Counted twice on purpose: over the evaluated set
-    # (the denominator every other number here uses) and over every label, which is the
-    # denominator the run log uses. The verifier holds both to the run log.
+    # "Never named": the name appears in no cached candidate list, so no threshold
+    # scores those crowns. Counted over the evaluated set and over every label,
+    # because the run log the verifier checks against uses the second denominator.
     never = sorted((d for d in per_species if not d["in_corpus_vocabulary"]),
                    key=lambda d: -d["n_labelled_crowns"])
     never_sp = {d["species"] for d in never}
@@ -173,10 +171,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     trend = load_trend(verify_dir, fallback_tag, sp_recs=sp_recs, cache_dir=cache_dir)
 
     # --- send-first queue over the unlabelled pool, and labels worth a second look.
-    # Both come from the 2026-08-05 call: prioritise the long tail and
-    # low-confidence guesses on usually-right species, and send confident disagreements
-    # back for review once the cheap work is done. The queue logic itself lives in
-    # core so this page and measure.py cannot drift apart.
+    # The logic lives in core so this page and measure.py cannot drift apart.
     acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     joined_stems = {stem for _, stem, _ in h.joined}
     queue_counts = {}
@@ -197,10 +192,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
         if q == "long_tail":
             lt_species[pred] += 1
     n_unlab = sum(queue_counts.values())
-    # The same order measure.py writes into send_first_queue.csv: queue first,
-    # then weakest confidence, then key. Kept identical on purpose -- the page
-    # shows the head of that file, so a different sort here would print a list
-    # that does not match the file it tells the reader to open.
+    # send_first_queue.csv's own order. The page prints the head of that file and
+    # tells the reader to open the rest, so two sorts would be two lists.
     queue_rows.sort(key=lambda r: (hc.QUEUE_ORDER.index(r[0]), r[3], r[1]))
 
     # Camera, read off the frame key: the drone flies a zoom and a tele lens and
@@ -225,10 +218,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
 
     confident = [r for r in sp_recs if conf(r) >= hc.REVIEW_CONF]
     review = [r for r in confident if top1(r) != r["gt"]]
-    # The claim the review panel rests on: at this confidence the model is nearly
-    # always right, so a disagreement is worth an expert's minute. Measured rather
-    # than asserted, because it moves with every batch and a stale figure here is
-    # an argument for spending expert time on the wrong list.
+    # The claim the review panel rests on. Measured, not asserted: it moves with
+    # every batch, and stale it argues for spending expert time on the wrong list.
     confident_ok = (len(confident) - len(review)) / len(confident)
     review_pairs = defaultdict(list)
     for r in review:
@@ -482,9 +473,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                     "misidentified.", body)
 
     # ---- confidence ----
-    # Same blue as the support-bucket chart in the next panel. Both draw the same
-    # measure, and a reader comparing the two should not have to decide whether a
-    # colour change means something. Green is spoken for by the status tags.
+    # Same blue as the next panel's chart: same measure, so a colour change would
+    # read as meaning something. Green is spoken for by the status tags.
     body = (svg_hbar([(band, k / nn if nn else 0.0,
                        f'{pctf(k / nn) if nn else "n/a"}  ·  {nn:,} crowns', "#1565c0")
                       for band, nn, k in bins_all],
@@ -541,11 +531,9 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             f'<span data-sort="{d["top5_accuracy"]:.6f}">{pctf(d["top5_accuracy"])}</span>',
             f'<span data-sort="{d["mean_top1_confidence"]:.6f}">'
             f'{d["mean_top1_confidence"]:.2f}</span>',
-            # A sparkline over 1 to 4 crowns draws a coin flip as a trend: 49 of
-            # them run rail to rail on a single crown changing answer, and 55 are
-            # the same flat line for accuracies from 0 to 1. The model is frozen,
-            # so none of that movement is learning. Below the support floor the
-            # cell says so instead of drawing a shape the panel text retracts.
+            # A sparkline over 1 to 4 crowns draws a coin flip as a trend: 49 run
+            # rail to rail on one crown changing answer, 55 are the same flat line
+            # for accuracies from 0 to 1. Below the floor the cell says so instead.
             (trend.spark(f"species:{sp}:top1", empty="")
              if d["n_labelled_crowns"] >= WAIT_SUPPORT_MIN
              else '<span class="nospark">too few crowns</span>'),
