@@ -16,3 +16,5 @@ data/*
 # a current run.
 dashboard/*.csv
 dashboard/run_log.txt
+
+specs/

@@ -35,12 +35,14 @@ import argparse
 import collections
 import csv
 import json
+import math
 import statistics
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 CACHE_DIR = REPO / "data" / "crowns" / "cache"
 EXPORT_BOXES = REPO / "data" / "export_boxes.csv"
+DATASET_ROWS = REPO / "data" / "dataset_rows.jsonl"
 SIZE_BINS = ((128, 256), (256, 512), (512, 10_000))
 CONF_CUT = 0.5
 MIN_SPECIES_N = 8
@@ -76,6 +78,8 @@ def load_crowns(cache_dir: Path) -> list[dict]:
                        float(box["y_max"]) - float(box["y_min"]))
         except (KeyError, TypeError, ValueError):
             side = 0.0
+        frac = frame_fraction(box, entry.get("frame_width"),
+                              entry.get("frame_height"))
         names = [(r.get("scientific_name") or "").lower() for r in results]
         rows.append({
             "camera": camera_of(entry["base_image"]),
@@ -85,9 +89,46 @@ def load_crowns(cache_dir: Path) -> list[dict]:
             "top5": names[:5],
             "score": float(results[0]["score"]) if results else 0.0,
             "side": side,
+            "frac": frac,
             "box": box,
         })
     return rows
+
+
+def frame_fraction(box: dict, width, height) -> float:
+    """Crown box as a linear fraction of its frame, or 0.0 when unmeasurable.
+
+    Linear rather than area, so the two cameras compare as a magnification. The
+    frame size comes from the cache entry, never a constant, since a frame that
+    broke the constant is what this control has to catch.
+    """
+    try:
+        area = ((float(box["x_max"]) - float(box["x_min"]))
+                * (float(box["y_max"]) - float(box["y_min"])))
+        return math.sqrt(area / (float(width) * float(height)))
+    except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        return 0.0
+
+
+def load_missions(path: Path) -> dict[str, str]:
+    """Frame name to mission identifier, from the dataset row dump.
+
+    Keyed on the basename, which is the only component the three global-key
+    namespaces share.
+    """
+    if not path.exists():
+        return {}
+    missions = {}
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            row = json.loads(line)
+            mission = (row.get("metadata") or {}).get("mission")
+            if mission:
+                missions[Path(row["global_key"]).name] = mission
+    return missions
 
 
 def load_export_boxes(path: Path) -> dict[str, set[tuple[int, int]]]:
@@ -221,6 +262,62 @@ def controls(rows: list[dict], cameras: list[str], export_boxes: dict) -> None:
                   f"labelled crown ({other / wrong:.1%})")
 
 
+def magnification(rows: list[dict], cameras: list[str]) -> None:
+    print("\ncontrol 6 - apparent magnification, crown box against its own frame")
+    medians = {}
+    for cam in cameras:
+        fracs = sorted(r["frac"] for r in rows if r["camera"] == cam and r["frac"])
+        if not fracs:
+            continue
+        medians[cam] = statistics.median(fracs)
+        print(f"  {cam:6} n={len(fracs):5}  median linear={medians[cam]:.3f}  "
+              f"area={medians[cam] ** 2:.1%}")
+    if len(medians) == 2:
+        (lo, a), (hi, b) = sorted(medians.items(), key=lambda kv: kv[1])
+        print(f"  a crown is {b / a:.2f}x larger linearly on {hi} than on {lo}, "
+              f"so {hi} is not the smaller-crown camera")
+
+
+def campaigns(rows: list[dict], cameras: list[str],
+              missions: dict[str, str]) -> None:
+    """Whether the cameras share a mission, a calendar day, or a site.
+
+    The decomposition's middle step is about the camera only if nothing else
+    varies with it, so the sharing is reported rather than assumed.
+    """
+    print("\ncontrol 7 - do the cameras share a mission, a day or a site?")
+    seen: dict[str, dict[str, set]] = {}
+    for cam in cameras:
+        frames = {r["frame"] for r in rows if r["camera"] == cam}
+        named = {missions[f] for f in frames if f in missions}
+        if not named:
+            print(f"  {cam:6} no mission recorded for any of its {len(frames)} frames")
+            continue
+        parts = [m.split("_") for m in named]
+        seen[cam] = {
+            "mission": named,
+            "day": {p[0] for p in parts},
+            "site": {p[1] for p in parts if len(p) > 1},
+            "aircraft": {p[-1] for p in parts},
+        }
+        days = sorted(seen[cam]["day"])
+        print(f"  {cam:6} {sum(r['camera'] == cam for r in rows):5} crowns  "
+              f"{len(frames):5} frames  {len(named):3} mission(s)  "
+              f"{days[0]}..{days[-1]}  "
+              f"aircraft {','.join(sorted(seen[cam]['aircraft']))}  "
+              f"{len(seen[cam]['site'])} site(s)")
+    if len(seen) != 2:
+        return
+    left, right = (seen[c] for c in sorted(seen))
+    for kind in ("mission", "day", "site"):
+        both = left[kind] & right[kind]
+        total = len(left[kind] | right[kind])
+        print(f"  {kind + 's carrying both cameras:':38} {len(both):3} of {total}")
+    if not left["mission"] & right["mission"]:
+        print("  the cameras share no mission, so a gap measured across cameras "
+              "is measured across missions too")
+
+
 def confidence(rows: list[dict], cameras: list[str]) -> None:
     print("\nconfidence - a threshold set on one camera does not carry to the other")
     for cam in cameras:
@@ -247,6 +344,7 @@ def parse_args(argv=None):
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--cache-dir", type=Path, default=CACHE_DIR)
     p.add_argument("--export-boxes", type=Path, default=EXPORT_BOXES)
+    p.add_argument("--dataset-rows", type=Path, default=DATASET_ROWS)
     p.add_argument("--per-species-camera", default="tele")
     return p.parse_args(argv)
 
@@ -263,6 +361,8 @@ def main(argv=None) -> int:
         by_size = sorted(cameras, key=lambda c: sum(r["camera"] == c for r in rows))
         decomposition(rows, reference=by_size[-1], target=by_size[0])
         controls(rows, cameras, load_export_boxes(args.export_boxes))
+        magnification(rows, cameras)
+        campaigns(rows, cameras, load_missions(args.dataset_rows))
     confidence(rows, cameras)
     if args.per_species_camera in cameras:
         per_species(rows, args.per_species_camera)

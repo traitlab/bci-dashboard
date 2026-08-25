@@ -79,6 +79,12 @@ def crown():
 
 
 @pytest.fixture(scope="session")
+def crown_accuracy():
+    """Stdlib only, so no `_require` guard and no fixture-scoped path juggling."""
+    return load("_crown_accuracy_under_test", REPO / "predict" / "crown_accuracy.py")
+
+
+@pytest.fixture(scope="session")
 def crop_overlap():
     """`dashboard/` on the path for the duration, and off it afterwards."""
     with _on_path(REPO / "dashboard"):
