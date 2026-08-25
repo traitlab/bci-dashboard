@@ -194,20 +194,36 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
          '<p class="intro"><b>Send the botanist more photos of the species marked '
          '&ldquo;Send more photos&rdquo; below, starting with the queue in the next '
          'panel.</b></p>',
+         f'<p class="terms">A <b>crown</b> is one tree canopy a botanist outlined in a '
+         f'drone frame. Pl@ntNet returns at most 5 species names for that crown’s '
+         f'photo; the <b>first guess</b> is the top-ranked one. Right means it matches '
+         f'the botanist.</p>',
          '<div class="hero">',
          '<div class="metric first">'
+         '<div class="e">per species</div>'
          f'<div class="v">{pctf(macro1)}'
          f'{info_tip("Provisional: split tags (train/valid/test) are not in this "
                      "NDJSON export, so this is measured over all labelled crowns "
                      "together, not held out. It will tighten to a held-out score "
                      "once split metadata is available.")}'
          '</div>'
-         '<div class="l">Right first guess, averaged across species</div>'
-         '<div class="n">each species counts once, whatever its size</div></div>',
+         '<div class="l">First guess is right</div>'
+         f'<div class="n">each of the {n_sp} species counts once, however few crowns '
+         f'it has</div></div>',
+         '<div class="metric">'
+         '<div class="e">per crown</div>'
+         f'<div class="v">{pctf(micro1)}</div>'
+         '<div class="l">First guess is right</div>'
+         f'<div class="n">one vote per labelled crown ({c1:,} of {n:,}), so common '
+         f'species dominate</div></div>',
          '</div>',
+         f'<p class="note">Read the two side by side, not as a contradiction. '
+         f'<b>Per species</b> is the number to quote for a species picked off the '
+         f'checklist; <b>per crown</b> for a photo picked off the drive. Per crown is '
+         f'higher because the species with many crowns are the ones Pl@ntNet already '
+         f'knows.</p>',
          f'<p class="note">{trend_sentence(trend)}</p>',
-         f'<p class="note">Averaged across crowns instead of species: {pctf(micro1)} '
-         f'right ({c1:,} of {n:,}). Ground truth covers {len(h.gt_rows):,} of '
+         f'<p class="note">Ground truth covers {len(h.gt_rows):,} of '
          f'{len(h.split_rows):,} photos. <strong>{counts["fine"]} species doing fine, '
          f'{counts["send"]} need more photos, {counts["unreachable"]} never turn up in '
          f'the 5-guess list.</strong> That last group is not the same as species '
