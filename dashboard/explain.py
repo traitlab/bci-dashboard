@@ -78,6 +78,11 @@ def candidates_panel(*, recs, gen_n, gen_none):
     # read off the data rather than assumed: it is the smallest score anyone got.
     scores = [s for r in recs for _, s in r["ranked"]]
     floor = min(scores)
+    # What makes the floor a floor rather than a coincidence: the distribution is
+    # dense right above it and stops dead on a round number, with a pile-up sitting
+    # exactly there. "Nothing scores below the minimum" is true of any list.
+    at_floor = sum(1 for s in scores if s == floor)
+    just_above = sum(1 for s in scores if floor < s < 2 * floor)
     hidden = {n: median([1.0 - sum(s for _, s in r["ranked"])
                          for r in recs if len(r["ranked"]) == n])
               for n in lens if lens[n]}
@@ -108,9 +113,11 @@ def candidates_panel(*, recs, gen_n, gen_none):
         + svg_hbar(rows, title=f"how long the returned list actually was, {len(recs):,} crowns")
         + f'<p class="note">{full:,} of {len(recs):,} photos came back with a full {top} '
           f'({pctf(full / len(recs))}) and none came back with more. The shorter lists are the '
-          f'other cut: <b>Pl@ntNet never returns a species it scores below {floor:.1%}</b>. Not '
-          f'one of the {len(scores):,} guesses on this page scores less, the smallest being '
-          f'exactly {floor:.3f}, so a short list means fewer than {top} species cleared that '
+          f'other cut: <b>Pl@ntNet never returns a species it scores below {floor:.1%}</b>. '
+          f'Of the {len(scores):,} guesses on this page, {just_above:,} score between '
+          f'{floor:.3f} and {2 * floor:.3f} and {at_floor} sit on exactly {floor:.3f}, and '
+          f'none goes lower. A model that simply had no smaller numbers would not stop dead '
+          f'on a round one, so a short list means fewer than {top} species cleared that '
           f'bar.</p>'
           f'<p class="note">Pl@ntNet spreads 100% of its confidence across every species it '
           f'knows. A {shortest}-guess photo accounts for {pctf(1 - hidden[shortest])} of it'
