@@ -204,7 +204,8 @@ def main() -> None:
     well_recs = [r for r in sp_recs if r["gt"] in well]
     # The species the proposed triage rule would actually whitelist: measured
     # well AND measured accurate. NOTE this whitelist is chosen on the same
-    # crowns it is then scored on -- see the README caveat on selection bias.
+    # crowns it is then scored on: an optimistic, selection-biased number
+    # rather than an out-of-sample estimate.
     good = {d["species"] for d in per_species
             if d["n_labelled_crowns"] >= WELL_SAMPLED_MIN_N and d["top1_accuracy"] >= 0.90}
     good_recs = [r for r in sp_recs if r["gt"] in good]
