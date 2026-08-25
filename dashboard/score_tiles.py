@@ -142,10 +142,8 @@ def main():
             for a in arms)
         log(f"  {label:13s} n={len(sub):4d}  {line}")
 
-    # A whole-frame arm sees more trees, so it has more chances to land on
-    # whichever species is common in the plot. If that is all the gain is, it
-    # should disappear on frames whose labelled species is rare, where guessing
-    # the abundant one is punished rather than rewarded.
+    # A whole-frame arm sees more trees, so it lands on the plot's common species
+    # more often. If that is the whole gain, it disappears on rare-species frames.
     freq = {}
     for r in rows:
         freq[r["gt"]] = freq.get(r["gt"], 0) + 1
@@ -160,11 +158,9 @@ def main():
             for a in arms)
         log(f"  {label:21s} n={len(sub):4d}  {line}")
 
-    # The published gate reads a botanist's boxes, so it cannot run on a photo
-    # nobody has labelled, which is every photo the model would be deployed on.
-    # The quadrat call reports its own top species' share of the frame. If that
-    # share separates right from wrong the same way, the gate becomes something
-    # the pipeline can compute for itself.
+    # The published gate reads a botanist's boxes, so it cannot run on the unlabelled
+    # photos the model is deployed on. If the quadrat call's own top-species share
+    # separates right from wrong the same way, the pipeline can compute the gate.
     log("\nthe tiles' own coverage as a gate, no boxes needed")
     log(f"  {'threshold':>9}  {'kept':>5}  {'share':>6}  {'tiles top-1':>11}")
     for thr in (0.0, 0.2, 0.4, 0.5, 0.6, 0.8):

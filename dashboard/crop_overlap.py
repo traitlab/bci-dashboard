@@ -47,10 +47,8 @@ EXPORT_BOXES_CSV = os.path.join(REPO, "data", "export_boxes.csv")
 # fraction of the crop.
 DEFAULT_MIN_COVERAGE = 0.50
 
-# 286 of the 3,280 frames have a box edge 1-2 px outside the frame, which is a
-# rounding artifact from whatever drew them, not a second camera resolution (the
-# largest coordinate anywhere is 4002 x 3002). Clamp within this tolerance and
-# only treat a bigger overshoot as a genuinely unknown frame size.
+# 286 of 3,280 frames have a box edge 1-2 px outside it, a rounding artifact
+# rather than a second resolution (the largest coordinate is 4002 x 3002).
 EDGE_TOLERANCE = 4
 
 

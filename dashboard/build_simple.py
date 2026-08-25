@@ -34,8 +34,7 @@ from history import (  # noqa: E402
     latest_snapshot_dir, load_trend, verify_snapshot)
 
 # The six-way diagnosis from core, collapsed to the three actions this page
-# drives. "hard" lands in "send" because the labels feed Pl@ntNet's next
-# retraining even though the current model is frozen.
+# drives. "hard" lands in "send": the labels feed Pl@ntNet's next retraining.
 SIMPLE_STATUS = {
     "reliable": ("fine", "Doing fine"),
     "adequate": ("fine", "Doing fine"),
@@ -317,9 +316,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
             f'<span data-sort="{d["top1_accuracy"]:.6f}">{pctf(d["top1_accuracy"])}</span>',
             status_tag(TAG_CLASS[key], label, sort_key=label)])
         attrs.append(f' data-species="{esc(sp)}" data-status="{key}"')
-    # Six situations collapse into three visible tags ("fine" covers reliable and
-    # adequate; "send" covers ranking, unmeasured and hard), so the legend has
-    # one line per tag drawn. The finer six-way split is on the full page.
+    # Six situations, three visible tags, so one legend line per tag drawn. The
+    # finer split is on the full page.
     body = (status_legend([(TAG_CLASS[k], SIMPLE_STATUS[o][1], SIMPLE_REASON[k])
                            for o, k in (("reliable", "fine"), ("unmeasured", "send"),
                                         ("unreachable", "unreachable"))])
