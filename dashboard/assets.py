@@ -225,10 +225,7 @@ details.panel:target>summary{background:#e3f2fd}
 
 CSS = _BASE_CSS + _EXTRA_CSS
 
-# The only species-table element ids: no caller has ever overridden them (see
-# filterable_table below), but the JS still has to find the same elements the
-# Python side names, so both read these constants instead of each hardcoding
-# its own copy of the four strings.
+# Named once so the JS and the Python that renders the elements cannot drift.
 _TABLE_ID = "species-table"
 _INPUT_ID = "species-filter"
 _SELECT_ID = "status-filter"
@@ -398,10 +395,8 @@ def section(title, lede, panels):
     ``panels`` is already-rendered panel HTML. The band is what makes a long page
     scannable when closed, so it carries the group's question, not a label.
     """
-    # The jump list is read back out of the rendered panel HTML rather than
-    # taken as a parameter: the panels are the only source of truth for what
-    # this section contains, and a hand-kept list beside them would be one
-    # more thing to forget when a panel is added.
+    # Read back out of the rendered panels, not passed in: a hand-kept list is
+    # one more thing to forget when a panel is added.
     links = "".join(
         f'<li><a href="#{pid}">{esc(re.sub(r"<[^>]+>", "", summ).split(":")[0])}</a></li>'
         for pid, summ in re.findall(
@@ -607,10 +602,8 @@ def svg_hbar(rows, *, title=""):
                f'stroke="#e0e0e0"/>')
     for t in (0, 25, 50, 75, 100):
         x = label_w + bar_w * t / 100.0
-        # The tick mark stays faint at 1.72:1 because it carries nothing: every
-        # value on this chart is also printed at the end of its bar. The number
-        # under it is text a reader has to read, so it goes to 4.5:1 and up to
-        # 11px, which is the smallest size the rest of the page uses.
+        # The tick carries nothing (every value is printed at its bar end), so it
+        # stays faint at 1.72:1. The number under it is read, so 4.5:1 and 11px.
         out.append(f'<line x1="{x:.1f}" y1="{axis_y}" x2="{x:.1f}" y2="{axis_y + 4}" '
                    f'stroke="#bdbdbd"/>'
                    f'<text x="{x:.1f}" y="{axis_y + 17}" font-size="11" fill="#6d6d6d" '

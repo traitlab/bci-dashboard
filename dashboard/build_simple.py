@@ -33,11 +33,9 @@ from assets import (CSS, JS, cap, esc, filterable_table, funnel_list, info_tip, 
 from history import (  # noqa: E402
     latest_snapshot_dir, load_trend, verify_snapshot)
 
-# The six-way diagnosis from core collapsed to the three actions this
-# page exists to drive. "hard" lands in "send" on purpose: the current model
-# is frozen, but our labels feed Pl@ntNet's next retraining, and the
-# 2026-07-30 call named abundant-but-poorly-done species as the priority.
-# Tag classes reuse the existing AA-contrast palette: green, orange, grey.
+# The six-way diagnosis from core, collapsed to the three actions this page
+# drives. "hard" lands in "send" because the labels feed Pl@ntNet's next
+# retraining even though the current model is frozen.
 SIMPLE_STATUS = {
     "reliable": ("fine", "Doing fine"),
     "adequate": ("fine", "Doing fine"),
@@ -48,10 +46,8 @@ SIMPLE_STATUS = {
 }
 TAG_CLASS = {"fine": "reliable", "send": "unmeasured", "unreachable": "unreachable"}
 
-# Keyed by the tag the table actually draws, not by the six situations behind it:
-# a legend that repeated one badge three times with three different sentences
-# left the reader no way to tell which sentence applied to the row in front of
-# them. Each sentence here has to hold for every situation the tag covers.
+# Keyed by the tag drawn, not the six situations behind it: one badge with three
+# sentences left no way to tell which applied. Each holds for every situation.
 SIMPLE_REASON = {
     "fine": "The first guess is right often enough that extra labels here buy less than "
             "they do elsewhere.",

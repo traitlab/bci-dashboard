@@ -139,13 +139,9 @@ def main() -> None:
             filt[r["global_key"]] = None
             f_abstain += 1
 
-    # How binding is the nb-results=5 cap on the filter simulation? Re-ranking can
-    # only ever promote a species that is already somewhere in the returned list.
-    # Reachability must be tested on the same names the accuracy is scored on:
-    # predictions are compared after canonicalization, so a species the model
-    # returns only under a synonym IS scoreable. Testing corpus_norm alone
-    # understates reachability and disagrees with per_species_health.csv's
-    # in_corpus_vocabulary flag.
+    # Re-ranking can only promote a species already in the returned list, so
+    # reachability is tested on the canonicalized names the accuracy is scored on.
+    # corpus_norm alone understates it and disagrees with per_species_health.csv.
     def reachable_gt(name: str) -> bool:
         return name in h.corpus_norm or name in h.corpus_canon
 
@@ -377,9 +373,8 @@ def main() -> None:
         log("")
 
     # ---------------- 12. send-first queue over the unlabelled pool ----------------
-    # The other half of the 2026-08-05 call: which of the crowns
-    # WITHOUT a label should reach the botanist first. Every cached response
-    # whose stem no GT row joined to is an unlabelled photo with a prediction.
+    # Which unlabelled crowns reach the botanist first. Every cached response whose
+    # stem no GT row joined to is an unlabelled photo with a prediction.
     joined_stems = {stem for _, stem, _ in h.joined}
     support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
     top1_of = {d["species"]: d["top1_accuracy"] for d in per_species}
@@ -433,10 +428,8 @@ def main() -> None:
     log("")
 
     # ---------------- 13. labels worth a second look ----------------
-    # Confident disagreement with the botanist: first guess wrong at high
-    # confidence. Either the label or the model is wrong, and the call
-    # was that these go back for review once the cheap queues are worked
-    # through. Sorted most confident first.
+    # First guess wrong at high confidence: either the label or the model is wrong.
+    # Worked after the cheap queues. Sorted most confident first.
     review_rows = [[r["global_key"], r["split"], r["gt"], top1(r),
                     f"{r['ranked'][0][1]:.6f}"]
                    for r in sp_recs

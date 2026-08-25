@@ -19,25 +19,14 @@ from statistics import median
 import core as hc
 from assets import cap, esc, panel, pctf, svg_hbar, svg_weight_pair
 
-# One colour and one plain-English name per labelled-crown band, shared by both
-# bars of the weighting chart so a band is recognisable across them. The ramp
-# runs bad to good, all dark enough to carry a white number inside the bar.
+# One colour and name per labelled-crown band, shared by both bars of the
+# weighting chart. All are 4.5:1 against white so the in-bar number is readable.
 #
-# "Dark enough" is 4.5:1 against white, and two of these did not meet it before
-# being darkened: 2-4 sat at 4.44 and 10-24 at 4.10, so the percentages drawn
-# inside those two bands were the least readable text on the page. The shift is
-# 2% and 7% of each channel, which holds the hue and the five-step identity.
-#
-# What this ramp still cannot do is survive red-green colour blindness, and the
-# reason is worse than close steps: it does not order by lightness at all.
-# Luminance runs 0.110, 0.180, 0.168, 0.175, 0.083 down the five bands, so
-# adjacent steps differ by only 1.03:1 to 1.69:1 and the two ends, worst band
-# and best band, are the closest pair in the set at 1.20:1. Strip the hue and
-# the ramp carries no order. The key rows below print every count, but the tie
-# from a key row to a bar segment is hue plus left-to-right position only: the
-# in-bar text is a bare percentage drawn just when the segment is at least 25px
-# wide, and it never repeats the band name. Fixing this means a palette that
-# also ramps in lightness, which is a design change, not a contrast tweak.
+# Known limitation: the ramp does not order by lightness, so it carries no order
+# without hue. Luminance runs 0.110, 0.180, 0.168, 0.175, 0.083, and the two ends
+# are the closest pair at 1.20:1. A key row ties to a bar segment by hue and
+# position only. Fixing it means a palette that ramps in lightness too, which is
+# a design change rather than a contrast tweak.
 BAND_COLOR = {"1": "#b71c1c", "2-4": "#d44215", "5-9": "#8d6e00",
               "10-24": "#4f812c", "25+": "#1b5e20"}
 BAND_WORD = {"1": "1 crown", "2-4": "2 to 4 crowns", "5-9": "5 to 9 crowns",
@@ -72,10 +61,8 @@ def candidates_panel(*, recs, gen_n, gen_none):
     rows = [(f"{k} guess{'' if k == 1 else 'es'}", lens[k] / len(recs),
              f"{lens[k]:,} crowns", "#1b5e20" if k == top else "#78909c")
             for k in range(1, top + 1) if lens[k]]
-    # Two independent cuts, one from each end of the list. Ours is nb-results;
-    # Pl@ntNet's is a floor on the confidence of a candidate worth returning,
-    # which is why a list can come back shorter than we asked for. The floor is
-    # read off the data rather than assumed: it is the smallest score anyone got.
+    # Two cuts, one from each end: our nb-results, and Pl@ntNet's floor on a
+    # candidate worth returning, which is why a list can come back short.
     scores = [s for r in recs for _, s in r["ranked"]]
     floor = min(scores)
     # What makes the floor a floor rather than a coincidence: the distribution is
@@ -88,10 +75,8 @@ def candidates_panel(*, recs, gen_n, gen_none):
               for n in lens if lens[n]}
     half = sum(1 for r in recs
                if len(r["ranked"]) == top and sum(s for _, s in r["ranked"]) < 0.5)
-    # The worked example below is read off the list lengths this corpus actually
-    # returned. Naming 1 and 4 outright crashed the build on any corpus with no
-    # photo of that length, and 1 and 4 are not special: the point is that the
-    # share of confidence we receive falls as the list gets longer.
+    # Read off the list lengths this corpus returned. Naming 1 and 4 outright
+    # crashed on a corpus without them, and the point is the trend, not those two.
     shortest = min(hidden)
     middles = [k for k in sorted(hidden) if shortest < k < top]
     mid = middles[len(middles) // 2] if middles else None
