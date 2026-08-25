@@ -67,16 +67,37 @@ STATUS_REASON = {
                    "recover it. Whether Pl@ntNet carries the species at all is not known from here.",
 }
 
+# A 2x2 grid, not four unrelated numbers: the question asked (rows) crossed with
+# how the answer was averaged (columns). Laid out this way because the pair
+# 50.3% / 79.5% is unreadable as two adjacent cards -- the reader cannot tell
+# whether one supersedes the other. (metric, question, averaged over, note).
 HEADLINES = [
-    ("macro_top1", "Average across species",
-     "per-species top-1: each species counts once, whatever its size"),
-    ("micro_top1", "Average across crowns",
-     "crown-weighted top-1: one vote per labelled crown"),
-    ("macro_top5", "Right name in the list, per species",
-     "the best a smarter ranking could reach"),
-    ("micro_top5", "Right name in the list, per crown",
-     "the list holds at most 5 candidates"),
+    ("macro_top1", "First guess is right", "per species",
+     "each of the {n_sp} species counts once, however few crowns it has"),
+    ("micro_top1", "First guess is right", "per crown",
+     "one vote per labelled crown, so common species dominate"),
+    ("macro_top5", "Right name is among the 5 offered", "per species",
+     "the ceiling a better ranking could reach without a better model"),
+    ("micro_top5", "Right name is among the 5 offered", "per crown",
+     "we only ever asked Pl@ntNet for 5 names"),
 ]
+
+# Sits directly under the grid. Without it the two columns read as a
+# contradiction rather than as two questions.
+HERO_READING = (
+    "Read down a column, not across. <b>Per species</b> is the number to quote for "
+    "a species picked off the checklist; <b>per crown</b> is the number to quote for "
+    "a photo picked off the drive. Per crown is the higher of the two because the "
+    "species with many crowns are the ones Pl@ntNet already knows."
+)
+
+# What a reader has to know before any of the four numbers means anything.
+HERO_TERMS = (
+    "A <b>crown</b> is one tree canopy a botanist outlined in a drone frame. "
+    "Pl@ntNet returns a ranked list of at most 5 species names for that crown's "
+    "photo; the <b>first guess</b> is the top-ranked name. Right means it matches "
+    "the botanist's name for the same crown."
+)
 
 
 def is_family(n: str) -> bool:
@@ -251,20 +272,21 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
          '<p class="intro">This page says where botanist time is worth spending. Pl@ntNet has '
          'already guessed a species for every labelled crown photo and we know the right '
          'answer for those, so we can say per species how often it is right.</p>',
+         f'<p class="terms">{HERO_TERMS}</p>',
          '<div class="hero">']
-    for i, (metric, label, note) in enumerate(HEADLINES):
-        P.append(f'<div class="metric{" first" if i == 0 else ""}"><div class="row">'
+    for i, (metric, question, averaged, note) in enumerate(HEADLINES):
+        P.append(f'<div class="metric{" first" if i == 0 else ""}">'
+                 f'<div class="e">{averaged}</div><div class="row">'
                  f'<div class="v">{pctf(now[metric])}</div>{trend.spark(metric)}</div>'
-                 f'<div class="l">{label}</div><div class="n">{note}</div></div>')
-    P.append(f'</div><p class="note"><strong>Of the crowns this evaluation can possibly score, '
+                 f'<div class="l">{question}</div>'
+                 f'<div class="n">{note.format(n_sp=n_sp)}</div></div>')
+    P.append(f'</div><p class="note">{HERO_READING}</p>')
+    P.append(f'<p class="note"><strong>Of the crowns this evaluation can possibly score, '
              f'{pctf(reach1)} are right: {sum(1 for r in reach if top1(r) == r["gt"]):,} of '
-             f'{len(reach):,}.</strong> The other {n - len(reach):,} crowns belong to '
-             f'{len(never)} species that never appear in the five candidates, so they are wrong '
-             f'at every threshold and no amount of work on our side can score them. We asked for '
-             f'only five candidates per photo, so a species Pl@ntNet knows but never ranked in '
-             f'the top five is indistinguishable here from one it cannot return. Reading this '
-             f'{len(never)} as &ldquo;outside Pl@ntNet&rsquo;s checklist&rdquo; overstates it: '
-             f'the checklist itself is what would settle that, and we do not hold it. '
+             f'{len(reach):,}.</strong> The other {n - len(reach):,} belong to {len(never)} '
+             f'species that never reach the five candidates, so they are wrong at every '
+             f'threshold. That is not the same as being outside Pl@ntNet&rsquo;s checklist: we '
+             f'hold five names per photo, not the checklist. '
              f'&ldquo;What this cannot tell you&rdquo; says where that five came from.</p>')
 
     # Panels are built in reading order but emitted in section order at the foot of

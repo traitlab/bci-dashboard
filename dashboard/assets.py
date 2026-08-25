@@ -85,14 +85,22 @@ _EXTRA_CSS = """\
 body{max-width:1120px}
 h1{margin-bottom:2px}
 .intro{font-size:0.95rem;color:#424242;margin:10px 0 22px}
-.hero{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+.terms{font-size:0.83rem;color:#546e7a;background:#f4f7f9;border-left:3px solid #b0bec5;
+  border-radius:0 4px 4px 0;padding:10px 14px;margin:0 0 16px}
+.terms b{color:#263238}
+/* Two fixed columns, not a wrapping flex row: the four headline numbers are a
+   2x2 grid of question x weighting, and a reader who sees them in one long row
+   reads them as four unrelated figures. Collapses to one column under 640px. */
+.hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:6px}
 .hero .metric{
-  flex:1 1 220px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;
-  padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  background:#fff;border:1px solid #e0e0e0;border-radius:8px;
+  padding:14px 18px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);
 }
 .hero .metric.first{border-color:#90caf9;background:#f3f9ff}
+.hero .metric .e{font-size:0.68rem;font-weight:700;letter-spacing:0.07em;
+  text-transform:uppercase;color:#1565c0;margin-bottom:6px}
 .hero .metric .v{font-size:2rem;font-weight:700;color:#212121;line-height:1.1}
-.hero .metric .l{font-size:0.8rem;color:#616161;margin-top:6px}
+.hero .metric .l{font-size:0.86rem;font-weight:600;color:#37474f;margin-top:6px}
 /* #6d6d6d, not a lighter grey: this is the line that explains every headline
    number, and it sits on white and on the tinted first card. It clears 4.5:1 on
    both (5.17 and 4.88) and still reads a step quieter than the #616161 label. */
@@ -186,6 +194,11 @@ section.grp>h2{
    page carrying the snapshot date and the model tag. The rule it overrides is inside
    the vendored block above, which stays byte-identical to labelfirst's. */
 .subtitle{color:#6d6d6d}
+/* The 2x2 headline grid has no room for two columns on a phone. The vendored
+   block's own 640px query stays byte-identical, so the override lives here. */
+@media(max-width:640px){
+  .hero{grid-template-columns:1fr}
+}
 """
 
 CSS = _BASE_CSS + _EXTRA_CSS
