@@ -96,6 +96,8 @@ def candidates_panel(*, recs, gen_n, gen_none):
         f"<b>Two different limits cut that list, one at each end.</b> We asked for the best "
         f"{top}, and Pl@ntNet drops anything it scores below {floor:.1%} whether we asked for "
         f"it or not. Both put a ceiling on the numbers above.",
+        # Explicit: the summary states the list length, which is a fetch setting
+        # rather than a fixed fact, so it must not decide the anchor.
         f'<p class="note">Every request carried <code>nb-results={top}</code>: reply with your '
         f'{top} best guesses, best first. Pl@ntNet documents the setting only as a way to '
         f'"restrict size of output list of probable species", with no published maximum and no '
@@ -130,7 +132,8 @@ def candidates_panel(*, recs, gen_n, gen_none):
           f'results such as results per family and results per genus" under '
           f'<code>otherResults</code>. A genus label is scored here by chopping the genus off a '
           f'predicted species name, and a family label cannot be scored offline at all; '
-          f'Pl@ntNet will state both directly if asked.</p>')
+          f'Pl@ntNet will state both directly if asked.</p>',
+        anchor="why-only-five-guesses-per-photo")
 
 
 def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp):
@@ -184,7 +187,9 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp):
           f'{100 * (well_micro - well_macro):.0f} points apart instead of {gap:.0f}. A '
           f'one-crown species scores only 0% or 100%, so those {singles} votes are coin '
           f'flips.</p>',
-        open_=True)
+        open_=True,
+        # Both headline rates are in the summary and both move every snapshot.
+        anchor="why-the-two-headline-scores-differ")
 
 
 def method_panel(*, tag, n, n_sp, checks):
