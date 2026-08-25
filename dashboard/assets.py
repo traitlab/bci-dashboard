@@ -200,6 +200,15 @@ section.grp>h2{
    page carrying the snapshot date and the model tag. The rule it overrides is inside
    the vendored block above, which stays byte-identical to labelfirst's. */
 .subtitle{color:#6d6d6d}
+/* Jump list under each section band: 17 panels over 3 sections is more than a
+   reader will scroll blind, and the ids also make one panel linkable. */
+.jump{list-style:none;display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0 18px;padding:0}
+.jump a{font-size:0.83rem;color:#1565c0;text-decoration:none;border-bottom:1px solid #bbdefb}
+.jump a:hover,.jump a:focus{border-bottom-color:#1565c0}
+.tscroll{overflow-x:auto}
+/* An anchored panel has to be findable once the jump link scrolls to it. */
+details.panel:target>summary{background:#e3f2fd}
+
 /* The 2x2 headline grid has no room for two columns on a phone. The vendored
    block's own 640px query stays byte-identical, so the override lives here. */
 @media(max-width:640px){
@@ -305,6 +314,16 @@ JS = Template("""\
     if(mq.addEventListener) mq.addEventListener('change',onChange);
     else if(mq.addListener) mq.addListener(onChange);
   }
+  // A jump link lands on a closed panel otherwise: :target styles it but the
+  // body stays collapsed, so the reader arrives at a heading and nothing else.
+  function openHash(){
+    if(!location.hash) return;
+    var el=null;
+    try{ el=document.querySelector(location.hash); }catch(e){ return; }
+    if(el&&el.tagName==='DETAILS'){ el.open=true; el.scrollIntoView(); }
+  }
+  window.addEventListener('hashchange',openHash);
+  openHash();
 })();
 """).substitute(table_id=_TABLE_ID, input_id=_INPUT_ID, select_id=_SELECT_ID,
                 count_id=_COUNT_ID)
@@ -330,10 +349,38 @@ def pctf(x, nd=1):
 # ---------------------------------------------------------------------------
 # structure
 # ---------------------------------------------------------------------------
-def panel(summary, ask, body, *, open_=False):
+def slug(text: str) -> str:
+    """A stable id from display text: the part before the first colon, lowercased,
+    non-alphanumerics collapsed to hyphens, first eight words kept.
+
+    Derived from the text rather than passed in at the call site because every
+    summary and heading already stands alone as a label -- a hand-written id
+    would be a second name for the same thing, free to drift from the first.
+    The colon split keeps the id short: summaries read "What to send first:
+    412 crowns in the long tail", and the count changes every snapshot while
+    the anchor must not.
+
+    A summary whose live numbers sit before any colon cannot be slugged safely,
+    so ``panel`` rejects a digit-bearing id and asks for an explicit ``anchor``.
+    """
+    head = re.sub(r"<[^>]+>", "", str(text)).split(":")[0]
+    words = re.sub(r"[^a-z0-9]+", " ", head.lower()).split()
+    return "-".join(words[:8])
+
+
+def panel(summary, ask, body, *, open_=False, anchor=None):
     """A collapsible panel. ``summary`` must stand alone on a closed page and
-    ``ask`` is the one sentence saying what to do with what is inside."""
-    return (f'<details class="panel"{" open" if open_ else ""}>'
+    ``ask`` is the one sentence saying what to do with what is inside.
+
+    ``anchor`` overrides the id derived from ``summary``, and is required when
+    the summary states a live number before its first colon.
+    """
+    pid = anchor or slug(summary)
+    if not anchor and any(c.isdigit() for c in pid):
+        raise SystemExit(
+            f"panel id {pid!r} carries a number from its summary, so a link to it "
+            f"breaks on the next snapshot. Pass anchor= at this call site.")
+    return (f'<details class="panel" id="{pid}"{" open" if open_ else ""}>'
             f"<summary>{summary}</summary>"
             f'<div class="pbody"><p class="ask">{ask}</p>{body}</div></details>')
 
@@ -344,8 +391,18 @@ def section(title, lede, panels):
     ``panels`` is already-rendered panel HTML. The band is what makes a long page
     scannable when closed, so it carries the group's question, not a label.
     """
-    return (f'<section class="grp"><h2>{title}</h2>'
-            f'<p class="lede">{lede}</p>\n{panels}</section>')
+    # The jump list is read back out of the rendered panel HTML rather than
+    # taken as a parameter: the panels are the only source of truth for what
+    # this section contains, and a hand-kept list beside them would be one
+    # more thing to forget when a panel is added.
+    links = "".join(
+        f'<li><a href="#{pid}">{esc(re.sub(r"<[^>]+>", "", summ).split(":")[0])}</a></li>'
+        for pid, summ in re.findall(
+            r'<details class="panel" id="([^"]+)"[^>]*><summary>(.*?)</summary>', panels)
+    )
+    nav = f'<ul class="jump">{links}</ul>' if links else ""
+    return (f'<section class="grp" id="{slug(title)}"><h2>{title}</h2>'
+            f'<p class="lede">{lede}</p>{nav}\n{panels}</section>')
 
 
 def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
@@ -365,7 +422,10 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
             out.append(f"<td{c}>{cell}</td>")
         out.append("</tr>")
     out.append("</tbody></table>")
-    return "\n".join(out)
+    # Wrapped so a wide table scrolls inside its own box. Without this the
+    # 7-column table sets the page width on a phone and every paragraph on
+    # the page scrolls sideways with it.
+    return '<div class="tscroll">' + "\n".join(out) + "</div>"
 
 
 def filterable_table(headers, rows, *, options, row_attrs=None):

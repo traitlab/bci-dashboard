@@ -338,8 +338,10 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
                  ("unreachable", "Never in the 5 guesses")],
         row_attrs=attrs,
     ))
+    # The species count grows with every export, so it cannot decide the anchor.
     P.append(panel(f"All {n_sp} species, priority first",
-                   "<b>Click a heading to sort, type to filter.</b>", body, open_=True))
+                   "<b>Click a heading to sort, type to filter.</b>", body, open_=True,
+                   anchor="all-species"))
 
     # ---- provenance, one line ----
     P.append(f'<p class="note">{esc(gt_provenance(gt_csv))} '

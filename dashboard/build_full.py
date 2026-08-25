@@ -382,14 +382,10 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                      "are the disagreements most worth an expert's minute, once the cheap "
                      "queues above are worked through.", body)
 
-    # history.py opens its own panel, and only the first panel of each
-    # section here opens. Collapse the one leading tag rather than reach into that
-    # module, and refuse to build if it stops being the tag we expect.
-    p_trend = trend.render()
-    if not p_trend.startswith('<details class="panel" open>'):
-        raise SystemExit("16b: trend.render() no longer starts with an open panel tag; "
-                         "re-check the collapse here against history.py")
-    p_trend = p_trend.replace('<details class="panel" open>', '<details class="panel">', 1)
+    # Only the first panel of each section opens, and this one is not first.
+    # Asking history.py for a closed panel beats string-surgery on the tag it
+    # returned, which broke the moment the panel grew an id attribute.
+    p_trend = trend.render(open_=False)
 
     # ---- deprioritization ----
     body = (f'<div class="rec"><strong>Suggested rule: leave a crown for later when '

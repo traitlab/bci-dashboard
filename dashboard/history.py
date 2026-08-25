@@ -392,8 +392,12 @@ class Trend:
             f'mean anything.</p>'
             '</details>')
 
-    def render(self) -> str:
-        """The trend panel. Degrades to a plain sentence on a single snapshot."""
+    def render(self, *, open_: bool = True) -> str:
+        """The trend panel. Degrades to a plain sentence on a single snapshot.
+
+        ``open_`` because only the first panel of a section is open on the full
+        page, and which section this one lands in is the caller's decision.
+        """
         ask = ("<b>Check whether a number moved because the model changed or because more "
                "crowns were labelled.</b> The two look identical in a single number.")
         if len(self.snaps) < 2:
@@ -406,7 +410,7 @@ class Trend:
                 f'charts and the small lines beside each headline number fill in, one '
                 f'point per snapshot, showing accuracy per species against the '
                 f'labelled-crown count with any Pl@ntNet model change marked in red.</p>',
-                open_=True)
+                open_=open_, anchor="trend-over-time")
         acc = [self.series["macro_top1"][d] for d in self.dates]
         body = [svg_two_series(self.dates, acc, [c for _, _, c in self.snaps], self.marks,
                                a_name="accuracy per species", b_name="labelled crowns",
@@ -455,7 +459,9 @@ class Trend:
             title += f", {len(self.rebuilt)} reconstructed from ingest dates"
         if self.marks:
             title += f", {len(self.marks)} Pl@ntNet model change(s) marked"
-        return panel(title, ask, "\n".join(body), open_=True)
+        # The title counts snapshots, which is exactly what grows over time.
+        return panel(title, ask, "\n".join(body), open_=open_,
+                     anchor="trend-over-time")
 
 
 def stale(found, here, path):
