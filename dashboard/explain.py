@@ -83,6 +83,14 @@ def candidates_panel(*, recs, gen_n, gen_none):
               for n in lens if lens[n]}
     half = sum(1 for r in recs
                if len(r["ranked"]) == top and sum(s for _, s in r["ranked"]) < 0.5)
+    # The worked example below is read off the list lengths this corpus actually
+    # returned. Naming 1 and 4 outright crashed the build on any corpus with no
+    # photo of that length, and 1 and 4 are not special: the point is that the
+    # share of confidence we receive falls as the list gets longer.
+    shortest = min(hidden)
+    middles = [k for k in sorted(hidden) if shortest < k < top]
+    mid = middles[len(middles) // 2] if middles else None
+    mid_clause = (f", a {mid}-guess photo {pctf(1 - hidden[mid])}" if mid else "")
     return panel(
         f"Why only {top} guesses per photo, and what that hides",
         f"<b>Two different limits cut that list, one at each end.</b> We asked for the best "
@@ -103,8 +111,8 @@ def candidates_panel(*, recs, gen_n, gen_none):
           f'exactly {floor:.3f}, so a short list means fewer than {top} species cleared that '
           f'bar.</p>'
           f'<p class="note">Pl@ntNet spreads 100% of its confidence across every species it '
-          f'knows. A one-guess photo accounts for {pctf(1 - hidden[1])} of it, a four-guess '
-          f'photo {pctf(1 - hidden[4])}, and <b>a full list of {top} only '
+          f'knows. A {shortest}-guess photo accounts for {pctf(1 - hidden[shortest])} of it'
+          f'{mid_clause}, and <b>a full list of {top} only '
           f'{pctf(1 - hidden[top])}</b>: on those photos a typical {pctf(hidden[top])} of the '
           f'confidence sits on species we never received, and on {half:,} of the {full:,} full '
           f'lists ({pctf(half / full)}) more than half of it does.</p>'
@@ -205,19 +213,14 @@ def method_panel(*, tag, n, n_sp, checks):
             f'<code>run_log.txt</code>, which records the endpoint and the model run '
             f'name.</li>'
             '<li>Every number here is recomputed from the source data at build time and '
-            'cross-checked against the committed measurement files:<ul>'
+            'cross-checked against the CSVs the measurement pass wrote into the snapshot '
+            'folder:<ul>'
             + "".join(f"<li>{esc(c)}</li>" for c in checks)
             + '</ul>A mismatch aborts the build.</li>'
             '<li>Artifact: one HTML file that opens from a <code>file://</code> path, so it is '
             'mailable, archivable next to the snapshot it describes, and readable by a '
-            'botanist or PI with no Python environment. It is decoupled from '
-            '<code>labelfirst</code> and <code>speciesfirst</code> on purpose, since importing '
-            '<code>labelfirst</code> pulls numpy, scipy, scikit-learn and pandas while this '
-            'page renders from the standard library alone; the cost is that labelfirst\'s '
-            'report CSS is vendored as a hand-pruned copy, so an upstream restyle has to be '
-            'reapplied by hand. What it shares with those packages is the decision rather than '
-            'the code: the deprioritization rule here orders a queue exactly as it does '
-            'there.</li>'
+            'botanist or PI with no Python environment. It renders from the standard library '
+            'alone, so it needs no environment to rebuild either.</li>'
             '<li>Rebuild: <code>python3 dashboard/measure.py</code> then '
             '<code>python3 dashboard/build_full.py</code>. Standard library '
             'only, same output every run, no network.</li></ul>')

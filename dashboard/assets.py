@@ -219,7 +219,12 @@ JS = """\
     var want=sel.value;
     var shown=0;
     rows.forEach(function(r){
-      var ok=(!needle||(r.getAttribute('data-species')||'').indexOf(needle)>=0)&&
+      // Fall back to the first cell when a caller ships no data-species: an
+      // absent attribute would otherwise make every needle a miss and blank the
+      // table on the first keystroke.
+      var hay=r.getAttribute('data-species');
+      if(hay===null) hay=(r.cells[0]?r.cells[0].textContent:'').toLowerCase();
+      var ok=(!needle||hay.indexOf(needle)>=0)&&
              (want==='all'||(r.getAttribute('data-status')||'')===want);
       r.classList.toggle('hidden',!ok);
       if(ok) shown++;
@@ -416,9 +421,11 @@ def threshold_card(conf_thresh: float, support_thresh: int) -> str:
         '<p class="note">&ldquo;Confidence&rdquo; is the model&rsquo;s certainty for its '
         'top guess. &ldquo;Support&rdquo; is how many labelled crowns that species has in '
         'this snapshot. Both chips must be green (as drawn) for the crown to wait; one '
-        'grey chip and the badge reads &ldquo;Review now&rdquo; instead. The rule is '
-        'measured on this snapshot, not validated on held-out crowns, so it will be '
-        're-checked once split tags let us score it out of sample.</p>'
+        'grey chip and the badge reads &ldquo;Review now&rdquo; instead. The rule is graded '
+        'out of sample, not on the crowns that set it: which species clear the support gate '
+        'is decided from <b>train</b> crowns only, and the resulting error rate is measured '
+        'on <b>test</b> crowns only. The full page compares it against four alternatives '
+        'under &ldquo;How the five candidate rules compare&rdquo;.</p>'
     )
 
 
