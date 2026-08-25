@@ -51,6 +51,10 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     out_dir = args.out_dir
+    # Created up front, not at the first open(): every CSV is written after
+    # load_health, so a missing directory used to surface as FileNotFoundError
+    # only once the whole measurement pass had already run.
+    os.makedirs(out_dir, exist_ok=True)
 
     log("=" * 84)
     log("Pl@ntNet on BCI -- offline per-species model health")
