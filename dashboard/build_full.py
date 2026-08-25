@@ -22,7 +22,7 @@ import datetime as _dt
 import os
 import re
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -181,6 +181,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     joined_stems = {stem for _, stem, _ in h.joined}
     queue_counts = {}
     lt_species = defaultdict(int)
+    queue_rows = []
     n_no_answer = 0
     for stem in sorted(h.predictions):
         if stem in joined_stems:
@@ -192,9 +193,35 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
         pred, cf = ranked[0]
         q = hc.queue_of_prediction(pred, cf, support, acc_of)
         queue_counts[q] = queue_counts.get(q, 0) + 1
+        queue_rows.append((q, stem, pred, cf))
         if q == "long_tail":
             lt_species[pred] += 1
     n_unlab = sum(queue_counts.values())
+    # The same order measure.py writes into send_first_queue.csv: queue first,
+    # then weakest confidence, then key. Kept identical on purpose -- the page
+    # shows the head of that file, so a different sort here would print a list
+    # that does not match the file it tells the reader to open.
+    queue_rows.sort(key=lambda r: (hc.QUEUE_ORDER.index(r[0]), r[3], r[1]))
+
+    # Camera, read off the frame key: the drone flies a zoom and a tele lens and
+    # the filename records which. Counted rather than assumed because the two
+    # populations are not the same one -- see the note this feeds below.
+    def camera_of(key):
+        low = key.lower()
+        for c in ("zoom", "tele"):
+            if c in low:
+                return c
+        raise SystemExit(f"frame key names no camera: {key!r}. The camera split "
+                         f"below reads the key, so a third camera has to be handled "
+                         f"here rather than counted as neither.")
+
+    scored_cams = Counter(camera_of(r["global_key"]) for r in sp_recs)
+    queue_cams = Counter(camera_of(stem) for _, stem, _, _ in queue_rows)
+
+    # How many rows of the queue to render. The page has to answer "what do I
+    # send next" without a CSV reader, and a batch is 100 crowns; the first 25
+    # is one morning's work, enough to start on and short enough to read.
+    SEND_PREVIEW = 25
 
     review = [r for r in sp_recs
               if top1(r) != r["gt"] and conf(r) >= hc.REVIEW_CONF]
@@ -332,6 +359,17 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                    f'{queue_counts.get(q, 0):,}',
                    pctf(queue_counts.get(q, 0) / n_unlab if n_unlab else None)]
                   for q in hc.QUEUE_ORDER])
+    # The list itself, not a pointer to it: the counts above say how much work
+    # there is, and until now the only way to learn which photo to send was to
+    # open a CSV in the snapshot folder.
+    head = queue_rows[:SEND_PREVIEW]
+    body += ('<h3 class="sub">The next ' + f'{len(head)}' + ' photos, in order</h3>'
+             + table([("#", True), ("photo", False), ("Pl@ntNet's guess", False),
+                      ("confidence", True), ("crowns that species has", True)],
+                     [[f"{i}", f'<code class="key">{esc(stem)}</code>',
+                       f'<span class="sp">{esc(cap(pred))}</span>', f"{cf:.3f}",
+                       f"{support.get(pred, 0):,}"]
+                      for i, (_, stem, pred, cf) in enumerate(head, 1)]))
     top_lt = sorted(lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
     body += (f'<p class="note">Most-named species in the first queue: '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
@@ -345,6 +383,13 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
              f'candidate junk or non-plant photos (leaves in the water, bare trunks). There '
              f'is no reliable automatic rule for junk, so check that handful by eye before '
              f'queueing them rather than filtering on it.</p>'
+             f'<p class="note"><b>Every crown scored on this page was shot with the zoom '
+             f'lens</b> ({scored_cams["zoom"]:,} of {sum(scored_cams.values()):,}), while '
+             f'{queue_cams["tele"]:,} of the {sum(queue_cams.values()):,} photos in this '
+             f'queue ({pctf(queue_cams["tele"] / sum(queue_cams.values()))}) are tele. No '
+             f'accuracy on this page has been measured on a tele frame, because no tele '
+             f'frame has a botanist label yet, so how well the model reads that lens is '
+             f'not known from here. Sending them is how it becomes known.</p>'
              f'<p class="note">The pool is {n_unlab:,} of {len(h.split_rows):,} photos: the '
              f'crowns with a cached Pl@ntNet answer and no botanist label. The species '
              f'record behind each queue is the one measured above, so a model update '
