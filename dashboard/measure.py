@@ -3,10 +3,8 @@
 Pl@ntNet-on-BCI model health, computed entirely offline from cached API responses.
 
 Run:  python3 dashboard/measure.py
-Writes per_species_health.csv, support_buckets.csv, filter_gain.csv,
-confidence_calibration.csv, name_reconciliation.csv, send_first_queue.csv,
-send_batches.csv, label_review_queue.csv, coverage_gate.csv and run_log.txt to
---out-dir (default: this directory), and prints headline numbers to stdout.
+Writes the files named in OUTPUTS below to --out-dir (default: this directory),
+and prints headline numbers to stdout.
 
 Stdlib only (no pandas/numpy). Deterministic. No network calls.
 """
@@ -30,6 +28,14 @@ from core import (
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Every file a run produces, in the order the run reports them. Named once: the
+# module docstring, the --out-dir help and the FILES WRITTEN listing all used to
+# carry their own copy of this list, and two of them had drifted to "six".
+OUTPUTS = ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
+           "confidence_calibration.csv", "name_reconciliation.csv",
+           "send_first_queue.csv", "send_batches.csv", "label_review_queue.csv",
+           "coverage_gate.csv", "run_log.txt")
+
 LOG_LINES: list[str] = []
 
 
@@ -44,7 +50,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--splits", default=SPLITS_CSV, help="path to splits.csv")
     p.add_argument("--cache-dir", default=CACHE_DIR, help="path to the Pl@ntNet response cache dir")
     p.add_argument("--wcvp-cache", default=WCVP_CACHE_JSON, help="path to the local WCVP crosswalk cache")
-    p.add_argument("--out-dir", default=OUT_DIR, help="directory to write the six output files to")
+    p.add_argument("--out-dir", default=OUT_DIR,
+                   help=f"directory to write the {len(OUTPUTS)} output files to")
     return p.parse_args()
 
 
@@ -448,10 +455,7 @@ def main() -> None:
     log("")
 
     log("--- FILES WRITTEN ---")
-    for fn in ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
-               "confidence_calibration.csv", "name_reconciliation.csv",
-               "send_first_queue.csv", "send_batches.csv", "label_review_queue.csv",
-               "coverage_gate.csv", "run_log.txt"):
+    for fn in OUTPUTS:
         log(f"  {os.path.join(out_dir, fn)}")
 
     with open(os.path.join(out_dir, "run_log.txt"), "w", encoding="utf-8") as f:
