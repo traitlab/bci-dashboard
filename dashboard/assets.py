@@ -25,6 +25,7 @@ from __future__ import annotations
 import html
 import math
 import re
+from string import Template
 
 # --- vendored from labelfirst.eval.report._html._CSS -----------------------
 _BASE_CSS = """\
@@ -178,7 +179,6 @@ svg.spark{display:inline-block;margin:0;vertical-align:middle}
   font-size:0.8rem;font-weight:700;
 }
 .rule-badge.wait{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}
-.rule-badge.review{background:#fff3e0;color:#bf360c;border:1px solid #ffcc80}
 .todo{list-style:none;font-size:0.86rem;color:#424242}
 .todo li{margin:7px 0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .todo .n{font-weight:700;color:#212121;font-variant-numeric:tabular-nums}
@@ -209,16 +209,27 @@ section.grp>h2{
 
 CSS = _BASE_CSS + _EXTRA_CSS
 
+# The only species-table element ids: no caller has ever overridden them (see
+# filterable_table below), but the JS still has to find the same elements the
+# Python side names, so both read these constants instead of each hardcoding
+# its own copy of the four strings.
+_TABLE_ID = "species-table"
+_INPUT_ID = "species-filter"
+_SELECT_ID = "status-filter"
+_COUNT_ID = "species-count"
+
 # Client-side sort + filter for the per-species table. Vanilla, no library.
-JS = """\
+# $-placeholders (string.Template), not an f-string: the body is mostly JS
+# braces, which an f-string would need every one of escaped.
+JS = Template("""\
 (function(){
-  var table=document.getElementById('species-table');
+  var table=document.getElementById('$table_id');
   if(!table) return;
   var tbody=table.tBodies[0];
   var rows=Array.prototype.slice.call(tbody.rows);
-  var q=document.getElementById('species-filter');
-  var sel=document.getElementById('status-filter');
-  var count=document.getElementById('species-count');
+  var q=document.getElementById('$input_id');
+  var sel=document.getElementById('$select_id');
+  var count=document.getElementById('$count_id');
 
   function apply(){
     var needle=(q.value||'').trim().toLowerCase();
@@ -295,7 +306,8 @@ JS = """\
     else if(mq.addListener) mq.addListener(onChange);
   }
 })();
-"""
+""").substitute(table_id=_TABLE_ID, input_id=_INPUT_ID, select_id=_SELECT_ID,
+                count_id=_COUNT_ID)
 
 
 def esc(s: object) -> str:
@@ -356,24 +368,30 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
     return "\n".join(out)
 
 
-def filterable_table(headers, rows, *, options, table_id="species-table",
-                     input_id="species-filter", select_id="status-filter",
-                     count_id="species-count", placeholder="filter species&hellip;",
-                     input_label="filter species", select_label="filter by status",
-                     all_label="every status", row_attrs=None, sortable_from=0):
-    """A search/filter strip followed by a sortable table."""
+def filterable_table(headers, rows, *, options, row_attrs=None):
+    """A search/filter strip followed by a sortable table.
+
+    ``table_id``/``input_id``/``select_id``/``count_id`` (the four element
+    ids the JS above looks up), ``placeholder``, ``input_label``,
+    ``select_label``, ``all_label`` and ``sortable_from`` used to be keyword
+    params here, but no caller had ever overridden any of them -- the page
+    has exactly one filterable table. Dropped and inlined; the four ids stay
+    as the shared ``_TABLE_ID``/etc. constants above so the JS coupling is
+    explicit rather than two copies of the same literal staying in sync by
+    accident.
+    """
     opts = "".join(
         f'<option value="{esc(value)}">{esc(label)}</option>' for value, label in options
     )
     controls = (
         '<div class="controls">'
-        f'<input id="{input_id}" type="search" placeholder="{placeholder}" size="28" '
-        f'aria-label="{input_label}">'
-        f'<select id="{select_id}" aria-label="{select_label}">'
-        f'<option value="all">{esc(all_label)}</option>'
-        f"{opts}</select><span class=\"count\" id=\"{count_id}\"></span></div>"
+        f'<input id="{_INPUT_ID}" type="search" placeholder="filter species&hellip;" size="28" '
+        f'aria-label="filter species">'
+        f'<select id="{_SELECT_ID}" aria-label="filter by status">'
+        f'<option value="all">every status</option>'
+        f"{opts}</select><span class=\"count\" id=\"{_COUNT_ID}\"></span></div>"
     )
-    return controls + table(headers, rows, tid=table_id, sortable_from=sortable_from,
+    return controls + table(headers, rows, tid=_TABLE_ID, sortable_from=0,
                             row_attrs=row_attrs)
 
 
@@ -480,7 +498,7 @@ def _text_w(text: str, font_px: float) -> float:
     return 1.06 * em * font_px
 
 
-def svg_hbar(rows, *, width=620, row_h=30, label_w=112, right_w=140, title=""):
+def svg_hbar(rows, *, title=""):
     """Horizontal bars. ``rows`` = [(label, frac, right_text, color)].
 
     ``right_w`` is the room reserved for the value label, and it grows to fit
@@ -488,9 +506,14 @@ def svg_hbar(rows, *, width=620, row_h=30, label_w=112, right_w=140, title=""):
     by the SVG viewport, no CSS reaches inside to rescue it, and every numeric
     check on this page still passes while a label reads "1,856 cr". The bars
     keep the length ``right_w`` asked for; only the chart gets wider.
+
+    Geometry (``width``/``row_h``/``label_w``/``right_w`` as starting values)
+    used to be keyword params; no caller has ever passed a non-default one,
+    so they are fixed constants below instead of unused knobs.
     """
     if not rows:
         return ""
+    width, row_h, label_w, right_w = 620, 30, 112, 140
     top = 26 if title else 8
     bar_w = width - label_w - right_w
     right_w = max(right_w, math.ceil(8 + max(_text_w(r[2], 11.5) for r in rows) + 6))
@@ -529,7 +552,7 @@ def svg_hbar(rows, *, width=620, row_h=30, label_w=112, right_w=140, title=""):
     return "\n".join(out)
 
 
-def svg_weight_pair(rows, *, label_a, label_b, width=620, bar_h=28, pad_l=168):
+def svg_weight_pair(rows, *, label_a, label_b):
     """Two full-width bars over the same bands, each split by a different weight.
 
     ``rows`` = ``[(band, share_a, share_b, note, colour)]``, each set of shares
@@ -544,10 +567,13 @@ def svg_weight_pair(rows, *, label_a, label_b, width=620, bar_h=28, pad_l=168):
     ``pad_l`` is the room for the row labels, and it grows to fit the longer of
     the two. The labels are right-anchored against the bars, so one that does
     not fit runs off the left edge of the viewBox and loses its first character
-    with no warning from any check on this page.
+    with no warning from any check on this page. ``width``/``bar_h``/``pad_l``
+    (starting values) used to be keyword params; no caller has ever passed a
+    non-default one, so they are fixed constants below instead.
     """
     if not rows:
         return ""
+    width, bar_h, pad_l = 620, 28, 168
     for key in (1, 2):
         total = sum(float(r[key]) for r in rows)
         if abs(total - 1.0) > 1e-6:
@@ -633,14 +659,18 @@ def weight_pair_ok() -> bool:
     return float(top[0][2]) < float(top[1][2]) and float(top[0][0]) < float(top[1][0])
 
 
-def svg_spark(values, marks=(), *, width=88, height=24, empty="no trend yet", span=0.0):
+def svg_spark(values, marks=(), *, empty="no trend yet", span=0.0):
     """Sparkline. ``marks`` = indices where the model iteration changed; those
     points get a hollow ring so a model jump never reads as label drift. With
     fewer than two snapshots there is nothing to draw, so say so rather than
     render a flat line; ``empty=""`` suppresses even that, for table cells that
-    would otherwise repeat the same sentence on every row."""
+    would otherwise repeat the same sentence on every row.
+
+    ``width``/``height`` used to be keyword params; the one caller has never
+    passed a non-default value, so they are fixed constants below instead."""
     if len(values) < 2:
         return f'<span class="nospark">{empty}</span>' if empty else ""
+    width, height = 88, 24
     xs = [3 + i * (width - 6) / (len(values) - 1) for i in range(len(values))]
     ys = _scale(values, height - 4, 4, span)
     pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
@@ -666,16 +696,20 @@ def svg_spark(values, marks=(), *, width=88, height=24, empty="no trend yet", sp
 
 
 def svg_two_series(dates, a_vals, b_vals, marks, *, a_name, b_name,
-                   a_fmt, b_fmt, width=620, height=210, a_span=0.0):
+                   a_fmt, b_fmt, a_span=0.0):
     """Two series on two independent scales, sharing the snapshot dates.
 
     A dashed vertical rule at every index in ``marks`` says the Pl@ntNet model
     iteration changed there. Each series is scaled to its own min and max, no
     narrower than ``a_span`` for the first one, so the shapes are comparable
     but the pixel heights are not; the end labels carry the actual values.
+
+    ``width``/``height`` used to be keyword params; the one caller has never
+    passed a non-default value, so they are fixed constants below instead.
     """
     if len(dates) < 2:
         return ""
+    width, height = 620, 210
     pad_l, pad_r, pad_t, pad_b = 52, 60, 22, 40
     xs = [pad_l + i * (width - pad_l - pad_r) / (len(dates) - 1) for i in range(len(dates))]
     ya = _scale(a_vals, height - pad_b, pad_t, a_span)
