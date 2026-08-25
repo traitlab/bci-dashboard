@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc  # noqa: E402
 from assets import (CSS, JS, cap, esc, filterable_table, panel, pctf, section,  # noqa: E402
-                              status_with_reason, svg_hbar, table)
+                              status_legend, status_tag, svg_hbar, table)
 from explain import (BAND_SHORT, candidates_panel, method_panel,  # noqa: E402
                               weighting_panel)
 from history import (  # noqa: E402
@@ -37,6 +37,8 @@ from history import (  # noqa: E402
 # A species is "rarely labelled" below this many crowns. Same threshold as the
 # deprioritization support gate, so the two panels cannot disagree.
 RARE_MAX_SUPPORT = 10
+# Deliberately equal to hc.WELL_SAMPLED_MIN_N, the threshold hc.diagnose uses,
+# so this page renders the same status hc.diagnose would for the same species.
 WAIT_SUPPORT_MIN = 10
 RECOMMENDED_CONF = 0.8
 
@@ -111,12 +113,6 @@ def is_family(n: str) -> bool:
     return n.strip().lower().endswith("aceae")
 
 
-# diagnose lives in core so every dashboard renders the same status for
-# the same species. WAIT_SUPPORT_MIN above is deliberately equal to
-# hc.WELL_SAMPLED_MIN_N, the threshold diagnose uses.
-diagnose = hc.diagnose
-
-
 def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     sp_recs, per_species = h.sp_recs, h.per_species
     n, n_sp = len(sp_recs), len(per_species)
@@ -134,7 +130,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                micro_top1=c1 / n, micro_top5=c5 / n)
 
     support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
-    status = {d["species"]: diagnose(d) for d in per_species}
+    status = {d["species"]: hc.diagnose(d) for d in per_species}
     counts = defaultdict(int)
     for s in status.values():
         counts[s] += 1
@@ -504,9 +500,9 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             (trend.spark(f"species:{sp}:top1", empty="")
              if d["n_labelled_crowns"] >= WAIT_SUPPORT_MIN
              else '<span class="nospark">too few crowns</span>'),
-            status_with_reason(st, STATUS[st][0], STATUS_REASON[st])])
+            status_tag(st, STATUS[st][0])])
         attrs.append(f' data-species="{esc(sp)}" data-status="{st}"')
-    body = ('<p class="note">Hover the info icon for the reason behind each status.</p>'
+    body = (status_legend([(st, STATUS[st][0], STATUS_REASON[st]) for st in STATUS])
             + filterable_table(
         [("Species", False), ("Labelled crowns", True),
          ("First guess right", True), ("Right name in the list", True),

@@ -143,7 +143,6 @@ svg.spark{display:inline-block;margin:0;vertical-align:middle}
   display:inline-block;padding:2px 8px;border-radius:4px;
   font-size:0.74rem;font-weight:700;white-space:nowrap;
 }
-.status-wrap{display:inline-flex;align-items:center;gap:4px}
 .info-tip{
   display:inline-flex;align-items:center;justify-content:center;
   width:1rem;height:1rem;border-radius:999px;
@@ -158,6 +157,13 @@ svg.spark{display:inline-block;margin:0;vertical-align:middle}
 .tag.unmeasured{background:#fff3e0;color:#bf360c}
 .tag.hard{background:#ffebee;color:#c62828}
 .tag.unreachable{background:#eceff1;color:#455a64}
+/* Sits directly above/below the table it explains, so the reader learns what
+   a status means without leaving the table -- same job the per-row title=
+   used to do, done once instead of 186 times. Text colour matches .todo li,
+   already used on this same white card background elsewhere on the page. */
+.status-legend{list-style:none;font-size:0.82rem;color:#424242;
+  margin:8px 0 14px;display:flex;flex-direction:column;gap:5px}
+.status-legend li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
 .rule-card{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:10px 0 4px}
 .chip{
   display:inline-flex;align-items:center;gap:6px;padding:4px 10px;
@@ -372,8 +378,8 @@ def filterable_table(headers, rows, *, options, table_id="species-table",
 
 
 def info_tip(reason: str) -> str:
-    """A standalone hover-explanation icon, same markup as ``status_with_reason``'s
-    icon, for attaching a denominator or definition to a plain number or label."""
+    """A standalone hover-explanation icon, for attaching a denominator or
+    definition to a plain number or label."""
     reason = esc(reason)
     return f'<span class="info-tip" title="{reason}" aria-label="{reason}">i</span>'
 
@@ -390,13 +396,26 @@ def funnel_list(steps: list[tuple[int, str]]) -> str:
     return f'<ul class="todo">{rows}</ul>'
 
 
-def status_with_reason(cls: str, label: str, reason: str, *, sort_key: str | None = None) -> str:
-    """Render a status tag with a compact hover explanation."""
+def status_tag(cls: str, label: str, *, sort_key: str | None = None) -> str:
+    """Render a status tag. The explanation for each status is not repeated
+    here: it used to be a per-row ``title=`` (a hover icon via ``info_tip``),
+    but that stamped one of only a handful of distinct sentences onto every
+    row of a 186-row table -- ~40KB of duplicated markup per page. Callers
+    render the distinct sentences once via ``status_legend`` instead, next to
+    the table."""
     sort = esc(sort_key if sort_key is not None else label)
-    return (f'<span class="status-wrap" data-sort="{sort}">'
-            f'<span class="tag {esc(cls)}">{esc(label)}</span>'
-            f'{info_tip(reason)}'
-            '</span>')
+    return f'<span class="tag {esc(cls)}" data-sort="{sort}">{esc(label)}</span>'
+
+
+def status_legend(entries: list[tuple[str, str, str]]) -> str:
+    """The status explanations, once, instead of on every row. ``entries`` is
+    ``[(css_class, label, reason), ...]`` -- one line per distinct situation
+    a status tag can mean, in the same order the tags are meant to be read."""
+    items = "".join(
+        f'<li><span class="tag {esc(cls)}">{esc(label)}</span> {esc(reason)}</li>'
+        for cls, label, reason in entries
+    )
+    return f'<ul class="status-legend">{items}</ul>'
 
 
 def threshold_card(conf_thresh: float, support_thresh: int) -> str:

@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc  # noqa: E402
 from assets import (CSS, JS, cap, esc, filterable_table, funnel_list, info_tip, panel, pctf,
-                              status_with_reason, table, threshold_card)  # noqa: E402
+                              status_legend, status_tag, table, threshold_card)  # noqa: E402
 from history import (  # noqa: E402
     latest_snapshot_dir, load_trend, verify_snapshot)
 
@@ -48,14 +48,18 @@ SIMPLE_STATUS = {
 }
 TAG_CLASS = {"fine": "reliable", "send": "unmeasured", "unreachable": "unreachable"}
 
+# Keyed by the tag the table actually draws, not by the six situations behind it:
+# a legend that repeated one badge three times with three different sentences
+# left the reader no way to tell which sentence applied to the row in front of
+# them. Each sentence here has to hold for every situation the tag covers.
 SIMPLE_REASON = {
-    "ranking": "The right name is already in the shortlist, so this is cheap confirmation work.",
-    "unmeasured": "Fewer than 10 labelled crowns, so the score is too thin to trust yet.",
-    "hard": "Enough crowns, but the first guess is still weak, so more photos are the useful move.",
-    "reliable": "Usually right, so this species is low priority for extra work.",
-    "adequate": "Mixed results, but not enough to move it ahead of the send queue.",
+    "fine": "The first guess is right often enough that extra labels here buy less than "
+            "they do elsewhere.",
+    "send": "Either too few labelled crowns to score, or enough crowns and a first guess "
+            "that is still weak. More photos are the useful move either way.",
     "unreachable": "It never appears in the five guesses we asked for, so labelling will not "
-                   "recover it. Whether Pl@ntNet carries the species at all is not known from here.",
+                   "recover it. Whether Pl@ntNet carries the species at all is not known "
+                   "from here.",
 }
 
 STATUS_PRIORITY = {"send": 0, "fine": 1, "unreachable": 2}
@@ -176,7 +180,6 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
 
     # --- statuses, six-way diagnosis collapsed to three actions ---
     simple = {d["species"]: SIMPLE_STATUS[hc.diagnose(d)] for d in per_species}
-    reasons = {d["species"]: SIMPLE_REASON[hc.diagnose(d)] for d in per_species}
     counts = defaultdict(int)
     for key, _ in simple.values():
         counts[key] += 1
@@ -316,10 +319,16 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
             f'<span class="sp" data-sort="{esc(sp)}">{esc(cap(sp))}</span>',
             f'<span data-sort="{d["n_labelled_crowns"]}">{d["n_labelled_crowns"]:,}</span>',
             f'<span data-sort="{d["top1_accuracy"]:.6f}">{pctf(d["top1_accuracy"])}</span>',
-            status_with_reason(TAG_CLASS[key], label, reasons[sp], sort_key=label)])
+            status_tag(TAG_CLASS[key], label, sort_key=label)])
         attrs.append(f' data-species="{esc(sp)}" data-status="{key}"')
-    body = ('<p class="note">Hover the info icon for the reason behind each action. '
-            'The default order starts with the species that need work now.</p>'
+    # Six situations collapse into three visible tags ("fine" covers reliable and
+    # adequate; "send" covers ranking, unmeasured and hard), so the legend has
+    # one line per tag drawn. The finer six-way split is on the full page.
+    body = (status_legend([(TAG_CLASS[k], SIMPLE_STATUS[o][1], SIMPLE_REASON[k])
+                           for o, k in (("reliable", "fine"), ("unmeasured", "send"),
+                                        ("unreachable", "unreachable"))])
+            + '<p class="note">The default order starts with the species that need work '
+              'now.</p>'
             + filterable_table(
         [("Species", False), ("Labelled crowns", True),
          ("First guess right", True), ("What to do", False)],
