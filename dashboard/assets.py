@@ -200,6 +200,13 @@ section.grp>h2{
    page carrying the snapshot date and the model tag. The rule it overrides is inside
    the vendored block above, which stays byte-identical to labelfirst's. */
 .subtitle{color:#6d6d6d}
+/* A sub-heading inside a panel body: the send-first panel now carries a table
+   of counts and a table of photos, and they are answers to different questions. */
+h3.sub{font-size:0.95rem;font-weight:700;color:#37474f;margin:22px 0 8px}
+/* A photo key is long and only ever copied, never read as prose. */
+code.key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.72rem;
+  color:#37474f;word-break:break-all}
+
 /* Jump list under each section band: 17 panels over 3 sections is more than a
    reader will scroll blind, and the ids also make one panel linkable. */
 .jump{list-style:none;display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0 18px;padding:0}
