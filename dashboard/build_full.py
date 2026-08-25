@@ -223,8 +223,13 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     # is one morning's work, enough to start on and short enough to read.
     SEND_PREVIEW = 25
 
-    review = [r for r in sp_recs
-              if top1(r) != r["gt"] and conf(r) >= hc.REVIEW_CONF]
+    confident = [r for r in sp_recs if conf(r) >= hc.REVIEW_CONF]
+    review = [r for r in confident if top1(r) != r["gt"]]
+    # The claim the review panel rests on: at this confidence the model is nearly
+    # always right, so a disagreement is worth an expert's minute. Measured rather
+    # than asserted, because it moves with every batch and a stale figure here is
+    # an argument for spending expert time on the wrong list.
+    confident_ok = (len(confident) - len(review)) / len(confident)
     review_pairs = defaultdict(list)
     for r in review:
         review_pairs[(r["gt"], top1(r))].append(conf(r))
@@ -304,13 +309,15 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                  f'<div class="l">{question}</div>'
                  f'<div class="n">{note.format(n_sp=n_sp)}</div></div>')
     P.append(f'</div><p class="note">{HERO_READING}</p>')
-    P.append(f'<p class="note"><strong>Of the crowns this evaluation can possibly score, '
-             f'{pctf(reach1)} are right: {sum(1 for r in reach if top1(r) == r["gt"]):,} of '
-             f'{len(reach):,}.</strong> The other {n - len(reach):,} belong to {len(never)} '
-             f'species that never reach the five candidates, so they are wrong at every '
-             f'threshold. That is not the same as being outside Pl@ntNet&rsquo;s checklist: we '
-             f'hold five names per photo, not the checklist. '
-             f'&ldquo;What this cannot tell you&rdquo; says where that five came from.</p>')
+    # One sentence, not the full caveat: the ceiling panel below states the same
+    # numbers with the reasoning, and saying it twice under the headline grid was
+    # the reader's second dense paragraph before they had read a single panel.
+    P.append(f'<p class="note"><strong>{n - len(reach):,} of these crowns belong to '
+             f'{len(never)} species the model never names in five candidates, so they are '
+             f'wrong at every threshold.</strong> Without them the per-crown rate is '
+             f'{pctf(reach1)}. <a href="#what-this-cannot-tell-you">What this cannot tell '
+             f'you</a> says why that is a limit of the question we asked, not proof the '
+             f'model has never heard of them.</p>')
 
     # Panels are built in reading order but emitted in section order at the foot of
     # this function, so a comment here names the panel, never its position.
@@ -411,9 +418,10 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                    for (gt, pr), cs in pair_rows])
             if pair_rows else '<p class="note">None at this threshold.</p>')
     body += (f'<p class="note">Each row is a labelled crown where the model is at least '
-             f'{hc.REVIEW_CONF:.1f} confident in a <em>different</em> species. Confident '
-             f'first guesses are right about 98% of the time in bulk, so each of these is '
-             f'either a rare confident model error or a label error, and a label error '
+             f'{hc.REVIEW_CONF:.1f} confident in a <em>different</em> species. A first guess '
+             f'this confident is right {pctf(confident_ok)} of the time in bulk '
+             f'({len(confident) - len(review):,} of {len(confident):,}), so each of these '
+             f'is either a rare confident model error or a label error, and a label error '
              f'found this way is the cheapest label fix available. Offline there is no way '
              f'to tell which; that is the botanist\'s minute. '
              f'Every crown is in <code>label_review_queue.csv</code> in the snapshot folder, '
