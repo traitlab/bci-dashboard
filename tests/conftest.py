@@ -125,3 +125,9 @@ def settings(monkeypatch):
     module = load("_settings_under_test", REPO / "labelling" / "settings.py")
     monkeypatch.setattr(module, "load_dotenv", lambda *a, **k: None)
     return module
+
+
+@pytest.fixture(scope="session")
+def draw_confirmatory():
+    _require("PIL", "yaml", "dotenv")
+    return load("_draw_confirmatory_under_test", REPO / "predict" / "draw_confirmatory.py")
