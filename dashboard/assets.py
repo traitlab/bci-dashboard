@@ -89,6 +89,12 @@ h1{margin-bottom:2px}
 .terms{font-size:0.83rem;color:#546e7a;background:#f4f7f9;border-left:3px solid #b0bec5;
   border-radius:0 4px 4px 0;padding:10px 14px;margin:0 0 16px}
 .terms b{color:#263238}
+/* Sits under the headline grid, not beside it: the region mismatch applies to
+   all four numbers at once, so a per-metric footnote would repeat it four times
+   and still read as optional. */
+.caveat{font-size:0.85rem;color:#5d4037;background:#fbf3ec;border-left:3px solid #bf6a34;
+  border-radius:0 4px 4px 0;padding:11px 14px;margin:14px 0 0}
+.caveat strong{color:#3e2723}
 /* Two fixed columns, not a wrapping flex row: the four headline numbers are a
    2x2 grid of question x weighting, and a reader who sees them in one long row
    reads them as four unrelated figures. Collapses to one column under 640px. */
