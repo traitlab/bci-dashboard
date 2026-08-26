@@ -38,19 +38,27 @@ Draw pool, all conditions required:
 4. no tiles cache entry as of the draw. The 146 frames already fetched were
    scored in an earlier session, so their result has been seen and they cannot
    carry a confirmatory claim,
-5. at least one labelled crown of at least 128 px on both sides, because the
-   crown arm has nothing to send otherwise.
+5. at least one labelled crown of at least 128 px on both sides in
+   `data/export_boxes.csv`, the same box export the ground truth is computed
+   from. The tracked 2024 file `input/boxes/crop_bounding_boxes.csv` holds three
+   times as many boxes, but the July 2026 botanist revision is what defines the
+   label, and a crown arm cut from a different revision is not aligned with the
+   label it is scored against.
 
-That pool is 2,685 frames over 11 sites and 47 flight days.
+That pool is 1,607 frames over 12 sites, and it is committed as
+`input/confirmatory_pool_2026-08.csv`. The pool is written to a manifest rather
+than re-derived, because condition 4 reads the tiles cache and the Phase 2 fetch
+fills it, so a check that re-derived the pool would start failing the moment the
+fetch began.
 
 The sample is 300 frames, drawn by `predict/draw_confirmatory.py` with seed
 20260826, stratified by site, proportional within site, any one site capped at
 25% of the sample. The frozen list is
 `input/confirmatory_frames_2026-08.csv`, sha256
 
-    eccc8d06472cdfa578064da74896793f716daace8d4eb3382a6d31a5e51d4704
+    4a47a992915f7d72483de5cfa80f018dbc27d36222142b4ec4b0f3f1e6bc3406
 
-It covers 11 sites, 34 flight days and 1,790 labelled crowns.
+It covers 12 sites, 38 flight days and 953 labelled crowns.
 `python predict/draw_confirmatory.py --verify` re-draws it and exits non-zero on
 any drift.
 
@@ -148,8 +156,9 @@ intervals but are not the basis for the headline claim.
 - If a fetch fails on a frame after three attempts, that frame is reported as a
   fetch failure with its reason, and the analysis runs on the remainder with the
   loss stated in the writeup. It is not replaced by another draw.
-- The quadrat quota is 20,000 per day and the arm costs 42,000 credits, so the
-  fetch spans three calendar days. A partial-set analysis run before both arms
+- The quadrat quota is 20,000 per day and the tiles arm costs 42,000 credits, so
+  that fetch spans three calendar days. The crown arm is already cached and
+  costs nothing (see amendment A2). A partial-set analysis run before both arms
   are complete is exploratory and must be labelled exploratory.
 
 ## What would falsify the headline claim
@@ -168,10 +177,64 @@ tuned after the numbers are seen. The tele camera is fully confounded with
 mission, 0 of 27 missions carry both cameras, so no camera claim can be made
 from this design at all.
 
+## Amendments
+
+Every change to this file after it was first committed, with the reason and
+the state of the data at the time. Nothing here was written after an outcome
+was scored.
+
+### A1, 2026-08-26, the crown arm was cut from the wrong box revision
+
+**Found before**: any frame was scored in any arm. Nine quadrat frames had been
+fetched and none had been read.
+
+**The error.** Condition 5 of the first draw read
+`input/boxes/crop_bounding_boxes.csv`, the tracked 2024 geometry, because that
+is what `predict/crown.py` defaults to. Ground truth is computed from
+`data/export_boxes.csv`, the July 2026 botanist revision
+(`labelling/gt_from_export.py:41`). Only 142 of the first 300 frames carried a
+box in the revision that defines their label, so the crown arm would have been
+cut from a different set of crowns than the label it was scored against. That is
+the same region-misalignment defect this whole experiment exists to remove.
+
+**The fix.** Condition 5 now reads `data/export_boxes.csv`. The pool falls from
+2,685 to 1,607 frames and gains a twelfth site. The sample was redrawn from the
+same seed. The nine frames already fetched fall out of the pool under condition
+4 and are not in the new list; the credits spent on them are lost.
+
+**What this costs.** Nothing in the analysis. No outcome had been computed. The
+predictions, the endpoint, the tests and the stopping rule are unchanged.
+
+### A2, 2026-08-26, the crown arm is not blind, and is labelled so
+
+`data/crowns_export/cache` already holds all 953 crown predictions for the
+frozen 300, cut from `data/export_boxes.csv`, fetched in an earlier session
+before this freeze. The crown arm therefore costs zero credits, and it is also
+not blind.
+
+What that does and does not undermine:
+
+- **The tiles arm is blind.** Condition 4 excludes every frame with a quadrat
+  result, so no frame in this sample has ever been scored in that arm.
+- **The frame-level aggregation is new.** The area-weighted crown vote defined
+  above has never been computed on any sample. What was reported earlier was a
+  per-crown top-1 accuracy of 85.4% over the whole corpus, on a different unit
+  and a different population.
+- **The sample is new.** These 300 frames were not chosen by looking at crown
+  results.
+- **But the number was not generated blind.** An operator has seen crown-arm
+  accuracy, at another unit and on a wider population, before this freeze.
+
+The writeup must say this in those words. The crown arm's own accuracy carries a
+prior-exposure caveat. The paired comparison and the tiles arm do not.
+
 ## Provenance
 
 - Draw script: `predict/draw_confirmatory.py`, seed 20260826.
 - Frozen list: `input/confirmatory_frames_2026-08.csv`, sha256 above.
+- Pool manifest: `input/confirmatory_pool_2026-08.csv`, 1,607 rows, sha256
+  80fb498f480a56210343146266e9f119b5bc742276a3266f94dbbb6eee8168ec
+- Crown boxes and ground truth both from `data/export_boxes.csv`.
 - Ground truth: July 2026 botanist revision, Labelbox project 2024_bci,
   exported 2026-08-06, not yet reviewed
   (`data/gt_dominant_taxon.provenance.txt`).

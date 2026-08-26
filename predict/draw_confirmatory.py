@@ -15,8 +15,16 @@ same label:
      alongside the two region-aligned ones,
   4. NO tiles cache entry, because the 146 frames already fetched were scored
      in an earlier session and their result has been seen,
-  5. at least one labelled crown at least 128 px on both sides, because the
-     crown arm has nothing to send otherwise.
+  5. at least one labelled crown at least 128 px on both sides IN THE SAME BOX
+     EXPORT THE GROUND TRUTH IS COMPUTED FROM, `data/export_boxes.csv`. The
+     tracked 2024 file carries three times as many boxes, but the July 2026
+     botanist revision is what defines the label, and a crown arm cut from a
+     different revision is not aligned with the label it is scored against.
+
+The pool is written to its own committed manifest. Eligibility reads live
+caches, and the fetch this draw authorises fills one of them, so a --verify that
+re-derived the pool would start failing the moment Phase 2 began. The manifest
+freezes the pool, and --verify redraws from the manifest.
 
 Stratification. Frames are not independent draws: 47 flight days and 12 sites
 carry them, and one site holds a third of the pool. The draw is proportional to
@@ -24,9 +32,9 @@ site, with any one site capped at CAP of the sample so a single plot cannot
 carry the headline. The excess a capped site sheds is redistributed over the
 uncapped ones, to a fixed point, then rounded by largest remainder.
 
-    python predict/draw_confirmatory.py                 # report only
-    python predict/draw_confirmatory.py --write         # write the CSV
-    python predict/draw_confirmatory.py --verify        # re-draw, compare, exit 1 on drift
+    python predict/draw_confirmatory.py --rebuild-pool   # derive the pool, report
+    python predict/draw_confirmatory.py --rebuild-pool --write
+    python predict/draw_confirmatory.py --verify         # redraw from the manifest
 """
 
 import argparse
@@ -40,11 +48,16 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "input" / "confirmatory_frames_2026-08.csv"
+POOL = REPO / "input" / "confirmatory_pool_2026-08.csv"
 
 N = 300
 SEED = 20260826
 CAP = 0.25
 MIN_BOX_SIDE = 128
+
+# The box export the ground truth is computed from (labelling/gt_from_export.py),
+# not the tracked 2024 file crown.py defaults to.
+BOXES_CSV = REPO / "data" / "export_boxes.csv"
 
 PHOTO_CACHE = REPO / "data" / "predictions" / "cache"
 TILES_CACHE = REPO / "data" / "tiles" / "cache"
@@ -77,10 +90,14 @@ def day_of(base):
 
 
 def eligible(core, crown):
-    """The draw pool, sorted, one row per frame. Deterministic given the caches."""
+    """Derive the draw pool from the live caches. Run once, at freeze time.
+
+    Everything afterwards reads the committed manifest instead, because the
+    Phase 2 fetch fills the tiles cache this function reads.
+    """
     gt, _ = crown.frame_gt_map(core)
     urls = crown.load_frame_urls()
-    boxes, _ = crown.load_crowns()
+    boxes, _ = crown.load_crowns(BOXES_CSV)
     pool = []
     for base in sorted(gt):
         url = urls.get(base)
@@ -171,10 +188,24 @@ def to_csv_text(rows):
     return buf.getvalue()
 
 
+def read_pool(path=POOL):
+    with open(path, newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    for r in rows:
+        r["n_crowns"] = int(r["n_crowns"])
+    return sorted(rows, key=lambda r: r["base_image"])
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--write", action="store_true", help="write the CSV")
+    ap.add_argument("--rebuild-pool", action="store_true",
+                    help="derive the pool from the live caches instead of "
+                         "reading the committed manifest. Only correct before "
+                         "the freeze")
+    ap.add_argument("--write", action="store_true",
+                    help="write the pool manifest and the frozen list")
+    ap.add_argument("--pool-out", type=Path, default=POOL)
     ap.add_argument("--verify", action="store_true",
                     help="re-draw and compare against the committed CSV")
     ap.add_argument("--out", type=Path, default=OUT)
@@ -182,10 +213,12 @@ def main():
     ap.add_argument("--seed", type=int, default=SEED)
     args = ap.parse_args()
 
-    core = _load("_core", REPO / "dashboard" / "core.py")
-    crown = _load("_crown", REPO / "predict" / "crown.py")
-
-    pool = eligible(core, crown)
+    if args.rebuild_pool:
+        core = _load("_core", REPO / "dashboard" / "core.py")
+        crown = _load("_crown", REPO / "predict" / "crown.py")
+        pool = eligible(core, crown)
+    else:
+        pool = read_pool(args.pool_out)
     rows, quota = draw(pool, args.n, args.seed)
     text = to_csv_text(rows)
     digest = hashlib.sha256(text.encode()).hexdigest()
@@ -204,6 +237,9 @@ def main():
         print(f"{s:18} {sizes[s]:6d} {quota[s]:6d} {quota[s] / len(rows):6.1%}")
 
     if args.verify:
+        if args.rebuild_pool:
+            sys.exit("FAIL: --verify must read the committed manifest, not the "
+                     "live caches; drop --rebuild-pool")
         if not args.out.exists():
             sys.exit(f"FAIL: {args.out} does not exist")
         on_disk = args.out.read_text()
@@ -212,8 +248,11 @@ def main():
         print(f"\nVERIFY OK: {args.out} matches the draw byte for byte")
     if args.write:
         args.out.parent.mkdir(parents=True, exist_ok=True)
+        if args.rebuild_pool:
+            args.pool_out.write_text(to_csv_text(pool))
+            print(f"\nwrote {args.pool_out}  {len(pool)} rows")
         args.out.write_text(text)
-        print(f"\nwrote {args.out}  sha256 {digest}")
+        print(f"wrote {args.out}  sha256 {digest}")
 
 
 if __name__ == "__main__":
