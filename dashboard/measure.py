@@ -82,7 +82,7 @@ def main() -> None:
                         (m or nn) in h.corpus_norm])
 
     log("--- EVALUABLE SETS ---")
-    log(f"  GT crowns joined to a cache file    : {len(h.records)}")
+    log(f"  GT frames joined to a cache file    : {len(h.records)}")
     log(f"  ... with >=1 prediction             : {sum(1 for r in h.records if r['ranked'])}")
     log(f"  species-level GT + >=1 prediction   : {len(h.sp_recs)}   <-- PRIMARY EVALUATION SET")
     log(f"  genus-only GT + >=1 prediction      : {len(h.genus_recs)}   (scored separately, genus level)")
@@ -149,7 +149,7 @@ def main() -> None:
     sw_full_unreachable = sum(1 for r in still_wrong
                               if len(r["ranked"]) == h.maxk and not reachable_gt(r["gt"]))
 
-    # Attainable ceiling: crowns whose GT name exists somewhere in the corpus at all.
+    # Attainable ceiling: frames whose GT name exists somewhere in the corpus at all.
     reachable = [r for r in sp_recs if reachable_gt(r["gt"])]
     r1 = sum(1 for r in reachable if top1(r) == r["gt"])
     r5 = sum(1 for r in reachable if hit(r, 5))
@@ -204,7 +204,7 @@ def main() -> None:
     well_recs = [r for r in sp_recs if r["gt"] in well]
     # The species the proposed triage rule would actually whitelist: measured
     # well AND measured accurate. NOTE this whitelist is chosen on the same
-    # crowns it is then scored on: an optimistic, selection-biased number
+    # frames it is then scored on: an optimistic, selection-biased number
     # rather than an out-of-sample estimate.
     good = {d["species"] for d in per_species
             if d["n_labelled_crowns"] >= WELL_SAMPLED_MIN_N and d["top1_accuracy"] >= 0.90}
@@ -247,7 +247,7 @@ def main() -> None:
 
     # ---------------- 11. report ----------------
     log("=" * 84)
-    log(f"HEADLINE  (species-level GT, joined, >=1 cached prediction: n={n} crowns, {n_sp} species)")
+    log(f"HEADLINE  (species-level GT, joined, >=1 cached prediction: n={n} frames, {n_sp} species)")
     log("=" * 84)
     log(f"  top-1 accuracy                      : {pct(c1, n)}   ({c1}/{n})")
     log(f"  top-5 accuracy  (= full list)       : {pct(c5, n)}   ({c5}/{n})")
@@ -256,27 +256,27 @@ def main() -> None:
     log(f"  genus-level top-1                   : {pct(g1, n)}   ({g1}/{n})")
     log(f"  genus-level top-5                   : {pct(g5, n)}   ({g5}/{n})")
     log("")
-    log(f"  restricted to crowns whose GT species appears somewhere in the corpus at all")
-    log(f"  (n={len(reachable)}; excludes the {n - len(reachable)} crowns that are unscoreable by construction):")
+    log(f"  restricted to frames whose GT species appears somewhere in the corpus at all")
+    log(f"  (n={len(reachable)}; excludes the {n - len(reachable)} frames that are unscoreable by construction):")
     log(f"    top-1                             : {pct(r1, len(reachable))}   ({r1}/{len(reachable)})")
     log(f"    top-5                             : {pct(r5, len(reachable))}   ({r5}/{len(reachable)})")
     log("")
-    log("  sensitivity to name reconciliation (same crowns, no WCVP synonym tier):")
+    log("  sensitivity to name reconciliation (same frames, no WCVP synonym tier):")
     log(f"    strict top-1                      : {pct(s1, n)}   ({s1}/{n})   [{100.0 * (c1 - s1) / n:+.2f} pp from tier d]")
     log(f"    strict top-5                      : {pct(s5, n)}   ({s5}/{n})   [{100.0 * (c5 - s5) / n:+.2f} pp from tier d]")
     log("")
-    log(f"  genus-only GT crowns (n={gn}), scored at genus level:")
+    log(f"  genus-only GT frames (n={gn}), scored at genus level:")
     log(f"    genus top-1                       : {pct(gg1, gn)}   ({gg1}/{gn})")
     log(f"    genus top-5                       : {pct(gg5, gn)}   ({gg5}/{gn})")
     log("")
     log("--- CROP-COVERAGE GATE: GATED AND UNGATED, SIDE BY SIDE ---")
-    log("  Ungated scores every evaluated crown. Gated scores only the frames whose")
+    log("  Ungated scores every evaluated frame. Gated scores only the frames whose")
     log("  dominant labelled species covers at least the threshold share of the centre")
     log("  crop the model was actually sent, so the label was inside the model's view.")
     log("  The two are different populations. Neither replaces the other.")
     log(f"  {'quantity':<34} {'ungated':>12} {'gated':>12}")
-    log(f"  {'crowns (N)':<34} {n:>12} {gate['n_admitted']:>12}")
-    log(f"  {'crown top-1':<34} {pct(c1, n):>12} {pct(gate['n_correct_top1'], gate['n_admitted']):>12}"
+    log(f"  {'frames (N)':<34} {n:>12} {gate['n_admitted']:>12}")
+    log(f"  {'frame top-1':<34} {pct(c1, n):>12} {pct(gate['n_correct_top1'], gate['n_admitted']):>12}"
         f"   (N_admitted={gate['n_admitted']})")
     log(f"  {'macro per-species top-1':<34} {macro1 * 100:>11.2f}% "
         f"{gate['macro_top1'] * 100:>11.2f}%   (N_admitted={gate['n_admitted']}, "
@@ -284,32 +284,32 @@ def main() -> None:
     log(f"  {'species':<34} {n_sp:>12} {gate['n_species']:>12}")
     log(f"  threshold in force                  : {MIN_CROP_COVERAGE:.2f} "
         f"(core.MIN_CROP_COVERAGE)")
-    log(f"  {'min_coverage':>12} {'N_admitted':>12} {'crown top-1':>13} "
+    log(f"  {'min_coverage':>12} {'N_admitted':>12} {'frame top-1':>13} "
         f"{'macro top-1':>13} {'species':>9}")
     for g in sweep:
         log(f"  {g['min_coverage']:>12.2f} {g['n_admitted']:>12} "
             f"{pct(g['n_correct_top1'], g['n_admitted']):>13} "
             f"{(g['macro_top1'] * 100):>12.2f}% {g['n_species']:>9}")
     n_unknown = sum(1 for r in sp_recs if r["crop_coverage"] is None)
-    log(f"  crowns with no box geometry, rejected at every threshold : {n_unknown} "
+    log(f"  frames with no box geometry, rejected at every threshold : {n_unknown} "
         f"({pct(n_unknown, n)})")
     # The gated N is smaller than the ungated N for two unrelated reasons, and only
     # one of them is the gate doing its job. Splitting them keeps a missing-data
     # count from reading as evidence about crop coverage.
     n_low = n - n_unknown - gate["n_admitted"]
-    log(f"  so the {n - gate['n_admitted']} crowns not admitted are {n_unknown} with no box "
+    log(f"  so the {n - gate['n_admitted']} frames not admitted are {n_unknown} with no box "
         f"geometry to measure")
     log(f"  and {n_low} measured below the {MIN_CROP_COVERAGE:.2f} threshold.")
     admitted, _ = coverage_split(sp_recs, MIN_CROP_COVERAGE)
     mism = sum(1 for r in admitted if r["crop_dominant"] != r["gt"])
-    log(f"  admitted crowns whose crop-dominant species differs from the GT label : "
+    log(f"  admitted frames whose crop-dominant species differs from the GT label : "
         f"{mism}")
     log("  A difference there means the crop is filled by a species other than the one")
     log("  the frame is labelled with, so admission alone does not make the label the")
     log("  right answer for what the model saw.")
     log("")
     log("--- SUPPORT BUCKETS (species-level GT) ---")
-    log(f"  {'bucket':<8} {'species':>8} {'crowns':>8} {'top-1':>9} {'top-5':>9}")
+    log(f"  {'bucket':<8} {'species':>8} {'frames':>8} {'top-1':>9} {'top-5':>9}")
     for lab in BUCKET_ORDER:
         b = B[lab]
         if not b["n_crowns"]:
@@ -321,8 +321,8 @@ def main() -> None:
     log(f"  top-1 before filter                 : {pct(c1, n)}   ({c1}/{n})")
     log(f"  top-1 after  filter                 : {pct(f1, n)}   ({f1}/{n})")
     log(f"  delta                               : {100.0 * (f1 - c1) / n:+.2f} pp")
-    log(f"  crowns with no surviving candidate  : {f_abstain} ({pct(f_abstain, n)})")
-    log(f"  {'bucket':<8} {'crowns':>8} {'before':>9} {'after':>9} {'delta':>10} {'no-cand':>8}")
+    log(f"  frames with no surviving candidate  : {f_abstain} ({pct(f_abstain, n)})")
+    log(f"  {'bucket':<8} {'frames':>8} {'before':>9} {'after':>9} {'delta':>10} {'no-cand':>8}")
     for lab in BUCKET_ORDER:
         b = B[lab]
         if not b["n_crowns"]:
@@ -333,7 +333,7 @@ def main() -> None:
     log("")
     log("  THIS DELTA IS A LOWER BOUND. Re-ranking can only promote a species already")
     log("  present in the returned list, and the list was capped at nb-results=5.")
-    log(f"    crowns still wrong after filtering  : {len(still_wrong)}")
+    log(f"    frames still wrong after filtering  : {len(still_wrong)}")
     log(f"      ... whose list was full (len={h.maxk})     : {sw_full}  <- cap could be binding;")
     log("            a correct candidate may exist at rank 6+ and was never returned")
     log(f"      ... whose list was short (len<{h.maxk})    : {sw_short}  <- cap NOT binding; the API")
@@ -348,11 +348,11 @@ def main() -> None:
     log("")
     log("--- CONFIDENCE CALIBRATION / TRIAGE FEASIBILITY ---")
     log(f"  third scope = the {len(good)} species the proposed rule would whitelist "
-        f"(n>={WELL_SAMPLED_MIN_N} labelled crowns AND")
-    log(f"  measured top-1 >= 90%), covering {len(good_recs)} of the {n} primary crowns "
+        f"(n>={WELL_SAMPLED_MIN_N} labelled frames AND")
+    log(f"  measured top-1 >= 90%), covering {len(good_recs)} of the {n} primary frames "
         f"({pct(len(good_recs), n)}).")
-    log("  Its accuracy is OPTIMISTIC: the whitelist is selected on the very crowns it is")
-    log("  then scored on. Treat it as an upper bound until validated on held-out crowns.")
+    log("  Its accuracy is OPTIMISTIC: the whitelist is selected on the very frames it is")
+    log("  then scored on. Treat it as an upper bound until validated on held-out frames.")
     log("")
     for scope, rs in scopes:
         log(f"  scope: {scope}   (n={len(rs)})")
@@ -370,7 +370,7 @@ def main() -> None:
         log("")
 
     # ---------------- 12. send-first queue over the unlabelled pool ----------------
-    # Which unlabelled crowns reach the botanist first. Every cached response whose
+    # Which unlabelled frames reach the botanist first. Every cached response whose
     # stem no GT row joined to is an unlabelled photo with a prediction.
     joined_stems = {stem for _, stem, _ in h.joined}
     support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
@@ -398,7 +398,7 @@ def main() -> None:
         w.writerow(["queue", "global_key", "split", "predicted_species", "confidence",
                     "species_labelled_crowns", "species_top1_accuracy"])
         # Queue order first, then weakest confidence first inside a queue: the
-        # most uncertain crown of a group is the one most worth an expert look.
+        # most uncertain frame of a group is the one most worth an expert look.
         queue_rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), float(r[4]), r[1]))
         w.writerows(queue_rows)
 
@@ -414,12 +414,12 @@ def main() -> None:
     n_unlab = sum(q_counts.values())
     n_batches = batch_rows[-1][0] if batch_rows else 0
     log("--- SEND-FIRST QUEUE (cached predictions with no GT label) ---")
-    log(f"  unlabelled crowns with a prediction : {n_unlab}")
+    log(f"  unlabelled frames with a prediction : {n_unlab}")
     for q in QUEUE_ORDER:
         log(f"    {q:<16}: {q_counts[q]}")
     log(f"  send_batches.csv                    : {len(batch_rows)} rows in {n_batches} "
         f"batches, max {BATCH_SIZE}/batch, species-grouped")
-    log(f"  unlabelled crowns with NO answer    : {n_no_answer}  (empty candidate list;")
+    log(f"  unlabelled frames with NO answer    : {n_no_answer}  (empty candidate list;")
     log("    possible junk or non-plant photos; check a sample")
     log("    by eye before queueing, no automatic rule)")
     log("")
@@ -440,7 +440,7 @@ def main() -> None:
     pairs = Counter((r[2], r[3]) for r in review_rows)
     log("--- LABELS WORTH A SECOND LOOK ---")
     log(f"  first guess wrong at confidence >= {REVIEW_CONF} : {len(review_rows)} "
-        f"of {n} evaluated crowns ({pct(len(review_rows), n)})")
+        f"of {n} evaluated frames ({pct(len(review_rows), n)})")
     log(f"  distinct species-to-species confusions  : {len(pairs)}")
     log("")
 

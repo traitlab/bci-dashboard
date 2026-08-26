@@ -19,7 +19,7 @@ from statistics import median
 import core as hc
 from assets import cap, esc, panel, pctf, svg_hbar, svg_weight_pair
 
-# One colour and name per labelled-crown band, both bars of the weighting chart.
+# One colour and name per labelled-frame band, both bars of the weighting chart.
 # All 4.5:1 against white so the in-bar number is readable.
 #
 # Known limitation: the ramp does not order by lightness (luminance 0.110, 0.180,
@@ -27,14 +27,14 @@ from assets import cap, esc, panel, pctf, svg_hbar, svg_weight_pair
 # hue it carries no order. Fixing that is a new palette, not a contrast tweak.
 BAND_COLOR = {"1": "#b71c1c", "2-4": "#d44215", "5-9": "#8d6e00",
               "10-24": "#4f812c", "25+": "#1b5e20"}
-BAND_WORD = {"1": "1 crown", "2-4": "2 to 4 crowns", "5-9": "5 to 9 crowns",
-             "10-24": "10 to 24 crowns", "25+": "25 or more crowns"}
-# The same bands, short enough for a chart row label. Built as f"{key} crowns"
-# they read "1 crowns" for the band holding 47 of the 169 species.
-BAND_SHORT = {"1": "1 crown", "2-4": "2-4 crowns", "5-9": "5-9 crowns",
-              "10-24": "10-24 crowns", "25+": "25+ crowns"}
+BAND_WORD = {"1": "1 frame", "2-4": "2 to 4 frames", "5-9": "5 to 9 frames",
+             "10-24": "10 to 24 frames", "25+": "25 or more frames"}
+# The same bands, short enough for a chart row label. Built as f"{key} frames"
+# they read "1 frames" for the band holding 51 of the 186 species.
+BAND_SHORT = {"1": "1 frame", "2-4": "2-4 frames", "5-9": "5-9 frames",
+              "10-24": "10-24 frames", "25+": "25+ frames"}
 
-# Crowns at or below this many labels are "thin" in the near-miss comparison.
+# Frames at or below this many labels are "thin" in the near-miss comparison.
 THIN_MAX = 4
 FAT_MIN = 25
 
@@ -49,14 +49,14 @@ def _near_miss(recs):
 def candidates_panel(*, recs, gen_n, gen_none):
     """Where the five-candidate limit comes from, and what it hides.
 
-    ``recs`` is every crown that got a prediction, species-level or not, so the
+    ``recs`` is every frame that got a prediction, species-level or not, so the
     list-length picture covers the same photos the rest of the page scores.
     """
     lens = Counter(len(r["ranked"]) for r in recs)
     top = max(lens)
     full = lens[top]
     rows = [(f"{k} guess{'' if k == 1 else 'es'}", lens[k] / len(recs),
-             f"{lens[k]:,} crowns", "#1b5e20" if k == top else "#78909c")
+             f"{lens[k]:,} frames", "#1b5e20" if k == top else "#78909c")
             for k in range(1, top + 1) if lens[k]]
     # Two cuts, one from each end: our nb-results, and Pl@ntNet's floor on a
     # candidate worth returning, which is why a list can come back short.
@@ -91,7 +91,7 @@ def candidates_panel(*, recs, gen_n, gen_none):
         f'model has for the photo. The {top} is an inherited <code>config.yaml</code> value '
         f'(<code>identify_nb_results: {top}</code>) with no recorded rationale, a setting to '
         f'revisit rather than a property of the model.</p>'
-        + svg_hbar(rows, title=f"how long the returned list actually was, {len(recs):,} crowns")
+        + svg_hbar(rows, title=f"how long the returned list actually was, {len(recs):,} frames")
         + f'<p class="note">{full:,} of {len(recs):,} photos came back with a full {top} '
           f'({pctf(full / len(recs))}) and none came back with more. The shorter lists are the '
           f'other cut: <b>Pl@ntNet never returns a species it scores below {floor:.1%}</b>. '
@@ -108,7 +108,7 @@ def candidates_panel(*, recs, gen_n, gen_none):
           f'lists ({pctf(half / full)}) more than half of it does.</p>'
           f'<p class="note"><b>What the cap hides is a right answer in position {top + 1}</b>, '
           f'indistinguishable here from Pl@ntNet never having heard of the plant. Both look '
-          f'like a miss. The clearest symptom is among the {gen_n:,} crowns whose botanist '
+          f'like a miss. The clearest symptom is among the {gen_n:,} frames whose botanist '
           f'label stops at the genus: {gen_none:,} have no species from that genus anywhere in '
           f'the {top}, and for a genus the model plainly knows, some of those sit in that '
           f'unseen confidence.</p>'
@@ -125,14 +125,14 @@ def candidates_panel(*, recs, gen_n, gen_none):
 
 
 def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp):
-    """Why the crown-weighted and per-species scores differ, with a picture."""
+    """Why the frame-weighted and per-species scores differ, with a picture."""
     rows = []
     for lab in hc.BUCKET_ORDER:
         b = buckets.get(lab)
         if not b or not b["n_crowns"]:
             continue
         rows.append((BAND_WORD[lab], b["n_species"] / n_sp, b["n_crowns"] / n,
-                     f'{b["n_species"]} species, {b["n_crowns"]:,} crowns, '
+                     f'{b["n_species"]} species, {b["n_crowns"]:,} frames, '
                      f'{pctf(b["c1"] / b["n_crowns"])} right', BAND_COLOR[lab]))
     thin, fat = hc.BUCKET_ORDER[0], hc.BUCKET_ORDER[-1]
     thin_n, thin_in5 = _near_miss([r for r in sp_recs if support[r["gt"]] <= THIN_MAX])
@@ -157,21 +157,21 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp):
           f'counts as much as <em>{esc(cap(big["species"]))}</em>\'s '
           f'{big["n_labelled_crowns"]:,}. <b>Quote the per-species number: a labelling '
           f'programme exists to move it.</b></p>'
-          f'<p class="note">The {singles} single-crown species fill '
+          f'<p class="note">The {singles} single-frame species fill '
           f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the top bar and '
           f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the bottom, and the key says why: '
-          f'{pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} right at one crown against '
+          f'{pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} right at one frame against '
           f'{pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at {BAND_WORD[fat]} (rare in '
           f'our labels usually means rare in Pl@ntNet\'s photos).</p>'
           f'<p class="note">Misses differ at each end: the right name is still in the five for '
-          f'{pctf(thin_in5)} of misses on species with {THIN_MAX} crowns or fewer ({thin_n}), '
+          f'{pctf(thin_in5)} of misses on species with {THIN_MAX} frames or fewer ({thin_n}), '
           f'against {pctf(fat_in5)} at {FAT_MIN}+ ({fat_n}). Misses on common species are near '
           f'misses settled from the short list; on rare ones the model does not know the '
           f'plant.</p>'
-          f'<p class="note"><b>Set aside species under {hc.WELL_SAMPLED_MIN_N} crowns and the '
+          f'<p class="note"><b>Set aside species under {hc.WELL_SAMPLED_MIN_N} frames and the '
           f'scores become {pctf(well_micro)} and {pctf(well_macro)}</b>, '
           f'{100 * (well_micro - well_macro):.0f} points apart instead of {gap:.0f}. A '
-          f'one-crown species scores only 0% or 100%, so those {singles} votes are coin '
+          f'one-frame species scores only 0% or 100%, so those {singles} votes are coin '
           f'flips.</p>',
         open_=True,
         # Both headline rates are in the summary and both move every snapshot.
@@ -188,12 +188,12 @@ def method_panel(*, tag, n, n_sp, checks):
             f'request from <code>config.yaml</code> <code>identify_nb_results</code> and not '
             f'an API default, plus <code>no-reject=true</code>, organs detected '
             f'automatically, and <code>include-related-images=false</code>, on a '
-            f'1280&nbsp;px centre crop of each crown photo. A correct answer at position 6 '
+            f'1280&nbsp;px centre crop of each frame photo. A correct answer at position 6 '
             f'or beyond was never returned and cannot be seen here.</li>'
-            f'<li>Evaluated set: {n:,} crowns across {n_sp} species carrying a botanist '
+            f'<li>Evaluated set: {n:,} frames across {n_sp} species carrying a botanist '
             f'label that names a species rather than only a genus. They are the historical '
             f'labelling record, not a random draw, so these rates carry over to unlabelled '
-            f'crowns only under an assumption that cannot be tested offline.</li>'
+            f'frames only under an assumption that cannot be tested offline.</li>'
             '<li>Ground truth: the July 2026 revision pass on Labelbox project '
             '<code>2024_bci</code> (exported 2026-08-06), merged over the older offline '
             'labels by <code>labelling/gt_from_export.py</code>: where a photo carries '

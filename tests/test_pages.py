@@ -246,7 +246,7 @@ def test_the_camera_note_counts_the_frames_it_describes(full_page):
     # The note says the scored population is all zoom. If a tele key ever reaches
     # the scored table the sentence beside it becomes false, so check the claim
     # rather than only the arithmetic.
-    assert "Every crown scored on this page was shot with the zoom lens" in html
+    assert "Every frame scored on this page was shot with the zoom lens" in html
 
 
 # ---------------------------------------------------------------------------

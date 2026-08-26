@@ -34,7 +34,7 @@ from explain import (BAND_SHORT, candidates_panel, method_panel,  # noqa: E402
 from history import (  # noqa: E402
     latest_snapshot_dir, load_trend, verify_snapshot)
 
-# A species is "rarely labelled" below this many crowns. Same threshold as the
+# A species is "rarely labelled" below this many frames. Same threshold as the
 # deprioritization support gate, so the two panels cannot disagree.
 RARE_MAX_SUPPORT = 10
 # Deliberately equal to hc.WELL_SAMPLED_MIN_N, the threshold hc.diagnose uses,
@@ -61,8 +61,8 @@ STATUS = {
 
 STATUS_REASON = {
     "ranking": "The right name is already in the five, so this is the cheapest confirmation work.",
-    "unmeasured": "Fewer than 10 labelled crowns, so the score is too thin to trust yet.",
-    "hard": "Enough crowns, but the first guess is still weak, so more labels will not fix it.",
+    "unmeasured": "Fewer than 10 labelled frames, so the score is too thin to trust yet.",
+    "hard": "Enough frames, but the first guess is still weak, so more labels will not fix it.",
     "adequate": "Mixed results, so keep it in the normal review queue.",
     "reliable": "Usually right, so this species is low priority for extra work.",
     "unreachable": "It never appears in the five candidates we asked for, so labelling will not "
@@ -74,7 +74,7 @@ STATUS_REASON = {
 # (metric, question, averaged over, note).
 HEADLINES = [
     ("macro_top1", "First guess is right", "per species",
-     "each of the {n_sp} species counts once, however few crowns it has"),
+     "each of the {n_sp} species counts once, however few frames it has"),
     ("micro_top1", "First guess is right", "per frame",
      "one vote per labelled frame, so common species dominate"),
     ("macro_top5", "Right name is among the 5 offered", "per species",
@@ -119,7 +119,7 @@ def is_family(n: str) -> bool:
 
     Every botanical family name carries that suffix and no accepted genus does,
     so the test is exact rather than a heuristic. It matters because a family
-    label can never equal a predicted genus, so counting those crowns into a
+    label can never equal a predicted genus, so counting those frames into a
     genus-level rate would report guaranteed misses as measured ones.
     """
     return n.strip().lower().endswith("aceae")
@@ -147,7 +147,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     for s in status.values():
         counts[s] += 1
 
-    # --- crowns grouped by how many labels their species has ---
+    # --- frames grouped by how many labels their species has ---
     buckets = {}
     for d in per_species:
         buckets.setdefault(d["support_bucket"],
@@ -223,7 +223,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     queue_cams = Counter(camera_of(stem) for _, stem, _, _ in queue_rows)
 
     # Enough to answer "what do I send next" without a CSV reader. A batch is 100
-    # crowns, so 25 is one morning's work and still short enough to read.
+    # frames, so 25 is one morning's work and still short enough to read.
     SEND_PREVIEW = 25
 
     confident = [r for r in sp_recs if conf(r) >= hc.REVIEW_CONF]
@@ -242,7 +242,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
         never_all=never_all, unscoreable=n - len(reach), strict_hits=strict1,
         queue_counts=queue_counts, n_no_answer=n_no_answer, review_counts=review_counts)
 
-    # --- why confidence alone is unsafe: error by labelled crowns, at conf>=0.7 ---
+    # --- why confidence alone is unsafe: error by labelled frames, at conf>=0.7 ---
     flat = {}
     for r in sp_recs:
         if conf(r) >= 0.7:
@@ -250,8 +250,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             b[0] += 1
             b[1] += top1(r) != r["gt"]
 
-    # --- queue-ordering rules. Which species clear the gate is decided from train crowns
-    # only, then scored on test only, so no rule is graded on the crowns that defined it.
+    # --- queue-ordering rules. Which species clear the gate is decided from train frames
+    # only, then scored on test only, so no rule is graded on the frames that defined it.
     train_support = defaultdict(int)
     for r in sp_recs:
         if r["split"] == "train":
@@ -262,7 +262,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     n_rare_test = sum(1 for r in test_recs if r["gt"] in rare)
 
     rules = [(f"confidence &ge; {t}, any species", t, False) for t in (0.7, 0.8)]
-    rules += [(f"confidence &ge; {t} and at least {WAIT_SUPPORT_MIN} labelled crowns for "
+    rules += [(f"confidence &ge; {t} and at least {WAIT_SUPPORT_MIN} labelled frames for "
                f"that species", t, True) for t in (0.7, 0.8, 0.9)]
     ops = []
     for label, thr, gate in rules:
@@ -285,7 +285,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     gn, fam_n = len(gen_recs), len(fam_recs)
     gg1 = sum(1 for r in gen_recs if hc.genus_of(r["ranked"][0][0]) == r["gt"])
     fam_names = len({r["gt"] for r in fam_recs})
-    # Genus-only crowns whose right answer is narrowed to one in-genus candidate:
+    # Genus-only frames whose right answer is narrowed to one in-genus candidate:
     # the cheapest confirmation on the page, a yes/no rather than an identification.
     in_gen = [sum(1 for b, _ in r["ranked"][:5] if hc.genus_of(b) == r["gt"]) for r in gen_recs]
     gen_any = sum(1 for k in in_gen if k)
@@ -312,9 +312,9 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     P.append(f'<p class="note">{HERO_READING}</p>')
     # One sentence, not the full caveat: the ceiling panel states the same numbers
     # with the reasoning, and twice made this the second dense paragraph up top.
-    P.append(f'<p class="note"><strong>{n - len(reach):,} of these crowns belong to '
+    P.append(f'<p class="note"><strong>{n - len(reach):,} of these frames belong to '
              f'{len(never)} species the model never names in five candidates, so they are '
-             f'wrong at every threshold.</strong> Without them the per-crown rate is '
+             f'wrong at every threshold.</strong> Without them the per-frame rate is '
              f'{pctf(reach1)}. <a href="#what-this-cannot-tell-you">What this cannot tell '
              f'you</a> says why that is a limit of the question we asked, not proof the '
              f'model has never heard of them.</p>')
@@ -336,9 +336,9 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     body.append(f'</ul><p class="note">Each of the {n_sp} species sits in exactly one row. '
                 f'The numbers behind each status are in the species table below.</p>'
                 f'<p class="note"><strong>Cheaper still, and not counted in any row above: '
-                f'{gen_one:,} crowns whose botanist label stops at the genus and whose five '
+                f'{gen_one:,} frames whose botanist label stops at the genus and whose five '
                 f'candidates contain exactly one species from that genus.</strong> The question '
-                f'there is yes or no, not which of {n_sp}. Those crowns are outside the {n_sp} '
+                f'there is yes or no, not which of {n_sp}. Those frames are outside the {n_sp} '
                 f'species scored on this page because they never named a species; see the '
                 f'genus paragraph under &ldquo;What this cannot tell you&rdquo;.</p>')
     p_todo = panel(f"Where to spend botanist time next: {counts['ranking']} species are a "
@@ -349,8 +349,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
 
     # ---- what to send first: the unlabelled pool, ordered ----
     QL = {"long_tail": ("Species we barely have",
-                        "The guess points at a species with fewer than 10 labelled crowns, "
-                        "or one the model gets wrong even with more. These crowns fill the "
+                        "The guess points at a species with fewer than 10 labelled frames, "
+                        "or one the model gets wrong even with more. These frames fill the "
                         "long tail the labelling programme exists for"),
           "low_conf_known": ("A usually-right species, guessed weakly",
                              "The species is normally identified well but the model is "
@@ -359,7 +359,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
           "normal": ("Everything else", "The ordinary queue"),
           "can_wait": ("Confident on a well-covered species",
                        "The two-part rule below says these can wait; look at them last")}
-    body = table([("queue", False), ("unlabelled crowns", True),
+    body = table([("queue", False), ("unlabelled frames", True),
                   ("share of the pool", True)],
                  [[f'<strong>{esc(QL[q][0])}</strong>' if q in ("long_tail", "low_conf_known")
                    else esc(QL[q][0]),
@@ -371,7 +371,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     head = queue_rows[:SEND_PREVIEW]
     body += ('<h3 class="sub">The next ' + f'{len(head)}' + ' photos, in order</h3>'
              + table([("#", True), ("photo", False), ("Pl@ntNet's guess", False),
-                      ("confidence", True), ("crowns that species has", True)],
+                      ("confidence", True), ("frames that species has", True)],
                      [[f"{i}", f'<code class="key">{esc(stem)}</code>',
                        f'<span class="sp">{esc(cap(pred))}</span>', f"{cf:.3f}",
                        f"{support.get(pred, 0):,}"]
@@ -380,7 +380,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     body += (f'<p class="note">Most-named species in the first queue: '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
              + '.</p>'
-             f'<p class="note">Every crown, in order, is in <code>send_first_queue.csv</code> '
+             f'<p class="note">Every frame, in order, is in <code>send_first_queue.csv</code> '
              f'in the snapshot folder: queue, photo key, the guess and its confidence, and '
              f'how well that species is already measured. Weakest confidence first inside '
              f'each queue, so the top of the file is the next batch.</p>'
@@ -389,7 +389,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
              f'candidate junk or non-plant photos (leaves in the water, bare trunks). There '
              f'is no reliable automatic rule for junk, so check that handful by eye before '
              f'queueing them rather than filtering on it.</p>'
-             f'<p class="note"><b>Every crown scored on this page was shot with the zoom '
+             f'<p class="note"><b>Every frame scored on this page was shot with the zoom '
              f'lens</b> ({scored_cams["zoom"]:,} of {sum(scored_cams.values()):,}), while '
              f'{queue_cams["tele"]:,} of the {sum(queue_cams.values()):,} photos in this '
              f'queue ({pctf(queue_cams["tele"] / sum(queue_cams.values()))}) are tele. No '
@@ -397,7 +397,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
              f'frame has a botanist label yet, so how well the model reads that lens is '
              f'not known from here. Sending them is how it becomes known.</p>'
              f'<p class="note">The pool is {n_unlab:,} of {len(h.split_rows):,} photos: the '
-             f'crowns with a cached Pl@ntNet answer and no botanist label. The species '
+             f'frames with a cached Pl@ntNet answer and no botanist label. The species '
              f'record behind each queue is the one measured above, so a model update '
              f're-sorts this queue exactly as it re-sorts the can-wait one.</p>')
     p_send = panel(f"What to send to the botanist first: {queue_counts.get('long_tail', 0):,} "
@@ -410,25 +410,25 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     # ---- labels worth a second look ----
     pair_rows = sorted(review_pairs.items(), key=lambda kv: -len(kv[1]))[:10]
     body = (table([("botanist label", False), ("Pl@ntNet's first guess", False),
-                   ("crowns", True), ("mean confidence", True)],
+                   ("frames", True), ("mean confidence", True)],
                   [[f'<span class="sp">{esc(cap(gt))}</span>',
                     f'<span class="sp">{esc(cap(pr))}</span>',
                     f"{len(cs):,}", f"{sum(cs) / len(cs):.2f}"]
                    for (gt, pr), cs in pair_rows])
             if pair_rows else '<p class="note">None at this threshold.</p>')
-    body += (f'<p class="note">Each row is a labelled crown where the model is at least '
+    body += (f'<p class="note">Each row is a labelled frame where the model is at least '
              f'{hc.REVIEW_CONF:.1f} confident in a <em>different</em> species. A first guess '
              f'this confident is right {pctf(confident_ok)} of the time in bulk '
              f'({len(confident) - len(review):,} of {len(confident):,}), so each of these '
              f'is either a rare confident model error or a label error, and a label error '
              f'found this way is the cheapest label fix available. Offline there is no way '
              f'to tell which; that is the botanist\'s minute. '
-             f'Every crown is in <code>label_review_queue.csv</code> in the snapshot folder, '
+             f'Every frame is in <code>label_review_queue.csv</code> in the snapshot folder, '
              f'most confident first.</p>'
              f'<p class="note">Not urgent: work this list after the send-first queues. A '
              f'confusion pair that keeps recurring is a signal about the species, not just '
              f'the photo.</p>')
-    p_review = panel(f"Labels worth a second look: {review_counts[0]} crowns where Pl@ntNet "
+    p_review = panel(f"Labels worth a second look: {review_counts[0]} frames where Pl@ntNet "
                      f"confidently disagrees",
                      "<b>Possible label errors, possible model errors.</b> Either way they "
                      "are the disagreements most worth an expert's minute, once the cheap "
@@ -439,61 +439,61 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     p_trend = trend.render(open_=False)
 
     # ---- deprioritization ----
-    body = (f'<div class="rec"><strong>Suggested rule: leave a crown for later when '
+    body = (f'<div class="rec"><strong>Suggested rule: leave a frame for later when '
             f'Pl@ntNet is at least {RECOMMENDED_CONF} confident and its species already has '
-            f'{WAIT_SUPPORT_MIN} or more labelled crowns.</strong> On held-out test crowns '
+            f'{WAIT_SUPPORT_MIN} or more labelled frames.</strong> On held-out test frames '
             f'that is {best["n"]:,} of {len(test_recs):,} ({pctf(best["share"])}), and the '
             f'first guess is wrong on {pctf(best["err"])} of them.</div>'
-            '<p class="note"><strong>Nothing here is a label.</strong> A crown that can wait '
+            '<p class="note"><strong>Nothing here is a label.</strong> A frame that can wait '
             'keeps whatever ground truth it already has, or none at all. No prediction is '
-            'ever written into ground truth by this rule. It only pushes crowns down the '
+            'ever written into ground truth by this rule. It only pushes frames down the '
             "botanist's queue.</p>"
             f'<p class="note"><strong>The decision expires with the model.</strong> Pl@ntNet '
             f'ships a new model every few months, on its own schedule rather than ours, and '
-            f'a crown deprioritized under <code>{esc(trend.tag)}</code> is not deprioritized '
+            f'a frame deprioritized under <code>{esc(trend.tag)}</code> is not deprioritized '
             f'under the next one. Re-run this page after every model change and the queue '
-            f're-sorts. Any crown can come back to the top.</p>'
-            f'<p class="note">{len(eligible)} species clear the {WAIT_SUPPORT_MIN}-crown gate, '
-            f'counted from <code>train</code> crowns only, and the error rate above is then '
-            f'measured on the {len(test_recs):,} <code>test</code> crowns only.</p>')
-    p_wait = panel(f"Which crowns can wait: {best['n']:,} of {len(test_recs):,} test crowns, "
+            f're-sorts. Any frame can come back to the top.</p>'
+            f'<p class="note">{len(eligible)} species clear the {WAIT_SUPPORT_MIN}-frame gate, '
+            f'counted from <code>train</code> frames only, and the error rate above is then '
+            f'measured on the {len(test_recs):,} <code>test</code> frames only.</p>')
+    p_wait = panel(f"Which frames can wait: {best['n']:,} of {len(test_recs):,} test frames, "
                    f"revocable at the next model change",
-                   "<b>Use this to order the queue, not to close crowns.</b> These are the "
-                   "crowns to look at last, and the ranking is recomputed from scratch "
+                   "<b>Use this to order the queue, not to close frames.</b> These are the "
+                   "frames to look at last, and the ranking is recomputed from scratch "
                    "whenever Pl@ntNet updates.", body)
 
     # ---- rule comparison ----
-    body = table([("rule", False), ("crowns that can wait", True),
+    body = table([("rule", False), ("frames that can wait", True),
                   ("share of the queue", True), ("of those, first guess wrong", True),
-                  ("rarely-labelled crowns among them", True),
+                  ("rarely-labelled frames among them", True),
                   ("rarely-labelled share of what is left", True)],
                  [[f'<strong>{o["label"]}</strong>' if o is best else o["label"],
                    f'{o["n"]:,}', pctf(o["share"]), pctf(o["err"]), f'{o["rare"]}',
                    pctf(o["rare_rest"])] for o in ops])
-    body += (f'<p class="note">A species with fewer than {RARE_MAX_SUPPORT} labelled crowns '
+    body += (f'<p class="note">A species with fewer than {RARE_MAX_SUPPORT} labelled frames '
              f'counts as rarely labelled: {len(rare)} of {n_sp} species, {n_rare_test} of '
-             f'the {len(test_recs):,} test crowns. No rarely-labelled crown can be '
+             f'the {len(test_recs):,} test frames. No rarely-labelled frame can be '
              f'deprioritized under a gated rule, because the gate excludes them.</p>')
     p_rules = panel("How the five candidate rules compare, including the ungated ones",
                     "<b>Read this only if you want to move the threshold.</b> Each row trades "
-                    "queue reduction against how often a deprioritized crown was actually "
+                    "queue reduction against how often a deprioritized frame was actually "
                     "misidentified.", body)
 
     # ---- confidence ----
     # Same blue as the next panel's chart: same measure, so a colour change would
     # read as meaning something. Green is spoken for by the status tags.
     body = (svg_hbar([(band, k / nn if nn else 0.0,
-                       f'{pctf(k / nn) if nn else "n/a"}  ·  {nn:,} crowns', "#1565c0")
+                       f'{pctf(k / nn) if nn else "n/a"}  ·  {nn:,} frames', "#1565c0")
                       for band, nn, k in bins_all],
                      title="how often the first guess is right, by the model's own confidence")
-            + '<p class="note">Over all crowns at once the confidence score is trustworthy: '
+            + '<p class="note">Over all frames at once the confidence score is trustworthy: '
               'when the model is sure it is almost always right. That is what makes queue '
               'ordering possible at all.</p>'
               '<p class="note"><strong>It is not trustworthy on rarely-labelled '
               'species.</strong> Ordering the queue on confidence alone would push exactly '
               'the species you care about to the bottom:</p>'
-            + table([("labelled crowns for that species", False),
-                     ("crowns at confidence &ge; 0.7", True),
+            + table([("labelled frames for that species", False),
+                     ("frames at confidence &ge; 0.7", True),
                      ("of those, first guess wrong", True)],
                     [[BAND_SHORT[lab], f"{flat[lab][0]:,}",
                       pctf(flat[lab][1] / flat[lab][0])]
@@ -505,14 +505,14 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                    "<b>This is the evidence behind the two-part rule above.</b> Read it if "
                    "someone proposes ordering the queue on confidence alone.", body)
 
-    # ---- labelled crowns vs accuracy ----
+    # ---- labelled frames vs accuracy ----
     body = (svg_hbar([(BAND_SHORT[lab], buckets[lab]["c1"] / buckets[lab]["n_crowns"],
                        f'{pctf(buckets[lab]["c1"] / buckets[lab]["n_crowns"])}  ·  '
                        f'{buckets[lab]["n_species"]} spp, {buckets[lab]["n_crowns"]:,} '
-                       f'crowns', "#1565c0")
+                       f'frames', "#1565c0")
                       for lab in hc.BUCKET_ORDER
                       if buckets.get(lab) and buckets[lab]["n_crowns"]],
-                     title="how often the first guess is right, by how many crowns that "
+                     title="how often the first guess is right, by how many frames that "
                            "species has")
             + '<div class="warn"><strong>Read this as how common the species is, not as '
               'training data.</strong> These predictions come from a frozen Pl@ntNet '
@@ -520,7 +520,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
               'does not make Pl@ntNet better at it. What this axis really tracks is how '
               'common a species is on the plot, and common species also have more reference '
               'photos inside Pl@ntNet. What extra labels buy is knowledge: below about '
-              f'{WAIT_SUPPORT_MIN} crowns a per-species accuracy jumps around too much to '
+              f'{WAIT_SUPPORT_MIN} frames a per-species accuracy jumps around too much to '
               f'act on, and above it the species can enter the queue-ordering rule.</div>')
     p_labels = panel("Does accuracy rise with more labels? It rises with abundance, and the "
                      "model is frozen",
@@ -538,17 +538,17 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             f'<span data-sort="{d["top5_accuracy"]:.6f}">{pctf(d["top5_accuracy"])}</span>',
             f'<span data-sort="{d["mean_top1_confidence"]:.6f}">'
             f'{d["mean_top1_confidence"]:.2f}</span>',
-            # A sparkline over 1 to 4 crowns draws a coin flip as a trend: 49 run
-            # rail to rail on one crown changing answer, 55 are the same flat line
+            # A sparkline over 1 to 4 frames draws a coin flip as a trend: 49 run
+            # rail to rail on one frame changing answer, 55 are the same flat line
             # for accuracies from 0 to 1. Below the floor the cell says so instead.
             (trend.spark(f"species:{sp}:top1", empty="")
              if d["n_labelled_crowns"] >= WAIT_SUPPORT_MIN
-             else '<span class="nospark">too few crowns</span>'),
+             else '<span class="nospark">too few frames</span>'),
             status_tag(st, STATUS[st][0])])
         attrs.append(f' data-species="{esc(sp)}" data-status="{st}"')
     body = (status_legend([(st, STATUS[st][0], STATUS_REASON[st]) for st in STATUS])
             + filterable_table(
-        [("Species", False), ("Labelled crowns", True),
+        [("Species", False), ("Labelled frames", True),
          ("First guess right", True), ("Right name in the list", True),
          ("Model's confidence", True), ("Trend", False), ("Status", False)],
         sp_rows,
@@ -559,7 +559,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                       "<b>Find a species you care about and read its status.</b> Click any "
                       "heading to sort, type to filter. The trend column draws a line only "
                       f"where there are two or more snapshots and at least {WAIT_SUPPORT_MIN} "
-                      "labelled crowns, because below that one crown changing answer swings "
+                      "labelled frames, because below that one frame changing answer swings "
                       "the line from end to end.", body)
 
     # ---- ceiling ----
@@ -575,14 +575,14 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             f'knows perfectly well, but which never made anyone\'s top five on a BCI photo, '
             f'is indistinguishable here from one it truly cannot return. The five-candidate '
             f'cap is what hides the difference. It did not bite everywhere: on '
-            f'{short5:,} of the {n_pred:,} crowns with a cached answer '
+            f'{short5:,} of the {n_pred:,} frames with a cached answer '
             f'({pctf(short5 / n_pred)}) fewer than five candidates came back, so nothing was '
             f'cut off. On the other {n_pred - short5:,} the list was full, and anything the '
             f'model would have ranked sixth or lower is invisible to us. The way to find out '
             f'is to re-run the predictions asking for more candidates per photo. More name '
             f'cleaning will not help, because names are already matched as well as they '
             f'can be.</div>'
-            + table([("Species", False), ("Labelled crowns", True)],
+            + table([("Species", False), ("Labelled frames", True)],
                     [[f'<span class="sp">{esc(cap(d["species"]))}</span>',
                       f'{d["n_labelled_crowns"]:,}'] for d in never])
             + f'<p class="note"><strong>Spelling and renamed species are not costing us '
@@ -592,7 +592,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
               f'{pctf(c1 / n)} on the centre crop, so that matching is worth '
               f'{100 * (c1 - strict1) / n:+.2f} points, or {c1 - strict1} frames. Treat it as '
               f'a gain already banked, not as a source of error.</p>'
-              f'<p class="note"><strong>{gn:,} further crowns carry only a genus '
+              f'<p class="note"><strong>{gn:,} further frames carry only a genus '
               f'name</strong> and are left out of every species number above. Scored at '
               f'genus level they reach {pctf(gg1 / gn) if gn else "n/a"}. Of them, '
               f'{gen_any:,} have at least one candidate in the right genus among the five, '
@@ -600,14 +600,14 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
               f'into a yes or no rather than an identification. Whether taking them down to '
               f'species is worth expert time is a prioritisation question, not a model '
               f'question.</p>'
-              f'<p class="note">A further {fam_n} crowns are labelled to '
+              f'<p class="note">A further {fam_n} frames are labelled to '
               f'{fam_names} <em>families</em> rather than genera. They are excluded from the '
               f'genus rate above and cannot be scored at all offline: a family name can never '
               f'match a predicted species name, and mapping predictions up to family would '
               f'need a family lookup covering Pl@ntNet\'s vocabulary, which we do not have '
               f'here. Counting them in would have reported '
               f'{pctf(gg1 / (gn + fam_n))} instead of {pctf(gg1 / gn)}.</p>')
-    p_ceiling = panel(f"What labelling cannot fix: {len(never)} species, {never_crowns} crowns "
+    p_ceiling = panel(f"What labelling cannot fix: {len(never)} species, {never_crowns} frames "
                       f"the model never named, and why the five-candidate cap may be the cause",
                       "<b>Do not spend expert time renaming or relabelling these.</b> Either "
                       "the model cannot return the species or we never asked for enough "
@@ -619,7 +619,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
 
     # ---- three groups, so the page reads as decide, then interpret, then caveat ----
     P.append(section("What to do next",
-                     "Which crowns to send first, which can wait, which labels deserve a "
+                     "Which frames to send first, which can wait, which labels deserve a "
                      "second look, and how any one species is doing.",
                      "\n".join([p_todo, p_send, p_wait, p_rules, p_species, p_review])))
     P.append(section("How to read the numbers",
