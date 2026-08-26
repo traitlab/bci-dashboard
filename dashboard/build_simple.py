@@ -183,7 +183,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
     P = ['<h1>Pl@ntNet on BCI: how the model is doing</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(trend.latest)} &middot; Pl@ntNet model <code>{esc(trend.tag)}</code> '
-         f'&middot; {n:,} labelled crowns'
+         f'&middot; {n:,} labelled frames'
          f'{info_tip(f"Photos that carry both a ground-truth species label and a cached "
                      f"Pl@ntNet prediction, so they can be scored. {len(h.gt_rows):,} photos "
                      f"are labelled in total; see \u2018Where these numbers come from\u2019 below "
@@ -192,10 +192,16 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
          '<p class="intro"><b>Send the botanist more photos of the species marked '
          '&ldquo;Send more photos&rdquo; below, starting with the queue in the next '
          'panel.</b></p>',
-         f'<p class="terms">A <b>crown</b> is one tree canopy a botanist outlined in a '
-         f'drone frame. Pl@ntNet returns at most 5 species names for that crown’s '
-         f'photo; the <b>first guess</b> is the top-ranked one. Right means it matches '
-         f'the botanist.</p>',
+         f'<p class="terms">A <b>frame</b> is one drone photo. Its label is the species '
+         f'whose outlined crowns cover the largest total area in the <i>whole</i> frame. '
+         f'The picture sent to Pl@ntNet is the <b>1280&times;1280 centre crop</b>, which is '
+         f'13.65% of that frame. The <b>first guess</b> is the top-ranked of at most 5 names '
+         f'returned for the crop. Right means it matches the frame’s label.</p>',
+         f'<p class="caveat"><strong>These two numbers score a centre crop against a '
+         f'whole-frame label.</strong> On 1,377 of 3,777 evaluated records the labelled '
+         f'species covers less than half the crop, and on 207 it covers none of it. Read '
+         f'them as a provenance record of the centre-crop path, not as the model’s '
+         f'accuracy.</p>',
          '<div class="hero">',
          '<div class="metric first">'
          '<div class="e">per species</div>'
@@ -210,16 +216,16 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
          f'<div class="n">each of the {n_sp} species counts once, however few crowns '
          f'it has</div></div>',
          '<div class="metric">'
-         '<div class="e">per crown</div>'
+         '<div class="e">per frame</div>'
          f'<div class="v">{pctf(micro1)}</div>'
          '<div class="l">First guess is right</div>'
-         f'<div class="n">one vote per labelled crown ({c1:,} of {n:,}), so common '
+         f'<div class="n">one vote per labelled frame ({c1:,} of {n:,}), so common '
          f'species dominate</div></div>',
          '</div>',
          f'<p class="note">Read the two side by side, not as a contradiction. '
          f'<b>Per species</b> is the number to quote for a species picked off the '
-         f'checklist; <b>per crown</b> for a photo picked off the drive. Per crown is '
-         f'higher because the species with many crowns are the ones Pl@ntNet already '
+         f'checklist; <b>per frame</b> for a photo picked off the drive. Per frame is '
+         f'higher because the species with many frames are the ones Pl@ntNet already '
          f'knows.</p>',
          f'<p class="note">{trend_sentence(trend)}</p>',
          f'<p class="note">Ground truth covers {len(h.gt_rows):,} of '

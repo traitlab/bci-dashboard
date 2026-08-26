@@ -75,11 +75,11 @@ STATUS_REASON = {
 HEADLINES = [
     ("macro_top1", "First guess is right", "per species",
      "each of the {n_sp} species counts once, however few crowns it has"),
-    ("micro_top1", "First guess is right", "per crown",
-     "one vote per labelled crown, so common species dominate"),
+    ("micro_top1", "First guess is right", "per frame",
+     "one vote per labelled frame, so common species dominate"),
     ("macro_top5", "Right name is among the 5 offered", "per species",
      "the ceiling a better ranking could reach without a better model"),
-    ("micro_top5", "Right name is among the 5 offered", "per crown",
+    ("micro_top5", "Right name is among the 5 offered", "per frame",
      "we only ever asked Pl@ntNet for 5 names"),
 ]
 
@@ -87,17 +87,30 @@ HEADLINES = [
 # contradiction rather than as two questions.
 HERO_READING = (
     "Read down a column, not across. <b>Per species</b> is the number to quote for "
-    "a species picked off the checklist; <b>per crown</b> is the number to quote for "
-    "a photo picked off the drive. Per crown is the higher of the two because the "
-    "species with many crowns are the ones Pl@ntNet already knows."
+    "a species picked off the checklist; <b>per frame</b> is the number to quote for "
+    "a photo picked off the drive. Per frame is the higher of the two because the "
+    "species with many frames are the ones Pl@ntNet already knows."
 )
 
 # What a reader has to know before any of the four numbers means anything.
 HERO_TERMS = (
-    "A <b>crown</b> is one tree canopy a botanist outlined in a drone frame. "
-    "Pl@ntNet returns a ranked list of at most 5 species names for that crown's "
-    "photo; the <b>first guess</b> is the top-ranked name. Right means it matches "
-    "the botanist's name for the same crown."
+    "A <b>frame</b> is one 4000&times;3000 drone photo. Its label is the species whose "
+    "outlined crowns cover the largest total area in the <i>whole</i> frame. The photo sent "
+    "to Pl@ntNet is the <b>1280&times;1280 centre crop</b>, which is 13.65% of that frame. "
+    "Pl@ntNet returns at most 5 names for the crop; the <b>first guess</b> is the top-ranked "
+    "one. Right means it matches the frame's label."
+)
+
+# The two regions above are not the same region, and the numbers below compare
+# across them. Stated here rather than in a footnote because every figure on
+# this page inherits the mismatch.
+HERO_REGION = (
+    "<strong>These four numbers score a centre crop against a whole-frame label.</strong> "
+    "On 1,377 of 3,777 evaluated records the labelled species covers less than half the "
+    "crop, and on 207 it covers none of it, so a wrong answer here is not always a wrong "
+    "identification. Read them as a provenance record of the centre-crop path, not as the "
+    "model's accuracy. The region-aligned replacements are the crown arm (capability) and "
+    "the tiles arm (operational)."
 )
 
 
@@ -283,10 +296,10 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     P = ['<h1>Pl@ntNet on BCI: per-species model health</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(trend.latest)} &middot; Pl@ntNet model <code>{esc(trend.tag)}</code> '
-         f'&middot; {n:,} labelled crowns &middot; {n_sp} species</div>',
+         f'&middot; {n:,} labelled frames &middot; {n_sp} species</div>',
          '<p class="intro">This page says where botanist time is worth spending. Pl@ntNet has '
-         'already guessed a species for every labelled crown photo and we know the right '
-         'answer for those, so we can say per species how often it is right.</p>',
+         'already guessed a species for the centre crop of every labelled frame and we know '
+         'the frame\'s label, so we can say per species how often it is right.</p>',
          f'<p class="terms">{HERO_TERMS}</p>',
          '<div class="hero">']
     for i, (metric, question, averaged, note) in enumerate(HEADLINES):
@@ -295,7 +308,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                  f'<div class="v">{pctf(now[metric])}</div>{trend.spark(metric)}</div>'
                  f'<div class="l">{question}</div>'
                  f'<div class="n">{note.format(n_sp=n_sp)}</div></div>')
-    P.append(f'</div><p class="note">{HERO_READING}</p>')
+    P.append(f'</div><p class="caveat">{HERO_REGION}</p>')
+    P.append(f'<p class="note">{HERO_READING}</p>')
     # One sentence, not the full caveat: the ceiling panel states the same numbers
     # with the reasoning, and twice made this the second dense paragraph up top.
     P.append(f'<p class="note"><strong>{n - len(reach):,} of these crowns belong to '
@@ -550,10 +564,10 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
 
     # ---- ceiling ----
     body = (f'<p class="note"><strong>{len(never)} species ({never_crowns} of the {n:,} '
-            f'evaluated crowns) never appear in any answer the model gave us.</strong> '
-            f'Leaving them out raises the per-crown rate from {pctf(c1 / n)} to '
-            f'{pctf(reach1)} on {len(reach):,} crowns. Across all {len(h.gt_rows):,} labelled '
-            f'crowns the same condition covers {never_all} crowns.</p>'
+            f'evaluated frames) never appear in any answer the model gave us.</strong> '
+            f'Leaving them out raises the per-frame rate from {pctf(c1 / n)} to '
+            f'{pctf(reach1)} on {len(reach):,} centre crops. Across all {len(h.gt_rows):,} '
+            f'labelled frames the same condition covers {never_all} frames.</p>'
             f'<div class="warn"><strong>This is a limit of the question we asked, not proof '
             f'the model has never heard of these species.</strong> The only test we can run '
             f'offline is whether a species name turns up somewhere in the cached answers, and '
@@ -575,8 +589,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
               f'anything.</strong> Labels and predictions are put into the same standard form '
               f'before they are compared, and old names are resolved to current ones. Scoring '
               f'the raw names instead would give {pctf(strict1 / n)} rather than '
-              f'{pctf(c1 / n)}, so that matching is worth '
-              f'{100 * (c1 - strict1) / n:+.2f} points, or {c1 - strict1} crowns. Treat it as '
+              f'{pctf(c1 / n)} on the centre crop, so that matching is worth '
+              f'{100 * (c1 - strict1) / n:+.2f} points, or {c1 - strict1} frames. Treat it as '
               f'a gain already banked, not as a source of error.</p>'
               f'<p class="note"><strong>{gn:,} further crowns carry only a genus '
               f'name</strong> and are left out of every species number above. Scored at '

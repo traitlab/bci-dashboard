@@ -146,12 +146,12 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp):
     singles = buckets[thin]["n_species"]
     return panel(
         f"Why one score says {pctf(now['micro_top1'])} and the other {pctf(now['macro_top1'])}",
-        "<b>Same model, same photos, two ways of averaging.</b>",
+        "<b>Same model, same centre crops, two ways of averaging.</b>",
         # No note restating the two rates: the summary names both, the headline cards
         # state the distinction, and the chart labels its own bars with it.
         svg_weight_pair(rows,
                           label_a=f"one vote per species ({n_sp} votes)",
-                          label_b=f"one vote per crown ({n:,} votes)")
+                          label_b=f"one vote per frame ({n:,} votes)")
         + f'<p class="note">Picture {n_sp} classes, one per species, {n:,} students, one quiz. '
           f'Count students and the big classes decide; score each class once and a class of one '
           f'counts as much as <em>{esc(cap(big["species"]))}</em>\'s '
