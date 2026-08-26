@@ -50,7 +50,7 @@ TAG_CLASS = {"fine": "reliable", "send": "unmeasured", "unreachable": "unreachab
 SIMPLE_REASON = {
     "fine": "The first guess is right often enough that extra labels here buy less than "
             "they do elsewhere.",
-    "send": "Either too few labelled crowns to score, or enough crowns and a first guess "
+    "send": "Either too few labelled frames to score, or enough frames and a first guess "
             "that is still weak. More photos are the useful move either way.",
     "unreachable": "It never appears in the five guesses we asked for, so labelling will not "
                    "recover it. Whether Pl@ntNet carries the species at all is not known "
@@ -95,8 +95,8 @@ def trend_sentence(trend, metric="macro_top1"):
         return "First measurement, no trend yet."
     crowns = {d: c for d, _, c in trend.snaps}
     d0, d1 = pts[0], pts[-1]
-    s = (f"Trend: {pctf(got[d0])} on {d0} ({crowns.get(d0, 0):,} crowns) &rarr; "
-         f"{pctf(got[d1])} on {d1} ({crowns.get(d1, 0):,} crowns).")
+    s = (f"Trend: {pctf(got[d0])} on {d0} ({crowns.get(d0, 0):,} frames) &rarr; "
+         f"{pctf(got[d1])} on {d1} ({crowns.get(d1, 0):,} frames).")
     if trend.marks:
         s += " The model changed between those points, so compare them with care."
     else:
@@ -206,14 +206,14 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
          '<div class="metric first">'
          '<div class="e">per species</div>'
          f'<div class="v">{pctf(macro1)}'
-         f'{info_tip("Measured over every labelled crown, train and test together, so "
+         f'{info_tip("Measured over every labelled frame, train and test together, so "
                      "that a species with a handful of labels still appears here. It is "
                      "therefore not a held-out score. The split tags live in "
                      "data/splits.csv and the full page uses them: the can-wait rule is "
-                     "set on train crowns and graded on test crowns only.")}'
+                     "set on train frames and graded on test frames only.")}'
          '</div>'
          '<div class="l">First guess is right</div>'
-         f'<div class="n">each of the {n_sp} species counts once, however few crowns '
+         f'<div class="n">each of the {n_sp} species counts once, however few frames '
          f'it has</div></div>',
          '<div class="metric">'
          '<div class="e">per frame</div>'
@@ -235,9 +235,9 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
          f'Pl@ntNet does not carry: we only ever asked for five names, so the two look '
          f'alike from here.</p>'
          f'<p class="note">The right name is somewhere in the 5-guess list for '
-         f'<strong>{pctf(macro5)}</strong> of species ({pctf(c5 / n)} of crowns), and '
+         f'<strong>{pctf(macro5)}</strong> of species ({pctf(c5 / n)} of frames), and '
          f'when Pl@ntNet is at least {hc.WAIT_CONF:.0%} confident it is right '
-         f'<strong>{pctf(conf_acc)}</strong> of the time ({conf_n:,} crowns, '
+         f'<strong>{pctf(conf_acc)}</strong> of the time ({conf_n:,} frames, '
          f'{pctf(conf_n / n)} of the set).</p>']
 
     # ---- where the headline numbers come from ----
@@ -258,12 +258,12 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
         'above; it does not replace the set. That is why one export\u2019s row count '
         'never matches the corpus, ground-truth, evaluated, or queue counts here: '
         'each of those counts a different thing, not the same thing measured twice.</p>'
-        f'<p class="note">Every rate on this page is computed over all labelled crowns, '
+        f'<p class="note">Every rate on this page is computed over all labelled frames, '
         f'train and test together, so <b>none of them is a held-out score</b>. That is '
         f'deliberate: holding out would drop the species that have only a few labels, '
         f'which are the ones this page exists to queue. Split tags do exist, in '
         f'<code>data/splits.csv</code> ('
-        f'{sum(1 for r in h.sp_recs if r["split"]):,} of {len(h.sp_recs):,} scored crowns '
+        f'{sum(1 for r in h.sp_recs if r["split"]):,} of {len(h.sp_recs):,} scored frames '
         f'carry one), and the full page uses them to grade the can-wait rule out of '
         f'sample.</p>')
     P.append(panel("Where these numbers come from",
@@ -279,17 +279,17 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
                    pctf(queue_counts.get(q, 0) / n_unlab if n_unlab else None)]
                   for q in hc.QUEUE_ORDER])
     body += (f'<p class="note">&ldquo;Barely have&rdquo; is under {hc.WELL_SAMPLED_MIN_N} '
-             f'labelled crowns or a first guess right under {hc.HARD_MAX_TOP1:.0%} of the '
+             f'labelled frames or a first guess right under {hc.HARD_MAX_TOP1:.0%} of the '
              f'time; &ldquo;weakly&rdquo; is confidence under {hc.LOW_CONF:.0%} on a '
              f'species right at least {hc.RELIABLE_MIN_TOP1:.0%} of the time; '
              f'&ldquo;can wait&rdquo; is confidence of {hc.WAIT_CONF:.0%} or more on a '
-             f'species with {hc.WELL_SAMPLED_MIN_N} or more labelled crowns.</p>')
+             f'species with {hc.WELL_SAMPLED_MIN_N} or more labelled frames.</p>')
     body += (f'<p class="note">Most-named species in the first queue: '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
              + '.</p>'
              f'<p class="note">The top of <code>send_first_queue.csv</code> in the '
              f'snapshot folder is the next batch, chunked into <code>send_batches.csv</code> '
-             f'(one species per batch, at most {hc.BATCH_SIZE} crowns each) so it drops '
+             f'(one species per batch, at most {hc.BATCH_SIZE} frames each) so it drops '
              f'straight into a Labelbox send. {n_no_answer} photos got no answer at '
              f'all, likely junk; check those by eye.</p>')
     P.append(panel(f"What to send next: {queue_counts.get('long_tail', 0):,} of "
@@ -298,7 +298,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
 
     # ---- why the "can wait" threshold is safe ----
     P.append(panel("Why this threshold is safe",
-                   "<b>Both must be green before a crown can wait.</b>",
+                   "<b>Both must be green before a frame can wait.</b>",
                    threshold_card(hc.WAIT_CONF, hc.WELL_SAMPLED_MIN_N), open_=True))
 
     # ---- the species table ----
@@ -330,7 +330,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
             + '<p class="note">The default order starts with the species that need work '
               'now.</p>'
             + filterable_table(
-        [("Species", False), ("Labelled crowns", True),
+        [("Species", False), ("Labelled frames", True),
          ("First guess right", True), ("What to do", False)],
         sp_rows,
         options=[("send", "Send more photos"),
@@ -345,7 +345,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
 
     # ---- provenance, one line ----
     P.append(f'<p class="note">{esc(gt_provenance(gt_csv))} '
-             f'{n:,} labelled crowns, {n_sp} species; numbers recomputed from source at '
+             f'{n:,} labelled frames, {n_sp} species; numbers recomputed from source at '
              f'build time.</p>')
 
     return ("<!DOCTYPE html>\n"

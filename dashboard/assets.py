@@ -364,7 +364,7 @@ def slug(text: str) -> str:
     summary and heading already stands alone as a label -- a hand-written id
     would be a second name for the same thing, free to drift from the first.
     The colon split keeps the id short: summaries read "What to send first:
-    412 crowns in the long tail", and the count changes every snapshot while
+    412 frames in the long tail", and the count changes every snapshot while
     the anchor must not.
 
     A summary whose live numbers sit before any colon cannot be slugged safely,
@@ -469,7 +469,7 @@ def info_tip(reason: str) -> str:
 def funnel_list(steps: list[tuple[int, str]]) -> str:
     """A count-then-label list, reusing the existing to-do-list markup
     (``.todo``/``.n``) already styled for 16b's per-species counts, so a
-    photo-to-crown funnel gets no CSS of its own.
+    photo-to-frame funnel gets no CSS of its own.
 
     ``steps`` is ``[(count, label), ...]``, outermost first.
     """
@@ -511,21 +511,21 @@ def threshold_card(conf_thresh: float, support_thresh: int) -> str:
     chip_a = (f'<span class="chip on"><span class="dot"></span>'
               f'confidence &ge; {conf_thresh:.0%}</span>')
     chip_b = (f'<span class="chip on"><span class="dot"></span>'
-              f'support &ge; {support_thresh} crowns</span>')
+              f'support &ge; {support_thresh} frames</span>')
     badge = '<span class="rule-badge wait">Can wait</span>'
     return (
-        f'<p class="ask">We only auto-deprioritise a crown when the model is confident '
+        f'<p class="ask">We only auto-deprioritise a frame when the model is confident '
         f'({conf_thresh:.0%}+) and we already have enough examples for that species '
-        f'({support_thresh}+ crowns). If either condition fails, the crown stays in the '
+        f'({support_thresh}+ frames). If either condition fails, the frame stays in the '
         'review queues above.</p>'
         f'<div class="rule-card">{chip_a}{chip_b}<span>&rarr;</span>{badge}</div>'
         '<p class="note">&ldquo;Confidence&rdquo; is the model&rsquo;s certainty for its '
-        'top guess. &ldquo;Support&rdquo; is how many labelled crowns that species has in '
-        'this snapshot. Both chips must be green (as drawn) for the crown to wait; one '
+        'top guess. &ldquo;Support&rdquo; is how many labelled frames that species has in '
+        'this snapshot. Both chips must be green (as drawn) for the frame to wait; one '
         'grey chip and the badge reads &ldquo;Review now&rdquo; instead. The rule is graded '
-        'out of sample, not on the crowns that set it: which species clear the support gate '
-        'is decided from <b>train</b> crowns only, and the resulting error rate is measured '
-        'on <b>test</b> crowns only. The full page compares it against four alternatives '
+        'out of sample, not on the frames that set it: which species clear the support gate '
+        'is decided from <b>train</b> frames only, and the resulting error rate is measured '
+        'on <b>test</b> frames only. The full page compares it against four alternatives '
         'under &ldquo;How the five candidate rules compare&rdquo;.</p>'
     )
 
