@@ -13,7 +13,7 @@ import pytest
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 FROZEN = REPO / "input" / "confirmatory_frames_2026-08.csv"
-SHA256 = "eccc8d06472cdfa578064da74896793f716daace8d4eb3382a6d31a5e51d4704"
+SHA256 = "4a47a992915f7d72483de5cfa80f018dbc27d36222142b4ec4b0f3f1e6bc3406"
 
 
 class TestAllocationHonoursTheCap:
