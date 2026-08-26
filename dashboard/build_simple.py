@@ -93,10 +93,10 @@ def trend_sentence(trend, metric="macro_top1"):
     pts = [d for d in trend.dates if d in got]
     if len(pts) < 2:
         return "First measurement, no trend yet."
-    crowns = {d: c for d, _, c in trend.snaps}
+    scored = {d: c for d, _, c in trend.snaps}
     d0, d1 = pts[0], pts[-1]
-    s = (f"Trend: {pctf(got[d0])} on {d0} ({crowns.get(d0, 0):,} frames) &rarr; "
-         f"{pctf(got[d1])} on {d1} ({crowns.get(d1, 0):,} frames).")
+    s = (f"Trend: {pctf(got[d0])} on {d0} ({scored.get(d0, 0):,} frames) &rarr; "
+         f"{pctf(got[d1])} on {d1} ({scored.get(d1, 0):,} frames).")
     if trend.marks:
         s += " The model changed between those points, so compare them with care."
     else:
