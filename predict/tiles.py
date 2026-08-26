@@ -15,12 +15,21 @@ same ground truth. It writes one JSON per frame and never overwrites one.
     python predict/tiles.py --limit 200 --dry-run
 
 Cost: charged against the quadrat quota (20,000/day), separate from identify.
-A 140-tile call did not move the counter when this was written, so the price is
-not yet known; --limit is there so a run cannot spend an unknown budget.
+Measured 2026-08-26: a frame costs 140 credits, exactly one per sub-query, so
+the daily ceiling is 142 frames. --limit is there so a run cannot overshoot a
+budget by accident, and the cache lets a run that hits the ceiling resume the
+next day.
+
+For the confirmatory experiment, pass the frozen list rather than letting the
+script draw its own sample:
+
+    python predict/tiles.py --frames input/confirmatory_frames_2026-08.csv \
+        --limit 139 --workers 3
 """
 
 import argparse
 import concurrent.futures as cf
+import csv
 import importlib.util
 import json
 import os
@@ -53,6 +62,22 @@ def quota(key):
     return r.json().get("quota", {}) if r.ok else {}
 
 
+def frozen_list(path):
+    """The base_image column of a frozen draw, in file order.
+
+    A confirmatory run must send the list that was committed, not a list the
+    script re-derives, because `candidates()` reads live caches and would drift
+    as the caches fill.
+    """
+    with open(path, newline="", encoding="utf-8") as fh:
+        head = fh.readline()
+        if "base_image" not in head:
+            fh.seek(0)
+            return [ln.strip() for ln in fh if ln.strip()]
+        fh.seek(0)
+        return [r["base_image"] for r in csv.DictReader(fh) if r.get("base_image")]
+
+
 def candidates(core, crown, cache_dir):
     """Frames worth spending a call on, most-informative first.
 
@@ -61,7 +86,7 @@ def candidates(core, crown, cache_dir):
     question this script exists for: does seeing the whole frame beat seeing
     13.7% of it, on the same frame, against the same label.
     """
-    gt, canon = crown.frame_gt_map(core)
+    gt, _ = crown.frame_gt_map(core)
     urls = crown.load_frame_urls()
     photo_cache = REPO / "data" / "predictions" / "cache"
     out = []
@@ -79,6 +104,13 @@ def candidates(core, crown, cache_dir):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--frames", type=Path, metavar="CSV",
+                    help="send exactly these frames, from the base_image column "
+                         "of a frozen draw (or one name per line). Frames "
+                         "already in the cache are skipped, so a run that hit "
+                         "the daily quota resumes by being re-run")
+    ap.add_argument("--quota-only", action="store_true",
+                    help="print the current quota and exit, spending nothing")
     ap.add_argument("--limit", type=int, default=100,
                     help="maximum API calls this run may make")
     ap.add_argument("--seed", type=int, default=0)
@@ -97,16 +129,34 @@ def main():
     if not key and not args.dry_run:
         sys.exit("ERROR: PLANTNET_API_KEY not set (see .env)")
 
+    if args.quota_only:
+        log(json.dumps(quota(key), indent=1))
+        return
+
     core = _load("_core", REPO / "dashboard" / "core.py")
     crown = _load("_crown", REPO / "predict" / "crown.py")
     ingest = _load("_ingest", REPO / "predict" / "ingest_photos.py")
 
     args.out.mkdir(parents=True, exist_ok=True)
-    todo = candidates(core, crown, args.out)
-    random.Random(args.seed).shuffle(todo)
-    todo = todo[:args.limit]
+    if args.frames:
+        gt, _ = crown.frame_gt_map(core)
+        wanted = frozen_list(args.frames)
+        missing_gt = [b for b in wanted if b not in gt]
+        if missing_gt:
+            sys.exit(f"ERROR: {len(missing_gt)} frozen frames have no species-level "
+                     f"ground truth, e.g. {missing_gt[0]}")
+        todo = [(b, gt[b]) for b in wanted
+                if not (args.out / f"{b}.json").exists()]
+        log(f"frozen list                       : {len(wanted)} frames "
+            f"({args.frames.name})")
+        log(f"already cached                    : {len(wanted) - len(todo)}")
+        todo = todo[:args.limit]
+    else:
+        todo = candidates(core, crown, args.out)
+        random.Random(args.seed).shuffle(todo)
+        todo = todo[:args.limit]
 
-    log(f"frames eligible and not yet cached : {len(todo)} (capped at {args.limit})")
+    log(f"frames to send this run           : {len(todo)} (capped at {args.limit})")
     if args.dry_run:
         for base, sp in todo[:5]:
             log(f"  would send {base}  gt={sp}")
