@@ -131,3 +131,11 @@ def settings(monkeypatch):
 def draw_confirmatory():
     _require("PIL", "yaml", "dotenv")
     return load("_draw_confirmatory_under_test", REPO / "predict" / "draw_confirmatory.py")
+
+
+@pytest.fixture(scope="session")
+def score_confirmatory():
+    """`dashboard/` on the path, because the scorer imports `core` as a sibling."""
+    with _on_path(REPO / "dashboard"):
+        import score_confirmatory
+        yield score_confirmatory
