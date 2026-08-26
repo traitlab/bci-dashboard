@@ -228,6 +228,27 @@ What that does and does not undermine:
 The writeup must say this in those words. The crown arm's own accuracy carries a
 prior-exposure caveat. The paired comparison and the tiles arm do not.
 
+### A3, 2026-08-26, an interim look was taken on the incomplete tiles arm
+
+**State of the data.** The tiles arm held 129 of 300 frames, the crown and photo
+arms held 300. The operator asked what the day's credits had bought, and the
+scorer was run and read.
+
+**What was seen.** The full EXPLORATORY report, including P1, P2 and P4.
+
+**What changed as a result.** Nothing. The sample, the arms, the aggregation
+rules, the endpoints, the tests, the cluster units and the stopping rule are as
+committed, and the frozen list still matches the sha256 above. The design is not
+reachable from the outcome without a commit that says so.
+
+**Why the number seen is not a preview.** The 129 fetched frames cover 7 of the
+12 sites, and four of those seven are complete while five sites hold nothing.
+The interim tiles figure and its site-clustered interval are computed on a
+site-biased subset, not on a random 43% of the sample.
+
+**What the writeup must say.** That this look happened, on which arms, at what
+completeness, and that no design element moved.
+
 ## Provenance
 
 - Draw script: `predict/draw_confirmatory.py`, seed 20260826.
