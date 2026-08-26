@@ -129,6 +129,20 @@ class TestTheTest:
         assert (pairs, crown_only, tiles_only) == (1, 0, 1)
 
 
+class TestAnEmptyAnswerIsWrongAndNotMissing:
+    def test_a_frame_the_api_named_nothing_on_still_counts_against_the_arm(
+            self, score_confirmatory):
+        # Silently dropping the frames an arm had no answer for would flatter
+        # whichever arm abstains most, which is the opposite of what the
+        # comparison is for. Only a frame the fetch never reached is missing.
+        rows = [frame("gave up", "X", tiles=[], crown=["X"]),
+                frame("answered", "X", tiles=["X"], crown=["X"])]
+        assert score_confirmatory.accuracy(rows, "tiles") == 0.5
+        pairs, crown_only, tiles_only = score_confirmatory.discordance(
+            rows, "crown", "tiles")
+        assert (pairs, crown_only, tiles_only) == (2, 1, 0)
+
+
 class TestTheStoppingRuleHolds:
     def test_a_set_missing_an_aligned_arm_is_stamped_exploratory(
             self, score_confirmatory, capsys, tmp_path):
