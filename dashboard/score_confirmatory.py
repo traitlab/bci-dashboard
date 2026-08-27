@@ -1,4 +1,4 @@
-"""Score the frozen 300 under the design committed in docs/hypothesis.md.
+"""Score the frozen 300 under the design committed in bci-dashboard-docs/hypothesis.md.
 
 Three arms, one label, three regions:
 
@@ -13,7 +13,7 @@ that criterion at their own unit; the photo rule does not, which is the defect
 the experiment exists to measure.
 
 Nothing here chooses anything. Every rule, every threshold, the cluster unit,
-the test and the stopping rule were fixed in docs/hypothesis.md before the data
+the test and the stopping rule were fixed in bci-dashboard-docs/hypothesis.md before the data
 existed. This file only applies them. If either region-aligned arm is missing a
 frozen frame the report is stamped EXPLORATORY, because the stopping rule says
 the confirmatory read happens once, on the complete set.
@@ -392,6 +392,7 @@ def write_adjudication(rows, path, seed=SEED):
     both = [r for r in rows if r["crown"] is not None and r["tiles"] is not None]
     disagree = [r for r in both if (r["crown"][:1] or [None]) != (r["tiles"][:1] or [None])]
     path = pathlib.Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
     key_path = path.with_name(path.stem + "_key.csv")
     with open(path, "w", newline="", encoding="utf-8") as fh, \
             open(key_path, "w", newline="", encoding="utf-8") as kh:

@@ -1,4 +1,4 @@
-"""The rules in docs/hypothesis.md, checked against the code that applies them.
+"""The rules in bci-dashboard-docs/hypothesis.md, checked against the code that applies them.
 
 The preregistration is only worth something if the scorer implements it
 literally. Each test below names the clause it holds the code to, so a later
