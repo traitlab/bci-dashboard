@@ -37,6 +37,15 @@ GT_CSV = os.path.join(BASE, "gt_dominant_taxon.csv")
 SPLITS_CSV = os.path.join(BASE, "splits.csv")
 CACHE_DIR = os.path.join(BASE, "predictions", "cache")
 
+# global_key -> (data_row_id, project_id), accumulated by
+# labelling/gt_from_export.py from the exports the GT was merged from. The one
+# offline source for a Labelbox deep link: a data row opens only inside a
+# project it belongs to, and the export states both halves. Absent, or missing
+# a frame labelled in a project that has not been exported since, the page
+# reports the gap rather than guessing a URL.
+DATA_ROW_IDS_CSV = os.path.join(BASE, "data_row_ids.csv")
+LABELBOX_URL = "https://app.labelbox.com/projects/{project_id}/data-rows/{data_row_id}"
+
 # Dated model-health-<date>/ folders: the trend history, kept beside the code
 # that reads it. Gitignored.
 SNAPSHOT_DIR = os.environ.get("BCI_DASHBOARD_SNAPSHOTS") or os.path.join(REPO, "snapshots")
@@ -138,6 +147,23 @@ def is_species_level(n: str) -> bool:
 def read_csv_rows(path: str) -> list[dict]:
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
+
+
+def labelbox_urls(path: str = DATA_ROW_IDS_CSV) -> dict[str, str]:
+    """global_key -> the Labelbox URL that opens that frame, where one is known.
+
+    Reads a file, never the API: building a page makes no network call and
+    reads no credential. A missing file is an empty map, not an error, so a
+    checkout without one still builds; the caller reports the coverage.
+    """
+    if not os.path.exists(path):
+        return {}
+    out = {}
+    for r in read_csv_rows(path):
+        if r.get("data_row_id") and r.get("project_id"):
+            out[r["global_key"]] = LABELBOX_URL.format(
+                project_id=r["project_id"], data_row_id=r["data_row_id"])
+    return out
 
 
 def salvage_species_array(text: str):

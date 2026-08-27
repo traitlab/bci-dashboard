@@ -124,11 +124,22 @@ def test_build_verifies_clean_against_the_snapshot(page):
 # ---------------------------------------------------------------------------
 
 def test_page_has_no_external_asset_references(page):
+    """Nothing the page *loads* may come from off the machine.
+
+    An ``href`` on an anchor is not a load: the review rows deep-link into
+    Labelbox so a botanist can open the frame they are being asked about, and
+    the reader clicks it or does not. What is banned is a URL the browser
+    fetches on its own -- a stylesheet, a script, an image, an iframe -- since
+    that would make the page stop rendering correctly offline.
+    """
     html, _ = page
     assert "<link" not in html
     assert "script src" not in html
-    assert "http://" not in html
-    assert "https://" not in html
+    fetched = re.findall(r'(?:src|srcset|@import\s+url\()\s*=?\s*["\'(]?(https?://[^"\'\s)]+)', html)
+    assert not fetched, f"page fetches off-machine assets: {fetched[:3]}"
+    anchors = set(re.findall(r'<a\s[^>]*href="(https?://[^"]+)"', html))
+    assert all(u.startswith("https://app.labelbox.com/projects/") for u in anchors), (
+        f"unexpected outbound link: {sorted(anchors)[:3]}")
 
 
 # ---------------------------------------------------------------------------

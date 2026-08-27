@@ -226,6 +226,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     # Enough to answer "what do I send next" without a CSV reader. A batch is 100
     # frames, so 25 is one morning's work and still short enough to read.
     SEND_PREVIEW = 25
+    # Same reasoning, shorter: this list is read, not worked through.
+    REVIEW_PREVIEW = 15
 
     confident = [r for r in sp_recs if conf(r) >= hc.REVIEW_CONF]
     review = [r for r in confident if top1(r) != r["gt"]]
@@ -416,6 +418,27 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                     f"{len(cs):,}", f"{sum(cs) / len(cs):.2f}"]
                    for (gt, pr), cs in pair_rows])
             if pair_rows else '<p class="note">None at this threshold.</p>')
+    # The frames themselves, most confident first, each linked into Labelbox where
+    # the link is known. Known means an export carried that data row: the URL is
+    # read from what a merge recorded, never guessed and never fetched.
+    urls = hc.labelbox_urls()
+    top_review = sorted(review, key=lambda r: -conf(r))[:REVIEW_PREVIEW]
+    linked = sum(1 for r in review if r["global_key"] in urls)
+    body += table([("frame", False), ("botanist label", False),
+                   ("Pl@ntNet's first guess", False), ("confidence", True)],
+                  [[(f'<a href="{esc(urls[r["global_key"]])}" target="_blank" '
+                     f'rel="noopener">{esc(r["global_key"])}</a>'
+                     if r["global_key"] in urls else esc(r["global_key"])),
+                    f'<span class="sp">{esc(cap(r["gt"]))}</span>',
+                    f'<span class="sp">{esc(cap(top1(r)))}</span>',
+                    f"{conf(r):.2f}"]
+                   for r in top_review])
+    body += (f'<p class="note">The {len(top_review)} most confident disagreements. '
+             f'A frame name links straight to its Labelbox data row where that link '
+             f'is known: {linked} of {len(review)} frames here, because a data row id '
+             f'is only known for frames carried by an export this ground truth was '
+             f'merged from. Frames labelled in a project that has not been exported '
+             f'since are listed without a link rather than sent to a guessed URL.</p>')
     body += (f'<p class="note">Each row is a labelled frame where the model is at least '
              f'{hc.REVIEW_CONF:.1f} confident in a <em>different</em> species. A first guess '
              f'this confident is right {pctf(confident_ok)} of the time in bulk '

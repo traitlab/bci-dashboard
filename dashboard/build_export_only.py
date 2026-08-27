@@ -72,7 +72,7 @@ def export_only_health(
     mod = _load_gt_from_export()
     with open(export_path, encoding="utf-8") as f:
         n_rows = sum(1 for _ in f)
-    dominants = mod.export_dominants(export_path)  # stem -> species, this export only
+    dominants, _, _ = mod.export_dominants(export_path)  # stem -> species, this export only
 
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".csv", delete=False, newline="", encoding="utf-8"

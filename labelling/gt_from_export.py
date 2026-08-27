@@ -56,8 +56,14 @@ def strip_codes(name: str) -> str:
     return "-".join(parts) if parts else str(name)
 
 
-def export_dominants(ndjson_path: Path) -> tuple[dict[str, str], list[dict]]:
-    """Basename -> dominant taxon by summed box area, plus every labelled box.
+def export_dominants(ndjson_path: Path) -> tuple[dict[str, str], list[dict], dict[str, tuple[str, str]]]:
+    """Basename -> dominant taxon by summed box area, boxes, and data row ids.
+
+    The third return value maps a basename to the ``(data_row_id, project_id)``
+    the export recorded for it. That pair is the only way to build the Labelbox
+    URL a reviewer clicks, and the export is the one place it can be read
+    without a credential: a data row opens only inside a project it belongs to,
+    and the export states both halves for every frame it carries.
 
     The boxes are returned as well as the dominants because they are the current
     crown geometry. ``input/boxes/crop_bounding_boxes.csv`` predates the July
@@ -71,10 +77,14 @@ def export_dominants(ndjson_path: Path) -> tuple[dict[str, str], list[dict]]:
     """
     area = defaultdict(Counter)
     boxes: list[dict] = []
+    row_ids: dict[str, tuple[str, str]] = {}
     with open(ndjson_path, encoding="utf-8") as f:
         for line in f:
             row = json.loads(line)
             stem = row["data_row"]["global_key"].rsplit("/", 1)[-1]
+            for project_id in row.get("projects", {}):
+                row_ids[stem] = (row["data_row"]["id"], project_id)
+                break
             for proj in row.get("projects", {}).values():
                 for label in proj.get("labels", []):
                     for obj in label.get("annotations", {}).get("objects", []):
@@ -101,7 +111,7 @@ def export_dominants(ndjson_path: Path) -> tuple[dict[str, str], list[dict]]:
                         })
     dominants = {stem: counts.most_common(1)[0][0]
                  for stem, counts in area.items() if counts}
-    return dominants, boxes
+    return dominants, boxes, row_ids
 
 
 def main() -> None:
@@ -123,7 +133,7 @@ def main() -> None:
     with open(args.gt, newline="", encoding="utf-8") as f:
         base_gt = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
 
-    july, boxes = export_dominants(Path(args.export))
+    july, boxes, row_ids = export_dominants(Path(args.export))
 
     fields = ["base_image", "x_min", "y_min", "x_max", "y_max",
               "width", "height", "lb_label"]
@@ -148,6 +158,26 @@ def main() -> None:
         w = csv.writer(f)
         w.writerow(["global_key", "wcvp_canonical_name"])
         w.writerows(out)
+
+    # Data row ids accumulate the same way the GT does. An export names only
+    # the project it came from, so a frame labelled in a legacy project has no
+    # id here until that project's rows are migrated and exported again. The
+    # pages report the coverage rather than guessing a link.
+    ids_path = Path(args.gt).with_name("data_row_ids.csv")
+    known: dict[str, tuple[str, str]] = {}
+    if ids_path.exists():
+        with open(ids_path, newline="", encoding="utf-8") as f:
+            known = {r["global_key"]: (r["data_row_id"], r["project_id"])
+                     for r in csv.DictReader(f)}
+    before = len(known)
+    known.update({GT_KEY_PREFIX + stem: pair for stem, pair in row_ids.items()
+                  if GT_KEY_PREFIX + stem in corpus})
+    with open(ids_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["global_key", "data_row_id", "project_id"])
+        w.writerows([k, *known[k]] for k in sorted(known))
+    share = f"{len(known) / len(merged):.1%}" if merged else "n/a"
+    print(f"data row ids {before} -> {len(known)} ({share} of GT)  -> {ids_path}")
 
     note = args.note or (f"Ground truth merged from Labelbox export "
                          f"{Path(args.export).name} on {datetime.now(timezone.utc).date().isoformat()}.")
