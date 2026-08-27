@@ -617,15 +617,17 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     # ---- method ----
     p_method = method_panel(tag=trend.tag, n=n, n_sp=n_sp, checks=checks)
 
-    # ---- three groups, so the page reads as decide, then interpret, then caveat ----
-    P.append(section("What to do next",
-                     "Which frames to send first, which can wait, which labels deserve a "
-                     "second look, and how any one species is doing.",
-                     "\n".join([p_todo, p_send, p_wait, p_rules, p_species, p_review])))
-    P.append(section("How to read the numbers",
-                     "The two headline scores disagree. These panels say why, and whether the "
-                     "model's own confidence can be trusted.",
-                     "\n".join([p_weighting, p_conf, p_labels, p_trend])))
+    # ---- the page's two goals, then the ceilings that gate both. A panel belongs
+    # to the goal it serves, so the confidence evidence sits with the queue rule it
+    # justifies and the species lookup sits with the scores it reports.
+    P.append(section("What to label first",
+                     "Which frames to send, which can wait, the evidence behind the wait "
+                     "rule, and which labels deserve a second look.",
+                     "\n".join([p_todo, p_send, p_wait, p_rules, p_conf, p_review])))
+    P.append(section("How Pl@ntNet is doing against the labels",
+                     "The two headline scores disagree. These panels say why, whether the "
+                     "score moved, and how any one species is doing.",
+                     "\n".join([p_weighting, p_labels, p_species, p_trend])))
     P.append(section("What this cannot tell you",
                      "The ceilings on every number above.",
                      "\n".join([p_candidates, p_ceiling, p_method])))
