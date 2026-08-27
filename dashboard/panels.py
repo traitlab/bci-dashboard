@@ -18,6 +18,7 @@ Stdlib only, like the rest of ``dashboard/``.
 
 from __future__ import annotations
 
+import csv
 import os
 import sys
 from collections import Counter, defaultdict
@@ -39,6 +40,15 @@ RARE_MAX_SUPPORT = 10
 # so this page renders the same status hc.diagnose would for the same species.
 WAIT_SUPPORT_MIN = 10
 RECOMMENDED_CONF = 0.8
+
+# The frozen confirmatory read, written by dashboard/score_confirmatory.py. The
+# page reads the file rather than re-running the scorer, because the stopping
+# rule in bci-dashboard-docs/hypothesis.md says that read happens once, on the
+# complete set: a number that moved because a page was rebuilt would not be a
+# confirmatory number. Tracked for the same reason the frozen frame list is.
+CONFIRMATORY_CSV = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "input", "confirmatory_result_2026-08.csv")
 
 # Enough to answer "what do I send next" without a CSV reader. A batch is 100
 # frames, so 25 is one morning's work and still short enough to read.
@@ -96,14 +106,19 @@ HERO_READING = (
     "species with many frames are the ones Pl@ntNet already knows."
 )
 
-# What a reader has to know before any of the four numbers means anything.
+# What a reader has to know before any number on the page means anything. The
+# crown sentence is here rather than beside the headline because the headline is
+# the first thing on the page and a term defined under it is defined too late.
 HERO_TERMS = (
     "A <b>frame</b> is one 4000&times;3000 drone photo. Its label is the species whose "
     "outlined crowns cover the largest total area in the <i>whole</i> frame. The photo sent "
     "to Pl@ntNet is the <b>1280&times;1280 centre crop</b>, which is 13.65% of that frame. "
     "We asked Pl@ntNet for 5 names per crop (<code>nb-results=5</code>, our request "
     "parameter, not a model limit); the <b>first guess</b> is the top-ranked one. Right "
-    "means it matches the frame's label."
+    "means it matches the frame's label. A <b>crown</b> is one canopy a botanist outlined "
+    "inside a frame; asking Pl@ntNet about each crown separately and pooling the answers by "
+    "how much of the frame each covers is what <b>region-aligned</b> means below, because "
+    "that is the same rule the frame's label is built from."
 )
 
 # The two regions above are not the same region, and the numbers below compare
@@ -114,8 +129,9 @@ HERO_REGION = (
     "On 1,377 of 3,777 evaluated records the labelled species covers less than half the "
     "crop, and on 207 it covers none of it, so a wrong answer here is not always a wrong "
     "identification. Read them as a provenance record of the centre-crop path, not as the "
-    "model's accuracy. The region-aligned replacement is the crown arm, where the unit "
-    "of prediction is the unit the label describes."
+    "model's accuracy. The region-aligned number above is the one to quote: it is measured "
+    "on 300 frames rather than the whole corpus, but its unit of prediction is the unit "
+    "the label describes."
 )
 
 # Queue name -> (what it is, why it is worth sending). Shown in the order
@@ -165,6 +181,75 @@ def camera_of(key):
     raise SystemExit(f"frame key names no camera: {key!r}. The camera split "
                      f"below reads the key, so a third camera has to be handled "
                      f"here rather than counted as neither.")
+
+
+def load_confirmatory(path=CONFIRMATORY_CSV):
+    """The frozen confirmatory read as a dict, or None if the file is absent.
+
+    Values that parse as a number come back as floats and the rest as strings,
+    so a caller can format a rate without knowing which keys are rates. Absent
+    is not an error here: the internal page never reads this, and a fresh clone
+    that has not run the scorer should still build its other page.
+    """
+    if not os.path.exists(path):
+        return None
+    out = {}
+    with open(path, newline="", encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            try:
+                out[row["key"]] = float(row["value"])
+            except ValueError:
+                out[row["key"]] = row["value"]
+    return out
+
+
+def pfmt(p, draws):
+    """A bootstrap p that came back zero is a resolution limit, not a zero.
+
+    Printing 0.00000 claims a precision 10,000 resamples cannot buy, so a p
+    below one draw is reported as the bound the draw count supports.
+    """
+    floor = 1.0 / draws
+    return f"&lt; {floor:.4f}" if p < floor else f"= {p:.5f}"
+
+
+def confirmatory_hero(cf):
+    """The two region arms side by side, crown first.
+
+    Crown leads because it is the arm whose unit of prediction is the unit the
+    label describes. Photo stays beside it rather than being retired, because
+    every other number on this page is still measured on the centre crop and a
+    reader needs the two in the same field of view to know what the gap costs.
+    """
+    if cf is None:
+        raise SystemExit(
+            f"{CONFIRMATORY_CSV} is missing, so the headline this page leads with "
+            f"cannot be published. Run: python3 dashboard/score_confirmatory.py "
+            f"--out {CONFIRMATORY_CSV}")
+    if cf.get("stamp") != "CONFIRMATORY":
+        raise SystemExit(
+            f"the confirmatory result is stamped {cf.get('stamp')!r}, not "
+            f"'CONFIRMATORY'. The stopping rule says the read happens once on the "
+            f"complete set, so an exploratory number must not be published here.")
+    arms = (("crown", "Region-aligned, given the crowns", "One identify call per labelled "
+             "crown, pooled to the frame by box area. The crowns come from the botanist, so "
+             "this is what naming costs once delineation is done, not what an unaided "
+             "pipeline would score"),
+            ("photo", "Centre crop, legacy", "One identify call on the fixed 1280 px "
+             "centre square, 13.7% of the frame"))
+    out = ['<div class="hero">']
+    for i, (arm, label, how) in enumerate(arms):
+        out.append(
+            f'<div class="metric{" first" if i == 0 else ""}">'
+            f'<div class="e">{label}</div>'
+            f'<div class="row"><div class="v">{pctf(cf[f"{arm}_top1"])}</div></div>'
+            f'<div class="l">Top-1 on the frozen {int(cf["n_frames"])} frames</div>'
+            f'<div class="n">{int(cf[f"{arm}_hits"])} of {int(cf[f"{arm}_n"])} frames right. '
+            f'95% interval {pctf(cf[f"{arm}_top1_site_lo"])} to '
+            f'{pctf(cf[f"{arm}_top1_site_hi"])}, bootstrapped over the '
+            f'{int(cf["n_sites"])} sites. {how}.</div></div>')
+    out.append('</div>')
+    return "".join(out)
 
 
 def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
@@ -328,7 +413,7 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
         flat=flat, eligible=eligible, test_recs=test_recs, rare=rare,
         n_rare_test=n_rare_test, ops=ops, best=best, gn=gn, fam_n=fam_n, gg1=gg1,
         fam_names=fam_names, gen_any=gen_any, gen_one=gen_one, gen_none=gen_none,
-        checks=None)
+        cf=load_confirmatory(), checks=None)
 
 
 # ---------------------------------------------------------------------------
@@ -634,6 +719,101 @@ def p_ceiling(c):
                  "the two apart.", body)
 
 
+# Quoted, not summarised, from bci-dashboard-docs/hypothesis.md. Both
+# amendments say in their own text that the writeup must carry these words
+# rather than a paraphrase, so they are stored as literals and rendered whole.
+# If either changes there, change it here in the same session.
+A2_PRIOR_EXPOSURE = (
+    "<p>What that does and does not undermine:</p><ul>"
+    "<li><strong>The tiles arm is blind.</strong> Condition 4 excludes every frame with a "
+    "quadrat result, so no frame in this sample has ever been scored in that arm.</li>"
+    "<li><strong>The frame-level aggregation is new.</strong> The area-weighted crown vote "
+    "defined above has never been computed on any sample. What was reported earlier was a "
+    "per-crown top-1 accuracy of 85.4% over the whole corpus, on a different unit and a "
+    "different population.</li>"
+    "<li><strong>The sample is new.</strong> These 300 frames were not chosen by looking at "
+    "crown results.</li>"
+    "<li><strong>But the number was not generated blind.</strong> An operator has seen "
+    "crown-arm accuracy, at another unit and on a wider population, before this freeze.</li>"
+    "</ul><p>The writeup must say this in those words. The crown arm's own accuracy "
+    "carries a prior-exposure caveat. The paired comparison and the tiles arm do not.</p>")
+
+A4_WHAT_THIS_COSTS = (
+    "<p><strong>What this costs, stated plainly.</strong> The arm was dropped after its "
+    "interim number had been seen, and no amount of reasoning removes that ordering. The two "
+    "reasons above are structural and were both knowable on 2026-08-26, before A3. They were "
+    "not acted on then. A reader is entitled to weigh that, and the writeup must carry this "
+    "paragraph, not a summary of it.</p>")
+
+
+def p_confirmatory(c):
+    """The frozen read behind the headline, with both caveats it carries.
+
+    Separate from the method panel because nothing here comes from the snapshot:
+    it is a one-time read of 300 frames fixed before the data existed, and a
+    reader who mixes it with the corpus-wide numbers will report a rate on a
+    population that was never measured.
+    """
+    cf = c.cf
+    if cf is None:
+        raise SystemExit("p_confirmatory needs the frozen result; see confirmatory_hero")
+    d, lo, hi = (cf["crown_minus_photo"], cf["crown_minus_photo_site_lo"],
+                 cf["crown_minus_photo_site_hi"])
+    body = (
+        f'<p class="note"><strong>Population and support.</strong> {int(cf["n_frames"])} '
+        f'frames, drawn before any of these numbers existed, across {int(cf["n_sites"])} '
+        f'sites and {int(cf["n_days"])} flight days. Both arms scored every frame: '
+        f'{int(cf["crown_n"])} for crown, {int(cf["photo_n"])} for centre crop, so the two '
+        f'rates are paired on the same frames rather than measured on two samples. The '
+        f'interval is a percentile bootstrap over {int(cf["bootstrap_draws"]):,} resamples of '
+        f'whole sites, because frames from one site are not independent of each other. The '
+        f'unclustered interval every other number on this page uses would read '
+        f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])} for the '
+        f'crown arm, which is narrower than the data supports.</p>'
+        f'<p class="note"><strong>The gap is the finding, not either number on its own.</strong> '
+        f'Crown beats centre crop by {100 * d:+.1f} points '
+        f'({100 * lo:+.1f} to {100 * hi:+.1f}, clustered on site). On '
+        f'{int(cf["crown_only_hits"])} frames the crown arm was right where the centre crop '
+        f'was wrong, and on {int(cf["photo_only_hits"])} the reverse. Cluster bootstrap '
+        f'p {pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}; exact McNemar, which '
+        f'assumes the pairs are independent and they are not, '
+        f'p = {cf["p_mcnemar_exact"]:.5f}. The design named the '
+        f'bootstrap as the answer when the two disagree.</p>'
+        f'<div class="warn"><p><strong>The crown number was not produced blind, and the '
+        f'design says so in these words.</strong> Quoted in full from amendment A2 of '
+        f'<code>hypothesis.md</code>, which requires the words rather than a summary:</p>'
+        f'{A2_PRIOR_EXPOSURE}</div>'
+        f'<div class="warn"><p><strong>A third arm was dropped after its interim number had '
+        f'been seen.</strong> Quoted in full from amendment A4, which requires the same:</p>'
+        f'{A4_WHAT_THIS_COSTS}</div>'
+        f'<div class="warn"><p><strong>What this rate is not.</strong></p><ul>'
+        f'<li><strong>It is not an unaided pipeline number.</strong> The crown arm is given '
+        f'the botanist&rsquo;s outlines and asked only to name what is inside them. The arm '
+        f'that would have answered the box-free question, tiles, was the one dropped. Read '
+        f'{pctf(cf["crown_top1"])} as the cost of naming once delineation is done.</li>'
+        f'<li><strong>It is per frame, not per species.</strong> The '
+        f'{int(cf["n_frames"])} frames carry {int(cf["n_species"])} species and the two '
+        f'commonest hold {pctf(cf["top2_species_share"])} of them, so this rate is weighted '
+        f'towards the species the model already knows best. That is the same objection this '
+        f'page makes to the {pctf(c.now["micro_top1"])} figure below, and it applies here '
+        f'too. No per-species average was pre-registered for this sample and none is '
+        f'published.</li>'
+        f'<li><strong>It is {int(cf["n_frames"])} frames, not the corpus.</strong> Every one '
+        f'was shot with the {esc(cf["cameras"])} lens, at {int(cf["n_sites"])} of the 17 '
+        f'field sites. Nothing here supports a camera claim: no mission in this design '
+        f'carries both cameras.</li></ul></div>'
+        f'<p class="note">Every rule, threshold, cluster unit, test and stopping rule was '
+        f'fixed in <code>bci-dashboard-docs/hypothesis.md</code> before the data existed, and '
+        f'this page reads the result the scorer wrote rather than re-running it, because the '
+        f'stopping rule says the read happens once on the complete set.</p>')
+    return panel(
+        f'Where the headline comes from: {int(cf["n_frames"])} frozen frames, and the two '
+        f'caveats the design says must travel with it',
+        "<b>Do not quote the region-aligned rate without the prior-exposure caveat.</b> "
+        "It is a real number on a pre-registered sample, and an operator had seen the same "
+        "arm at another unit before the sample was frozen.", body)
+
+
 def p_candidates(c):
     return candidates_panel(recs=c.sp_recs + c.h.genus_recs, gen_n=c.gn, gen_none=c.gen_none)
 
@@ -682,6 +862,7 @@ PANELS = {
     "labels": ("model-health", p_labels),
     "species": ("model-health", p_species),
     "review": ("model-health", p_review),
+    "confirmatory": ("limits", p_confirmatory),
     "candidates": ("limits", p_candidates),
     "ceiling": ("limits", p_ceiling),
     "method": ("limits", p_method),
@@ -692,7 +873,7 @@ PANELS = {
 # the confident disagreements go with it so they can be worked in Labelbox.
 INTERNAL_PANELS = ("todo", "send", "wait", "rules", "conf")
 EXTERNAL_PANELS = ("weighting", "labels", "species", "review",
-                   "candidates", "ceiling", "method")
+                   "confirmatory", "candidates", "ceiling", "method")
 
 if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
     raise SystemExit(f"every panel belongs to a page: "

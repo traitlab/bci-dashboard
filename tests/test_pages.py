@@ -55,7 +55,7 @@ _GENERATED = "2026-08-25-test"
 # camera note beside it, which only the internal page renders.
 PAGES = {
     "external_page": ("build_external.py", "model_health_dashboard.html",
-                      {"species"}),
+                      {"species", "confirmatory"}),
     "internal_page": ("build_internal.py", "label_queue_dashboard.html",
                       {"queue_counts", "queue_keys"}),
     "simple_page": ("build_simple.py", "simple_dashboard.html",
@@ -258,6 +258,95 @@ def test_every_row_status_has_a_matching_legend_entry(page):
 
     missing = row_labels - legend_labels
     assert not missing, f"row status labels with no legend entry: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# The frozen confirmatory read
+# ---------------------------------------------------------------------------
+
+def test_the_published_headline_matches_the_frozen_result_file(page):
+    """The page must print the numbers the scorer wrote, not numbers of its own.
+
+    Nothing recomputes this at build time on purpose -- the stopping rule says
+    the confirmatory read happens once on the complete set -- so the only thing
+    standing between the file and the headline is the formatting, and that is
+    what this checks.
+    """
+    import csv
+
+    html, _, carries = page
+    with open(REPO / "input" / "confirmatory_result_2026-08.csv",
+              newline="", encoding="utf-8") as f:
+        cf = {r["key"]: r["value"] for r in csv.DictReader(f)}
+    headline = f'{100 * float(cf["crown_top1"]):.1f}%'
+    legacy = f'{100 * float(cf["photo_top1"]):.1f}%'
+    if "confirmatory" not in carries:
+        assert headline not in html or legacy not in html, (
+            "a page that does not carry the frozen read prints its headline anyway")
+        return
+    assert headline in html and legacy in html, (
+        f"page does not print both region arms: {headline}, {legacy}")
+    # Population and support, per CLAUDE.md: a rate alone is not publishable.
+    assert f'{int(float(cf["n_frames"]))} frames' in html
+    assert f'{int(float(cf["n_sites"]))} sites' in html
+    assert f'{int(float(cf["crown_hits"]))} of {int(float(cf["crown_n"]))} frames right' in html
+
+
+def test_a_bootstrap_p_of_zero_is_never_printed_as_zero(page):
+    """0 of 10,000 resamples is a resolution limit, not a p of exactly zero."""
+    html, _, _ = page
+    assert "p = 0.00000" not in html
+
+
+def test_the_two_caveats_the_design_requires_travel_with_the_headline(page):
+    """Both amendments in hypothesis.md say the writeup must carry their words
+    rather than a summary. The page publishes the number, so the page is the
+    writeup, and a paraphrase here would break the design's own condition."""
+    html, _, carries = page
+    verbatim = (
+        "But the number was not generated blind.</strong> An operator has seen "
+        "crown-arm accuracy, at another unit and on a wider population, before this freeze.",
+        "What this costs, stated plainly.</strong> The arm was dropped after its "
+        "interim number had been seen, and no amount of reasoning removes that ordering.",
+    )
+    for quote in verbatim:
+        assert (quote in html) == ("confirmatory" in carries), (
+            f"page carries the frozen read: {'confirmatory' in carries}, "
+            f"but the quote {quote[:40]!r} is present: {quote in html}")
+
+
+HYPOTHESIS = REPO.parent / "bci-dashboard-docs" / "hypothesis.md"
+
+
+def test_the_quoted_amendments_still_match_the_design_document(external_page):
+    """The two quotes are stored as HTML literals in panels.py, so nothing links
+    them to hypothesis.md except this test. Both amendments require their words
+    rather than a summary, which makes a silent paraphrase a design violation
+    and not just a typo."""
+    import html as htmllib
+
+    if not HYPOTHESIS.exists():
+        pytest.skip("sibling bci-dashboard-docs/hypothesis.md not present")
+    doc = HYPOTHESIS.read_text(encoding="utf-8")
+    html, _ = external_page
+    start = html.find('id="where-the-headline-comes-from"')
+    assert start >= 0, "the panel carrying the quotes is not on the page"
+    shown = re.sub(r"\s+", " ",
+                   htmllib.unescape(re.sub(r"<[^>]+>", " ", html[start:])))
+
+    def block(first, last):
+        i = doc.index(first)
+        j = doc.index(last, i) + len(last)
+        # Markdown bold and list bullets are formatting, not words.
+        return re.sub(r"\s+", " ", doc[i:j].replace("**", "").replace("- ", "")).strip()
+
+    for quote in (block("What that does and does not undermine:",
+                        "The paired comparison and the tiles arm do not."),
+                  block("**What this costs, stated plainly.**",
+                        "must carry this paragraph, not a summary of it.")):
+        assert quote in shown, (
+            f"the page no longer quotes hypothesis.md verbatim; it diverges near "
+            f"{quote[:80]!r}")
 
 
 # ---------------------------------------------------------------------------

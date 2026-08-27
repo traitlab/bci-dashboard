@@ -56,6 +56,20 @@ def build(h, *, generated, verify_dir, fallback_tag):
          'labelled frame and we know the frame\'s label, so we can say per species how often '
          'it is right. What to label next is a separate page.</p>',
          f'<p class="terms">{pn.HERO_TERMS}</p>',
+         # The headline first, on the frozen 300, because it is the only number
+         # here whose unit of prediction is the unit the label describes. The
+         # corpus-wide grid follows it, not the other way round.
+         pn.confirmatory_hero(c.cf),
+         f'<p class="note">Asking Pl@ntNet about each labelled crown and pooling the answers '
+         f'to the frame is worth '
+         f'{100 * c.cf["crown_minus_photo"]:+.1f} points over asking about the fixed centre '
+         f'crop, on {int(c.cf["n_frames"])} frames fixed before either number existed '
+         f'(cluster bootstrap p '
+         f'{pn.pfmt(c.cf["p_cluster_bootstrap"], c.cf["bootstrap_draws"])}). '
+         f'<a href="#where-the-headline-comes-from">Where the headline comes from</a> '
+         f'carries the population, the interval, '
+         f'and the two caveats the design requires to travel with it.</p>',
+         '<h2>Every labelled frame, scored on the centre crop</h2>',
          '<div class="hero">']
     for i, (metric, question, averaged, note) in enumerate(pn.HEADLINES):
         P.append(f'<div class="metric{" first" if i == 0 else ""}">'
