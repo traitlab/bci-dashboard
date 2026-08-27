@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """The short version of the model-health dashboard: one glanceable HTML page.
 
-Companion to build_full.py, not a replacement. The full page carries the reasoning
-and the caveats; this page answers the three questions the labelling
-programme asks every week, in plain English:
+Companion to build_external.py and build_internal.py, not a replacement. Those two
+carry the reasoning and the caveats, one per audience; this page answers the three
+questions the labelling programme asks every week, in plain English:
 
 1. How is the model doing right now? (one headline number)
 2. Which species need more photos? (the whole species list, three statuses)
 3. What do we send the botanist next? (the send-first queues, ordered)
 
-Same data layer (core), same verification gate (history):
-every number is recomputed from source and cross-checked against the
-committed snapshot CSVs, and a mismatch aborts the build, so the two pages
-cannot disagree. Stdlib only, no network, opens from a file:// URL.
+Same data layer (core), same shared context (panels.prepare), same verification
+gate (history): every number is recomputed from source and cross-checked against
+the committed snapshot CSVs, and a mismatch aborts the build, so the three pages
+cannot disagree. This page draws no panel of its own from the registry, it lays
+the same figures out in one screen. Stdlib only, no network, opens from a file://
+URL.
 
     python3 dashboard/build_simple.py [--out PATH]
 """
@@ -28,10 +30,10 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc  # noqa: E402
+import panels as pn  # noqa: E402
 from assets import (CSS, JS, cap, esc, filterable_table, funnel_list, info_tip, panel, pctf,
                               status_legend, status_tag, table, threshold_card)  # noqa: E402
-from history import (  # noqa: E402
-    latest_snapshot_dir, model_tag_of, snapshot_date_of, verify_snapshot)
+from history import latest_snapshot_dir, verify_snapshot  # noqa: E402
 
 # The six-way diagnosis from core, collapsed to the three actions this page
 # drives. "hard" lands in "send": the labels feed Pl@ntNet's next retraining.
@@ -82,75 +84,25 @@ def gt_provenance(gt_csv: str) -> str:
 
 
 def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
-    sp_recs, per_species = h.sp_recs, h.per_species
-    n, n_sp = len(sp_recs), len(per_species)
+    ctx = pn.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
+    sp_recs, per_species = ctx.sp_recs, ctx.per_species
+    n, n_sp = ctx.n, ctx.n_sp
+    macro1, macro5 = ctx.now["macro_top1"], ctx.now["macro_top5"]
+    micro1, c1, c5 = ctx.now["micro_top1"], ctx.c1, ctx.c5
+    conf_acc, conf_n = ctx.conf_acc, ctx.conf_n
+    queue_counts, queue_pressure = ctx.queue_counts, ctx.queue_pressure
+    lt_species, n_unlab, n_no_answer = ctx.lt_species, ctx.n_unlab, ctx.n_no_answer
+    tag, snap_date = ctx.tag, ctx.snap_date
 
-    c1 = sum(1 for r in sp_recs if r["ranked"][0][0] == r["gt"])
-    c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:5]])
-    macro1 = sum(d["top1_accuracy"] for d in per_species) / n_sp
-    macro5 = sum(d["top5_accuracy"] for d in per_species) / n_sp
-    micro1 = c1 / n
-
-    # --- the quantities the verifier holds against the snapshot CSVs.
-    # Same formulas as build_full.py; if the two ever drift apart, the
-    # snapshot cross-check below is what catches it.
-    support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
-    buckets = {}
-    for d in per_species:
-        buckets.setdefault(d["support_bucket"],
-                           dict(n_species=0, n_crowns=0, c1=0))["n_species"] += 1
-    for r in sp_recs:
-        b = buckets[hc.bucket_label(support[r["gt"]])]
-        b["n_crowns"] += 1
-        b["c1"] += r["ranked"][0][0] == r["gt"]
-    bins_all = [(f"[{lo:.1f},{min(hi, 1.0):.1f})", len(sub),
-                 sum(1 for r in sub if r["ranked"][0][0] == r["gt"]))
-                for lo, hi in hc.CONF_BINS
-                for sub in ([r for r in sp_recs if lo <= r["ranked"][0][1] < hi],)]
-    # Accuracy at or above the can-wait confidence threshold, from the same bins.
-    hi = [(nn, k) for (band, nn, k), (lo, _) in zip(bins_all, hc.CONF_BINS)
-          if lo >= hc.WAIT_CONF - 1e-9]
-    conf_n, conf_k = sum(nn for nn, _ in hi), sum(k for _, k in hi)
-    conf_acc = conf_k / conf_n if conf_n else None
-    never_sp = {d["species"] for d in per_species if not d["in_corpus_vocabulary"]}
-    never_all = h.tier_crowns["e_absent_from_corpus"] + h.tier_crowns["c_genus_only_in_corpus"]
-    reach = [r for r in sp_recs if r["gt"] not in never_sp]
-    strict1 = sum(1 for r in sp_recs
-                  if r["ranked_strict"] and r["ranked_strict"][0][0] == r["gt_strict"])
-
-    tag = model_tag_of(verify_dir, fallback_tag)
-    snap_date = snapshot_date_of(verify_dir)
-
-    # --- send-first queue over the unlabelled pool (logic lives in core).
-    acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
-    joined_stems = {stem for _, stem, _ in h.joined}
-    queue_counts = {}
-    queue_pressure = defaultdict(int)
-    lt_species = defaultdict(int)
-    n_no_answer = 0
-    for stem in sorted(h.predictions):
-        if stem in joined_stems:
-            continue
-        ranked = [(h.canon(b), s) for b, s in h.predictions[stem]]
-        if not ranked:
-            n_no_answer += 1
-            continue
-        pred, cf = ranked[0]
-        q = hc.queue_of_prediction(pred, cf, support, acc_of)
-        queue_counts[q] = queue_counts.get(q, 0) + 1
-        if q in ("long_tail", "low_conf_known"):
-            queue_pressure[pred] += 1
-        if q == "long_tail":
-            lt_species[pred] += 1
-    n_unlab = sum(queue_counts.values())
-
+    # This page reports the send queue, so it gates on both queue CSVs, the same
+    # slice build_internal.py checks. The review queue belongs to the external page.
     checks = verify_snapshot(
-        verify_dir, per_species=per_species, buckets=buckets, bins_all=bins_all,
-        never_all=never_all, unscoreable=n - len(reach), strict_hits=strict1,
+        verify_dir, per_species=per_species, buckets=ctx.buckets, bins_all=ctx.bins_all,
+        never_all=ctx.never_all, unscoreable=ctx.unscoreable, strict_hits=ctx.strict1,
         queue_counts=queue_counts, n_no_answer=n_no_answer)
 
     # --- statuses, six-way diagnosis collapsed to three actions ---
-    simple = {d["species"]: SIMPLE_STATUS[hc.diagnose(d)] for d in per_species}
+    simple = {sp: SIMPLE_STATUS[st] for sp, st in ctx.status.items()}
     counts = defaultdict(int)
     for key, _ in simple.values():
         counts[key] += 1
@@ -265,7 +217,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
              + '.</p>'
              f'<p class="note">The top of <code>send_first_queue.csv</code> in the '
              f'snapshot folder is the next batch, chunked into <code>send_batches.csv</code> '
-             f'(one species per batch, at most {hc.BATCH_SIZE} frames each) so it drops '
+             f'(whole species groups packed to {hc.BATCH_SIZE} frames a batch, so '
+             f'lookalike photos stay together) so it drops '
              f'straight into a Labelbox send. {n_no_answer} photos got no answer at '
              f'all, likely junk; check those by eye.</p>')
     P.append(panel(f"What to send next: {queue_counts.get('long_tail', 0):,} of "

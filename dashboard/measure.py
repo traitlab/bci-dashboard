@@ -20,7 +20,7 @@ from collections import Counter, defaultdict
 from core import (
     load_health,
     pct, ratio, fmt, genus_of, normalize, queue_of_prediction, chunk_send_batches,
-    coverage_gate_stats, coverage_split,
+    coverage_gate_stats, coverage_split, labelbox_urls,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     QUEUE_ORDER, REVIEW_CONF, BATCH_SIZE, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
     GT_KEY_PREFIX, GT_CSV, SPLITS_CSV, CACHE_DIR, WCVP_CACHE_JSON,
@@ -418,7 +418,7 @@ def main() -> None:
     for q in QUEUE_ORDER:
         log(f"    {q:<16}: {q_counts[q]}")
     log(f"  send_batches.csv                    : {len(batch_rows)} rows in {n_batches} "
-        f"batches, max {BATCH_SIZE}/batch, species-grouped")
+        f"batches, max {BATCH_SIZE}/batch, species groups packed whole")
     log(f"  unlabelled frames with NO answer    : {n_no_answer}  (empty candidate list;")
     log("    possible junk or non-plant photos; check a sample")
     log("    by eye before queueing, no automatic rule)")
@@ -427,14 +427,16 @@ def main() -> None:
     # ---------------- 13. labels worth a second look ----------------
     # First guess wrong at high confidence: either the label or the model is wrong.
     # Worked after the cheap queues. Sorted most confident first.
+    urls = labelbox_urls()
     review_rows = [[r["global_key"], r["split"], r["gt"], top1(r),
-                    f"{r['ranked'][0][1]:.6f}"]
+                    f"{r['ranked'][0][1]:.6f}", urls.get(r["global_key"], "")]
                    for r in sp_recs
                    if top1(r) != r["gt"] and r["ranked"][0][1] >= REVIEW_CONF]
     review_rows.sort(key=lambda r: (-float(r[4]), r[1], r[0]))
     with open(os.path.join(out_dir, "label_review_queue.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["global_key", "split", "gt_species", "predicted_species", "confidence"])
+        w.writerow(["global_key", "split", "gt_species", "predicted_species",
+                    "confidence", "labelbox_url"])
         w.writerows(review_rows)
 
     pairs = Counter((r[2], r[3]) for r in review_rows)

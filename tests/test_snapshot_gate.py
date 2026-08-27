@@ -1,6 +1,6 @@
 """Which snapshot a page is checked against.
 
-Both builders abort when the page disagrees with a snapshot folder. `build_full`
+Every builder aborts when the page disagrees with a snapshot folder. The full page
 named a fixed date, so a hand-run checked today's numbers against a three-week-old
 measurement and appended today's trend points to that old folder's history. The
 failure is not silent, but it accuses the wrong file: it reports the live numbers

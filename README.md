@@ -1,13 +1,19 @@
 # BCI dashboard
 
-Two self-contained HTML pages that answer, from the same measurement pass:
+Two self-contained HTML pages, one per audience, built from the same
+measurement pass:
 
-1. **How well does Pl@ntNet name BCI drone close-ups today?** Top-1 accuracy per
-   species, each with its support count, its calibration, and the reason its
-   status was assigned.
-2. **Which photos should botanists label next?** A send-first queue and
-   species-grouped batches, so the answer is a work order the labelling team can
-   act on.
+1. **How well does Pl@ntNet name BCI drone close-ups today?**
+   `dashboard/build_external.py` reports top-1 accuracy per species, each with
+   its support count, its calibration, and the reason its status was assigned.
+   This is the page that leaves the lab.
+2. **Which photos should botanists label next?** `dashboard/build_internal.py`
+   reports a send-first queue and species-grouped batches. The page is a way to
+   check the order; the deliverable is `send_batches.csv` beside it, which the
+   labelling script reads.
+
+`dashboard/build_simple.py` is a third page, a one-screen overview of both for a
+reader who wants neither in full.
 
 A page is a single file you can open, email, or drop on a share. It is rebuilt
 offline from files already on disk: a Labelbox export of botanist labels, plus
@@ -35,9 +41,20 @@ aborts on any number that disagrees.
 - Every published number carries its population and its support count.
 - A photo prediction comes from a fixed 1280x1280 centre crop, 13.7% of a
   4000x3000 frame, while a botanist draws crowns anywhere in the frame. The
-  crop-coverage gate (`MIN_CROP_COVERAGE`, 0.50) admits a frame when its dominant
-  labelled species covers at least half the crop. `coverage_gate.csv` reports
-  gated beside ungated; the pages score the ungated population.
+  crop-coverage gate (`MIN_CROP_COVERAGE`, 0.50) asks whether the species that
+  covers most of the *crop* covers at least half of it, which is not the same
+  question as whether the frame's labelled species does. On the dashboard path
+  it is a diagnostic reported as a sweep, not a filter behind a headline:
+  `coverage_gate.csv` reports gated beside ungated and the pages score the
+  ungated population. `labelling/next_batch.py` does use it as a filter when
+  choosing candidates.
+- The headline this repo publishes is measured region-aligned, not on that crop:
+  one identify call per labelled crown, pooled to the frame by box area, on 300
+  frames frozen before the numbers existed. `input/confirmatory_result_2026-08.csv`
+  holds it and `bci-dashboard-docs/hypothesis.md` fixed the design in advance. It
+  is a per-frame rate over 72 species, and the crowns come from the botanist, so
+  it is the cost of naming once delineation is done and not what an unaided
+  pipeline would score. The page states all three limits beside the number.
 - Crop and box geometry is read from what the fetch recorded, so the numbers stay
   true if the crop ever changes.
 - A miss counts only within a known population. Out-of-scope species and
@@ -85,7 +102,8 @@ Or the measurement pass and one page alone:
 
 ```bash
 python3 dashboard/measure.py --out-dir snapshots/model-health-$(date +%F)
-python3 dashboard/build_simple.py --out build/simple_dashboard.html
+python3 dashboard/build_external.py --out build/model_health_dashboard.html
+python3 dashboard/build_internal.py --out build/label_queue_dashboard.html
 ```
 
 ## Configure

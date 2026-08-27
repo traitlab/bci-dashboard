@@ -24,6 +24,13 @@ the confirmatory read happens once, on the complete set.
 
     python dashboard/score_confirmatory.py
     python dashboard/score_confirmatory.py --adjudication out.csv
+    python dashboard/score_confirmatory.py --out input/confirmatory_result_2026-08.csv
+
+``--out`` writes the numbers the external dashboard publishes. The page reads
+that file rather than re-running this script, which is deliberate: the stopping
+rule says the confirmatory read happens once, on the complete set, so a number
+that changed because a page was rebuilt would not be a confirmatory number. The
+file is tracked for the same reason the frozen frame list is.
 """
 
 import argparse
@@ -350,6 +357,73 @@ def report(rows, missing, complete, draws=BOOTSTRAP_DRAWS):
     return {"complete": complete, "n": n}
 
 
+def result_rows(rows, complete, draws=BOOTSTRAP_DRAWS):
+    """The published numbers as ordered (key, value) pairs.
+
+    Long format rather than one row per arm, because the paired comparison
+    belongs to neither arm and padding it into both would invite a reader to
+    average two copies of the same difference.
+    """
+    # Composition, not a result: a rate over 300 frames is weighted by whatever
+    # those frames happen to hold, and a page that prints the rate without the
+    # weighting invites the same per-frame-average mistake the dashboard already
+    # argues against for the corpus numbers.
+    by_species = {}
+    for r in rows:
+        by_species[r["gt"]] = by_species.get(r["gt"], 0) + 1
+    top2 = sum(sorted(by_species.values(), reverse=True)[:2])
+    cameras = sorted({("tele" if "tele" in r["base"].lower() else
+                       "zoom" if "zoom" in r["base"].lower() else "unknown")
+                      for r in rows})
+    out = [("stamp", "CONFIRMATORY" if complete else "EXPLORATORY"),
+           ("n_frames", len(rows)),
+           ("n_sites", len({r["site"] for r in rows})),
+           ("n_days", len({r["day"] for r in rows})),
+           ("n_species", len(by_species)),
+           ("top2_species_share", top2 / len(rows) if rows else 0.0),
+           ("cameras", "+".join(cameras)),
+           ("bootstrap_draws", draws),
+           ("bootstrap_seed", SEED)]
+    for a in ARMS:
+        scorable = [r for r in rows if r[a] is not None]
+        if not scorable:
+            continue
+
+        def acc_of(sample, arm=a):
+            return accuracy(sample, arm)
+
+        hits = sum(hit(r, a) for r in scorable)
+        s_lo, s_hi = cluster_bootstrap(scorable, "site", acc_of, draws)
+        w_lo, w_hi = wilson(hits, len(scorable))
+        out += [(f"{a}_n", len(scorable)), (f"{a}_hits", hits),
+                (f"{a}_top1", accuracy(scorable, a)),
+                (f"{a}_top1_site_lo", s_lo), (f"{a}_top1_site_hi", s_hi),
+                (f"{a}_top1_wilson_lo", w_lo), (f"{a}_top1_wilson_hi", w_hi),
+                (f"{a}_top5", accuracy(scorable, a, 5))]
+
+    pairs, crown_only, photo_only = discordance(rows, "crown", "photo")
+    p_boot, band = bootstrap_p(rows, "crown", "photo", "site", draws)
+    out += [("paired_n", pairs), ("crown_only_hits", crown_only),
+            ("photo_only_hits", photo_only),
+            ("p_mcnemar_exact", mcnemar_exact(crown_only, photo_only))]
+    if band:
+        d, lo, hi = band
+        out += [("crown_minus_photo", d), ("crown_minus_photo_site_lo", lo),
+                ("crown_minus_photo_site_hi", hi), ("p_cluster_bootstrap", p_boot)]
+    return out
+
+
+def write_result(rows, complete, path, draws=BOOTSTRAP_DRAWS):
+    path = pathlib.Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh, lineterminator="\n")
+        w.writerow(["key", "value"])
+        for k, v in result_rows(rows, complete, draws):
+            w.writerow([k, f"{v:.6f}" if isinstance(v, float) else v])
+    log(f"wrote {path}")
+
+
 def write_adjudication(rows, path, seed=SEED):
     """Phase 5: the disagreements, with the arm labels hidden.
 
@@ -387,6 +461,8 @@ def main(argv=None):
     ap.add_argument("--frozen", type=pathlib.Path, default=FROZEN)
     ap.add_argument("--adjudication", type=pathlib.Path,
                     help="write the blind adjudication sheet here")
+    ap.add_argument("--out", type=pathlib.Path,
+                    help="write the published numbers here as key,value rows")
     ap.add_argument("--draws", type=int, default=BOOTSTRAP_DRAWS)
     args = ap.parse_args(argv)
 
@@ -395,6 +471,8 @@ def main(argv=None):
     rows, missing = build_rows(frozen, load_boxes(), canon)
     complete = not any(missing[a] for a in ALIGNED)
     report(rows, missing, complete, args.draws)
+    if args.out:
+        write_result(rows, complete, args.out, args.draws)
     if args.adjudication:
         if not complete:
             log("\nrefusing to write the adjudication sheet: the set is not "
