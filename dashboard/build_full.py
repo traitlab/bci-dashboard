@@ -10,9 +10,8 @@ with every style, script and chart inlined.
 
 Numbers are recomputed here from source rather than read from the CSVs, then
 cross-checked against the CSVs measure.py wrote into the snapshot; a mismatch
-aborts the build, so the page cannot disagree with the measurement. Trend comes
-from the sibling snapshot folders model-health-<date>/, summarised once into an
-append-only history.csv beside the current snapshot's CSVs.
+aborts the build, so the page cannot disagree with the measurement. The page
+reports the latest snapshot only, no trend over the sibling folders.
 """
 
 from __future__ import annotations
@@ -32,7 +31,7 @@ from assets import (CSS, JS, cap, esc, filterable_table, panel, pctf, section,  
 from explain import (BAND_SHORT, candidates_panel, method_panel,  # noqa: E402
                               weighting_panel)
 from history import (  # noqa: E402
-    latest_snapshot_dir, load_trend, verify_snapshot)
+    latest_snapshot_dir, model_tag_of, snapshot_date_of, verify_snapshot)
 
 # A species is "rarely labelled" below this many frames. Same threshold as the
 # deprioritization support gate, so the two panels cannot disagree.
@@ -77,9 +76,9 @@ HEADLINES = [
      "each of the {n_sp} species counts once, however few frames it has"),
     ("micro_top1", "First guess is right", "per frame",
      "one vote per labelled frame, so common species dominate"),
-    ("macro_top5", "Right name is among the 5 offered", "per species",
-     "the ceiling a better ranking could reach without a better model"),
-    ("micro_top5", "Right name is among the 5 offered", "per frame",
+    ("macro_top5", "Right name is among the 5 requested", "per species",
+     "the ceiling reranking can reach at nb-results=5, not the model's ceiling"),
+    ("micro_top5", "Right name is among the 5 requested", "per frame",
      "we only ever asked Pl@ntNet for 5 names"),
 ]
 
@@ -97,8 +96,9 @@ HERO_TERMS = (
     "A <b>frame</b> is one 4000&times;3000 drone photo. Its label is the species whose "
     "outlined crowns cover the largest total area in the <i>whole</i> frame. The photo sent "
     "to Pl@ntNet is the <b>1280&times;1280 centre crop</b>, which is 13.65% of that frame. "
-    "Pl@ntNet returns at most 5 names for the crop; the <b>first guess</b> is the top-ranked "
-    "one. Right means it matches the frame's label."
+    "We asked Pl@ntNet for 5 names per crop (<code>nb-results=5</code>, our request "
+    "parameter, not a model limit); the <b>first guess</b> is the top-ranked one. Right "
+    "means it matches the frame's label."
 )
 
 # The two regions above are not the same region, and the numbers below compare
@@ -180,7 +180,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     short5 = sum(1 for r in sp_recs + h.genus_recs if len(r["ranked"]) < 5)
     n_pred = len(sp_recs) + len(h.genus_recs)
 
-    trend = load_trend(verify_dir, fallback_tag, sp_recs=sp_recs, cache_dir=cache_dir)
+    tag = model_tag_of(verify_dir, fallback_tag)
+    snap_date = snapshot_date_of(verify_dir)
 
     # --- send-first queue over the unlabelled pool, and labels worth a second look.
     # The logic lives in core so this page and measure.py cannot drift apart.
@@ -238,7 +239,6 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
 
     checks = verify_snapshot(
         verify_dir, per_species=per_species, buckets=buckets, bins_all=bins_all,
-        trend=trend, n_crowns=n, macro1=now["macro_top1"], micro1=now["micro_top1"],
         never_all=never_all, unscoreable=n - len(reach), strict_hits=strict1,
         queue_counts=queue_counts, n_no_answer=n_no_answer, review_counts=review_counts)
 
@@ -295,7 +295,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     # --- page ---
     P = ['<h1>Pl@ntNet on BCI: per-species model health</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
-         f'{esc(trend.latest)} &middot; Pl@ntNet model <code>{esc(trend.tag)}</code> '
+         f'{esc(snap_date)} &middot; Pl@ntNet model <code>{esc(tag)}</code> '
          f'&middot; {n:,} labelled frames &middot; {n_sp} species</div>',
          '<p class="intro">This page says where botanist time is worth spending. Pl@ntNet has '
          'already guessed a species for the centre crop of every labelled frame and we know '
@@ -305,7 +305,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     for i, (metric, question, averaged, note) in enumerate(HEADLINES):
         P.append(f'<div class="metric{" first" if i == 0 else ""}">'
                  f'<div class="e">{averaged}</div><div class="row">'
-                 f'<div class="v">{pctf(now[metric])}</div>{trend.spark(metric)}</div>'
+                 f'<div class="v">{pctf(now[metric])}</div></div>'
                  f'<div class="l">{question}</div>'
                  f'<div class="n">{note.format(n_sp=n_sp)}</div></div>')
     P.append(f'</div><p class="caveat">{HERO_REGION}</p>')
@@ -434,10 +434,6 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                      "are the disagreements most worth an expert's minute, once the cheap "
                      "queues above are worked through.", body)
 
-    # Only the first panel of a section opens, and this is not it. Asking for a
-    # closed panel beats string surgery on the tag, which broke on the id attribute.
-    p_trend = trend.render(open_=False)
-
     # ---- deprioritization ----
     body = (f'<div class="rec"><strong>Suggested rule: leave a frame for later when '
             f'Pl@ntNet is at least {RECOMMENDED_CONF} confident and its species already has '
@@ -450,7 +446,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             "botanist's queue.</p>"
             f'<p class="note"><strong>The decision expires with the model.</strong> Pl@ntNet '
             f'ships a new model every few months, on its own schedule rather than ours, and '
-            f'a frame deprioritized under <code>{esc(trend.tag)}</code> is not deprioritized '
+            f'a frame deprioritized under <code>{esc(tag)}</code> is not deprioritized '
             f'under the next one. Re-run this page after every model change and the queue '
             f're-sorts. Any frame can come back to the top.</p>'
             f'<p class="note">{len(eligible)} species clear the {WAIT_SUPPORT_MIN}-frame gate, '
@@ -538,29 +534,20 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             f'<span data-sort="{d["top5_accuracy"]:.6f}">{pctf(d["top5_accuracy"])}</span>',
             f'<span data-sort="{d["mean_top1_confidence"]:.6f}">'
             f'{d["mean_top1_confidence"]:.2f}</span>',
-            # A sparkline over 1 to 4 frames draws a coin flip as a trend: 49 run
-            # rail to rail on one frame changing answer, 55 are the same flat line
-            # for accuracies from 0 to 1. Below the floor the cell says so instead.
-            (trend.spark(f"species:{sp}:top1", empty="")
-             if d["n_labelled_crowns"] >= WAIT_SUPPORT_MIN
-             else '<span class="nospark">too few frames</span>'),
             status_tag(st, STATUS[st][0])])
         attrs.append(f' data-species="{esc(sp)}" data-status="{st}"')
     body = (status_legend([(st, STATUS[st][0], STATUS_REASON[st]) for st in STATUS])
             + filterable_table(
         [("Species", False), ("Labelled frames", True),
          ("First guess right", True), ("Right name in the list", True),
-         ("Model's confidence", True), ("Trend", False), ("Status", False)],
+         ("Model's confidence", True), ("Status", False)],
         sp_rows,
         options=[(k, v[0]) for k, v in STATUS.items()],
         row_attrs=attrs,
     ))
     p_species = panel(f"Look up one species: all {n_sp}, sortable and filterable",
                       "<b>Find a species you care about and read its status.</b> Click any "
-                      "heading to sort, type to filter. The trend column draws a line only "
-                      f"where there are two or more snapshots and at least {WAIT_SUPPORT_MIN} "
-                      "labelled frames, because below that one frame changing answer swings "
-                      "the line from end to end.", body)
+                      "heading to sort, type to filter.", body)
 
     # ---- ceiling ----
     body = (f'<p class="note"><strong>{len(never)} species ({never_crowns} of the {n:,} '
@@ -615,7 +602,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                       "the two apart.", body)
 
     # ---- method ----
-    p_method = method_panel(tag=trend.tag, n=n, n_sp=n_sp, checks=checks)
+    p_method = method_panel(tag=tag, n=n, n_sp=n_sp, checks=checks)
 
     # ---- the page's two goals, then the ceilings that gate both. A panel belongs
     # to the goal it serves, so the confidence evidence sits with the queue rule it
@@ -625,9 +612,9 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                      "rule, and which labels deserve a second look.",
                      "\n".join([p_todo, p_send, p_wait, p_rules, p_conf, p_review])))
     P.append(section("How Pl@ntNet is doing against the labels",
-                     "The two headline scores disagree. These panels say why, whether the "
-                     "score moved, and how any one species is doing.",
-                     "\n".join([p_weighting, p_labels, p_species, p_trend])))
+                     "The two headline scores disagree. These panels say why, and how any "
+                     "one species is doing.",
+                     "\n".join([p_weighting, p_labels, p_species])))
     P.append(section("What this cannot tell you",
                      "The ceilings on every number above.",
                      "\n".join([p_candidates, p_ceiling, p_method])))
@@ -650,8 +637,7 @@ def main() -> None:
     ap.add_argument("--wcvp-cache", default=hc.WCVP_CACHE_JSON)
     ap.add_argument("--verify-against", default=None,
                     help="directory holding the committed measurement CSVs to cross-check; "
-                         "defaults to the newest model-health-<date>/ folder, whose "
-                         "siblings are the trend history")
+                         "defaults to the newest model-health-<date>/ folder")
     ap.add_argument("--model-tag", default="unknown",
                     help="Pl@ntNet model iteration to record for a snapshot whose "
                          "run_log.txt does not name one")

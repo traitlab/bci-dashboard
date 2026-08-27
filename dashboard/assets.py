@@ -144,8 +144,6 @@ th.sortable.asc:after{content:" \\2191";color:#1565c0}
 th.sortable.desc:after{content:" \\2193";color:#1565c0}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .sp{font-style:italic}
-svg.spark{display:inline-block;margin:0;vertical-align:middle}
-.nospark{font-size:0.72rem;color:#6d6d6d}
 .tag{
   display:inline-block;padding:2px 8px;border-radius:4px;
   font-size:0.74rem;font-weight:700;white-space:nowrap;
@@ -672,43 +670,12 @@ def svg_weight_pair(rows, *, label_a, label_b):
     return "\n".join(o)
 
 
-def _scale(values, lo_px, hi_px, span=0.0):
-    """Map ``values`` onto a pixel range, flat series to the middle.
-
-    ``lo_px`` is where the smallest value sits and ``hi_px`` where the largest
-    does. SVG y grows downward, so callers pass ``lo_px`` larger than ``hi_px``
-    and a rising series comes back with falling y.
-
-    ``span`` is the smallest range the axis is allowed to show. Without it a
-    series that wobbles by one point fills the whole plot and reads as a
-    collapse, so rates pass their own floor and counts leave it at zero.
-    """
-    lo, hi = min(values), max(values)
-    if hi - lo < span:
-        mid = (lo + hi) / 2.0
-        lo, hi = mid - span / 2.0, mid + span / 2.0
-    if hi - lo < 1e-12:
-        mid = (lo_px + hi_px) / 2.0
-        return [mid] * len(values)
-    return [lo_px + (v - lo) / (hi - lo) * (hi_px - lo_px) for v in values]
-
-
-def orientation_ok() -> bool:
-    """A rising series must be drawn with falling y, because SVG y grows down.
-
-    Getting this backwards flips every chart on the page while leaving every
-    number on it correct, so nothing else here would catch it.
-    """
-    ys = _scale([1.0, 2.0], 100.0, 0.0)
-    return ys[0] > ys[1] and abs(ys[0] - 100.0) < 1e-9 and abs(ys[1]) < 1e-9
-
-
 def weight_pair_ok() -> bool:
     """The bigger share must be drawn wider, and a band must keep its colour.
 
-    Same blind spot as ``orientation_ok``: swapping the two share columns, or
-    reading a share off the wrong denominator, changes the picture and no
-    printed number with it.
+    Swapping the two share columns, or reading a share off the wrong
+    denominator, changes the picture and no printed number with it, so nothing
+    else here would catch it.
     """
     rows = [("a", 0.25, 0.75, "", "#111111"), ("b", 0.75, 0.25, "", "#222222")]
     svg = svg_weight_pair(rows, label_a="A", label_b="B")
@@ -717,96 +684,3 @@ def weight_pair_ok() -> bool:
     if len(top) != 2 or top[0][3] != "#111111" or top[1][3] != "#222222":
         return False
     return float(top[0][2]) < float(top[1][2]) and float(top[0][0]) < float(top[1][0])
-
-
-def svg_spark(values, marks=(), *, empty="no trend yet", span=0.0):
-    """Sparkline. ``marks`` = indices where the model iteration changed; those
-    points get a hollow ring so a model jump never reads as label drift. With
-    fewer than two snapshots there is nothing to draw, so say so rather than
-    render a flat line; ``empty=""`` suppresses even that, for table cells that
-    would otherwise repeat the same sentence on every row.
-
-    ``width``/``height`` used to be keyword params; the one caller has never
-    passed a non-default value, so they are fixed constants below instead."""
-    if len(values) < 2:
-        return f'<span class="nospark">{empty}</span>' if empty else ""
-    width, height = 88, 24
-    xs = [3 + i * (width - 6) / (len(values) - 1) for i in range(len(values))]
-    ys = _scale(values, height - 4, 4, span)
-    pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
-    dots = "".join(
-        f'<circle cx="{xs[i]:.1f}" cy="{ys[i]:.1f}" r="3.2" fill="#fff" '
-        f'stroke="#c62828" stroke-width="1.8"/>' for i in marks if 0 <= i < len(values))
-    # A <title> child is the browser's own tooltip. Most readers meet one of these
-    # lines long before the panel that explains them, so hovering has to be enough.
-    tip = (f"Oldest snapshot on the left, newest on the right, {len(values)} points. "
-           f"Scaled to its own range, so its steepness is not comparable with another "
-           f"line's.")
-    if marks:
-        tip += " A hollow red ring is a snapshot where the Pl@ntNet model changed."
-    return (f'<svg class="spark" width="{width}" height="{height}" '
-            f'viewBox="0 0 {width} {height}" role="img" '
-            f'aria-label="trend across {len(values)} snapshots, '
-            f'{len(marks)} model change(s)">'
-            f"<title>{tip}</title>"
-            f'<polyline points="{pts}" fill="none" stroke="#1565c0" stroke-width="1.6"/>'
-            f'{dots}<circle cx="{xs[-1]:.1f}" cy="{ys[-1]:.1f}" r="2.2" fill="#1565c0"/>'
-            f"</svg>")
-
-
-def svg_two_series(dates, a_vals, b_vals, marks, *, a_name, b_name,
-                   a_fmt, b_fmt, a_span=0.0):
-    """Two series on two independent scales, sharing the snapshot dates.
-
-    A dashed vertical rule at every index in ``marks`` says the Pl@ntNet model
-    iteration changed there. Each series is scaled to its own min and max, no
-    narrower than ``a_span`` for the first one, so the shapes are comparable
-    but the pixel heights are not; the end labels carry the actual values.
-
-    ``width``/``height`` used to be keyword params; the one caller has never
-    passed a non-default value, so they are fixed constants below instead.
-    """
-    if len(dates) < 2:
-        return ""
-    width, height = 620, 210
-    pad_l, pad_r, pad_t, pad_b = 52, 60, 22, 40
-    xs = [pad_l + i * (width - pad_l - pad_r) / (len(dates) - 1) for i in range(len(dates))]
-    ya = _scale(a_vals, height - pad_b, pad_t, a_span)
-    yb = _scale(b_vals, height - pad_b, pad_t)
-    o = [f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
-         f'role="img" aria-label="{esc(a_name)} and {esc(b_name)} across '
-         f'{len(dates)} snapshots">',
-         f'<line x1="{pad_l}" y1="{height - pad_b}" x2="{width - pad_r}" '
-         f'y2="{height - pad_b}" stroke="#e0e0e0"/>']
-    for i in marks:
-        o.append(f'<line x1="{xs[i]:.1f}" y1="{pad_t - 6}" x2="{xs[i]:.1f}" '
-                 f'y2="{height - pad_b}" stroke="#c62828" stroke-width="1.2" '
-                 f'stroke-dasharray="4 3"/>'
-                 f'<text x="{xs[i]:.1f}" y="{pad_t - 10}" font-size="10" fill="#c62828" '
-                 f'text-anchor="middle">new model</text>')
-    for ys, col, dash, vals, show in ((ya, "#1565c0", "", a_vals, a_fmt),
-                                      (yb, "#00796b", "5 3", b_vals, b_fmt)):
-        pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
-        o.append(f'<polyline points="{pts}" fill="none" stroke="{col}" stroke-width="2"'
-                 + (f' stroke-dasharray="{dash}"' if dash else "") + "/>")
-        for i, (x, y) in enumerate(zip(xs, ys)):
-            r = 4.0 if i in marks else 2.6
-            fill = "#fff" if i in marks else col
-            o.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" fill="{fill}" '
-                     f'stroke="{col}" stroke-width="1.8"/>')
-        o.append(f'<text x="{xs[-1] + 8:.1f}" y="{ys[-1] + 4:.1f}" font-size="10.5" '
-                 f'fill="{col}">{esc(show(vals[-1]))}</text>'
-                 f'<text x="{xs[0] - 8:.1f}" y="{ys[0] + 4:.1f}" font-size="10.5" '
-                 f'fill="{col}" text-anchor="end">{esc(show(vals[0]))}</text>')
-    for i, d in enumerate(dates):
-        o.append(f'<text x="{xs[i]:.1f}" y="{height - pad_b + 15}" font-size="11" '
-                 f'fill="#6d6d6d" text-anchor="middle">{esc(d)}</text>')
-    o.append(f'<text x="{pad_l}" y="{height - 6}" font-size="10.5" fill="#1565c0">'
-             f'&#9473; {esc(a_name)}</text>'
-             f'<text x="{pad_l + 210}" y="{height - 6}" font-size="10.5" fill="#00796b">'
-             f'&#9476; {esc(b_name)}</text>'
-             + (f'<text x="{width - pad_r}" y="{height - 6}" font-size="10.5" '
-                f'fill="#c62828" text-anchor="end">&#9711; new Pl@ntNet model</text>'
-                if marks else ""))
-    o.append("</svg>")
-    return "\n".join(o)
