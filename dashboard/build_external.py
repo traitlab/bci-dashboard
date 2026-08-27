@@ -63,7 +63,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
          f'<p class="note">Asking Pl@ntNet about each labelled crown and pooling the answers '
          f'to the frame is worth '
          f'{100 * c.cf["crown_minus_photo"]:+.1f} points over asking about the fixed centre '
-         f'crop, on {int(c.cf["n_frames"])} frames fixed before either number existed '
+         f'crop, on a sample fixed before either number existed '
          f'(cluster bootstrap p '
          f'{pn.pfmt(c.cf["p_cluster_bootstrap"], c.cf["bootstrap_draws"])}). '
          f'<a href="#where-the-headline-comes-from">Where the headline comes from</a> '

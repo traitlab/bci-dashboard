@@ -129,9 +129,9 @@ HERO_REGION = (
     "On 1,377 of 3,777 evaluated records the labelled species covers less than half the "
     "crop, and on 207 it covers none of it, so a wrong answer here is not always a wrong "
     "identification. Read them as a provenance record of the centre-crop path, not as the "
-    "model's accuracy. The region-aligned number above is the one to quote: it is measured "
-    "on 300 frames rather than the whole corpus, but its unit of prediction is the unit "
-    "the label describes."
+    "model's accuracy. The region-aligned number above is the one to quote, because its "
+    "unit of prediction is the unit the label describes. <a href=\"#where-the-headline-"
+    "comes-from\">Where the headline comes from</a> states the sample it was measured on."
 )
 
 # Queue name -> (what it is, why it is worth sending). Shown in the order
@@ -243,7 +243,7 @@ def confirmatory_hero(cf):
             f'<div class="metric{" first" if i == 0 else ""}">'
             f'<div class="e">{label}</div>'
             f'<div class="row"><div class="v">{pctf(cf[f"{arm}_top1"])}</div></div>'
-            f'<div class="l">Top-1 on the frozen {int(cf["n_frames"])} frames</div>'
+            f'<div class="l">Top-1 on the frozen sample</div>'
             f'<div class="n">{int(cf[f"{arm}_hits"])} of {int(cf[f"{arm}_n"])} frames right. '
             f'95% interval {pctf(cf[f"{arm}_top1_site_lo"])} to '
             f'{pctf(cf[f"{arm}_top1_site_hi"])}, bootstrapped over the '
@@ -805,14 +805,14 @@ def p_confirmatory(c):
         f'the botanist&rsquo;s outlines and asked only to name what is inside them. The arm '
         f'that would have answered the box-free question, tiles, was the one dropped. Read '
         f'{pctf(cf["crown_top1"])} as the cost of naming once delineation is done.</li>'
-        f'<li><strong>It is per frame, not per species.</strong> The '
-        f'{int(cf["n_frames"])} frames carry {int(cf["n_species"])} species and the two '
+        f'<li><strong>It is per frame, not per species.</strong> The sample carries '
+        f'{int(cf["n_species"])} species and the two '
         f'commonest hold {pctf(cf["top2_species_share"])} of them, so this rate is weighted '
         f'towards the species the model already knows best. That is the same objection this '
         f'page makes to the {pctf(c.now["micro_top1"])} figure below, and it applies here '
         f'too. No per-species average was pre-registered for this sample and none is '
         f'published.</li>'
-        f'<li><strong>It is {int(cf["n_frames"])} frames, not the corpus.</strong> Every one '
+        f'<li><strong>It is one lens, and not every site.</strong> Every frame '
         f'was shot with the {esc(cf["cameras"])} lens, at {int(cf["n_sites"])} of the 17 '
         f'field sites. Nothing here supports a camera claim: no mission in this design '
         f'carries both cameras.</li></ul></div>'
@@ -821,8 +821,8 @@ def p_confirmatory(c):
         f'this page reads the result the scorer wrote rather than re-running it, because the '
         f'stopping rule says the read happens once on the complete set.</p>')
     return panel(
-        f'Where the headline comes from: {int(cf["n_frames"])} frozen frames, and the two '
-        f'caveats the design says must travel with it',
+        'Where the headline comes from: the frozen sample, and the two '
+        'caveats the design says must travel with it',
         "<b>Do not quote the region-aligned rate without the prior-exposure caveat.</b> "
         "It is a real number on a pre-registered sample, and an operator had seen the same "
         "arm at another unit before the sample was frozen.", body)
