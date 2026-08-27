@@ -290,6 +290,13 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
                  sum(1 for r in sub if top1(r) == r["gt"]))
                 for lo, hi in hc.CONF_BINS
                 for sub in ([r for r in sp_recs if lo <= conf(r) < hi],)]
+    # Accuracy at or above the can-wait confidence threshold, read off the same
+    # bands so the band table and the one-line summary cannot disagree.
+    _hi = [(nn, k) for (_band, nn, k), (lo, _) in zip(bins_all, hc.CONF_BINS)
+           if lo >= hc.WAIT_CONF - 1e-9]
+    conf_n, conf_k = sum(nn for nn, _ in _hi), sum(k for _, k in _hi)
+    conf_acc = conf_k / conf_n if conf_n else None
+
 
     # --- what this evaluation cannot score, and what name matching is worth ---
     # "Never named": in no cached candidate list, so no threshold scores it. Counted
@@ -316,6 +323,9 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     joined_stems = {stem for _, stem, _ in h.joined}
     queue_counts = {}
+    # Every frame a species is holding up, not just its long-tail ones: the
+    # one-screen page sorts species by this.
+    queue_pressure = defaultdict(int)
     lt_species = defaultdict(int)
     queue_rows = []
     n_no_answer = 0
@@ -330,6 +340,8 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
         q = hc.queue_of_prediction(pred, cf, support, acc_of)
         queue_counts[q] = queue_counts.get(q, 0) + 1
         queue_rows.append((q, stem, pred, cf))
+        if q in ("long_tail", "low_conf_known"):
+            queue_pressure[pred] += 1
         if q == "long_tail":
             lt_species[pred] += 1
     n_unlab = sum(queue_counts.values())
@@ -403,10 +415,12 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     return SimpleNamespace(
         h=h, sp_recs=sp_recs, per_species=per_species, n=n, n_sp=n_sp,
         c1=c1, c5=c5, now=now, support=support, status=status, counts=counts,
-        buckets=buckets, bins_all=bins_all, never=never, never_crowns=never_crowns,
+        buckets=buckets, bins_all=bins_all, conf_n=conf_n, conf_k=conf_k,
+        conf_acc=conf_acc, never=never, never_crowns=never_crowns,
         never_all=never_all, reach=reach, reach1=reach1, unscoreable=n - len(reach),
         strict1=strict1, short5=short5, n_pred=n_pred, tag=tag, snap_date=snap_date,
-        queue_counts=queue_counts, lt_species=lt_species, queue_rows=queue_rows,
+        queue_counts=queue_counts, queue_pressure=queue_pressure,
+        lt_species=lt_species, queue_rows=queue_rows,
         n_no_answer=n_no_answer, n_unlab=n_unlab, scored_cams=scored_cams,
         queue_cams=queue_cams, confident=confident, review=review,
         confident_ok=confident_ok, review_pairs=review_pairs, review_counts=review_counts,
