@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Daily model-health refresh: fold the newest Labelbox export into the ground
-# truth, snapshot, rebuild both dashboard pages. Safe to re-run:
+# truth, snapshot, rebuild every dashboard page. Safe to re-run:
 #
 # - a snapshot folder for today already exists  -> stop (a same-day GT change
 #   is a human event; handle it by hand)
@@ -8,7 +8,7 @@
 # - the export adds no new labels               -> rebuild the pages against
 #   the newest snapshot, no new folder
 # - otherwise                                   -> new model-health-<date>/
-#   folder, both pages rebuilt and verified against it
+#   folder, every page rebuilt and verified against it
 #
 # Exports come from the Labelbox UI (the account here has no API export
 # permission): download the project NDJSON, it lands in ~/Downloads, and this
@@ -72,10 +72,13 @@ else
   python3 dashboard/measure.py --out-dir "$SNAP" > /dev/null
 fi
 
-python3 dashboard/build_full.py --verify-against "$SNAP" \
+python3 dashboard/build_external.py --verify-against "$SNAP" \
   --out "$REPO/build/model_health_dashboard.html" --generated "$TODAY"
+python3 dashboard/build_internal.py --verify-against "$SNAP" \
+  --out "$REPO/build/label_queue_dashboard.html" --generated "$TODAY"
 python3 dashboard/build_simple.py \
   --out "$REPO/build/simple_dashboard.html" --generated "$TODAY"
 cp "$REPO/build/model_health_dashboard.html" "$SNAP/"
+cp "$REPO/build/label_queue_dashboard.html" "$SNAP/"
 cp "$REPO/build/simple_dashboard.html" "$SNAP/"
 echo "refresh: done; snapshot $SNAP"

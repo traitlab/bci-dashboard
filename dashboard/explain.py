@@ -2,7 +2,7 @@
 """Prose panels for the model-health dashboard.
 
 Two panels that are mostly explanation rather than measurement live here, so
-build_full.py stays a page assembler:
+the page builders stay page assemblers:
 
 - ``weighting_panel`` answers the question the two headline numbers always
   provoke, namely how one model can score 81% and 56% at once.
@@ -214,7 +214,7 @@ def method_panel(*, tag, n, n_sp, checks):
             'botanist or PI with no Python environment. It renders from the standard library '
             'alone, so it needs no environment to rebuild either.</li>'
             '<li>Rebuild: <code>python3 dashboard/measure.py</code> then '
-            '<code>python3 dashboard/build_full.py</code>. Standard library '
+            '<code>python3 dashboard/build_external.py</code>. Standard library '
             'only, same output every run, no network.</li></ul>')
     return panel("How this was measured, and what it does not tell you",
                  "<b>Read this before quoting any number outside the team.</b> It names "

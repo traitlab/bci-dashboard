@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """The short version of the model-health dashboard: one glanceable HTML page.
 
-Companion to build_full.py, not a replacement. The full page carries the reasoning
-and the caveats; this page answers the three questions the labelling
-programme asks every week, in plain English:
+Companion to build_external.py and build_internal.py, not a replacement. Those two
+carry the reasoning and the caveats, one per audience; this page answers the three
+questions the labelling programme asks every week, in plain English:
 
 1. How is the model doing right now? (one headline number)
 2. Which species need more photos? (the whole species list, three statuses)
@@ -92,7 +92,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
     micro1 = c1 / n
 
     # --- the quantities the verifier holds against the snapshot CSVs.
-    # Same formulas as build_full.py; if the two ever drift apart, the
+    # Same formulas as dashboard/panels.py; if the two ever drift apart, the
     # snapshot cross-check below is what catches it.
     support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
     buckets = {}

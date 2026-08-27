@@ -1,20 +1,27 @@
-"""The two page builders, end to end: build a real page, assert invariants.
+"""Every page builder, end to end: build a real page, assert invariants.
 
-Nothing exercised `build_full.py`, `build_simple.py`, `build_export_only.py`,
-`assets.py` or `explain.py` before this file, so every cleanup pass over them
-had to be verified by hand-diffing 185KB of HTML. Golden-file comparison would
-just move that problem into the test (any legitimate number change breaks it),
-so this asserts structure instead: the build's own snapshot cross-check
-passed, the page is one self-contained file, every id the inline JS looks up
-by `getElementById` exists exactly once, tags balance, the species table has
-one row per scored species and every row's status has a matching legend
-entry, and there is no template residue from a forgotten `.substitute()` or
-an unformatted placeholder.
+Nothing exercised `build_external.py`, `build_internal.py`, `build_simple.py`,
+`build_export_only.py`, `assets.py` or `explain.py` before this file, so every
+cleanup pass over them had to be verified by hand-diffing 185KB of HTML.
+Golden-file comparison would just move that problem into the test (any
+legitimate number change breaks it), so this asserts structure instead: the
+build's own snapshot cross-check passed, the page is one self-contained file,
+every id the inline JS looks up exists exactly once, tags balance, the species
+table has one row per scored species and every row's status has a matching
+legend entry, and there is no template residue from a forgotten `.substitute()`
+or an unformatted placeholder.
 
-Both builders run as a subprocess against `--verify-against
+Since the 2026-08-27 split the pages no longer all carry the same panels, so
+each one declares what it holds in `PAGES` and the assertions that are about a
+panel read that allowlist. An assertion is never skipped for a page that lacks
+the panel: it flips to the opposite claim, that the page carries *none* of that
+panel's machinery. A page holding half of it -- a filter input with no table,
+say -- fails both ways, which is the failure this file exists to catch.
+
+Every builder runs as a subprocess against `--verify-against
 snapshots/model-health-2026-08-24`, the same gate `bin/refresh.sh` runs, so a
-non-zero exit here means the page actually disagreed with the measurement,
-not just that this test's assumptions are stale.
+non-zero exit here means the page actually disagreed with the measurement, not
+just that this test's assumptions are stale.
 
     .venv/bin/pytest tests/test_pages.py
 """
@@ -39,6 +46,21 @@ CACHE_DIR = REPO / "data" / "predictions" / "cache"
 # dates would make two builds of the same code differ for no reason a test
 # should care about.
 _GENERATED = "2026-08-25-test"
+
+# What each page is expected to carry. `species` is the sortable, filterable
+# species table with its status legend, which is also what the inline JS binds
+# to. The send queue splits in two: `queue_counts` is the how-many-per-queue
+# breakdown, which both the internal page and the simple overview report and so
+# both gate on, and `queue_keys` is the frame-by-frame send-first list with the
+# camera note beside it, which only the internal page renders.
+PAGES = {
+    "external_page": ("build_external.py", "model_health_dashboard.html",
+                      {"species"}),
+    "internal_page": ("build_internal.py", "label_queue_dashboard.html",
+                      {"queue_counts", "queue_keys"}),
+    "simple_page": ("build_simple.py", "simple_dashboard.html",
+                    {"species", "queue_counts"}),
+}
 
 _GETELEMENTBYID = re.compile(r"getElementById\(\s*['\"]([^'\"]+)['\"]\s*\)")
 _ID_ATTR = re.compile(r"""\bid=['"]([^'"]+)['"]""")
@@ -80,20 +102,26 @@ def _build(tmp_path_factory, script: str, out_name: str) -> tuple[str, str]:
 
 
 @pytest.fixture(scope="session")
-def full_page(tmp_path_factory):
+def external_page(tmp_path_factory):
     _require_buildable()
-    return _build(tmp_path_factory, "build_full.py", "model_health_dashboard.html")
+    return _build(tmp_path_factory, *PAGES["external_page"][:2])
+
+
+@pytest.fixture(scope="session")
+def internal_page(tmp_path_factory):
+    _require_buildable()
+    return _build(tmp_path_factory, *PAGES["internal_page"][:2])
 
 
 @pytest.fixture(scope="session")
 def simple_page(tmp_path_factory):
     _require_buildable()
-    return _build(tmp_path_factory, "build_simple.py", "simple_dashboard.html")
+    return _build(tmp_path_factory, *PAGES["simple_page"][:2])
 
 
 @pytest.fixture(scope="session")
 def n_species():
-    """Independent of both builders: the population size the snapshot's own
+    """Independent of every builder: the population size the snapshot's own
     measurement recorded, so this doesn't drift if a builder's row count
     logic breaks in a way that happens to agree with itself."""
     import csv
@@ -101,11 +129,12 @@ def n_species():
         return sum(1 for _ in csv.DictReader(f))
 
 
-@pytest.fixture(params=["full_page", "simple_page"])
+@pytest.fixture(params=sorted(PAGES))
 def page(request):
-    """Runs every shared assertion against both pages without writing it twice."""
+    """Runs every shared assertion against all three pages without writing it
+    three times. Yields (html, stdout, panels-this-page-carries)."""
     html, stdout = request.getfixturevalue(request.param)
-    return html, stdout
+    return html, stdout, PAGES[request.param][2]
 
 
 # ---------------------------------------------------------------------------
@@ -113,10 +142,21 @@ def page(request):
 # ---------------------------------------------------------------------------
 
 def test_build_verifies_clean_against_the_snapshot(page):
-    html, stdout = page
+    html, stdout, _ = page
     verified = [line for line in stdout.splitlines() if "verified" in line]
     assert verified, "build printed no verify lines -- verify_snapshot did not run"
     assert "VERIFY FAIL" not in stdout
+
+
+def test_a_page_gates_on_exactly_the_send_queue_it_reports(page):
+    """The split's load-bearing claim. The external page must build without the
+    send-queue CSVs being consistent, because it says nothing about them; the
+    other two must not, because they both print queue counts."""
+    _, stdout, carries = page
+    gated = "send_first_queue.csv" in stdout and "send_batches.csv" in stdout
+    assert gated == ("queue_counts" in carries), (
+        f"page gates on the send queue: {gated}, "
+        f"reports it: {'queue_counts' in carries}")
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +172,7 @@ def test_page_has_no_external_asset_references(page):
     fetches on its own -- a stylesheet, a script, an image, an iframe -- since
     that would make the page stop rendering correctly offline.
     """
-    html, _ = page
+    html, _, _ = page
     assert "<link" not in html
     assert "script src" not in html
     fetched = re.findall(r'(?:src|srcset|@import\s+url\()\s*=?\s*["\'(]?(https?://[^"\'\s)]+)', html)
@@ -147,7 +187,7 @@ def test_page_has_no_external_asset_references(page):
 # ---------------------------------------------------------------------------
 
 def test_every_id_the_js_looks_up_exists_exactly_once(page):
-    html, _ = page
+    html, _, carries = page
     script = _SCRIPT_BODY.search(html)
     assert script, "no inline <script> block -- JS was not embedded"
     ids = _GETELEMENTBYID.findall(script.group(1))
@@ -155,10 +195,18 @@ def test_every_id_the_js_looks_up_exists_exactly_once(page):
     counts = {}
     for m in _ID_ATTR.finditer(html):
         counts[m.group(1)] = counts.get(m.group(1), 0) + 1
-    for eid in ids:
-        assert counts.get(eid, 0) == 1, (
-            f"id {eid!r} (looked up by the inline JS) appears {counts.get(eid, 0)} "
-            f"times in the page, not once")
+    found = {eid: counts.get(eid, 0) for eid in ids}
+    if "species" in carries:
+        for eid, k in found.items():
+            assert k == 1, (
+                f"id {eid!r} (looked up by the inline JS) appears {k} times in the "
+                f"page, not once")
+    else:
+        # The whole block guards on the species table and returns early without
+        # one, so every id it reaches for has to be absent together. Half of
+        # them present is a page that throws on the first keystroke.
+        assert set(found.values()) == {0}, (
+            f"page carries no species table but wires up part of the filter: {found}")
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +214,7 @@ def test_every_id_the_js_looks_up_exists_exactly_once(page):
 # ---------------------------------------------------------------------------
 
 def test_tags_balance(page):
-    html, _ = page
+    html, _, _ = page
     assert html.count("<details") == html.count("</details>")
     assert len(re.findall(r"<table\b", html)) == html.count("</table>")
     assert len(re.findall(r"<section\b", html)) == html.count("</section>")
@@ -178,14 +226,18 @@ def test_tags_balance(page):
 # ---------------------------------------------------------------------------
 
 def test_one_species_row_per_scored_species(page, n_species):
-    html, _ = page
+    html, _, carries = page
     rows = re.findall(r"<tr data-species=", html)
-    assert len(rows) == n_species
+    assert len(rows) == (n_species if "species" in carries else 0)
 
 
 def test_every_row_status_has_a_matching_legend_entry(page):
-    html, _ = page
+    html, _, carries = page
     legend = _LEGEND.search(html)
+    if "species" not in carries:
+        assert legend is None, "page carries no species table but renders its legend"
+        assert not _ROW.findall(html), "page carries no species table but renders its rows"
+        return
     assert legend, "no <ul class=\"status-legend\"> block -- legend was not rendered"
     legend_start = legend.start()
     # Not the first <table> in the page -- panels earlier in the document
@@ -213,7 +265,7 @@ def test_every_row_status_has_a_matching_legend_entry(page):
 # ---------------------------------------------------------------------------
 
 def test_no_unrendered_template_residue(page):
-    html, _ = page
+    html, _, _ = page
     assert "object at 0x" not in html, "a repr() leaked in (e.g. an un-substituted Template)"
     for placeholder in ("$table_id", "$input_id", "$select_id", "$count_id"):
         assert placeholder not in html, f"Template placeholder {placeholder!r} was not substituted"
@@ -224,13 +276,13 @@ def test_no_unrendered_template_residue(page):
 # ---------------------------------------------------------------------------
 # the send-first list
 # ---------------------------------------------------------------------------
-def test_the_rendered_queue_matches_the_file_it_points_at(full_page):
+def test_the_rendered_queue_matches_the_file_it_points_at(internal_page):
     """The page prints the head of send_first_queue.csv and tells the reader to
     open that file for the rest. A different sort in either place would hand a
     botanist two orders and no way to tell which one to work."""
     import csv
 
-    html, _ = full_page
+    html, _ = internal_page
     with open(SNAPSHOT_DIR / "send_first_queue.csv", newline="", encoding="utf-8") as f:
         expected = [r["global_key"] for r in csv.DictReader(f)]
     shown = re.findall(r'<code class="key">([^<]+)</code>', html)
@@ -241,11 +293,11 @@ def test_the_rendered_queue_matches_the_file_it_points_at(full_page):
         f"rendered order differs from the CSV: {shown[:3]} against {expected[:3]}")
 
 
-def test_the_camera_note_counts_the_frames_it_describes(full_page):
+def test_the_camera_note_counts_the_frames_it_describes(internal_page):
     """The note names a camera split read off the frame keys. If the keys stop
     naming a camera the build aborts, so this checks the number that survived
     is the number of keys actually rendered as tele."""
-    html, _ = full_page
+    html, _ = internal_page
     m = re.search(r"(\d[\d,]*) of the ([\d,]*) photos in this queue \(([\d.]+)%\) are tele",
                   html)
     assert m, "the camera note is not on the page"
@@ -260,18 +312,29 @@ def test_the_camera_note_counts_the_frames_it_describes(full_page):
     assert "Every frame scored on this page was shot with the zoom lens" in html
 
 
+def test_only_the_internal_page_renders_the_queue(page):
+    """The split moved the send-first list off the page that leaves the lab. A
+    queue key reappearing there is the split silently coming undone."""
+    html, _, carries = page
+    keys = re.findall(r'<code class="key">([^<]+)</code>', html)
+    assert bool(keys) == ("queue_keys" in carries), (
+        f"page renders {len(keys)} queue keys but carries the list: "
+        f"{'queue_keys' in carries}")
+
+
 # ---------------------------------------------------------------------------
 # anchors and jump lists
 # ---------------------------------------------------------------------------
 # These five gate behaviour shipped in fcb0aec (panel anchors, per-section jump
 # lists, the table scroll wrapper) and in af4b521 (the status legend). They are
-# assertions about the page, not about either builder's internals, so they run
-# against both pages like everything above.
+# assertions about the page, not about any builder's internals, so they run
+# against every page like everything above.
 
 def test_every_link_into_the_page_lands_on_something(page):
     """The jump lists are generated from the panels, so a broken one means the
-    two have drifted apart."""
-    html, _ = page
+    two have drifted apart. Since the split it also catches a link left behind
+    pointing at a section that moved to the other page."""
+    html, _, _ = page
     targets = set(_ID_ATTR.findall(html))
     for href in set(re.findall(r'href="#([^"]+)"', html)):
         assert href in targets, f"jump link #{href} has no target"
@@ -281,13 +344,13 @@ def test_no_anchor_carries_a_number(page):
     """An id built from a summary that states a live count changes on the next
     snapshot, and every saved link to it breaks. `panel()` rejects those, so
     this is the assertion that the guard is actually wired up."""
-    html, _ = page
+    html, _, _ = page
     for eid in re.findall(r'<details class="panel" id="([^"]+)"', html):
         assert not any(c.isdigit() for c in eid), f"anchor {eid!r} carries a number"
 
 
 def test_each_id_is_unique(page):
-    html, _ = page
+    html, _, _ = page
     ids = _ID_ATTR.findall(html)
     duplicated = {i for i in ids if ids.count(i) > 1}
     assert not duplicated, f"duplicate ids: {sorted(duplicated)}"
@@ -296,15 +359,18 @@ def test_each_id_is_unique(page):
 def test_a_wide_table_scrolls_inside_its_own_box(page):
     """Without the wrapper the widest table sets the page width and every
     paragraph scrolls sideways with it on a phone."""
-    html, _ = page
+    html, _, _ = page
     assert len(re.findall(r"<table\b", html)) == html.count('class="tscroll"')
 
 
 def test_the_filter_can_reach_every_row(page):
     """The filter reads data-species and data-status. A row missing either is
     invisible to it, which reads as a table that loses rows when you type."""
-    html, _ = page
+    html, _, carries = page
     tagged = [r for r in re.findall(r"<tr\b[^>]*>", html) if "data-species=" in r]
+    if "species" not in carries:
+        assert not tagged, "page carries no species table but renders filterable rows"
+        return
     assert tagged, "no filterable rows"
     for row in tagged:
         assert "data-status=" in row, f"row filterable by name but not status: {row}"

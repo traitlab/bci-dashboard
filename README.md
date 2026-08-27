@@ -1,13 +1,19 @@
 # BCI dashboard
 
-Two self-contained HTML pages that answer, from the same measurement pass:
+Two self-contained HTML pages, one per audience, built from the same
+measurement pass:
 
-1. **How well does Pl@ntNet name BCI drone close-ups today?** Top-1 accuracy per
-   species, each with its support count, its calibration, and the reason its
-   status was assigned.
-2. **Which photos should botanists label next?** A send-first queue and
-   species-grouped batches, so the answer is a work order the labelling team can
-   act on.
+1. **How well does Pl@ntNet name BCI drone close-ups today?**
+   `dashboard/build_external.py` reports top-1 accuracy per species, each with
+   its support count, its calibration, and the reason its status was assigned.
+   This is the page that leaves the lab.
+2. **Which photos should botanists label next?** `dashboard/build_internal.py`
+   reports a send-first queue and species-grouped batches. The page is a way to
+   check the order; the deliverable is `send_batches.csv` beside it, which the
+   labelling script reads.
+
+`dashboard/build_simple.py` is a third page, a one-screen overview of both for a
+reader who wants neither in full.
 
 A page is a single file you can open, email, or drop on a share. It is rebuilt
 offline from files already on disk: a Labelbox export of botanist labels, plus
@@ -85,7 +91,8 @@ Or the measurement pass and one page alone:
 
 ```bash
 python3 dashboard/measure.py --out-dir snapshots/model-health-$(date +%F)
-python3 dashboard/build_simple.py --out build/simple_dashboard.html
+python3 dashboard/build_external.py --out build/model_health_dashboard.html
+python3 dashboard/build_internal.py --out build/label_queue_dashboard.html
 ```
 
 ## Configure

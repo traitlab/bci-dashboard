@@ -1,37 +1,36 @@
 #!/usr/bin/env python3
-"""Per-species Pl@ntNet-on-BCI health dashboard: one self-contained HTML page.
+"""Every panel the dashboard pages can carry, and the one context they share.
 
-Answers "how is the model doing, per species, and what do I do about it?" from
-data already on disk: the botanist's labels plus cached Pl@ntNet responses. No
-network, no API key, no third-party package. The page opens from a file:// URL
-with every style, script and chart inlined.
+The 2026-08-27 split gave the panels two audiences. The internal page answers
+"what do we label next" and belongs to the labelling team; its real deliverable
+is ``send_batches.csv``, so the page stays thin. The external page answers "how
+does Pl@ntNet do against the labels" and is the one that leaves the lab. A
+panel therefore names its audience once, here, instead of a page hand-keeping a
+list of what it happens to include.
 
-    python3 dashboard/build_full.py [--out PATH]
+``prepare`` computes every derived figure once and each builder reads it, rather
+than each builder recomputing from ``Health``. Two panels recomputing the same
+figure is exactly the drift ``history.verify_snapshot`` exists to catch, and it
+would catch it only after both pages were already built.
 
-Numbers are recomputed here from source rather than read from the CSVs, then
-cross-checked against the CSVs measure.py wrote into the snapshot; a mismatch
-aborts the build, so the page cannot disagree with the measurement. The page
-reports the latest snapshot only, no trend over the sibling folders.
+Stdlib only, like the rest of ``dashboard/``.
 """
 
 from __future__ import annotations
 
-import argparse
-import datetime as _dt
 import os
-import re
 import sys
 from collections import Counter, defaultdict
+from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc  # noqa: E402
-from assets import (CSS, JS, cap, esc, filterable_table, panel, pctf, section,  # noqa: E402
-                              status_legend, status_tag, svg_hbar, table)
+from assets import (CSS, JS, cap, esc, filterable_table, panel, pctf,  # noqa: E402
+                    section, status_legend, status_tag, svg_hbar, table)
 from explain import (BAND_SHORT, candidates_panel, method_panel,  # noqa: E402
-                              weighting_panel)
-from history import (  # noqa: E402
-    latest_snapshot_dir, model_tag_of, snapshot_date_of, verify_snapshot)
+                     weighting_panel)
+from history import model_tag_of, snapshot_date_of  # noqa: E402
 
 # A species is "rarely labelled" below this many frames. Same threshold as the
 # deprioritization support gate, so the two panels cannot disagree.
@@ -40,6 +39,12 @@ RARE_MAX_SUPPORT = 10
 # so this page renders the same status hc.diagnose would for the same species.
 WAIT_SUPPORT_MIN = 10
 RECOMMENDED_CONF = 0.8
+
+# Enough to answer "what do I send next" without a CSV reader. A batch is 100
+# frames, so 25 is one morning's work and still short enough to read.
+SEND_PREVIEW = 25
+# Same reasoning, shorter: this list is read, not worked through.
+REVIEW_PREVIEW = 15
 
 # key -> (label, what to do about it). Order is the order of the to-do list:
 # cheapest useful work first, safe-to-skip last.
@@ -113,6 +118,20 @@ HERO_REGION = (
     "of prediction is the unit the label describes."
 )
 
+# Queue name -> (what it is, why it is worth sending). Shown in the order
+# hc.QUEUE_ORDER gives, which is the order the CSV is sorted in.
+QL = {"long_tail": ("Species we barely have",
+                    "The guess points at a species with fewer than 10 labelled frames, "
+                    "or one the model gets wrong even with more. These frames fill the "
+                    "long tail the labelling programme exists for"),
+      "low_conf_known": ("A usually-right species, guessed weakly",
+                         "The species is normally identified well but the model is "
+                         "unsure here, so the photo is either an odd one worth having "
+                         "or a quiet miss"),
+      "normal": ("Everything else", "The ordinary queue"),
+      "can_wait": ("Confident on a well-covered species",
+                   "The two-part rule below says these can wait; look at them last")}
+
 
 def is_family(n: str) -> bool:
     """A one-word label ending in -aceae is a family, not a genus.
@@ -125,15 +144,39 @@ def is_family(n: str) -> bool:
     return n.strip().lower().endswith("aceae")
 
 
-def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
+def top1(r):
+    return r["ranked"][0][0]
+
+
+def conf(r):
+    return r["ranked"][0][1]
+
+
+def camera_of(key):
+    """Which drone lens shot a frame, read off its key.
+
+    The drone flies a zoom and a tele lens and the filename records which.
+    Counted, not assumed: the two populations are not the same one.
+    """
+    low = key.lower()
+    for c in ("zoom", "tele"):
+        if c in low:
+            return c
+    raise SystemExit(f"frame key names no camera: {key!r}. The camera split "
+                     f"below reads the key, so a third camera has to be handled "
+                     f"here rather than counted as neither.")
+
+
+def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
+    """Every figure both pages draw from, computed once off one ``Health``.
+
+    The returned context is read-only as far as the builders are concerned, with
+    one exception: ``checks`` is filled in by the page after it has run its own
+    slice of ``history.verify_snapshot``, because which invariants apply is a
+    property of the page, not of the measurement.
+    """
     sp_recs, per_species = h.sp_recs, h.per_species
     n, n_sp = len(sp_recs), len(per_species)
-
-    def top1(r):
-        return r["ranked"][0][0]
-
-    def conf(r):
-        return r["ranked"][0][1]
 
     c1 = sum(1 for r in sp_recs if top1(r) == r["gt"])
     c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:5]])
@@ -209,25 +252,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     # tells the reader to open the rest, so two sorts would be two lists.
     queue_rows.sort(key=lambda r: (hc.QUEUE_ORDER.index(r[0]), r[3], r[1]))
 
-    # The drone flies a zoom and a tele lens and the filename records which.
-    # Counted, not assumed: the two populations are not the same one.
-    def camera_of(key):
-        low = key.lower()
-        for c in ("zoom", "tele"):
-            if c in low:
-                return c
-        raise SystemExit(f"frame key names no camera: {key!r}. The camera split "
-                         f"below reads the key, so a third camera has to be handled "
-                         f"here rather than counted as neither.")
-
     scored_cams = Counter(camera_of(r["global_key"]) for r in sp_recs)
     queue_cams = Counter(camera_of(stem) for _, stem, _, _ in queue_rows)
-
-    # Enough to answer "what do I send next" without a CSV reader. A batch is 100
-    # frames, so 25 is one morning's work and still short enough to read.
-    SEND_PREVIEW = 25
-    # Same reasoning, shorter: this list is read, not worked through.
-    REVIEW_PREVIEW = 15
 
     confident = [r for r in sp_recs if conf(r) >= hc.REVIEW_CONF]
     review = [r for r in confident if top1(r) != r["gt"]]
@@ -238,11 +264,6 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     for r in review:
         review_pairs[(r["gt"], top1(r))].append(conf(r))
     review_counts = (len(review), len(review_pairs))
-
-    checks = verify_snapshot(
-        verify_dir, per_species=per_species, buckets=buckets, bins_all=bins_all,
-        never_all=never_all, unscoreable=n - len(reach), strict_hits=strict1,
-        queue_counts=queue_counts, n_no_answer=n_no_answer, review_counts=review_counts)
 
     # --- why confidence alone is unsafe: error by labelled frames, at conf>=0.7 ---
     flat = {}
@@ -294,91 +315,66 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     gen_one = sum(1 for k in in_gen if k == 1)
     gen_none = len(in_gen) - gen_any
 
-    # --- page ---
-    P = ['<h1>Pl@ntNet on BCI: per-species model health</h1>',
-         f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
-         f'{esc(snap_date)} &middot; Pl@ntNet model <code>{esc(tag)}</code> '
-         f'&middot; {n:,} labelled frames &middot; {n_sp} species</div>',
-         '<p class="intro">This page says where botanist time is worth spending. Pl@ntNet has '
-         'already guessed a species for the centre crop of every labelled frame and we know '
-         'the frame\'s label, so we can say per species how often it is right.</p>',
-         f'<p class="terms">{HERO_TERMS}</p>',
-         '<div class="hero">']
-    for i, (metric, question, averaged, note) in enumerate(HEADLINES):
-        P.append(f'<div class="metric{" first" if i == 0 else ""}">'
-                 f'<div class="e">{averaged}</div><div class="row">'
-                 f'<div class="v">{pctf(now[metric])}</div></div>'
-                 f'<div class="l">{question}</div>'
-                 f'<div class="n">{note.format(n_sp=n_sp)}</div></div>')
-    P.append(f'</div><p class="caveat">{HERO_REGION}</p>')
-    P.append(f'<p class="note">{HERO_READING}</p>')
-    # One sentence, not the full caveat: the ceiling panel states the same numbers
-    # with the reasoning, and twice made this the second dense paragraph up top.
-    P.append(f'<p class="note"><strong>{n - len(reach):,} of these frames belong to '
-             f'{len(never)} species the model never names in five candidates, so they are '
-             f'wrong at every threshold.</strong> Without them the per-frame rate is '
-             f'{pctf(reach1)}. <a href="#what-this-cannot-tell-you">What this cannot tell '
-             f'you</a> says why that is a limit of the question we asked, not proof the '
-             f'model has never heard of them.</p>')
+    return SimpleNamespace(
+        h=h, sp_recs=sp_recs, per_species=per_species, n=n, n_sp=n_sp,
+        c1=c1, c5=c5, now=now, support=support, status=status, counts=counts,
+        buckets=buckets, bins_all=bins_all, never=never, never_crowns=never_crowns,
+        never_all=never_all, reach=reach, reach1=reach1, unscoreable=n - len(reach),
+        strict1=strict1, short5=short5, n_pred=n_pred, tag=tag, snap_date=snap_date,
+        queue_counts=queue_counts, lt_species=lt_species, queue_rows=queue_rows,
+        n_no_answer=n_no_answer, n_unlab=n_unlab, scored_cams=scored_cams,
+        queue_cams=queue_cams, confident=confident, review=review,
+        confident_ok=confident_ok, review_pairs=review_pairs, review_counts=review_counts,
+        flat=flat, eligible=eligible, test_recs=test_recs, rare=rare,
+        n_rare_test=n_rare_test, ops=ops, best=best, gn=gn, fam_n=fam_n, gg1=gg1,
+        fam_names=fam_names, gen_any=gen_any, gen_one=gen_one, gen_none=gen_none,
+        checks=None)
 
-    # Panels are built in reading order but emitted in section order at the foot of
-    # this function, so a comment here names the panel, never its position.
-    # ---- the five-candidate ceiling ----
-    p_candidates = candidates_panel(recs=sp_recs + h.genus_recs, gen_n=gn, gen_none=gen_none)
 
-    # ---- why the two headline numbers differ ----
-    p_weighting = weighting_panel(per_species=per_species, sp_recs=sp_recs, support=support,
-                                  buckets=buckets, now=now, n=n, n_sp=n_sp)
+# ---------------------------------------------------------------------------
+# Panels. One function per panel, each reading only the prepared context, so a
+# page is a list of panel ids rather than 400 lines of interleaved rendering.
+# ---------------------------------------------------------------------------
 
-    # ---- to-do list ----
+def p_todo(c):
     body = ['<ul class="todo">']
-    body += [f'<li><span class="n">{counts[k]}</span> species '
+    body += [f'<li><span class="n">{c.counts[k]}</span> species '
              f'<span class="tag {k}">{esc(lab)}</span> {esc(act)}</li>'
              for k, (lab, act) in STATUS.items()]
-    body.append(f'</ul><p class="note">Each of the {n_sp} species sits in exactly one row. '
+    body.append(f'</ul><p class="note">Each of the {c.n_sp} species sits in exactly one row. '
                 f'The numbers behind each status are in the species table below.</p>'
                 f'<p class="note"><strong>Cheaper still, and not counted in any row above: '
-                f'{gen_one:,} frames whose botanist label stops at the genus and whose five '
+                f'{c.gen_one:,} frames whose botanist label stops at the genus and whose five '
                 f'candidates contain exactly one species from that genus.</strong> The question '
-                f'there is yes or no, not which of {n_sp}. Those frames are outside the {n_sp} '
-                f'species scored on this page because they never named a species; see the '
-                f'genus paragraph under &ldquo;What this cannot tell you&rdquo;.</p>')
-    p_todo = panel(f"Where to spend botanist time next: {counts['ranking']} species are a "
-                   f"cheap confirmation, {counts['unreachable']} are not worth time yet",
-                   "<b>Work top to bottom.</b> Rows are ordered cheapest useful work first, "
-                   "and the last two rows are work you can skip.",
-                   "\n".join(body), open_=True)
+                f'there is yes or no, not which of {c.n_sp}. Those frames are outside the '
+                f'{c.n_sp} species scored on this page because they never named a species; see '
+                f'the genus paragraph under &ldquo;What this cannot tell you&rdquo;.</p>')
+    return panel(f"Where to spend botanist time next: {c.counts['ranking']} species are a "
+                 f"cheap confirmation, {c.counts['unreachable']} are not worth time yet",
+                 "<b>Work top to bottom.</b> Rows are ordered cheapest useful work first, "
+                 "and the last two rows are work you can skip.",
+                 "\n".join(body), open_=True)
 
-    # ---- what to send first: the unlabelled pool, ordered ----
-    QL = {"long_tail": ("Species we barely have",
-                        "The guess points at a species with fewer than 10 labelled frames, "
-                        "or one the model gets wrong even with more. These frames fill the "
-                        "long tail the labelling programme exists for"),
-          "low_conf_known": ("A usually-right species, guessed weakly",
-                             "The species is normally identified well but the model is "
-                             "unsure here, so the photo is either an odd one worth having "
-                             "or a quiet miss"),
-          "normal": ("Everything else", "The ordinary queue"),
-          "can_wait": ("Confident on a well-covered species",
-                       "The two-part rule below says these can wait; look at them last")}
+
+def p_send(c):
     body = table([("queue", False), ("unlabelled frames", True),
                   ("share of the pool", True)],
                  [[f'<strong>{esc(QL[q][0])}</strong>' if q in ("long_tail", "low_conf_known")
                    else esc(QL[q][0]),
-                   f'{queue_counts.get(q, 0):,}',
-                   pctf(queue_counts.get(q, 0) / n_unlab if n_unlab else None)]
+                   f'{c.queue_counts.get(q, 0):,}',
+                   pctf(c.queue_counts.get(q, 0) / c.n_unlab if c.n_unlab else None)]
                   for q in hc.QUEUE_ORDER])
     # The list itself, not a pointer to it: the counts above say how much work
     # there is, and the CSV in the snapshot folder said which photo.
-    head = queue_rows[:SEND_PREVIEW]
+    head = c.queue_rows[:SEND_PREVIEW]
     body += ('<h3 class="sub">The next ' + f'{len(head)}' + ' photos, in order</h3>'
              + table([("#", True), ("photo", False), ("Pl@ntNet's guess", False),
                       ("confidence", True), ("frames that species has", True)],
                      [[f"{i}", f'<code class="key">{esc(stem)}</code>',
                        f'<span class="sp">{esc(cap(pred))}</span>', f"{cf:.3f}",
-                       f"{support.get(pred, 0):,}"]
+                       f"{c.support.get(pred, 0):,}"]
                       for i, (_, stem, pred, cf) in enumerate(head, 1)]))
-    top_lt = sorted(lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
+    top_lt = sorted(c.lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
     body += (f'<p class="note">Most-named species in the first queue: '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
              + '.</p>'
@@ -386,31 +382,33 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
              f'in the snapshot folder: queue, photo key, the guess and its confidence, and '
              f'how well that species is already measured. Weakest confidence first inside '
              f'each queue, so the top of the file is the next batch.</p>'
-             f'<p class="note"><strong>{n_no_answer} unlabelled photos got no answer at '
+             f'<p class="note"><strong>{c.n_no_answer} unlabelled photos got no answer at '
              f'all</strong>: the candidate list came back empty. Those are the '
              f'candidate junk or non-plant photos (leaves in the water, bare trunks). There '
              f'is no reliable automatic rule for junk, so check that handful by eye before '
              f'queueing them rather than filtering on it.</p>'
              f'<p class="note"><b>Every frame scored on this page was shot with the zoom '
-             f'lens</b> ({scored_cams["zoom"]:,} of {sum(scored_cams.values()):,}), while '
-             f'{queue_cams["tele"]:,} of the {sum(queue_cams.values()):,} photos in this '
-             f'queue ({pctf(queue_cams["tele"] / sum(queue_cams.values()))}) are tele. No '
+             f'lens</b> ({c.scored_cams["zoom"]:,} of {sum(c.scored_cams.values()):,}), while '
+             f'{c.queue_cams["tele"]:,} of the {sum(c.queue_cams.values()):,} photos in this '
+             f'queue ({pctf(c.queue_cams["tele"] / sum(c.queue_cams.values()))}) are tele. No '
              f'accuracy on this page has been measured on a tele frame, because no tele '
              f'frame has a botanist label yet, so how well the model reads that lens is '
              f'not known from here. Sending them is how it becomes known.</p>'
-             f'<p class="note">The pool is {n_unlab:,} of {len(h.split_rows):,} photos: the '
-             f'frames with a cached Pl@ntNet answer and no botanist label. The species '
+             f'<p class="note">The pool is {c.n_unlab:,} of {len(c.h.split_rows):,} photos: '
+             f'the frames with a cached Pl@ntNet answer and no botanist label. The species '
              f'record behind each queue is the one measured above, so a model update '
              f're-sorts this queue exactly as it re-sorts the can-wait one.</p>')
-    p_send = panel(f"What to send to the botanist first: {queue_counts.get('long_tail', 0):,} "
-                   f"of {n_unlab:,} unlabelled photos point at species we barely have",
-                   "<b>Work the queues top to bottom.</b> The first two buy the most per "
-                   "label: the long tail, where a species has almost nothing to be scored "
-                   "on, and the photos where a usually-right species is guessed weakly.",
-                   body)
+    return panel(f"What to send to the botanist first: "
+                 f"{c.queue_counts.get('long_tail', 0):,} "
+                 f"of {c.n_unlab:,} unlabelled photos point at species we barely have",
+                 "<b>Work the queues top to bottom.</b> The first two buy the most per "
+                 "label: the long tail, where a species has almost nothing to be scored "
+                 "on, and the photos where a usually-right species is guessed weakly.",
+                 body)
 
-    # ---- labels worth a second look ----
-    pair_rows = sorted(review_pairs.items(), key=lambda kv: -len(kv[1]))[:10]
+
+def p_review(c):
+    pair_rows = sorted(c.review_pairs.items(), key=lambda kv: -len(kv[1]))[:10]
     body = (table([("botanist label", False), ("Pl@ntNet's first guess", False),
                    ("frames", True), ("mean confidence", True)],
                   [[f'<span class="sp">{esc(cap(gt))}</span>',
@@ -422,8 +420,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
     # the link is known. Known means an export carried that data row: the URL is
     # read from what a merge recorded, never guessed and never fetched.
     urls = hc.labelbox_urls()
-    top_review = sorted(review, key=lambda r: -conf(r))[:REVIEW_PREVIEW]
-    linked = sum(1 for r in review if r["global_key"] in urls)
+    top_review = sorted(c.review, key=lambda r: -conf(r))[:REVIEW_PREVIEW]
+    linked = sum(1 for r in c.review if r["global_key"] in urls)
     body += table([("frame", False), ("botanist label", False),
                    ("Pl@ntNet's first guess", False), ("confidence", True)],
                   [[(f'<a href="{esc(urls[r["global_key"]])}" target="_blank" '
@@ -435,33 +433,35 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
                    for r in top_review])
     body += (f'<p class="note">The {len(top_review)} most confident disagreements. '
              f'A frame name links straight to its Labelbox data row where that link '
-             f'is known: {linked} of {len(review)} frames here, because a data row id '
+             f'is known: {linked} of {len(c.review)} frames here, because a data row id '
              f'is only known for frames carried by an export this ground truth was '
              f'merged from. Frames labelled in a project that has not been exported '
              f'since are listed without a link rather than sent to a guessed URL.</p>')
     body += (f'<p class="note">Each row is a labelled frame where the model is at least '
              f'{hc.REVIEW_CONF:.1f} confident in a <em>different</em> species. A first guess '
-             f'this confident is right {pctf(confident_ok)} of the time in bulk '
-             f'({len(confident) - len(review):,} of {len(confident):,}), so each of these '
-             f'is either a rare confident model error or a label error, and a label error '
-             f'found this way is the cheapest label fix available. Offline there is no way '
-             f'to tell which; that is the botanist\'s minute. '
+             f'this confident is right {pctf(c.confident_ok)} of the time in bulk '
+             f'({len(c.confident) - len(c.review):,} of {len(c.confident):,}), so each of '
+             f'these is either a rare confident model error or a label error, and a label '
+             f'error found this way is the cheapest label fix available. Offline there is no '
+             f'way to tell which; that is the botanist\'s minute. '
              f'Every frame is in <code>label_review_queue.csv</code> in the snapshot folder, '
              f'most confident first.</p>'
              f'<p class="note">Not urgent: work this list after the send-first queues. A '
              f'confusion pair that keeps recurring is a signal about the species, not just '
              f'the photo.</p>')
-    p_review = panel(f"Labels worth a second look: {review_counts[0]} frames where Pl@ntNet "
-                     f"confidently disagrees",
-                     "<b>Possible label errors, possible model errors.</b> Either way they "
-                     "are the disagreements most worth an expert's minute, once the cheap "
-                     "queues above are worked through.", body)
+    return panel(f"Labels worth a second look: {c.review_counts[0]} frames where Pl@ntNet "
+                 f"confidently disagrees",
+                 "<b>Possible label errors, possible model errors.</b> Either way they "
+                 "are the disagreements most worth an expert's minute, once the cheap "
+                 "queues above are worked through.", body)
 
-    # ---- deprioritization ----
+
+def p_wait(c):
+    best = c.best
     body = (f'<div class="rec"><strong>Suggested rule: leave a frame for later when '
             f'Pl@ntNet is at least {RECOMMENDED_CONF} confident and its species already has '
             f'{WAIT_SUPPORT_MIN} or more labelled frames.</strong> On held-out test frames '
-            f'that is {best["n"]:,} of {len(test_recs):,} ({pctf(best["share"])}), and the '
+            f'that is {best["n"]:,} of {len(c.test_recs):,} ({pctf(best["share"])}), and the '
             f'first guess is wrong on {pctf(best["err"])} of them.</div>'
             '<p class="note"><strong>Nothing here is a label.</strong> A frame that can wait '
             'keeps whatever ground truth it already has, or none at all. No prediction is '
@@ -469,41 +469,44 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             "botanist's queue.</p>"
             f'<p class="note"><strong>The decision expires with the model.</strong> Pl@ntNet '
             f'ships a new model every few months, on its own schedule rather than ours, and '
-            f'a frame deprioritized under <code>{esc(tag)}</code> is not deprioritized '
+            f'a frame deprioritized under <code>{esc(c.tag)}</code> is not deprioritized '
             f'under the next one. Re-run this page after every model change and the queue '
             f're-sorts. Any frame can come back to the top.</p>'
-            f'<p class="note">{len(eligible)} species clear the {WAIT_SUPPORT_MIN}-frame gate, '
-            f'counted from <code>train</code> frames only, and the error rate above is then '
-            f'measured on the {len(test_recs):,} <code>test</code> frames only.</p>')
-    p_wait = panel(f"Which frames can wait: {best['n']:,} of {len(test_recs):,} test frames, "
-                   f"revocable at the next model change",
-                   "<b>Use this to order the queue, not to close frames.</b> These are the "
-                   "frames to look at last, and the ranking is recomputed from scratch "
-                   "whenever Pl@ntNet updates.", body)
+            f'<p class="note">{len(c.eligible)} species clear the {WAIT_SUPPORT_MIN}-frame '
+            f'gate, counted from <code>train</code> frames only, and the error rate above is '
+            f'then measured on the {len(c.test_recs):,} <code>test</code> frames only.</p>')
+    return panel(f"Which frames can wait: {best['n']:,} of {len(c.test_recs):,} test frames, "
+                 f"revocable at the next model change",
+                 "<b>Use this to order the queue, not to close frames.</b> These are the "
+                 "frames to look at last, and the ranking is recomputed from scratch "
+                 "whenever Pl@ntNet updates.", body)
 
-    # ---- rule comparison ----
+
+def p_rules(c):
     body = table([("rule", False), ("frames that can wait", True),
                   ("share of the queue", True), ("of those, first guess wrong", True),
                   ("rarely-labelled frames among them", True),
                   ("rarely-labelled share of what is left", True)],
-                 [[f'<strong>{o["label"]}</strong>' if o is best else o["label"],
+                 [[f'<strong>{o["label"]}</strong>' if o is c.best else o["label"],
                    f'{o["n"]:,}', pctf(o["share"]), pctf(o["err"]), f'{o["rare"]}',
-                   pctf(o["rare_rest"])] for o in ops])
+                   pctf(o["rare_rest"])] for o in c.ops])
     body += (f'<p class="note">A species with fewer than {RARE_MAX_SUPPORT} labelled frames '
-             f'counts as rarely labelled: {len(rare)} of {n_sp} species, {n_rare_test} of '
-             f'the {len(test_recs):,} test frames. No rarely-labelled frame can be '
+             f'counts as rarely labelled: {len(c.rare)} of {c.n_sp} species, {c.n_rare_test} '
+             f'of the {len(c.test_recs):,} test frames. No rarely-labelled frame can be '
              f'deprioritized under a gated rule, because the gate excludes them.</p>')
-    p_rules = panel("How the five candidate rules compare, including the ungated ones",
-                    "<b>Read this only if you want to move the threshold.</b> Each row trades "
-                    "queue reduction against how often a deprioritized frame was actually "
-                    "misidentified.", body)
+    return panel("How the five candidate rules compare, including the ungated ones",
+                 "<b>Read this only if you want to move the threshold.</b> Each row trades "
+                 "queue reduction against how often a deprioritized frame was actually "
+                 "misidentified.", body)
 
-    # ---- confidence ----
+
+def p_conf(c):
     # Same blue as the next panel's chart: same measure, so a colour change would
     # read as meaning something. Green is spoken for by the status tags.
+    flat = c.flat
     body = (svg_hbar([(band, k / nn if nn else 0.0,
                        f'{pctf(k / nn) if nn else "n/a"}  ·  {nn:,} frames', "#1565c0")
-                      for band, nn, k in bins_all],
+                      for band, nn, k in c.bins_all],
                      title="how often the first guess is right, by the model's own confidence")
             + '<p class="note">Over all frames at once the confidence score is trustworthy: '
               'when the model is sure it is almost always right. That is what makes queue '
@@ -520,11 +523,13 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             + '<p class="note">Raising the confidence threshold does not repair this. '
               'Requiring the species to have been measured first does, which is why the '
               'suggested rule has two conditions.</p>')
-    p_conf = panel("Can we trust the model's confidence? In bulk yes, on rare species no",
-                   "<b>This is the evidence behind the two-part rule above.</b> Read it if "
-                   "someone proposes ordering the queue on confidence alone.", body)
+    return panel("Can we trust the model's confidence? In bulk yes, on rare species no",
+                 "<b>This is the evidence behind the two-part rule above.</b> Read it if "
+                 "someone proposes ordering the queue on confidence alone.", body)
 
-    # ---- labelled frames vs accuracy ----
+
+def p_labels(c):
+    buckets = c.buckets
     body = (svg_hbar([(BAND_SHORT[lab], buckets[lab]["c1"] / buckets[lab]["n_crowns"],
                        f'{pctf(buckets[lab]["c1"] / buckets[lab]["n_crowns"])}  ·  '
                        f'{buckets[lab]["n_species"]} spp, {buckets[lab]["n_crowns"]:,} '
@@ -541,15 +546,16 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
               'photos inside Pl@ntNet. What extra labels buy is knowledge: below about '
               f'{WAIT_SUPPORT_MIN} frames a per-species accuracy jumps around too much to '
               f'act on, and above it the species can enter the queue-ordering rule.</div>')
-    p_labels = panel("Does accuracy rise with more labels? It rises with abundance, and the "
-                     "model is frozen",
-                     "<b>Use this to see where the measurement is solid enough to act on.</b> "
-                     "Do not use it to argue that labelling raises accuracy.", body)
+    return panel("Does accuracy rise with more labels? It rises with abundance, and the "
+                 "model is frozen",
+                 "<b>Use this to see where the measurement is solid enough to act on.</b> "
+                 "Do not use it to argue that labelling raises accuracy.", body)
 
-    # ---- per-species table ----
+
+def p_species(c):
     sp_rows, attrs = [], []
-    for d in sorted(per_species, key=lambda x: (-x["n_labelled_crowns"], x["species"])):
-        sp, st = d["species"], status[d["species"]]
+    for d in sorted(c.per_species, key=lambda x: (-x["n_labelled_crowns"], x["species"])):
+        sp, st = d["species"], c.status[d["species"]]
         sp_rows.append([
             f'<span class="sp" data-sort="{esc(sp)}">{esc(cap(sp))}</span>',
             f'<span data-sort="{d["n_labelled_crowns"]}">{d["n_labelled_crowns"]:,}</span>',
@@ -568,16 +574,19 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
         options=[(k, v[0]) for k, v in STATUS.items()],
         row_attrs=attrs,
     ))
-    p_species = panel(f"Look up one species: all {n_sp}, sortable and filterable",
-                      "<b>Find a species you care about and read its status.</b> Click any "
-                      "heading to sort, type to filter.", body)
+    return panel(f"Look up one species: all {c.n_sp}, sortable and filterable",
+                 "<b>Find a species you care about and read its status.</b> Click any "
+                 "heading to sort, type to filter.", body)
 
-    # ---- ceiling ----
-    body = (f'<p class="note"><strong>{len(never)} species ({never_crowns} of the {n:,} '
+
+def p_ceiling(c):
+    n, gn = c.n, c.gn
+    body = (f'<p class="note"><strong>{len(c.never)} species ({c.never_crowns} of the {n:,} '
             f'evaluated frames) never appear in any answer the model gave us.</strong> '
-            f'Leaving them out raises the per-frame rate from {pctf(c1 / n)} to '
-            f'{pctf(reach1)} on {len(reach):,} centre crops. Across all {len(h.gt_rows):,} '
-            f'labelled frames the same condition covers {never_all} frames.</p>'
+            f'Leaving them out raises the per-frame rate from {pctf(c.c1 / n)} to '
+            f'{pctf(c.reach1)} on {len(c.reach):,} centre crops. Across all '
+            f'{len(c.h.gt_rows):,} labelled frames the same condition covers '
+            f'{c.never_all} frames.</p>'
             f'<div class="warn"><strong>This is a limit of the question we asked, not proof '
             f'the model has never heard of these species.</strong> The only test we can run '
             f'offline is whether a species name turns up somewhere in the cached answers, and '
@@ -585,75 +594,140 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir):
             f'knows perfectly well, but which never made anyone\'s top five on a BCI photo, '
             f'is indistinguishable here from one it truly cannot return. The five-candidate '
             f'cap is what hides the difference. It did not bite everywhere: on '
-            f'{short5:,} of the {n_pred:,} frames with a cached answer '
-            f'({pctf(short5 / n_pred)}) fewer than five candidates came back, so nothing was '
-            f'cut off. On the other {n_pred - short5:,} the list was full, and anything the '
-            f'model would have ranked sixth or lower is invisible to us. The way to find out '
-            f'is to re-run the predictions asking for more candidates per photo. More name '
-            f'cleaning will not help, because names are already matched as well as they '
-            f'can be.</div>'
+            f'{c.short5:,} of the {c.n_pred:,} frames with a cached answer '
+            f'({pctf(c.short5 / c.n_pred)}) fewer than five candidates came back, so nothing '
+            f'was cut off. On the other {c.n_pred - c.short5:,} the list was full, and '
+            f'anything the model would have ranked sixth or lower is invisible to us. The way '
+            f'to find out is to re-run the predictions asking for more candidates per photo. '
+            f'More name cleaning will not help, because names are already matched as well as '
+            f'they can be.</div>'
             + table([("Species", False), ("Labelled frames", True)],
                     [[f'<span class="sp">{esc(cap(d["species"]))}</span>',
-                      f'{d["n_labelled_crowns"]:,}'] for d in never])
+                      f'{d["n_labelled_crowns"]:,}'] for d in c.never])
             + f'<p class="note"><strong>Spelling and renamed species are not costing us '
               f'anything.</strong> Labels and predictions are put into the same standard form '
               f'before they are compared, and old names are resolved to current ones. Scoring '
-              f'the raw names instead would give {pctf(strict1 / n)} rather than '
-              f'{pctf(c1 / n)} on the centre crop, so that matching is worth '
-              f'{100 * (c1 - strict1) / n:+.2f} points, or {c1 - strict1} frames. Treat it as '
-              f'a gain already banked, not as a source of error.</p>'
+              f'the raw names instead would give {pctf(c.strict1 / n)} rather than '
+              f'{pctf(c.c1 / n)} on the centre crop, so that matching is worth '
+              f'{100 * (c.c1 - c.strict1) / n:+.2f} points, or {c.c1 - c.strict1} frames. '
+              f'Treat it as a gain already banked, not as a source of error.</p>'
               f'<p class="note"><strong>{gn:,} further frames carry only a genus '
               f'name</strong> and are left out of every species number above. Scored at '
-              f'genus level they reach {pctf(gg1 / gn) if gn else "n/a"}. Of them, '
-              f'{gen_any:,} have at least one candidate in the right genus among the five, '
-              f'and <strong>{gen_one:,} have exactly one</strong>, which turns the question '
+              f'genus level they reach {pctf(c.gg1 / gn) if gn else "n/a"}. Of them, '
+              f'{c.gen_any:,} have at least one candidate in the right genus among the five, '
+              f'and <strong>{c.gen_one:,} have exactly one</strong>, which turns the question '
               f'into a yes or no rather than an identification. Whether taking them down to '
               f'species is worth expert time is a prioritisation question, not a model '
               f'question.</p>'
-              f'<p class="note">A further {fam_n} frames are labelled to '
-              f'{fam_names} <em>families</em> rather than genera. They are excluded from the '
-              f'genus rate above and cannot be scored at all offline: a family name can never '
-              f'match a predicted species name, and mapping predictions up to family would '
-              f'need a family lookup covering Pl@ntNet\'s vocabulary, which we do not have '
-              f'here. Counting them in would have reported '
-              f'{pctf(gg1 / (gn + fam_n))} instead of {pctf(gg1 / gn)}.</p>')
-    p_ceiling = panel(f"What labelling cannot fix: {len(never)} species, {never_crowns} frames "
-                      f"the model never named, and why the five-candidate cap may be the cause",
-                      "<b>Do not spend expert time renaming or relabelling these.</b> Either "
-                      "the model cannot return the species or we never asked for enough "
-                      "candidates to find out, and only re-running the predictions can tell "
-                      "the two apart.", body)
-
-    # ---- method ----
-    p_method = method_panel(tag=tag, n=n, n_sp=n_sp, checks=checks)
-
-    # ---- the page's two goals, then the ceilings that gate both. A panel belongs
-    # to the goal it serves, so the confidence evidence sits with the queue rule it
-    # justifies and the species lookup sits with the scores it reports.
-    P.append(section("What to label first",
-                     "Which frames to send, which can wait, the evidence behind the wait "
-                     "rule, and which labels deserve a second look.",
-                     "\n".join([p_todo, p_send, p_wait, p_rules, p_conf, p_review])))
-    P.append(section("How Pl@ntNet is doing against the labels",
-                     "The two headline scores disagree. These panels say why, and how any "
-                     "one species is doing.",
-                     "\n".join([p_weighting, p_labels, p_species])))
-    P.append(section("What this cannot tell you",
-                     "The ceilings on every number above.",
-                     "\n".join([p_candidates, p_ceiling, p_method])))
-
-    return ("<!DOCTYPE html>\n"
-            '<html lang="en"><head><meta charset="utf-8">'
-            '<meta name="viewport" content="width=device-width,initial-scale=1">'
-            "<title>Pl@ntNet on BCI - per-species model health</title>"
-            # No footer: the subtitle already carries the build date, the snapshot and
-            # the model tag, and a second copy at the foot said nothing new.
-            f"<style>{CSS}</style></head><body>" + "\n".join(P)
-            + f"<script>{JS}</script></body></html>"), checks
+              f'<p class="note">A further {c.fam_n} frames are labelled to '
+              f'{c.fam_names} <em>families</em> rather than genera. They are excluded from '
+              f'the genus rate above and cannot be scored at all offline: a family name can '
+              f'never match a predicted species name, and mapping predictions up to family '
+              f'would need a family lookup covering Pl@ntNet\'s vocabulary, which we do not '
+              f'have here. Counting them in would have reported '
+              f'{pctf(c.gg1 / (gn + c.fam_n))} instead of {pctf(c.gg1 / gn)}.</p>')
+    return panel(f"What labelling cannot fix: {len(c.never)} species, {c.never_crowns} frames "
+                 f"the model never named, and why the five-candidate cap may be the cause",
+                 "<b>Do not spend expert time renaming or relabelling these.</b> Either "
+                 "the model cannot return the species or we never asked for enough "
+                 "candidates to find out, and only re-running the predictions can tell "
+                 "the two apart.", body)
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__)
+def p_candidates(c):
+    return candidates_panel(recs=c.sp_recs + c.h.genus_recs, gen_n=c.gn, gen_none=c.gen_none)
+
+
+def p_weighting(c):
+    return weighting_panel(per_species=c.per_species, sp_recs=c.sp_recs, support=c.support,
+                           buckets=c.buckets, now=c.now, n=c.n, n_sp=c.n_sp)
+
+
+def p_method(c):
+    if c.checks is None:
+        raise SystemExit("the method panel reports the build's own verification lines, so "
+                         "the page must run verify_snapshot and set ctx.checks before "
+                         "rendering it.")
+    return method_panel(tag=c.tag, n=c.n, n_sp=c.n_sp, checks=c.checks)
+
+
+# ---------------------------------------------------------------------------
+# The registry: which section a panel belongs to, and which page carries it.
+# ---------------------------------------------------------------------------
+
+# section key -> (heading, the one orienting line under it).
+SECTIONS = {
+    "label-first": (
+        "What to label first",
+        "Which frames to send, which can wait, and the evidence behind the wait rule."),
+    "model-health": (
+        "How Pl@ntNet is doing against the labels",
+        "The two headline scores disagree. These panels say why, how any one species is "
+        "doing, and which labels deserve a second look."),
+    "limits": (
+        "What this cannot tell you",
+        "The ceilings on every number above."),
+}
+
+# panel id -> (section key, builder). A panel belongs to the goal it serves, so
+# the confidence evidence sits with the queue rule it justifies and the species
+# lookup sits with the scores it reports.
+PANELS = {
+    "todo": ("label-first", p_todo),
+    "send": ("label-first", p_send),
+    "wait": ("label-first", p_wait),
+    "rules": ("label-first", p_rules),
+    "conf": ("label-first", p_conf),
+    "weighting": ("model-health", p_weighting),
+    "labels": ("model-health", p_labels),
+    "species": ("model-health", p_species),
+    "review": ("model-health", p_review),
+    "candidates": ("limits", p_candidates),
+    "ceiling": ("limits", p_ceiling),
+    "method": ("limits", p_method),
+}
+
+# The 2026-08-27 split. Internal is the labelling team's tool and stays thin;
+# its real deliverable is send_batches.csv. External is what leaves the lab, and
+# the confident disagreements go with it so they can be worked in Labelbox.
+INTERNAL_PANELS = ("todo", "send", "wait", "rules", "conf")
+EXTERNAL_PANELS = ("weighting", "labels", "species", "review",
+                   "candidates", "ceiling", "method")
+
+if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
+    raise SystemExit(f"every panel belongs to a page: "
+                     f"{sorted(set(PANELS) - set(INTERNAL_PANELS) - set(EXTERNAL_PANELS))} "
+                     f"belongs to neither")
+
+
+def render(c, ids) -> str:
+    """The chosen panels, grouped into their sections, in SECTIONS order.
+
+    A section with no chosen panel is not emitted at all, so a page never shows
+    a heading and a jump list over nothing.
+    """
+    unknown = [i for i in ids if i not in PANELS]
+    if unknown:
+        raise SystemExit(f"no such panel: {unknown}. Known: {sorted(PANELS)}")
+    out = []
+    for key, (title, lede) in SECTIONS.items():
+        chosen = [PANELS[i][1](c) for i in ids if PANELS[i][0] == key]
+        if chosen:
+            out.append(section(title, lede, "\n".join(chosen)))
+    return "\n".join(out)
+
+
+# ---------------------------------------------------------------------------
+# The bits of a page that are not a panel: the command line, the document
+# wrapper, and writing the file. Both pages do these identically, and a second
+# copy is a second place for the verify flags to drift.
+# ---------------------------------------------------------------------------
+
+def parse_args(doc: str, default_out: str):
+    """The builder command line. Same flags on both pages, different --out."""
+    import argparse
+
+    ap = argparse.ArgumentParser(description=doc)
     ap.add_argument("--gt", default=hc.GT_CSV)
     ap.add_argument("--splits", default=hc.SPLITS_CSV)
     ap.add_argument("--cache-dir", default=hc.CACHE_DIR)
@@ -664,30 +738,34 @@ def main() -> None:
     ap.add_argument("--model-tag", default="unknown",
                     help="Pl@ntNet model iteration to record for a snapshot whose "
                          "run_log.txt does not name one")
-    ap.add_argument("--out", default=os.path.join(hc.REPO, "build",
-                                                  "model_health_dashboard.html"))
+    ap.add_argument("--out", default=os.path.join(hc.REPO, "build", default_out))
     ap.add_argument("--generated", default=None,
                     help="build date string; defaults to today (pass a fixed value for "
                          "byte-reproducible output)")
-    args = ap.parse_args()
+    return ap.parse_args()
 
-    h = hc.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
-                       wcvp_cache=args.wcvp_cache)
-    page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),
-                         verify_dir=args.verify_against or latest_snapshot_dir(),
-                         fallback_tag=args.model_tag,
-                         cache_dir=args.cache_dir)
 
-    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
+def document(title: str, body: str) -> str:
+    """One self-contained file: every style and script inlined, nothing fetched.
+
+    No footer: the subtitle already carries the build date, the snapshot and the
+    model tag, and a second copy at the foot said nothing new.
+    """
+    return ("<!DOCTYPE html>\n"
+            '<html lang="en"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            f"<title>{title}</title>"
+            f"<style>{CSS}</style></head><body>" + body
+            + f"<script>{JS}</script></body></html>")
+
+
+def write_page(page: str, checks, out: str) -> None:
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     # Encoded here so the reported size is the size on disk: accented species names
     # cost more than a byte each, and len(page) undercounts by ten.
     blob = page.encode("utf-8")
-    with open(args.out, "wb") as f:
+    with open(out, "wb") as f:
         f.write(blob)
     for c in checks:
         print(f"  verified  {c}")
-    print(f"  wrote     {args.out}  ({len(blob):,} bytes)")
-
-
-if __name__ == "__main__":
-    main()
+    print(f"  wrote     {out}  ({len(blob):,} bytes)")
