@@ -1,20 +1,24 @@
 """Score the frozen 300 under the design committed in bci-dashboard-docs/hypothesis.md.
 
-Three arms, one label, three regions:
+Two arms, one label, two regions:
 
-    tiles   the quadrat call, 140 sub-queries over the whole frame
     crown   one identify call per labelled crown, aggregated to the frame
     photo   the 1280 px centre square, 13.65% of the frame, carried as the
             legacy reference and never described as region-aligned
 
 Ground truth names the species whose labelled crowns hold the largest summed
-raw box area over the whole frame. The tiles and crown rules below both mirror
-that criterion at their own unit; the photo rule does not, which is the defect
-the experiment exists to measure.
+raw box area over the whole frame. The crown rule below mirrors that criterion
+at its own unit; the photo rule does not, which is the defect the experiment
+exists to measure.
+
+A third arm, tiles, was frozen alongside these two and dropped on 2026-08-27,
+before any confirmatory read. bci-dashboard-docs/hypothesis.md carries the
+reasons as deviation A4. P1 and P4 named tiles and die with it, so P3, crown
+beats photo, is the primary prediction from here.
 
 Nothing here chooses anything. Every rule, every threshold, the cluster unit,
 the test and the stopping rule were fixed in bci-dashboard-docs/hypothesis.md before the data
-existed. This file only applies them. If either region-aligned arm is missing a
+existed. This file only applies them. If the region-aligned arm is missing a
 frozen frame the report is stamped EXPLORATORY, because the stopping rule says
 the confirmatory read happens once, on the complete set.
 
@@ -36,12 +40,11 @@ import core
 REPO = pathlib.Path(__file__).resolve().parents[1]
 FROZEN = REPO / "input" / "confirmatory_frames_2026-08.csv"
 BOXES = REPO / "data" / "export_boxes.csv"
-TILES = REPO / "data" / "tiles" / "cache"
 CROWNS = REPO / "data" / "crowns_export" / "cache"
 PHOTOS = REPO / "data" / "predictions" / "cache"
 
-ARMS = ("tiles", "crown", "photo")
-ALIGNED = ("tiles", "crown")
+ARMS = ("crown", "photo")
+ALIGNED = ("crown",)
 BOOTSTRAP_DRAWS = 10000
 SEED = 20260826
 MIN_BOX_SIDE = 128
@@ -64,19 +67,7 @@ def canonicaliser():
     return canon
 
 
-# --- the three aggregation rules, as committed -------------------------------
-
-def rank_tiles(doc):
-    """Species by their share of the frame, which is what `coverage` reports.
-
-    Ties break on the highest single tile score, then alphabetically, so the
-    order does not depend on the order the API happened to return.
-    """
-    sp = [s for s in doc["results"]["species"] if s.get("binomial")]
-    sp.sort(key=lambda s: (-s.get("coverage", 0.0), -s.get("max_score", 0.0),
-                           s["binomial"]))
-    return [s["binomial"] for s in sp]
-
+# --- the two aggregation rules, as committed -------------------------------
 
 def rank_crowns(crowns):
     """Frame prediction from crowns: each crown votes its own raw box area.
@@ -134,10 +125,6 @@ def build_rows(frozen, boxes, canon):
         base, gt = f["base_image"], canon(f["gt_species"])
         row = {"base": base, "gt": gt, "site": f["site"], "day": f["flight_day"]}
 
-        tile_doc = TILES / f"{base}.json"
-        row["tiles"] = ([canon(x) for x in rank_tiles(json.loads(tile_doc.read_text()))]
-                        if tile_doc.exists() else None)
-
         photo_doc = PHOTOS / f"{base}.json"
         row["photo"] = ([canon(x) for x in rank_photo(json.loads(photo_doc.read_text()))]
                         if photo_doc.exists() else None)
@@ -158,8 +145,8 @@ def build_rows(frozen, boxes, canon):
                           top.get("score", 0.0)))
         row["crown"] = [x for x in rank_crowns(votes)] if votes and not absent else None
         row["n_crowns"] = len(big)
-        # How much of the frame the labelled crowns cover at all. P4 says the
-        # tiles arm should fall behind fastest where this is smallest.
+        # How much of the frame the labelled crowns cover at all. Kept as a
+        # descriptive column; the prediction that read it, P4, named tiles.
         row["labelled_area"] = min(
             1.0, sum((b[2] - b[0]) * (b[3] - b[1]) for b in big) / (4000 * 3000))
         row["gt_area"] = min(1.0, sum(
@@ -317,31 +304,26 @@ def report(rows, missing, complete, draws=BOOTSTRAP_DRAWS):
     log("  name, which is usually fewer than five, so it is not comparable.")
     log("")
 
-    log("P1, primary: crown against tiles, paired on the frame")
-    pairs, crown_only, tiles_only = discordance(rows, "crown", "tiles")
-    p_exact = mcnemar_exact(crown_only, tiles_only)
-    log(f"  pairs {pairs}, crown-only {crown_only}, tiles-only {tiles_only}")
+    log("P3, primary since tiles was dropped: crown against photo, paired on")
+    log("    the frame. The test, the cluster unit and the tie-break are the ones")
+    log("    P1 was to be read with; only the second arm changed.")
+    pairs, crown_only, photo_only = discordance(rows, "crown", "photo")
+    p_exact = mcnemar_exact(crown_only, photo_only)
+    log(f"  pairs {pairs}, crown-only {crown_only}, photo-only {photo_only}")
     log(f"  exact McNemar, two-sided        p = {p_exact:.5f}")
-    p_boot, band = bootstrap_p(rows, "crown", "tiles", "site", draws)
+    p_boot, band = bootstrap_p(rows, "crown", "photo", "site", draws)
     if band:
         d, lo, hi = band
         log(f"  difference                      {d:+.1%} "
             f"[{lo:+.1%}, {hi:+.1%}] clustered on site")
         log(f"  cluster bootstrap, two-sided    p = {p_boot:.5f}")
         verdict = "supported" if (p_boot < 0.05 and d > 0) else "not supported"
-        log(f"  P1 (crown beats tiles) is {verdict} at alpha = 0.05, reading the")
+        log(f"  P3 (crown beats photo) is {verdict} at alpha = 0.05, reading the")
         log("  cluster bootstrap, which is the pre-specified answer when the two")
         log("  tests disagree.")
     log("")
 
-    log("secondary comparisons, same test")
-    for a, b in (("crown", "photo"), ("tiles", "photo")):
-        pr, ao, bo = discordance(rows, a, b)
-        log(f"  {a} vs {b}: pairs {pr}, {a}-only {ao}, {b}-only {bo}, "
-            f"exact p = {mcnemar_exact(ao, bo):.5f}")
-    log("")
-
-    log("P2: both region-aligned arms beat 50% top-1")
+    log("P2: the region-aligned arm beats 50% top-1")
     for a in ALIGNED:
         scorable = [r for r in rows if r[a] is not None]
         if not scorable:
@@ -352,21 +334,9 @@ def report(rows, missing, complete, draws=BOOTSTRAP_DRAWS):
             f"{'beats' if lo > 0.5 else 'does not beat'} 50%")
     log("")
 
-    log("P4: the tiles arm should fall behind fastest where the labelled crowns")
-    log("    cover least of the frame")
-    both = [r for r in rows if r["crown"] is not None and r["tiles"] is not None]
-    if both:
-        both.sort(key=lambda r: r["labelled_area"])
-        q = max(1, len(both) // 4)
-        log(f"  {'quartile of labelled area':28} {'n':>4} {'tiles':>7} "
-            f"{'crown':>7} {'gap':>7}")
-        for i in range(4):
-            sub = both[i * q:(i + 1) * q] if i < 3 else both[3 * q:]
-            if not sub:
-                continue
-            t, c = accuracy(sub, "tiles"), accuracy(sub, "crown")
-            span = f"{sub[0]['labelled_area']:.1%} to {sub[-1]['labelled_area']:.1%}"
-            log(f"  Q{i + 1} {span:24} {len(sub):4d} {t:7.1%} {c:7.1%} {c - t:+7.1%}")
+    log("P4 compared tiles against crown by how much of the frame the labelled")
+    log("    crowns cover. It is not readable without the tiles arm and is not")
+    log("    reported. See deviation A4.")
     log("")
 
     log("descriptive: what the label had to work with")
@@ -389,8 +359,8 @@ def write_adjudication(rows, path, seed=SEED):
     until every verdict is in.
     """
     rng = random.Random(f"{seed}:adjudication")
-    both = [r for r in rows if r["crown"] is not None and r["tiles"] is not None]
-    disagree = [r for r in both if (r["crown"][:1] or [None]) != (r["tiles"][:1] or [None])]
+    both = [r for r in rows if r["crown"] is not None and r["photo"] is not None]
+    disagree = [r for r in both if (r["crown"][:1] or [None]) != (r["photo"][:1] or [None])]
     path = pathlib.Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     key_path = path.with_name(path.stem + "_key.csv")
@@ -402,7 +372,7 @@ def write_adjudication(rows, path, seed=SEED):
                     "verdict_A_correct", "verdict_B_correct", "notes"])
         k.writerow(["base_image", "answer_A_arm", "answer_B_arm"])
         for r in sorted(disagree, key=lambda r: r["base"]):
-            a, b = ("crown", "tiles") if rng.random() < 0.5 else ("tiles", "crown")
+            a, b = ("crown", "photo") if rng.random() < 0.5 else ("photo", "crown")
             w.writerow([r["base"], r["gt"], r[a][0], r[b][0], "", "", ""])
             k.writerow([r["base"], a, b])
     log(f"wrote {path} with {len(disagree)} disagreements, "
