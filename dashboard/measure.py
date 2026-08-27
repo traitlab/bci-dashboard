@@ -418,7 +418,7 @@ def main() -> None:
     for q in QUEUE_ORDER:
         log(f"    {q:<16}: {q_counts[q]}")
     log(f"  send_batches.csv                    : {len(batch_rows)} rows in {n_batches} "
-        f"batches, max {BATCH_SIZE}/batch, species-grouped")
+        f"batches, max {BATCH_SIZE}/batch, species groups packed whole")
     log(f"  unlabelled frames with NO answer    : {n_no_answer}  (empty candidate list;")
     log("    possible junk or non-plant photos; check a sample")
     log("    by eye before queueing, no automatic rule)")

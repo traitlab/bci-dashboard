@@ -265,7 +265,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
              + '.</p>'
              f'<p class="note">The top of <code>send_first_queue.csv</code> in the '
              f'snapshot folder is the next batch, chunked into <code>send_batches.csv</code> '
-             f'(one species per batch, at most {hc.BATCH_SIZE} frames each) so it drops '
+             f'(whole species groups packed to {hc.BATCH_SIZE} frames a batch, so '
+             f'lookalike photos stay together) so it drops '
              f'straight into a Labelbox send. {n_no_answer} photos got no answer at '
              f'all, likely junk; check those by eye.</p>')
     P.append(panel(f"What to send next: {queue_counts.get('long_tail', 0):,} of "

@@ -233,10 +233,19 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
     then weakest confidence first inside a queue (see measure.py). This
     keeps that global priority order between species -- a species is only
     visited once, at the point its first (highest-priority) row occurs -- and
-    groups every row for that species together so a Labelbox send is
-    species-homogeneous, never spanning more than ``batch_size`` rows. Pure
-    function of its input, so the same queue always chunks the same way.
+    groups every row for that species together, so the photos a botanist sees
+    side by side look alike.
+
+    A batch is filled to ``batch_size``, not left at whatever one species
+    happens to weigh: species groups are packed whole, in priority order,
+    until the next one would overflow. A species with more rows than
+    ``batch_size`` still splits into batches of its own. So a batch holds one
+    or more whole species groups, contiguously, and never more than
+    ``batch_size`` rows. Pure function of its input, so the same queue always
+    chunks the same way.
     """
+    if batch_size < 1:
+        raise ValueError(f"batch_size must be at least 1, got {batch_size}")
     order: list[str] = []
     seen: set[str] = set()
     by_species: dict[str, list] = defaultdict(list)
@@ -246,14 +255,23 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
         if sp not in seen:
             seen.add(sp)
             order.append(sp)
+
+    # One group per species, split first so an oversized species cannot
+    # straddle a batch boundary; the trailing part packs like any other group.
+    groups = [(sp, by_species[sp][i:i + batch_size])
+              for sp in order
+              for i in range(0, len(by_species[sp]), batch_size)]
+
     batches = []
     batch_id = 0
-    for sp in order:
-        rows = by_species[sp]
-        for i in range(0, len(rows), batch_size):
+    held = batch_size  # rows already in the open batch; forces the first one open
+    for sp, rows in groups:
+        if held + len(rows) > batch_size:
             batch_id += 1
-            for row in rows[i:i + batch_size]:
-                batches.append([batch_id, sp, row[1], row[0]])
+            held = 0
+        held += len(rows)
+        for row in rows:
+            batches.append([batch_id, sp, row[1], row[0]])
     return batches
 
 
