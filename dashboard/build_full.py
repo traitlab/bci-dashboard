@@ -109,8 +109,8 @@ HERO_REGION = (
     "On 1,377 of 3,777 evaluated records the labelled species covers less than half the "
     "crop, and on 207 it covers none of it, so a wrong answer here is not always a wrong "
     "identification. Read them as a provenance record of the centre-crop path, not as the "
-    "model's accuracy. The region-aligned replacements are the crown arm (capability) and "
-    "the tiles arm (operational)."
+    "model's accuracy. The region-aligned replacement is the crown arm, where the unit "
+    "of prediction is the unit the label describes."
 )
 
 

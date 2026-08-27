@@ -13,39 +13,11 @@ import csv
 
 def frame(base, gt, site="a", day="1", **arms):
     row = {"base": base, "gt": gt, "site": site, "day": day,
-           "tiles": None, "crown": None, "photo": None,
+           "crown": None, "photo": None,
            "n_crowns": 1, "labelled_area": 0.5, "gt_area": 0.5}
     row.update(arms)
     return row
 
-
-class TestTilesRanksByShareOfTheFrame:
-    def test_top_1_is_the_largest_coverage_not_the_best_score(
-            self, score_confirmatory):
-        # Ground truth is largest summed area, so the tiles arm has to pool by
-        # area too. A confident single tile must not outrank a broad canopy.
-        doc = {"results": {"species": [
-            {"binomial": "Broad tree", "coverage": 0.6, "max_score": 0.30},
-            {"binomial": "Sharp tree", "coverage": 0.1, "max_score": 0.99},
-        ]}}
-        assert score_confirmatory.rank_tiles(doc) == ["Broad tree", "Sharp tree"]
-
-    def test_a_coverage_tie_breaks_on_the_best_tile_then_alphabetically(
-            self, score_confirmatory):
-        doc = {"results": {"species": [
-            {"binomial": "Zeta", "coverage": 0.4, "max_score": 0.5},
-            {"binomial": "Alpha", "coverage": 0.4, "max_score": 0.5},
-            {"binomial": "Mid", "coverage": 0.4, "max_score": 0.9},
-        ]}}
-        assert score_confirmatory.rank_tiles(doc) == ["Mid", "Alpha", "Zeta"]
-
-    def test_a_species_with_no_binomial_is_not_a_candidate(
-            self, score_confirmatory):
-        doc = {"results": {"species": [
-            {"binomial": None, "coverage": 0.9, "max_score": 0.9},
-            {"binomial": "Real tree", "coverage": 0.1, "max_score": 0.1},
-        ]}}
-        assert score_confirmatory.rank_tiles(doc) == ["Real tree"]
 
 
 class TestCrownsVoteTheirOwnArea:
@@ -85,11 +57,11 @@ class TestTheIntervalsSayWhatTheyClaim:
         # Sites differ from each other, which is the situation clustering
         # exists for: eight sites the model reads well and four it does not.
         rows = [frame(f"f{i}", "X", site=f"s{i % 12}",
-                      tiles=["X"] if i % 12 < 8 else ["Y"])
+                      photo=["X"] if i % 12 < 8 else ["Y"])
                 for i in range(300)]
         w_lo, w_hi = score_confirmatory.wilson(200, 300)
         c_lo, c_hi = score_confirmatory.cluster_bootstrap(
-            rows, "site", lambda x: score_confirmatory.accuracy(x, "tiles"),
+            rows, "site", lambda x: score_confirmatory.accuracy(x, "photo"),
             draws=400)
         assert (c_hi - c_lo) > (w_hi - w_lo)
 
@@ -98,11 +70,11 @@ class TestTheIntervalsSayWhatTheyClaim:
         # Twelve graded sites rather than a few extreme ones, so the 2.5 and
         # 97.5 percentiles are not pinned to 0 and 1 whatever the seed does.
         rows = [frame(f"f{i}", "X", site=f"s{i % 12}",
-                      tiles=["X"] if (i % 12) > (i // 12) else ["Y"])
+                      photo=["X"] if (i % 12) > (i // 12) else ["Y"])
                 for i in range(144)]
 
         def acc(sample):
-            return score_confirmatory.accuracy(sample, "tiles")
+            return score_confirmatory.accuracy(sample, "photo")
 
         first = score_confirmatory.cluster_bootstrap(rows, "site", acc, 200, 7)
         again = score_confirmatory.cluster_bootstrap(rows, "site", acc, 200, 7)
@@ -122,11 +94,11 @@ class TestTheTest:
 
     def test_only_the_pairs_both_arms_answered_are_counted(
             self, score_confirmatory):
-        rows = [frame("both", "X", tiles=["X"], crown=["Y"]),
-                frame("half", "X", tiles=["X"])]
-        pairs, crown_only, tiles_only = score_confirmatory.discordance(
-            rows, "crown", "tiles")
-        assert (pairs, crown_only, tiles_only) == (1, 0, 1)
+        rows = [frame("both", "X", photo=["X"], crown=["Y"]),
+                frame("half", "X", photo=["X"])]
+        pairs, crown_only, photo_only = score_confirmatory.discordance(
+            rows, "crown", "photo")
+        assert (pairs, crown_only, photo_only) == (1, 0, 1)
 
 
 class TestAnEmptyAnswerIsWrongAndNotMissing:
@@ -135,19 +107,19 @@ class TestAnEmptyAnswerIsWrongAndNotMissing:
         # Silently dropping the frames an arm had no answer for would flatter
         # whichever arm abstains most, which is the opposite of what the
         # comparison is for. Only a frame the fetch never reached is missing.
-        rows = [frame("gave up", "X", tiles=[], crown=["X"]),
-                frame("answered", "X", tiles=["X"], crown=["X"])]
-        assert score_confirmatory.accuracy(rows, "tiles") == 0.5
-        pairs, crown_only, tiles_only = score_confirmatory.discordance(
-            rows, "crown", "tiles")
-        assert (pairs, crown_only, tiles_only) == (2, 1, 0)
+        rows = [frame("gave up", "X", photo=[], crown=["X"]),
+                frame("answered", "X", photo=["X"], crown=["X"])]
+        assert score_confirmatory.accuracy(rows, "photo") == 0.5
+        pairs, crown_only, photo_only = score_confirmatory.discordance(
+            rows, "crown", "photo")
+        assert (pairs, crown_only, photo_only) == (2, 1, 0)
 
 
 class TestTheStoppingRuleHolds:
     def test_a_set_missing_an_aligned_arm_is_stamped_exploratory(
             self, score_confirmatory, capsys, tmp_path):
         rows = [frame("a", "X", crown=["X"], photo=["X"])]
-        score_confirmatory.report(rows, {"tiles": ["a"], "crown": [], "photo": []},
+        score_confirmatory.report(rows, {"crown": ["a"], "photo": []},
                                   complete=False, draws=50)
         assert "EXPLORATORY" in capsys.readouterr().out
 
@@ -159,7 +131,7 @@ class TestTheStoppingRuleHolds:
         monkeypatch.setattr(score_confirmatory, "load_boxes", lambda *a: {})
         monkeypatch.setattr(score_confirmatory, "build_rows",
                             lambda *a: ([frame("a", "X", crown=["X"])],
-                                        {"tiles": ["a"], "crown": [], "photo": ["a"]}))
+                                        {"crown": ["a"], "photo": ["a"]}))
         code = score_confirmatory.main(
             ["--frozen", str(frozen), "--draws", "20",
              "--adjudication", str(tmp_path / "adj.csv")])
@@ -170,22 +142,22 @@ class TestTheStoppingRuleHolds:
 class TestTheAdjudicationSheetIsBlind:
     def test_the_arm_names_are_in_the_key_file_and_not_the_sheet(
             self, score_confirmatory, tmp_path):
-        rows = [frame(f"f{i}", "X", crown=["X"], tiles=["Y"]) for i in range(20)]
+        rows = [frame(f"f{i}", "X", crown=["X"], photo=["Y"]) for i in range(20)]
         sheet = tmp_path / "adj.csv"
         assert score_confirmatory.write_adjudication(rows, sheet) == 20
 
         text = sheet.read_text()
         assert "crown" not in text
-        assert "tiles" not in text
+        assert "photo" not in text
 
         # Blind means both orders actually occur, not that a fixed order was
         # relabelled A and B.
         with open(sheet.with_name("adj_key.csv"), encoding="utf-8") as fh:
             key = list(csv.DictReader(fh))
-        assert {r["answer_A_arm"] for r in key} == {"crown", "tiles"}
+        assert {r["answer_A_arm"] for r in key} == {"crown", "photo"}
 
     def test_frames_the_two_arms_agree_on_are_not_adjudicated(
             self, score_confirmatory, tmp_path):
-        rows = [frame("same", "X", crown=["X"], tiles=["X"])]
+        rows = [frame("same", "X", crown=["X"], photo=["X"])]
         assert score_confirmatory.write_adjudication(
             rows, tmp_path / "adj.csv") == 0
