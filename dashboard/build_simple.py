@@ -5,7 +5,7 @@ Companion to build_full.py, not a replacement. The full page carries the reasoni
 and the caveats; this page answers the three questions the labelling
 programme asks every week, in plain English:
 
-1. How is the model doing right now? (one headline number, with its trend)
+1. How is the model doing right now? (one headline number)
 2. Which species need more photos? (the whole species list, three statuses)
 3. What do we send the botanist next? (the send-first queues, ordered)
 
@@ -31,7 +31,7 @@ import core as hc  # noqa: E402
 from assets import (CSS, JS, cap, esc, filterable_table, funnel_list, info_tip, panel, pctf,
                               status_legend, status_tag, table, threshold_card)  # noqa: E402
 from history import (  # noqa: E402
-    latest_snapshot_dir, load_trend, verify_snapshot)
+    latest_snapshot_dir, model_tag_of, snapshot_date_of, verify_snapshot)
 
 # The six-way diagnosis from core, collapsed to the three actions this page
 # drives. "hard" lands in "send": the labels feed Pl@ntNet's next retraining.
@@ -81,30 +81,6 @@ def gt_provenance(gt_csv: str) -> str:
     return f"Ground truth: {os.path.basename(gt_csv)}, dated {mtime}."
 
 
-def trend_sentence(trend, metric="macro_top1"):
-    """The trend in words: both endpoints, and whether the model changed between them.
-
-    A bare sparkline misleads here: measured and reconstructed points sit side
-    by side, and a ground-truth revision moves the line without the model
-    changing. Naming the endpoints and saying whether the model tag moved is
-    what a reader actually needs.
-    """
-    got = trend.series.get(metric, {})
-    pts = [d for d in trend.dates if d in got]
-    if len(pts) < 2:
-        return "First measurement, no trend yet."
-    scored = {d: c for d, _, c in trend.snaps}
-    d0, d1 = pts[0], pts[-1]
-    s = (f"Trend: {pctf(got[d0])} on {d0} ({scored.get(d0, 0):,} frames) &rarr; "
-         f"{pctf(got[d1])} on {d1} ({scored.get(d1, 0):,} frames).")
-    if trend.marks:
-        s += " The model changed between those points, so compare them with care."
-    else:
-        s += (" Same model throughout: the move reflects ground truth growth and "
-              "revision, not a model change.")
-    return s
-
-
 def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
     sp_recs, per_species = h.sp_recs, h.per_species
     n, n_sp = len(sp_recs), len(per_species)
@@ -142,7 +118,8 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
     strict1 = sum(1 for r in sp_recs
                   if r["ranked_strict"] and r["ranked_strict"][0][0] == r["gt_strict"])
 
-    trend = load_trend(verify_dir, fallback_tag, sp_recs=sp_recs, cache_dir=cache_dir)
+    tag = model_tag_of(verify_dir, fallback_tag)
+    snap_date = snapshot_date_of(verify_dir)
 
     # --- send-first queue over the unlabelled pool (logic lives in core).
     acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
@@ -169,7 +146,6 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
 
     checks = verify_snapshot(
         verify_dir, per_species=per_species, buckets=buckets, bins_all=bins_all,
-        trend=trend, n_crowns=n, macro1=macro1, micro1=micro1,
         never_all=never_all, unscoreable=n - len(reach), strict_hits=strict1,
         queue_counts=queue_counts, n_no_answer=n_no_answer)
 
@@ -182,7 +158,7 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
     # --- page ---
     P = ['<h1>Pl@ntNet on BCI: how the model is doing</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
-         f'{esc(trend.latest)} &middot; Pl@ntNet model <code>{esc(trend.tag)}</code> '
+         f'{esc(snap_date)} &middot; Pl@ntNet model <code>{esc(tag)}</code> '
          f'&middot; {n:,} labelled frames'
          f'{info_tip(f"Photos that carry both a ground-truth species label and a cached "
                      f"Pl@ntNet prediction, so they can be scored. {len(h.gt_rows):,} photos "
@@ -195,8 +171,9 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
          f'<p class="terms">A <b>frame</b> is one drone photo. Its label is the species '
          f'whose outlined crowns cover the largest total area in the <i>whole</i> frame. '
          f'The picture sent to Pl@ntNet is the <b>1280&times;1280 centre crop</b>, which is '
-         f'13.65% of that frame. The <b>first guess</b> is the top-ranked of at most 5 names '
-         f'returned for the crop. Right means it matches the frame’s label.</p>',
+         f'13.65% of that frame. The <b>first guess</b> is the top-ranked of the 5 names we '
+         f'asked for (<code>nb-results=5</code>, our request parameter, not a model limit). '
+         f'Right means it matches the frame’s label.</p>',
          f'<p class="caveat"><strong>These two numbers score a centre crop against a '
          f'whole-frame label.</strong> On 1,377 of 3,777 evaluated records the labelled '
          f'species covers less than half the crop, and on 207 it covers none of it. Read '
@@ -227,7 +204,6 @@ def build(h, *, generated, verify_dir, fallback_tag, cache_dir, gt_csv):
          f'checklist; <b>per frame</b> for a photo picked off the drive. Per frame is '
          f'higher because the species with many frames are the ones Pl@ntNet already '
          f'knows.</p>',
-         f'<p class="note">{trend_sentence(trend)}</p>',
          f'<p class="note">Ground truth covers {len(h.gt_rows):,} of '
          f'{len(h.split_rows):,} photos. <strong>{counts["fine"]} species doing fine, '
          f'{counts["send"]} need more photos, {counts["unreachable"]} never turn up in '
