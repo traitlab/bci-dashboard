@@ -21,7 +21,6 @@ import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Optional
 
 # --- INPUT PATHS ---
 # Every path is derived from the checkout, so a clone runs anywhere. Each one
@@ -257,7 +256,8 @@ def load_wcvp_crosswalk(path):
     Only entries where the accepted binomial differs from the input are kept."""
     if not path or not os.path.exists(path):
         return {}, {}
-    raw = json.load(open(path, encoding="utf-8"))
+    with open(path, encoding="utf-8") as fh:
+        raw = json.load(fh)
     mapping = {}
     for k, v in raw.items():
         acc = canonical_binomial(v.get("accepted_name"))
@@ -478,7 +478,7 @@ class Health:
 def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
                 wcvp_cache=WCVP_CACHE_JSON, boxes_csv=None,
                 min_coverage=MIN_CROP_COVERAGE,
-                log: Optional[Callable[[str], None]] = None) -> Health:
+                log: Callable[[str], None] | None = None) -> Health:
     def _log(msg: str = "") -> None:
         if log is not None:
             log(msg)
@@ -585,7 +585,7 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     joined, missing_cache = [], []
     for r in gt_rows:
         gk = r["global_key"]
-        stem = gk[len(GT_KEY_PREFIX):] if gk.startswith(GT_KEY_PREFIX) else gk
+        stem = gk.removeprefix(GT_KEY_PREFIX)
         if stem in predictions:
             joined.append((gk, stem, r["wcvp_canonical_name"]))
         else:

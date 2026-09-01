@@ -114,7 +114,7 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
              "unscoreable crowns inside the evaluated set"),
             (r"strict top-1\s*:\s*[\d.]+%\s*\((\d+)/", strict_hits,
              "first guesses right without name reconciliation")):
-        m = re.search(pat, log, re.M)
+        m = re.search(pat, log, re.MULTILINE)
         if m is None:
             fail(f"no line for {what} in {path}")
         if int(m.group(1)) != here:
