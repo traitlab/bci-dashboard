@@ -278,7 +278,7 @@ def p_review(c):
                     f'<span class="sp">{esc(cap(pr))}</span>',
                     f"{len(cs):,}", f"{sum(cs) / len(cs):.2f}"]
                    for (gt, pr), cs in pair_rows])
-            if pair_rows else '<p class="note">None at this threshold.</p>')
+            if pair_rows else '<p class="note">None at this confidence.</p>')
     # The frames themselves, most confident first, each linked into Labelbox where
     # the link is known. Known means an export carried that data row: the URL is
     # read from what a merge recorded, never guessed and never fetched.
@@ -338,14 +338,17 @@ def p_wait(c):
             "botanist's queue.</p>"
             f'<p class="note"><strong>The decision expires with the model.</strong> Pl@ntNet '
             f'ships a new model every few months, on its own schedule rather than ours, and '
-            f'a frame deprioritized under <code>{esc(c.tag)}</code> is not deprioritized '
-            f'under the next one. Re-run this page after every model change and the queue '
+            f'a frame pushed down the queue under <code>{esc(c.tag)}</code> is not pushed '
+            f'down under the next one. Re-run this page after every model change and the '
+            f'queue '
             f're-sorts. Any frame can come back to the top.</p>'
-            f'<p class="note">{len(c.eligible)} species clear the {WAIT_SUPPORT_MIN}-frame '
-            f'gate, counted from <code>train</code> frames only, and the error rate above is '
-            f'then measured on the {len(c.test_recs):,} <code>test</code> frames only.</p>')
+            f'<p class="note">{len(c.eligible)} species have at least '
+            f'{WAIT_SUPPORT_MIN} labelled frames, which is the second half of the rule. That '
+            f'count uses <code>train</code> frames only, and the error rate above is measured '
+            f'on the {len(c.test_recs):,} <code>test</code> frames only, so no rule is graded '
+            f'on the frames that chose it.</p>')
     return panel(f"Which frames can wait: {best['n']:,} of {len(c.test_recs):,} test frames, "
-                 f"revocable at the next model change",
+                 f"undone at the next model change",
                  "<b>Use this to order the queue, not to close frames.</b> These are the "
                  "frames to look at last, and the ranking is recomputed from scratch "
                  "whenever Pl@ntNet updates.", body)
@@ -362,11 +365,13 @@ def p_rules(c):
     body += (f'<p class="note">A species with fewer than {RARE_MAX_SUPPORT} labelled frames '
              f'counts as rarely labelled: {len(c.rare)} of {c.n_sp} species, {c.n_rare_test} '
              f'of the {len(c.test_recs):,} test frames. No rarely-labelled frame can be '
-             f'deprioritized under a gated rule, because the gate excludes them.</p>')
-    return panel("How the five candidate rules compare, including the ungated ones",
-                 "<b>Read this only if you want to move the threshold.</b> Each row trades "
-                 "queue reduction against how often a deprioritized frame was actually "
-                 "misidentified.", body)
+             f'pushed down the queue by a rule that also asks for labelled frames: that '
+             f'second condition leaves them out.</p>')
+    return panel("How the five candidate rules compare, with and without the "
+                 "labelled-frames condition",
+                 "<b>Read this only if you want to move the confidence line.</b> Each row "
+                 "trades how many frames it takes off the queue against how often a frame "
+                 "it pushed down was named wrong after all.", body)
 
 
 def p_conf(c):
@@ -389,7 +394,7 @@ def p_conf(c):
                     [[BAND_SHORT[lab], f"{flat[lab][0]:,}",
                       pctf(flat[lab][1] / flat[lab][0])]
                      for lab in hc.BUCKET_ORDER if lab in flat])
-            + '<p class="note">Raising the confidence threshold does not repair this. '
+            + '<p class="note">Raising the confidence line does not repair this. '
               'Requiring the species to have been measured first does, which is why the '
               'suggested rule has two conditions.</p>')
     return panel("Can we trust the model's confidence? In bulk yes, on rare species no",

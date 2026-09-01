@@ -52,7 +52,16 @@ asking, never calls it an **arm**: that word belongs in `hypothesis.md`.
 | **the frozen sample** | The 300 frames fixed on 2026-08-26, before any of these numbers existed. Was "the confirmatory sample". |
 | **fixed in advance** | Every rule was written down in `bci-dashboard-docs/hypothesis.md` before the data existed. Was "pre-registered". |
 | **already seen** | Someone had seen a number from the crown-by-crown way, at another unit, before the sample was frozen. Was "prior exposure". |
-| **gated / ungated** | With and without the crop-coverage condition. Reported side by side, always. On a page the condition is spelled out rather than named. |
+| **gated / ungated** | With and without the crop-coverage condition. Reported side by side, always. On a page the condition is spelled out rather than named, never called gated or ungated. |
+
+## Ordering the queue
+
+| Term | What it means, and how a page says it |
+|---|---|
+| **the confidence line** | The confidence a frame has to clear before a rule will push it down the queue. Never "threshold" on a page. |
+| **pushed down the queue** | What the wait rule does to a frame. It is an ordering, never a label, and it is undone at the next model change. Never "deprioritised", never "revocable". |
+| **the labelled-frames condition** | The second half of the wait rule: the species must already have enough labelled frames. Spelled out rather than called a gate. |
+| **queue** | One of four groups the unlabelled pool is sorted into, worked top to bottom. |
 
 ## What the pages are
 

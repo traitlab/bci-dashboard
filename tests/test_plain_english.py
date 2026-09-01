@@ -62,6 +62,10 @@ RETIRED = {
     r"\bpre-?registered\b": "fixed in advance / written into the plan",
     r"\bprior[- ]exposure\b": "already seen",
     r"\bconfirmatory\b": "set-aside frames / the frozen sample",
+    r"\bdeprioriti[sz]ed?\b": "pushed down the queue",
+    r"\brevocable\b": "undone at the next model change",
+    r"\b(un)?gated\b": "with, or without, the labelled-frames condition",
+    r"\bthresholds?\b": "the confidence line",
 }
 
 # Prose lives in these; everything else on the page is data or chrome.
@@ -126,6 +130,13 @@ def internal_prose(internal_page):
     return prose(internal_page[0])
 
 
+@pytest.fixture(params=("external_prose", "internal_prose"))
+def page_prose(request):
+    """Both pages, one at a time, so a retired word cannot be retired on one
+    page and left standing on the other."""
+    return request.param, request.getfixturevalue(request.param)
+
+
 def _no_long_sentences(blocks, page):
     long = [(len(s.split()), s) for s in sentences(blocks)
             if len(s.split()) > MAX_SENTENCE_WORDS]
@@ -155,15 +166,14 @@ def test_most_of_the_external_page_is_in_short_sentences(external_prose):
 
 
 @pytest.mark.parametrize("pattern,instead", sorted(RETIRED.items()))
-def test_the_external_page_uses_no_word_context_md_retired(
-        external_prose, pattern, instead):
+def test_neither_page_uses_a_word_context_md_retired(page_prose, pattern, instead):
     """The glossary is only worth writing if a page cannot quietly leave it.
 
-    Searched on the page's prose and outside the two required quotes, which is
-    exactly the text an author controls.
+    Searched on the page's prose and outside the text it only reproduces,
+    which is exactly what an author controls.
     """
-    hits = [block for block in external_prose
-            if re.search(pattern, block, re.IGNORECASE)]
+    name, blocks = page_prose
+    hits = [block for block in blocks if re.search(pattern, block, re.IGNORECASE)]
     assert not hits, (
-        f"'{pattern}' is retired; say {instead}. In CONTEXT.md. Found in:\n"
+        f"{name}: '{pattern}' is retired; say {instead}. In CONTEXT.md. Found in:\n"
         + "\n".join(f"  {block[:160]}" for block in hits[:5]))
