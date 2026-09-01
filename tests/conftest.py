@@ -257,6 +257,70 @@ def build_page(tmp_path_factory, script: str, out_name: str, *,
     return out.read_text(encoding="utf-8"), proc.stdout
 
 
+# Same convention as core.GT_KEY_PREFIX / gt_from_export.GT_KEY_PREFIX: a GT or
+# splits global_key is "comb_<stem>.JPG", a cache file is "<stem>.JPG.json".
+GT_KEY_PREFIX = "comb_"
+
+def corpus_keys_with_species_gt():
+    """Every corpus global_key that also carries a species label in
+    gt_dominant_taxon.csv, split by whether the cache holds a prediction for
+    it, plus the GT map itself. All three come straight off disk."""
+    import csv
+    with open(GT_CSV, newline="", encoding="utf-8") as f:
+        gt = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
+    with open(SPLITS_CSV, newline="", encoding="utf-8") as f:
+        corpus = {r["global_key"] for r in csv.DictReader(f)}
+    cached = {p.stem for p in CACHE_DIR.glob("*.json")}
+    labelled = sorted(gk for gk in corpus if gk in gt)
+    with_cache = [gk for gk in labelled if gk[len(GT_KEY_PREFIX):] in cached]
+    without_cache = [gk for gk in labelled if gk[len(GT_KEY_PREFIX):] not in cached]
+    return with_cache, without_cache, gt
+
+
+def write_export_ndjson(path, keys, gt) -> None:
+    """Emit NDJSON in the shape `gt_from_export.export_dominants` parses: one
+    data row per key, one project with one label carrying a single
+    full-frame Planta box whose Taxon radio answer is that key's own GT
+    species.
+
+    This fabricates no data and asserts nothing about Labelbox: every key and
+    species comes from the repo's own tracked data/gt_dominant_taxon.csv and
+    data/splits.csv, and the file exists only for the duration of the test.
+    """
+    import json
+    with open(path, "w", encoding="utf-8") as f:
+        for i, gk in enumerate(keys):
+            stem = gk[len(GT_KEY_PREFIX):]
+            row = {
+                "data_row": {"id": f"dr_{i}", "global_key": stem},
+                "projects": {"proj1": {"labels": [{"annotations": {"objects": [{
+                    "bounding_box": {"top": 0, "left": 0, "width": 100, "height": 100},
+                    "classifications": [{"radio_answer": {"name": gt[gk]}}],
+                }]}}]}},
+            }
+            f.write(json.dumps(row) + "\n")
+
+
+@pytest.fixture(scope="session")
+def export_fixture(tmp_path_factory):
+    """A deterministic slice of 48 real, cache-backed keys and the NDJSON
+    file built from them, shared by every test below that needs a scored
+    export page."""
+    require_buildable()
+    with_cache, _, gt = corpus_keys_with_species_gt()
+    keys = with_cache[:48]
+    path = tmp_path_factory.mktemp("export") / "export.ndjson"
+    write_export_ndjson(path, keys, gt)
+    return path, keys, gt
+
+
+@pytest.fixture(scope="session")
+def export_only_page(tmp_path_factory, export_fixture):
+    require_buildable()
+    path, _, _ = export_fixture
+    return build_page(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
+
+
 @pytest.fixture(scope="session")
 def external_page(tmp_path_factory):
     require_buildable()

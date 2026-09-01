@@ -35,20 +35,16 @@ import re
 
 import pytest
 from conftest import (
-    CACHE_DIR,
-    GT_CSV,
+    GT_KEY_PREFIX,
     PAGES,
     SNAPSHOT_DIR,
-    SPLITS_CSV,
     build_page,
+    corpus_keys_with_species_gt,
     require_buildable,
+    write_export_ndjson,
 )
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-
-# Same convention as core.GT_KEY_PREFIX / gt_from_export.GT_KEY_PREFIX: a GT or
-# splits global_key is "comb_<stem>.JPG", a cache file is "<stem>.JPG.json".
-GT_KEY_PREFIX = "comb_"
 
 # The status dropdown is the only element the inline JS tolerates missing, so
 # the id-presence check below has to know which one it is.
@@ -86,59 +82,6 @@ def _gt_from_export():
     return mod
 
 
-def _corpus_keys_with_species_gt():
-    """Every corpus global_key that also carries a species label in
-    gt_dominant_taxon.csv, split by whether the cache holds a prediction for
-    it, plus the GT map itself. All three come straight off disk."""
-    import csv
-    with open(GT_CSV, newline="", encoding="utf-8") as f:
-        gt = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
-    with open(SPLITS_CSV, newline="", encoding="utf-8") as f:
-        corpus = {r["global_key"] for r in csv.DictReader(f)}
-    cached = {p.stem for p in CACHE_DIR.glob("*.json")}
-    labelled = sorted(gk for gk in corpus if gk in gt)
-    with_cache = [gk for gk in labelled if gk[len(GT_KEY_PREFIX):] in cached]
-    without_cache = [gk for gk in labelled if gk[len(GT_KEY_PREFIX):] not in cached]
-    return with_cache, without_cache, gt
-
-
-def _write_export_ndjson(path, keys, gt) -> None:
-    """Emit NDJSON in the shape `gt_from_export.export_dominants` parses: one
-    data row per key, one project with one label carrying a single
-    full-frame Planta box whose Taxon radio answer is that key's own GT
-    species.
-
-    This fabricates no data and asserts nothing about Labelbox: every key and
-    species comes from the repo's own tracked data/gt_dominant_taxon.csv and
-    data/splits.csv, and the file exists only for the duration of the test.
-    """
-    import json
-    with open(path, "w", encoding="utf-8") as f:
-        for i, gk in enumerate(keys):
-            stem = gk[len(GT_KEY_PREFIX):]
-            row = {
-                "data_row": {"id": f"dr_{i}", "global_key": stem},
-                "projects": {"proj1": {"labels": [{"annotations": {"objects": [{
-                    "bounding_box": {"top": 0, "left": 0, "width": 100, "height": 100},
-                    "classifications": [{"radio_answer": {"name": gt[gk]}}],
-                }]}}]}},
-            }
-            f.write(json.dumps(row) + "\n")
-
-
-@pytest.fixture(scope="session")
-def export_fixture(tmp_path_factory):
-    """A deterministic slice of 48 real, cache-backed keys and the NDJSON
-    file built from them, shared by every test below that needs a scored
-    export page."""
-    require_buildable()
-    with_cache, _, gt = _corpus_keys_with_species_gt()
-    keys = with_cache[:48]
-    path = tmp_path_factory.mktemp("export") / "export.ndjson"
-    _write_export_ndjson(path, keys, gt)
-    return path, keys, gt
-
-
 def test_the_generated_export_is_in_the_shape_export_dominants_parses(export_fixture):
     """The hard part this suite exists to get right: nothing guarantees the
     NDJSON shape invented above is the shape the real merge script accepts.
@@ -154,24 +97,17 @@ def test_the_generated_export_is_in_the_shape_export_dominants_parses(export_fix
             f"export_dominants did not recover the species put in for {gk}")
 
 
-@pytest.fixture(scope="session")
-def export_only_page(tmp_path_factory, export_fixture):
-    require_buildable()
-    path, _, _ = export_fixture
-    return build_page(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
-
-
 def test_build_renders_the_no_score_note_when_nothing_joins(tmp_path_factory):
     """The branch nothing else here covers: every labelled key in the export
     has no cached Pl@ntNet prediction, so nothing can be scored. Real keys
     again -- the corpus's own GT rows with no file under
     data/predictions/cache -- not a fabricated gap."""
     require_buildable()
-    _, without_cache, gt = _corpus_keys_with_species_gt()
+    _, without_cache, gt = corpus_keys_with_species_gt()
     assert without_cache, (
         "no GT key on this machine lacks a cached prediction -- nothing to build this from")
     path = tmp_path_factory.mktemp("export_nocache") / "export.ndjson"
-    _write_export_ndjson(path, without_cache, gt)
+    write_export_ndjson(path, without_cache, gt)
     html, _ = build_page(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
     assert ("No crown in this export both carries a species label and has a "
             "cached Pl@ntNet prediction") in html
