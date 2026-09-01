@@ -134,6 +134,15 @@ def test_the_export_funnel_accounts_for_every_row(export_only_page):
         f"joined {joined} is not species {species} plus genus-only {genus}")
 
 
+def test_no_page_shows_interval_notation(page):
+    """"[0.7,0.8)" is how the CSVs name a confidence band and it is a
+    convention a botanist has no reason to know: the half-open bracket is the
+    part that carries the meaning. A page says "0.7 to 0.8". CONTEXT.md."""
+    html, _, _ = page
+    found = re.findall(r"\[\d[\d.]*,\s*\d[\d.]*\)", html)
+    assert not found, f"interval notation on the page: {sorted(set(found))}"
+
+
 @pytest.fixture(scope="session")
 def n_species():
     """Independent of every builder: the population size the snapshot's own

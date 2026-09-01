@@ -63,6 +63,7 @@ asking, never calls it an **arm**: that word belongs in `hypothesis.md`.
 | **the labelled-frames condition** | The second half of the wait rule: the species must already have enough labelled frames. Spelled out rather than called a gate. |
 | **queue** | One of four groups the unlabelled pool is sorted into, worked top to bottom. |
 | **held back for grading** | The frames a rule is scored on, kept out of the frames it is allowed to learn from. A page spells the split out; the words `train` and `test` do not appear on one. |
+| **confidence band** | A range of Pl@ntNet confidence, written "0.7 to 0.8" and "0.9 and up". The CSVs keep the interval notation `[0.7,0.8)`; a page never shows it. |
 
 ## What the pages are
 
