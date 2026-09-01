@@ -17,6 +17,7 @@ from statistics import median
 
 import core as hc
 from assets import cap, esc, panel, pctf, svg_hbar, svg_weight_pair
+from crop_overlap import CROP_SIZE
 
 # One colour and name per labelled-frame band, both bars of the weighting chart.
 # All 4.5:1 against white so the in-bar number is readable.
@@ -199,7 +200,8 @@ def method_panel(*, tag, n, n_sp, n_cand, checks):
             f'request from <code>config.yaml</code> <code>identify_nb_results</code> and not '
             f'an API default, plus <code>no-reject=true</code>, organs detected '
             f'automatically, and <code>include-related-images=false</code>, on a '
-            f'1280&nbsp;px centre crop of each frame photo. A correct answer at position '
+            f'{CROP_SIZE}&nbsp;px centre crop of each frame photo. A correct answer at '
+            f'position '
             f'{n_cand + 1} '
             f'or beyond was never returned and cannot be seen here.</li>'
             f'<li>Evaluated set: {n:,} frames across {n_sp} species carrying a botanist '

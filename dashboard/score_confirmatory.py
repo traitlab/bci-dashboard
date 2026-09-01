@@ -3,7 +3,7 @@
 Two arms, one label, two regions:
 
     crown   one identify call per labelled crown, aggregated to the frame
-    photo   the 1280 px centre square, 13.65% of the frame, carried as the
+    photo   the 1280 px centre square, 13.7% of the frame, carried as the
             legacy reference and never described as region-aligned
 
 Ground truth names the species whose labelled crowns hold the largest summed
