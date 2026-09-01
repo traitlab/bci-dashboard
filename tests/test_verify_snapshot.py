@@ -289,7 +289,7 @@ def test_labelled_crown_count_mismatch_aborts(history, tmp_path):
     rows[0]["n_labelled_crowns"] = rows[0]["n_labelled_crowns"] + 1
     kwargs, _ = write_snapshot(tmp_path, per_species_rows=rows)
     msg = assert_aborts(history, tmp_path, kwargs)
-    assert "labelled crowns for" in msg and "Hura crepitans" in msg
+    assert "labelled frames for" in msg and "Hura crepitans" in msg
 
 
 def test_top1_accuracy_mismatch_aborts(history, tmp_path):

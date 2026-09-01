@@ -53,9 +53,9 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
                     queue_counts=None, n_no_answer=None, review_counts=None):
     """Abort the build if the page disagrees with measure.py's snapshot.
 
-    ``queue_counts`` maps queue name to crown count over the unlabelled pool,
-    ``n_no_answer`` counts unlabelled crowns whose candidate list came back
-    empty, and ``review_counts`` is (crowns, distinct confusion pairs) for the
+    ``queue_counts`` maps queue name to frame count over the unlabelled pool,
+    ``n_no_answer`` counts unlabelled frames whose candidate list came back
+    empty, and ``review_counts`` is (frames, distinct confusion pairs) for the
     high-confidence label disagreements. All three are checked against the two
     queue CSVs when given.
     """
@@ -75,7 +75,7 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
         if r is None:
             fail(f"species {row['species']!r} absent from {path}")
         if int(r["n_labelled_crowns"]) != row["n_labelled_crowns"]:
-            fail(f"labelled crowns for {row['species']!r}")
+            fail(f"labelled frames for {row['species']!r}")
         for col in ("top1_accuracy", "top5_accuracy"):
             if not close(r[col], row[col]):
                 fail(f"{col} for {row['species']!r}")
@@ -84,11 +84,11 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
     for r in hc.read_csv_rows(os.path.join(directory, "support_buckets.csv")):
         b = buckets.get(r["support_bucket"])
         if b is None:
-            fail(f"labelled-crown group {r['support_bucket']!r} missing here")
+            fail(f"labelled-frame group {r['support_bucket']!r} missing here")
         if int(r["n_crowns"]) != b["n_crowns"] or int(r["n_species"]) != b["n_species"]:
-            fail(f"labelled-crown group {r['support_bucket']!r} counts")
+            fail(f"labelled-frame group {r['support_bucket']!r} counts")
         if not close(r["top1_accuracy"], b["c1"] / b["n_crowns"]):
-            fail(f"labelled-crown group {r['support_bucket']!r} first-guess rate")
+            fail(f"labelled-frame group {r['support_bucket']!r} first-guess rate")
     checks.append(f"support_buckets.csv: {len(buckets)} labelled-frame groups match")
 
     path = os.path.join(directory, "confidence_calibration.csv")
@@ -103,15 +103,15 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
     checks.append(f"confidence_calibration.csv: {len(bins_all)} confidence bands match")
 
     # These three live in the run log's prose, on denominators no CSV uses. Checking
-    # them here once caught the report and the CSVs disagreeing by two crowns.
+    # them here once caught the report and the CSVs disagreeing by two frames.
     path = os.path.join(directory, "run_log.txt")
     with open(path, encoding="utf-8") as f:
         log = f.read()
     for pat, here, what in (
             (r"^\s*(\d+) GT (?:crowns|frames) across \d+ species can NEVER", never_all,
-             "crowns the model can never name, over every label"),
+             "frames the model can never name, over every label"),
             (r"excludes the (\d+) (?:crowns|frames) that are unscoreable", unscoreable,
-             "unscoreable crowns inside the evaluated set"),
+             "unscoreable frames inside the evaluated set"),
             (r"strict top-1\s*:\s*[\d.]+%\s*\((\d+)/", strict_hits,
              "first guesses right without name reconciliation")):
         m = re.search(pat, log, re.MULTILINE)
@@ -119,8 +119,8 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
             fail(f"no line for {what} in {path}")
         if int(m.group(1)) != here:
             fail(f"{what}: {here} here vs {m.group(1)} in {path}")
-    checks.append(f"run_log.txt: the {never_all}-frame ceiling, the {unscoreable} frames that "
-                  f"cannot be scored, and the {strict_hits} right without name "
+    checks.append(f"run_log.txt: the {never_all:,}-frame ceiling, the {unscoreable:,} frames that "
+                  f"cannot be scored, and the {strict_hits:,} right without name "
                   f"reconciliation, all match")
 
     if n_no_answer is not None:
@@ -128,7 +128,7 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
         if m is None:
             fail(f"no no-answer line in {path}")
         if int(m.group(1)) != n_no_answer:
-            fail(f"no-answer unlabelled crowns: {n_no_answer} here vs {m.group(1)} in {path}")
+            fail(f"no-answer unlabelled frames: {n_no_answer} here vs {m.group(1)} in {path}")
 
     if queue_counts is not None:
         path = os.path.join(directory, "send_first_queue.csv")
