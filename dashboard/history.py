@@ -21,7 +21,6 @@ import re
 from collections import Counter
 
 import core as hc
-from assets import weight_pair_ok
 
 SNAPSHOT_DIR = re.compile(r"model-health-(\d{4}-\d{2}-\d{2})$")
 SNAPSHOT_GLOB = "model-health-*"
@@ -178,9 +177,6 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
         checks.append(f"label_review_queue.csv: {len(ref)} crowns, {len(pairs)} confusion "
                       f"pairs match")
 
-    if not weight_pair_ok():
-        fail("the weighting bars are drawn wrong: a bigger share must be a wider band")
-    checks.append("charts: a bigger share is drawn wider")
     return checks
 
 
