@@ -66,7 +66,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
           'It carries the same order in batches of at most 100, with each species '
           'group kept together. Read this page to check the order and the rule behind '
           'it, then work the CSV. How Pl@ntNet scores against the labels is a separate '
-          'page.</p>'),
+          'page, <code>model_health_dashboard.html</code>.</p>'),
          pn.render(c, pn.INTERNAL_PANELS)]
 
     return pn.document(TITLE, "\n".join(P)), c.checks

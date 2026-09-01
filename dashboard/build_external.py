@@ -60,7 +60,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
          f'set aside in advance. They show what difference it makes to outline the trees '
          f'before asking. Everything below them covers all {c.n:,} labelled frames, one '
          f'Pl@ntNet guess per frame. That is what lets the page say, species by species, '
-         f'how often the guess is right. What to label next is a separate page.</p>',
+         f'how often the guess is right. What to label next is a separate page, <code>label_queue_dashboard.html</code>.</p>',
          # The headline first, on the frozen sample, because it is the only number here
          # whose unit of prediction is the unit the label describes. The corpus-wide
          # grid follows it, inside a panel, not the other way round.

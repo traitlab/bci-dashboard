@@ -116,7 +116,7 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
         f"<code>{esc(export_name)}</code></div>",
         ('<p class="intro">This page scores one Labelbox export on its own. It asks '
          "how well Pl@ntNet named the trees this batch labelled, and nothing else. "
-         "The running total across every past batch is on the model-health page.</p>"),
+         "The running total across every past batch is on the model-health page, <code>model_health_dashboard.html</code>.</p>"),
     ]
 
     funnel_body = funnel_list(
