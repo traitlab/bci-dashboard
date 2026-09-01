@@ -34,13 +34,13 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc  # noqa: E402
+import panels as pn
 from assets import (
-    CSS,
-    JS,
     cap,
     esc,
     filterable_table,
     funnel_list,
+    panel,
     pctf,
 )  # noqa: E402
 
@@ -155,10 +155,13 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
             "computed.</p>"
         )
     P.append(
-        '<details class="panel" open><summary>Where these numbers come from</summary>'
-        f'<div class="pbody"><p class="ask"><b>Why {n_rows - n:,} of the '
-        f"{n_rows:,} rows are not in the accuracy rate above.</b></p>"
-        f"{funnel_body}</div></details>"
+        panel(
+            "Where these numbers come from",
+            f"<b>Why {n_rows - n:,} of the {n_rows:,} rows are not in the "
+            f"accuracy rate above.</b>",
+            funnel_body,
+            open_=True,
+        )
     )
 
     if per_species:
@@ -181,20 +184,9 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
             rows,
             options=[],
         )
-        P.append(
-            f'<details class="panel" open><summary>Filter Species'
-            f'</summary><div class="pbody"><p class="ask"></p>{body}</div></details>'
-        )
+        P.append(panel("Filter Species", "", body, open_=True))
 
-    return (
-        "<!DOCTYPE html>\n"
-        '<html lang="en"><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        "<title>Pl@ntNet on BCI - this export only</title>"
-        f"<style>{CSS}</style></head><body>"
-        + "\n".join(P)
-        + f"<script>{JS}</script></body></html>"
-    )
+    return pn.document("Pl@ntNet on BCI - this export only", "\n".join(P))
 
 
 def main() -> None:
@@ -234,15 +226,13 @@ def main() -> None:
         generated=args.generated or _dt.date.today().isoformat(),
     )
 
-    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    blob = page.encode("utf-8")
-    with open(args.out, "wb") as f:
-        f.write(blob)
     print(f"  export rows                 : {n_rows:,}")
     print(f"  labelled (species) rows     : {len(h.gt_rows):,}")
     print(f"  joined to cached prediction : {len(h.sp_recs) + len(h.genus_recs):,}")
     print(f"  species-level, scoreable    : {len(h.sp_recs):,}")
-    print(f"  wrote     {args.out}  ({len(blob):,} bytes)")
+    # No verify list: this page is scoped to one export and has no snapshot to
+    # reconcile against, so it passes an empty one.
+    pn.write_page(page, [], args.out)
 
 
 if __name__ == "__main__":
