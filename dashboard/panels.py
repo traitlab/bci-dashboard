@@ -155,12 +155,13 @@ QL = {"long_tail": ("Species we barely have",
                          "The species is normally identified well but the model is "
                          "unsure here, so the photo is either an odd one worth having "
                          "or a quiet miss"),
-      "normal": ("Everything else", "The ordinary queue"),
+      # Not "Everything else": the row below it is a further category, so a row
+      # named for the leftovers sitting third contradicts "work top to bottom".
+      "normal": ("The ordinary queue",
+                 "Neither a cheap confirmation nor safe to leave, so these follow "
+                 "the first two"),
       "can_wait": ("Confident on a well-covered species",
                    "The two-part rule below says these can wait; look at them last")}
-
-
-
 
 
 def pfmt(p, draws):
