@@ -62,10 +62,10 @@ def build(h, *, generated, verify_dir, fallback_tag):
          f'&middot; {c.n:,} labelled frames &middot; {c.n_sp} species</div>',
          f'<p class="intro">This page says how well Pl@ntNet names the trees a botanist '
          f'labelled. The two numbers at the top come from {int(c.cf["n_frames"])} frames '
-         f'set aside in advance, and they show what difference it makes to outline the '
-         f'trees before asking. Everything below them covers all {c.n:,} labelled frames, '
-         f'one Pl@ntNet guess per frame, so we can say species by species how often the '
-         f'guess is right. What to label next is a separate page.</p>',
+         f'set aside in advance. They show what difference it makes to outline the trees '
+         f'before asking. Everything below them covers all {c.n:,} labelled frames, one '
+         f'Pl@ntNet guess per frame. That is what lets the page say, species by species, '
+         f'how often the guess is right. What to label next is a separate page.</p>',
          # The headline first, on the frozen sample, because it is the only number here
          # whose unit of prediction is the unit the label describes. The corpus-wide
          # grid follows it, inside a panel, not the other way round.

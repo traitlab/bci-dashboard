@@ -505,7 +505,7 @@ def p_ceiling(c):
               f'name</strong> and are left out of every species number above. Scored at '
               f'genus level they reach {pctf(c.gg1 / gn) if gn else "n/a"}. Of them, '
               f'{c.gen_any:,} have at least one candidate in the right genus among the five, '
-              f'and <strong>{c.gen_one:,} have exactly one</strong>, which turns the question '
+              f'and <strong>{c.gen_one:,} have exactly one</strong>. That turns the question '
               f'into a yes or no rather than an identification. Whether taking them down to '
               f'species is worth expert time is a prioritisation question, not a model '
               f'question.</p>'
@@ -519,9 +519,9 @@ def p_ceiling(c):
     return panel(f"What labelling cannot fix: {len(c.never)} species, {c.never_crowns} frames "
                  f"the model never named, and why the five-candidate cap may be the cause",
                  "<b>Do not spend expert time renaming or relabelling these.</b> Either "
-                 "the model cannot return the species or we never asked for enough "
-                 "candidates to find out, and only re-running the predictions can tell "
-                 "the two apart.", body)
+                 "the model cannot return the species, or we never asked for enough "
+                 "candidates to find out. Only re-running the predictions can tell the two "
+                 "apart.", body)
 
 
 # Quoted, not summarised, from bci-dashboard-docs/hypothesis.md. Both
@@ -568,7 +568,7 @@ def p_confirmatory(c):
         raise SystemExit("p_confirmatory needs the frozen result; see confirmatory_hero")
     body = (
         f'<p class="note"><strong>What we did to each frame.</strong> For the top number we '
-        f'sent Pl@ntNet every tree crown a botanist had outlined, one at a time, then '
+        f'sent Pl@ntNet every tree crown a botanist had outlined, one at a time. Then we '
         f'combined the answers into a single name for the frame. Each crown got a say in '
         f'proportion to how much of the frame it covered. So the number says what naming '
         f'costs once someone has already found the trees. It is not what a fully automatic '
@@ -583,8 +583,8 @@ def p_confirmatory(c):
         f'<p class="note"><strong>Where the range comes from.</strong> Frames shot at the '
         f'same site look alike, so treating them as {int(cf["n_frames"])} independent tries '
         f'would make us look surer than we are. Instead we re-ran the whole count '
-        f'{int(cf["bootstrap_draws"]):,} times, each time drawing {int(cf["n_sites"])} whole '
-        f'sites at random and allowing repeats, and kept the middle 95% of the answers. That '
+        f'{int(cf["bootstrap_draws"]):,} times. Each time we drew {int(cf["n_sites"])} whole '
+        f'sites at random, allowing repeats, and kept the middle 95% of the answers. That '
         f'is the range on each card above.</p>')
     return panel(
         'Where these two numbers come from, and what we did to each frame',
@@ -612,8 +612,8 @@ def p_caveats(c):
     body = (
         f'<p class="note"><strong>The gap between the two numbers is the finding, not '
         f'either number on its own.</strong> Outlining the trees first is worth '
-        f'{100 * d:+.1f} points over sending the middle of the frame, and we are 95% sure '
-        f'the true gain is between {100 * lo:+.1f} and {100 * hi:+.1f} points. On '
+        f'{100 * d:+.1f} points over sending the middle of the frame. We are 95% sure the '
+        f'true gain is between {100 * lo:+.1f} and {100 * hi:+.1f} points. On '
         f'{int(cf["crown_only_hits"])} frames outlining got the name right where the centre '
         f'crop got it wrong; on {int(cf["photo_only_hits"])} it went the other way. A gap '
         f'that lopsided almost never happens by chance, so we are confident it is real.</p>'
@@ -621,7 +621,7 @@ def p_caveats(c):
         f'resampling test, the one described above, gives '
         f'p {pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}. An exact McNemar test '
         f'gives p = {cf["p_mcnemar_exact"]:.5f}. McNemar assumes every frame is independent '
-        f'of every other, and frames from one site are not, so the plan named the resampling '
+        f'of every other, and frames from one site are not. So the plan named the resampling '
         f'test as the answer where the two disagree. The narrower kind of range every other '
         f'number on this page uses would read '
         f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])} here, '
@@ -647,7 +647,7 @@ def p_caveats(c):
         f'{pctf(cf["crown_top1"])} as the cost of naming once the trees have been found.</li>'
         f'<li><strong>It is per frame, not per species.</strong> The sample carries '
         f'{int(cf["n_species"])} species and the two '
-        f'commonest hold {pctf(cf["top2_species_share"])} of them, so this rate is weighted '
+        f'commonest hold {pctf(cf["top2_species_share"])} of them. So this rate is weighted '
         f'towards the species the model already knows best. That is the same objection this '
         f'page makes to the {pctf(c.now["micro_top1"])} figure below, and it applies here '
         f'too. No per-species average for this sample was written into the plan, so none is '
@@ -657,8 +657,9 @@ def p_caveats(c):
         f'field sites. Nothing here supports a camera claim: no mission in this design '
         f'carries both cameras.</li></ul></div>'
         f'<p class="note">Every rule behind these numbers was written down in '
-        f'<code>bci-dashboard-docs/hypothesis.md</code> before the data existed: which '
-        f'frames, which test, what counts as right, and when we were allowed to look. The '
+        f'<code>bci-dashboard-docs/hypothesis.md</code> before the data existed. That means '
+        f'which frames, which test, what counts as right, and when we were allowed to look. '
+        f'The '
         f'plan allows one look at the finished set, so this page prints the result the '
         f'scorer wrote that once and never recomputes it.</p>')
     return panel(

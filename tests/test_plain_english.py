@@ -40,11 +40,12 @@ import pytest
 # that trips this is not necessarily wrong -- it is a sentence someone has to
 # read again -- so the fix is to split it, and moving the number up is a
 # decision to make out loud.
-MAX_SENTENCE_WORDS = 34
+MAX_SENTENCE_WORDS = 33
 
 # The share of sentences allowed to run long. A hard per-sentence cap alone
-# lets the prose fill up with 30-word sentences; this keeps the middle short.
-MAX_LONG_SENTENCE_SHARE = 0.15
+# lets the prose fill up with 25-word sentences, so this keeps the middle
+# short. Both pages are inside it today: 4% and 5%.
+MAX_LONG_SENTENCE_SHARE = 0.06
 LONG_SENTENCE_WORDS = 25
 
 # Retired by CONTEXT.md, each with what a page says instead. The message is
@@ -153,15 +154,16 @@ def test_the_internal_page_has_no_sentence_a_reader_has_to_reread(internal_prose
     _no_long_sentences(internal_prose, "label_queue_dashboard.html")
 
 
-def test_most_of_the_external_page_is_in_short_sentences(external_prose):
+def test_most_of_each_page_is_in_short_sentences(page_prose):
     """A cap on the longest sentence says nothing about the middle of the
     distribution, which is where a page gets heavy."""
-    found = sentences(external_prose)
+    name, blocks = page_prose
+    found = sentences(blocks)
     long = [s for s in found if len(s.split()) > LONG_SENTENCE_WORDS]
     share = len(long) / len(found)
     assert share <= MAX_LONG_SENTENCE_SHARE, (
-        f"{len(long)} of {len(found)} sentences run over {LONG_SENTENCE_WORDS} words "
-        f"({share:.0%}, ceiling {MAX_LONG_SENTENCE_SHARE:.0%}); "
+        f"{name}: {len(long)} of {len(found)} sentences run over {LONG_SENTENCE_WORDS} "
+        f"words ({share:.0%}, ceiling {MAX_LONG_SENTENCE_SHARE:.0%}); "
         f"median is {statistics.median(len(s.split()) for s in found)} words")
 
 
