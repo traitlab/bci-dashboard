@@ -110,17 +110,27 @@ HERO_TERMS = (
 # The two regions above are not the same region, and the numbers below compare
 # across them. Stated here rather than in a footnote because every figure on
 # this page inherits the mismatch.
-HERO_REGION = (
-    "<strong>These four numbers judge a centre crop against a label for the whole "
-    "frame.</strong> The two are not always looking at the same tree: on 1,377 of 3,777 "
-    "scored frames the labelled species covers less than half the crop, and on 207 it "
-    "covers none of it. A wrong answer here is therefore not always a wrong "
-    "identification. Read these four as a record of what the centre-crop path did, not as "
-    "the model's accuracy. The number at the top of the page, where a botanist outlined "
-    "the trees first, is the one to quote: it names the same thing the label names. "
-    "<a href=\"#where-the-headline-comes-from\">Where these two numbers come from</a> "
-    "says which frames it was measured on."
-)
+def hero_region(c):
+    """How far the crop and the label disagree, counted rather than remembered.
+
+    Was a module constant with the counts written into the prose. They were
+    stale and measured over the wrong population, which is the failure the rest
+    of this file avoids by recomputing every figure at build time.
+    """
+    half = sum(1 for r in c.sp_recs if (r.get("crop_coverage") or 0) < 0.5)
+    none_ = sum(1 for r in c.sp_recs if (r.get("crop_coverage") or 0) == 0)
+    return (
+        "<strong>These four numbers judge a centre crop against a label for the whole "
+        f"frame.</strong> The two are not always looking at the same tree. On {half:,} of "
+        f"{len(c.sp_recs):,} scored frames the labelled species covers less than half the "
+        f"crop, and on {none_:,} it covers none of it. A wrong answer here is therefore not "
+        "always a wrong identification. Read these four as a record of what the centre-crop "
+        "path did, not as the model's accuracy. The number at the top of the page, where a "
+        "botanist outlined the trees first, is the one to quote: it names the same thing the "
+        "label names. "
+        '<a href="#where-the-headline-comes-from">Where these two numbers come from</a> '
+        "says which frames it was measured on."
+    )
 
 # Queue name -> (what it is, why it is worth sending). Shown in the order
 # hc.QUEUE_ORDER gives, which is the order the CSV is sorted in.
@@ -678,7 +688,7 @@ def p_weighting(c):
     corpus = (
         hero([(averaged, pctf(c.now[metric]), question, note.format(n_sp=c.n_sp))
               for metric, question, averaged, note in HEADLINES])
-        + f'<p class="caveat">{HERO_REGION}</p>'
+        + f'<p class="caveat">{hero_region(c)}</p>'
         + f'<p class="note">{HERO_READING}</p>'
         # One sentence, not the full caveat: the ceiling panel states the same numbers
         # with the reasoning, and twice made this the second dense paragraph up top.
