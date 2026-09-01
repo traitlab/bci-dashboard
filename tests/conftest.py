@@ -202,14 +202,11 @@ GENERATED = "2026-08-25-test"
 #
 # `species_status` is narrower than `species`: it is the per-row
 # `data-species`/`data-status` attributes plus the status legend that
-# `panels.p_species` renders. `build_export_only.py` builds its own species
-# table straight off `assets.filterable_table` instead of going through
-# `panels.p_species`, and passes it no `row_attrs` -- so its page carries a
-# species table and filter box (`species`) but no row ever carries a status,
-# and no legend is rendered. That is a real gap in `build_export_only.py`
-# (the status dropdown and per-row status tag), left as found; the flag
-# records what is actually on the page rather than hiding the gap behind a
-# weaker shared assertion.
+# `panels.p_species` renders. All three pages carry it. `build_export_only.py`
+# used to build its own species table straight off `assets.filterable_table`
+# with no `row_attrs`, so a row said 40% and nothing said whether that was a
+# species the model gets wrong or one with too few labels to judge; it now
+# renders the same status column and legend as the other two.
 #
 # Each flag now names exactly one page, so a flag no longer distinguishes
 # between pages the way it did while a third page carried `species` and
@@ -221,7 +218,7 @@ PAGES = {
     "internal_page": ("build_internal.py", "label_queue_dashboard.html",
                       {"queue_counts", "queue_keys", "snapshot"}),
     "export_only_page": ("build_export_only.py", "export_only_dashboard.html",
-                         {"species"}),
+                         {"species", "species_status"}),
 }
 
 

@@ -299,11 +299,16 @@ def test_tags_balance(page):
 def test_one_species_row_per_scored_species(page, n_species):
     html, _, carries = page
     rows = re.findall(r"<tr data-species=", html)
-    # Gated on `species_status`, not the broader `species`: the export page
-    # carries a species table but, per the PAGES comment above, no row is
-    # ever tagged `data-species`, so its count here is 0 regardless of how
-    # many species it actually scored.
-    assert len(rows) == (n_species if "species_status" in carries else 0)
+    if "species_status" not in carries:
+        assert not rows
+    elif "snapshot" in carries:
+        # The two corpus pages score every species in the cumulative record.
+        assert len(rows) == n_species
+    else:
+        # The export page scores only what its own export labels, which is a
+        # smaller set by design. What matters is that every row it does render
+        # carries a status the legend explains.
+        assert rows
 
 
 def test_every_row_status_has_a_matching_legend_entry(page):

@@ -42,6 +42,8 @@ from assets import (
     funnel_list,
     panel,
     pctf,
+    status_legend,
+    status_tag,
 )
 
 
@@ -165,26 +167,43 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
     )
 
     if per_species:
-        rows = [
-            [
-                f'<span class="sp">{esc(cap(d["species"]))}</span>',
-                f'{d["n_labelled_crowns"]:,}',
-                pctf(d["top1_accuracy"]),
-            ]
-            for d in sorted(
-                per_species, key=lambda d: (-d["n_labelled_crowns"], d["species"])
-            )
-        ]
-        body = filterable_table(
+        # The same table the model-health page renders, status column included.
+        # Without it a row says 40% and nothing says whether that is a species
+        # the model gets wrong or one with too few labels to judge, which is the
+        # first thing a reader of a single export wants to know.
+        rows, attrs = [], []
+        for d in sorted(per_species,
+                        key=lambda d: (-d["n_labelled_crowns"], d["species"])):
+            st = hc.diagnose(d)
+            rows.append([
+                f'<span class="sp" data-sort="{esc(d["species"])}">'
+                f'{esc(cap(d["species"]))}</span>',
+                f'<span data-sort="{d["n_labelled_crowns"]}">'
+                f'{d["n_labelled_crowns"]:,}</span>',
+                f'<span data-sort="{d["top1_accuracy"]:.6f}">'
+                f'{pctf(d["top1_accuracy"])}</span>',
+                status_tag(st, pn.STATUS[st][0]),
+            ])
+            attrs.append(f' data-species="{esc(d["species"])}"'
+                         f' data-status="{st}"')
+        body = status_legend(
+            [(st, pn.STATUS[st][0], pn.STATUS_REASON[st]) for st in pn.STATUS]
+        ) + filterable_table(
             [
                 ("Species", False),
                 ("Labelled crowns", True),
                 ("First guess right", True),
+                ("Status", False),
             ],
             rows,
-            options=[],
+            options=[(k, v[0]) for k, v in pn.STATUS.items()],
+            row_attrs=attrs,
         )
-        P.append(panel("Filter Species", "", body, open_=True))
+        P.append(panel(
+            f"Look up one species: all {len(per_species)} in this export",
+            "<b>Find a species you care about and read its status.</b> Click any "
+            "heading to sort, type to filter.",
+            body, open_=True))
 
     return pn.document("Pl@ntNet on BCI - this export only", "\n".join(P))
 
