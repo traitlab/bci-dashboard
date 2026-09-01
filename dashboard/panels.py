@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Every panel the dashboard pages can carry, and the one context they share.
 
 The 2026-08-27 split gave the panels two audiences. The internal page answers
@@ -255,7 +254,7 @@ def p_send(c):
                        f"{c.support.get(pred, 0):,}"]
                       for i, (_, stem, pred, cf) in enumerate(head, 1)]))
     top_lt = sorted(c.lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
-    body += (f'<p class="note"><b>Most-named species in the first queue.</b> '
+    body += ('<p class="note"><b>Most-named species in the first queue.</b> '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
              + '.</p>'
              f'<p class="note">Every frame, in order, is in <code>send_first_queue.csv</code> '

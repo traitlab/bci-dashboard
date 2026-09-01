@@ -259,7 +259,7 @@ def main() -> None:
     log(f"  genus-level top-1                   : {pct(g1, n)}   ({g1}/{n})")
     log(f"  genus-level top-5                   : {pct(g5, n)}   ({g5}/{n})")
     log("")
-    log(f"  restricted to frames whose GT species appears somewhere in the corpus at all")
+    log("  restricted to frames whose GT species appears somewhere in the corpus at all")
     log(f"  (n={len(reachable)}; excludes the {n - len(reachable)} frames that are unscoreable by construction):")
     log(f"    top-1                             : {pct(r1, len(reachable))}   ({r1}/{len(reachable)})")
     log(f"    top-5                             : {pct(r5, len(reachable))}   ({r5}/{len(reachable)})")

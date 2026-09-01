@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Every figure a page shows, computed once off one ``Health``.
 
 One entry point: ``prepare``. A panel builder reads what it returns and does

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Prose panels for the model-health dashboard.
 
 Two panels that are mostly explanation rather than measurement live here, so

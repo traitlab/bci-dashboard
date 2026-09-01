@@ -569,7 +569,7 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
          ", ".join(f"len={k}:{v}" for k, v in sorted(length_hist.items())))
     maxk = max(length_hist)
     _log(f"  MAX list length observed            : {maxk}")
-    _log(f"  => 'top-5' IS the full returned list. The cap is the client-side request")
+    _log("  => 'top-5' IS the full returned list. The cap is the client-side request")
     _log("     parameter nb-results=5 (config.yaml plantnet.identify_nb_results), not a")
     _log("     model limit: a re-ingest with a larger nb-results would return more. No")
     _log("     deeper candidate exists in this cache and none can be recovered offline.")
