@@ -13,6 +13,12 @@ measurement pass:
    the deliverable is `send_batches.csv` beside it, which the labelling script
    reads.
 
+A third builder, `dashboard/build_export_only.py`, answers a narrower
+question: how did *this one* Labelbox export do. It reads one NDJSON file and
+scores only the crowns that export labels, so it never mixes a new batch into
+the running total. It is a spot check on a delivery, not a page anyone
+publishes.
+
 `CONTEXT.md` names every term the pages use, and the plain words a page says
 instead. Prose that reaches a page follows it, and
 `tests/test_plain_english.py` checks that it does.
@@ -71,7 +77,8 @@ trend caveats live in the sibling `bci-dashboard-docs/metrics.md`.
 
 ## What the pages score today
 
-The pages score one row per photo, bucketed by confidence and support. Three other
+The pages score one row per photo, grouped by confidence and by how many
+labelled frames a species has. Three other
 analyses run and write their own output, which `dashboard/core.py` does not read:
 
 | Analysis | Writes | Status |
