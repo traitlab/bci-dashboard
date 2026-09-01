@@ -100,8 +100,10 @@ def export_only_health(
 def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str:
     sp_recs, per_species = h.sp_recs, h.per_species
     n, n_sp = len(sp_recs), len(per_species)
-    n_labelled = len(h.gt_rows)  # rows export_dominants found a species label for
+    n_labelled = len(h.gt_rows)  # rows export_dominants found a botanist name for
     n_no_cache = len(h.missing_cache)
+    n_genus = len(h.genus_recs)  # labelled, cached, but the name stops at the genus
+    n_joined = n + n_genus
 
     c1 = sum(1 for r in sp_recs if r["ranked"][0][0] == r["gt"])
     c5 = sum(1 for r in sp_recs
@@ -119,18 +121,30 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
          "The running total across every past batch is on the model-health page, <code>model_health_dashboard.html</code>.</p>"),
     ]
 
+    # Every row of the export ends in exactly one of these steps. The genus-only
+    # step used to be missing, so a reader adding the funnel up found frames
+    # unaccounted for: the third step claimed the scored count was "photos with a
+    # cached prediction", which it is not once a label stops at the genus.
     funnel_body = funnel_list(
         [
             (n_rows, "rows in this NDJSON export"),
             (
                 n_labelled,
-                "of those rows carry a species name in the Planta/Taxon field "
+                "of those rows carry a botanist name in the Planta/Taxon field "
                 "\u2014 the rest have no annotation in this export",
             ),
             (
+                n_joined,
+                "of the labelled photos also have a cached Pl@ntNet answer",
+            ),
+            (
                 n,
-                "of the labelled photos also have a cached Pl@ntNet prediction \u2014 every "
+                "of those name a species rather than stopping at the genus \u2014 every "
                 "accuracy figure below is measured on this set",
+            ),
+            (
+                n_genus,
+                "stop at the genus, which this page does not score",
             ),
             (
                 n_no_cache,
