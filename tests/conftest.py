@@ -120,6 +120,17 @@ def panels():
 
 
 @pytest.fixture(scope="session")
+def explain():
+    """`dashboard/` on the path, because explain imports `core` and `assets` as
+    siblings. `_near_miss`, the band dicts and constants, and the three panel
+    functions are all reachable without measurement inputs: every one of them
+    is a pure function of its arguments."""
+    with _on_path(REPO / "dashboard"):
+        import explain
+        yield explain
+
+
+@pytest.fixture(scope="session")
 def box_csv():
     if not BOX_CSV.exists():
         pytest.skip("input/boxes/crop_bounding_boxes.csv not present")
