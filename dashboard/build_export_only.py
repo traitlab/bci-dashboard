@@ -34,6 +34,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc
+import figures
 import panels as pn
 from assets import (
     cap,
@@ -112,6 +113,9 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
         "<h1>Pl@ntNet on BCI: this export only</h1>",
         f'<div class="subtitle">built {esc(generated)} &middot; '
         f"<code>{esc(export_name)}</code></div>",
+        '<p class="intro">This page scores one Labelbox export on its own. It asks '
+        "how well Pl@ntNet named the trees this batch labelled, and nothing else. "
+        "The running total across every past batch is on the model-health page.</p>",
     ]
 
     funnel_body = funnel_list(
@@ -143,12 +147,12 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
     if n:
         P.append(
             f'<p class="note">Averaged across crowns instead of species: '
-            f"{pctf(micro1)} right ({c1:,} of {n:,}). The right name is in the "
-            f"5-guess list for {pctf(macro5)} of species ({pctf(c5 / n)} of "
-            f"crowns. The 5-guess list is Pl@ntNet\u2019s own ranked "
-            f"prediction for the photo, made before this export existed. "
-            f"It is looked up per photo so the "
-            f"ground-truth name here can be checked against it.</p>"
+            f"{pctf(micro1)} right ({c1:,} of {n:,}). The right name is somewhere "
+            f"in the {figures.N_CANDIDATES} names Pl@ntNet returned for "
+            f"{pctf(macro5)} of species, and {pctf(c5 / n)} of crowns. Those "
+            f"names were ranked by Pl@ntNet before this export existed. "
+            f"They are looked up per photo, so the botanist\u2019s label in this "
+            f"export can be checked against them.</p>"
         )
     else:
         P.append(
