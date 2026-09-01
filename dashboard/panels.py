@@ -27,8 +27,8 @@ from types import SimpleNamespace
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc  # noqa: E402
-from assets import (CSS, JS, cap, esc, filterable_table, panel, pctf,  # noqa: E402
-                    section, status_legend, status_tag, svg_hbar, table)
+from assets import (CSS, JS, cap, esc, filterable_table, hero, panel,  # noqa: E402
+                    pctf, section, status_legend, status_tag, svg_hbar, table)
 from explain import (BAND_SHORT, candidates_panel, method_panel,  # noqa: E402
                      weighting_panel)
 from history import model_tag_of, snapshot_date_of  # noqa: E402
@@ -231,25 +231,18 @@ def confirmatory_hero(cf):
             f"the confirmatory result is stamped {cf.get('stamp')!r}, not "
             f"'CONFIRMATORY'. The stopping rule says the read happens once on the "
             f"complete set, so an exploratory number must not be published here.")
-    arms = (("crown", "Region-aligned, given the crowns", "One identify call per labelled "
-             "crown, pooled to the frame by box area. The crowns come from the botanist, so "
-             "this is what naming costs once delineation is done, not what an unaided "
-             "pipeline would score"),
-            ("photo", "Centre crop, legacy", "One identify call on the fixed 1280 px "
-             "centre square, 13.7% of the frame"))
-    out = ['<div class="hero">']
-    for i, (arm, label, how) in enumerate(arms):
-        out.append(
-            f'<div class="metric{" first" if i == 0 else ""}">'
-            f'<div class="e">{label}</div>'
-            f'<div class="row"><div class="v">{pctf(cf[f"{arm}_top1"])}</div></div>'
-            f'<div class="l">Top-1 on the frozen sample</div>'
-            f'<div class="n">{int(cf[f"{arm}_hits"])} of {int(cf[f"{arm}_n"])} frames right. '
-            f'95% interval {pctf(cf[f"{arm}_top1_site_lo"])} to '
-            f'{pctf(cf[f"{arm}_top1_site_hi"])}, bootstrapped over the '
-            f'{int(cf["n_sites"])} sites. {how}.</div></div>')
-    out.append('</div>')
-    return "".join(out)
+    # What each arm actually asked moved into the panel below the cards. The card
+    # keeps the rate, its support and its interval, which is the whole of what a
+    # number needs to travel with.
+    arms = (("crown", "Region-aligned, given the crowns"),
+            ("photo", "Centre crop, legacy"))
+    return hero([
+        (label, pctf(cf[f"{arm}_top1"]), "Top-1 on the frozen sample",
+         f'{int(cf[f"{arm}_hits"])} of {int(cf[f"{arm}_n"])} frames right. '
+         f'95% interval {pctf(cf[f"{arm}_top1_site_lo"])} to '
+         f'{pctf(cf[f"{arm}_top1_site_hi"])}, bootstrapped over the '
+         f'{int(cf["n_sites"])} sites.')
+        for arm, label in arms])
 
 
 def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
@@ -436,7 +429,12 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
 # ---------------------------------------------------------------------------
 
 def p_todo(c):
-    body = ['<ul class="todo">']
+    # The page-level orientation moved down here off the head: this is the open panel,
+    # so it is the first thing a reader lands in either way.
+    body = ['<p class="note">Every unlabelled photo already has a Pl@ntNet guess, and every '
+            'species already has a measured record, so the two together put the pool in an '
+            'order: the frames that buy the most per label first.</p>',
+            '<ul class="todo">']
     body += [f'<li><span class="n">{c.counts[k]}</span> species '
              f'<span class="tag {k}">{esc(lab)}</span> {esc(act)}</li>'
              for k, (lab, act) in STATUS.items()]
@@ -761,29 +759,51 @@ A4_WHAT_THIS_COSTS = (
 
 
 def p_confirmatory(c):
-    """The frozen read behind the headline, with both caveats it carries.
+    """The frozen read behind the headline: what was measured, and on what.
 
     Separate from the method panel because nothing here comes from the snapshot:
-    it is a one-time read of 300 frames fixed before the data existed, and a
-    reader who mixes it with the corpus-wide numbers will report a rate on a
-    population that was never measured.
+    it is a one-time read of frames fixed before the data existed, and a reader
+    who mixes it with the corpus-wide numbers will report a rate on a population
+    that was never measured. Open by default, and short, because it is the only
+    thing on the page a headline cannot travel without. The caveats it must
+    travel with are the panel directly below, so the first screen stays readable.
     """
     cf = c.cf
     if cf is None:
         raise SystemExit("p_confirmatory needs the frozen result; see confirmatory_hero")
-    d, lo, hi = (cf["crown_minus_photo"], cf["crown_minus_photo_site_lo"],
-                 cf["crown_minus_photo_site_hi"])
     body = (
+        f'<p class="note"><strong>What each arm asked.</strong> Region-aligned is one '
+        f'identify call per labelled crown, pooled to the frame by box area; the crowns come '
+        f'from the botanist, so it is what naming costs once delineation is done, not what an '
+        f'unaided pipeline would score. Centre crop is one identify call on the fixed 1280 px '
+        f'centre square, 13.7% of the frame.</p>'
         f'<p class="note"><strong>Population and support.</strong> {int(cf["n_frames"])} '
         f'frames, drawn before any of these numbers existed, across {int(cf["n_sites"])} '
         f'sites and {int(cf["n_days"])} flight days. Both arms scored every frame: '
         f'{int(cf["crown_n"])} for crown, {int(cf["photo_n"])} for centre crop, so the two '
         f'rates are paired on the same frames rather than measured on two samples. The '
         f'interval is a percentile bootstrap over {int(cf["bootstrap_draws"]):,} resamples of '
-        f'whole sites, because frames from one site are not independent of each other. The '
-        f'unclustered interval every other number on this page uses would read '
-        f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])} for the '
-        f'crown arm, which is narrower than the data supports.</p>'
+        f'whole sites, because frames from one site are not independent of each other.</p>')
+    return panel(
+        'Where the headline comes from: the frozen sample, and what each arm asked',
+        "<b>Do not quote the region-aligned rate without the prior-exposure caveat.</b> "
+        "It is a real number on a pre-registered sample, and an operator had seen the same "
+        "arm at another unit before the sample was frozen.", body, open_=True)
+
+
+def p_caveats(c):
+    """The two caveats the design requires, quoted, plus what the rate is not.
+
+    Split out of ``p_confirmatory`` so the open panel above stays one screen. The
+    two amendment blocks are reproduced character-for-character from
+    ``hypothesis.md``, which requires the words rather than a summary.
+    """
+    cf = c.cf
+    if cf is None:
+        raise SystemExit("p_caveats needs the frozen result; see confirmatory_hero")
+    d, lo, hi = (cf["crown_minus_photo"], cf["crown_minus_photo_site_lo"],
+                 cf["crown_minus_photo_site_hi"])
+    body = (
         f'<p class="note"><strong>The gap is the finding, not either number on its own.</strong> '
         f'Crown beats centre crop by {100 * d:+.1f} points '
         f'({100 * lo:+.1f} to {100 * hi:+.1f}, clustered on site). On '
@@ -792,7 +812,10 @@ def p_confirmatory(c):
         f'p {pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}; exact McNemar, which '
         f'assumes the pairs are independent and they are not, '
         f'p = {cf["p_mcnemar_exact"]:.5f}. The design named the '
-        f'bootstrap as the answer when the two disagree.</p>'
+        f'bootstrap as the answer when the two disagree. The unclustered interval every '
+        f'other number on this page uses would read '
+        f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])} for the '
+        f'crown arm, which is narrower than the data supports.</p>'
         f'<div class="warn"><p><strong>The crown number was not produced blind, and the '
         f'design says so in these words.</strong> Quoted in full from amendment A2 of '
         f'<code>hypothesis.md</code>, which requires the words rather than a summary:</p>'
@@ -821,11 +844,23 @@ def p_confirmatory(c):
         f'this page reads the result the scorer wrote rather than re-running it, because the '
         f'stopping rule says the read happens once on the complete set.</p>')
     return panel(
-        'Where the headline comes from: the frozen sample, and the two '
-        'caveats the design says must travel with it',
-        "<b>Do not quote the region-aligned rate without the prior-exposure caveat.</b> "
-        "It is a real number on a pre-registered sample, and an operator had seen the same "
-        "arm at another unit before the sample was frozen.", body)
+        'The two caveats the design requires to travel with the headline',
+        "<b>Quoted, not summarised.</b> The design asks for the words themselves, because a "
+        "paraphrase of a prior-exposure caveat is how the caveat stops travelling.", body)
+
+
+def p_terms(c):
+    """The vocabulary every number on the page rests on.
+
+    A panel rather than a paragraph under the headline: it is definitional, so a
+    reader who already has the vocabulary should not have to read past it, and a
+    reader who does not can open it once.
+    """
+    return panel(
+        'What the words mean: frame, label, crown, centre crop',
+        "<b>Which region was scored against which label is the whole of the difference "
+        "between the two numbers above.</b>",
+        f'<p>{HERO_TERMS}</p>')
 
 
 def p_candidates(c):
@@ -833,8 +868,25 @@ def p_candidates(c):
 
 
 def p_weighting(c):
+    # The four corpus rates and everything that qualifies them, moved off the head of
+    # the page into the one panel that explains them. The grid reuses the headline
+    # card markup, so a reader meets the same shape twice and no new CSS exists.
+    corpus = (
+        hero([(averaged, pctf(c.now[metric]), question, note.format(n_sp=c.n_sp))
+              for metric, question, averaged, note in HEADLINES])
+        + f'<p class="caveat">{HERO_REGION}</p>'
+        + f'<p class="note">{HERO_READING}</p>'
+        # One sentence, not the full caveat: the ceiling panel states the same numbers
+        # with the reasoning, and twice made this the second dense paragraph up top.
+        + f'<p class="note"><strong>{c.unscoreable:,} of these frames belong to '
+          f'{len(c.never)} species the model never names in five candidates, so they are '
+          f'wrong at every threshold.</strong> Without them the per-frame rate is '
+          f'{pctf(c.reach1)}. <a href="#what-this-cannot-tell-you">What this cannot tell '
+          f'you</a> says why that is a limit of the question we asked, not proof the '
+          f'model has never heard of them.</p>')
     return weighting_panel(per_species=c.per_species, sp_recs=c.sp_recs, support=c.support,
-                           buckets=c.buckets, now=c.now, n=c.n, n_sp=c.n_sp)
+                           buckets=c.buckets, now=c.now, n=c.n, n_sp=c.n_sp,
+                           corpus_block=corpus)
 
 
 def p_method(c):
@@ -851,6 +903,9 @@ def p_method(c):
 
 # section key -> (heading, the one orienting line under it).
 SECTIONS = {
+    # The headline band has no heading of its own: it sits directly under the cards
+    # and belongs to them. render() emits its panels bare when the title is None.
+    "headline": (None, None),
     "label-first": (
         "What to label first",
         "Which frames to send, which can wait, and the evidence behind the wait rule."),
@@ -867,6 +922,9 @@ SECTIONS = {
 # the confidence evidence sits with the queue rule it justifies and the species
 # lookup sits with the scores it reports.
 PANELS = {
+    "confirmatory": ("headline", p_confirmatory),
+    "caveats": ("headline", p_caveats),
+    "terms": ("headline", p_terms),
     "todo": ("label-first", p_todo),
     "send": ("label-first", p_send),
     "wait": ("label-first", p_wait),
@@ -876,7 +934,6 @@ PANELS = {
     "labels": ("model-health", p_labels),
     "species": ("model-health", p_species),
     "review": ("model-health", p_review),
-    "confirmatory": ("limits", p_confirmatory),
     "candidates": ("limits", p_candidates),
     "ceiling": ("limits", p_ceiling),
     "method": ("limits", p_method),
@@ -886,8 +943,10 @@ PANELS = {
 # its real deliverable is send_batches.csv. External is what leaves the lab, and
 # the confident disagreements go with it so they can be worked in Labelbox.
 INTERNAL_PANELS = ("todo", "send", "wait", "rules", "conf")
-EXTERNAL_PANELS = ("weighting", "labels", "species", "review",
-                   "confirmatory", "candidates", "ceiling", "method")
+# Order inside a section is the order these ids are listed in. A reader arrives to
+# look up a species, so the lookup comes before the averaging argument.
+EXTERNAL_PANELS = ("confirmatory", "caveats", "terms", "species", "review",
+                   "weighting", "labels", "candidates", "ceiling", "method")
 
 if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
     raise SystemExit(f"every panel belongs to a page: "
@@ -907,8 +966,12 @@ def render(c, ids) -> str:
     out = []
     for key, (title, lede) in SECTIONS.items():
         chosen = [PANELS[i][1](c) for i in ids if PANELS[i][0] == key]
-        if chosen:
-            out.append(section(title, lede, "\n".join(chosen)))
+        if not chosen:
+            continue
+        body = "\n".join(chosen)
+        # A titleless section is the headline band: its panels belong to the cards
+        # above them, so wrapping them in a heading would announce a second subject.
+        out.append(body if title is None else section(title, lede, body))
     return "\n".join(out)
 
 
