@@ -630,19 +630,3 @@ def svg_weight_pair(rows, *, label_a, label_b):
                  f'{esc(r[0])}: {esc(r[3])}</text>')
     o.append("</svg>")
     return "\n".join(o)
-
-
-def weight_pair_ok() -> bool:
-    """The bigger share must be drawn wider, and a band must keep its colour.
-
-    Swapping the two share columns, or reading a share off the wrong
-    denominator, changes the picture and no printed number with it, so nothing
-    else here would catch it.
-    """
-    rows = [("a", 0.25, 0.75, "", "#111111"), ("b", 0.75, 0.25, "", "#222222")]
-    svg = svg_weight_pair(rows, label_a="A", label_b="B")
-    got = re.findall(r'<rect x="([\d.]+)" y="(\d+)" width="([\d.]+)"[^>]*fill="(#\w+)"', svg)
-    top = [g for g in got if g[1] == "8"]
-    if len(top) != 2 or top[0][3] != "#111111" or top[1][3] != "#222222":
-        return False
-    return float(top[0][2]) < float(top[1][2]) and float(top[0][0]) < float(top[1][0])

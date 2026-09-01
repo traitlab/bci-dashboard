@@ -100,6 +100,26 @@ def history():
 
 
 @pytest.fixture(scope="session")
+def assets():
+    """The rendering primitives, called directly rather than regexed out of a
+    built page. They are pure functions of their arguments, so they need none
+    of the measurement inputs `tests/test_pages.py` skips itself without."""
+    with _on_path(REPO / "dashboard"):
+        import assets
+        yield assets
+
+
+@pytest.fixture(scope="session")
+def panels():
+    """`dashboard/` on the path, because panels imports core and assets as
+    siblings. Only the registry and the section machinery are reachable
+    without a snapshot; `prepare` needs the measurement inputs."""
+    with _on_path(REPO / "dashboard"):
+        import panels
+        yield panels
+
+
+@pytest.fixture(scope="session")
 def box_csv():
     if not BOX_CSV.exists():
         pytest.skip("input/boxes/crop_bounding_boxes.csv not present")
