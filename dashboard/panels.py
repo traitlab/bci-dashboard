@@ -535,18 +535,17 @@ def p_review(c):
                     f"{conf(r):.2f}"]
                    for r in top_review])
     body += (f'<p class="note">The {len(top_review)} most confident disagreements. '
-             f'A frame name links straight to its Labelbox data row where that link '
-             f'is known: {linked} of {len(c.review)} frames here, because a data row id '
-             f'is only known for frames carried by an export this ground truth was '
-             f'merged from. Frames labelled in a project that has not been exported '
-             f'since are listed without a link rather than sent to a guessed URL.</p>')
+             f'A frame name links straight to its row in Labelbox where we know the link: '
+             f'{linked} of {len(c.review)} frames here. We know it only for frames that came '
+             f'in on an export these labels were merged from. The rest are listed without a '
+             f'link, rather than sent to a guessed address.</p>')
     body += (f'<p class="note">Each row is a labelled frame where the model is at least '
              f'{hc.REVIEW_CONF:.1f} confident in a <em>different</em> species. A first guess '
              f'this confident is right {pctf(c.confident_ok)} of the time in bulk '
-             f'({c.confident_hits:,} of {len(c.confident):,}), so each of '
-             f'these is either a rare confident model error or a label error, and a label '
-             f'error found this way is the cheapest label fix available. Offline there is no '
-             f'way to tell which; that is the botanist\'s minute. '
+             f'({c.confident_hits:,} of {len(c.confident):,}). So each row here is either a '
+             f'rare confident mistake by the model, or a wrong label. A wrong label found '
+             f'this way is the cheapest label fix available. Offline there is no way to tell '
+             f'which of the two it is; that is the botanist\'s minute. '
              f'Every frame is in <code>label_review_queue.csv</code> in the snapshot folder, '
              f'most confident first.</p>'
              f'<p class="note">Not urgent: work this list after the send-first queues. A '
@@ -730,11 +729,11 @@ def p_ceiling(c):
               f'species is worth expert time is a prioritisation question, not a model '
               f'question.</p>'
               f'<p class="note">A further {c.fam_n} frames are labelled to '
-              f'{c.fam_names} <em>families</em> rather than genera. They are excluded from '
-              f'the genus rate above and cannot be scored at all offline: a family name can '
-              f'never match a predicted species name, and mapping predictions up to family '
-              f'would need a family lookup covering Pl@ntNet\'s vocabulary, which we do not '
-              f'have here. Counting them in would have reported '
+              f'{c.fam_names} <em>families</em> rather than genera. They are left out of '
+              f'the genus rate above, and offline we cannot score them at all. A family name '
+              f'can never match a predicted species name. Rolling the predictions up to '
+              f'family would need a list of which family every Pl@ntNet name belongs to, and '
+              f'we do not have one here. Counting them in would have reported '
               f'{pctf(c.gg1 / (gn + c.fam_n))} instead of {pctf(c.gg1 / gn)}.</p>')
     return panel(f"What labelling cannot fix: {len(c.never)} species, {c.never_crowns} frames "
                  f"the model never named, and why the five-candidate cap may be the cause",
