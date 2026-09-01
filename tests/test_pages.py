@@ -109,7 +109,7 @@ def test_build_renders_the_no_score_note_when_nothing_joins(tmp_path_factory):
     path = tmp_path_factory.mktemp("export_nocache") / "export.ndjson"
     write_export_ndjson(path, without_cache, gt)
     html, _ = build_page(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
-    assert ("No crown in this export both carries a species label and has a "
+    assert ("No photo in this export both carries a species label and has a "
             "cached Pl@ntNet prediction") in html
     assert not re.search(r"\d+\.\d%", html), "an accuracy percentage was printed anyway"
 

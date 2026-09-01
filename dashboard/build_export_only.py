@@ -104,7 +104,8 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
     n_no_cache = len(h.missing_cache)
 
     c1 = sum(1 for r in sp_recs if r["ranked"][0][0] == r["gt"])
-    c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:5]])
+    c5 = sum(1 for r in sp_recs
+             if r["gt"] in [b for b, _ in r["ranked"][:figures.N_CANDIDATES]])
     macro1 = (sum(d["top1_accuracy"] for d in per_species) / n_sp) if n_sp else None
     micro1 = (c1 / n) if n else None
     macro5 = (sum(d["top5_accuracy"] for d in per_species) / n_sp) if n_sp else None
@@ -123,8 +124,8 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
             (n_rows, "rows in this NDJSON export"),
             (
                 n_labelled,
-                "of those rows carry a Planta/Taxon species label \u2014 the rest "
-                "have no annotation in this export",
+                "of those rows carry a species name in the Planta/Taxon field "
+                "\u2014 the rest have no annotation in this export",
             ),
             (
                 n,
@@ -146,17 +147,17 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
     )
     if n:
         P.append(
-            f'<p class="note">Averaged across crowns instead of species: '
+            f'<p class="note">Averaged across frames instead of species: '
             f"{pctf(micro1)} right ({c1:,} of {n:,}). The right name is somewhere "
             f"in the {figures.N_CANDIDATES} names Pl@ntNet returned for "
-            f"{pctf(macro5)} of species, and {pctf(c5 / n)} of crowns. Those "
+            f"{pctf(macro5)} of species, and {pctf(c5 / n)} of frames. Those "
             f"names were ranked by Pl@ntNet before this export existed. "
             f"They are looked up per photo, so the botanist\u2019s label in this "
             f"export can be checked against them.</p>"
         )
     else:
         P.append(
-            '<p class="note">No crown in this export both carries a species label '
+            '<p class="note">No photo in this export both carries a species label '
             "and has a cached Pl@ntNet prediction, so no accuracy rate can be "
             "computed.</p>"
         )
@@ -195,7 +196,7 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
         ) + filterable_table(
             [
                 ("Species", False),
-                ("Labelled crowns", True),
+                ("Labelled frames", True),
                 ("First guess right", True),
                 ("Status", False),
             ],
