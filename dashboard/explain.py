@@ -34,6 +34,27 @@ BAND_WORD = {"1": "1 frame", "2-4": "2 to 4 frames", "5-9": "5 to 9 frames",
 BAND_SHORT = {"1": "1 frame", "2-4": "2-4 frames", "5-9": "5-9 frames",
               "10-24": "10-24 frames", "25+": "25+ frames"}
 
+def _conf_band_words():
+    """"0.7 to 0.8", not "[0.7,0.8)".
+
+    Interval notation is a convention a botanist has no reason to know, and the
+    half-open bracket is the part that carries the meaning. The keys are the
+    band strings the CSVs and the run log use, and those stay: this maps them
+    for display only, and is built from ``hc.CONF_BINS`` so a changed band
+    cannot leave a stale phrase behind.
+    """
+    words = {}
+    for lo, hi in hc.CONF_BINS:
+        hi = min(hi, 1.0)
+        words[f"[{lo:.1f},{hi:.1f})"] = (
+            f"under {hi:.1f}" if lo == 0.0
+            else f"{lo:.1f} and up" if hi >= 1.0
+            else f"{lo:.1f} to {hi:.1f}")
+    return words
+
+
+CONF_BAND_WORDS = _conf_band_words()
+
 # Frames at or below this many labels are "thin" in the near-miss comparison.
 THIN_MAX = 4
 FAT_MIN = 25

@@ -27,7 +27,7 @@ import core as hc
 from assets import (CSS, JS, cap, esc, filterable_table, hero, panel,
                     pctf, section, status_legend, status_tag, svg_hbar, table)
 from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
-from explain import (BAND_SHORT, candidates_panel, method_panel,
+from explain import (BAND_SHORT, CONF_BAND_WORDS, candidates_panel, method_panel,
                      weighting_panel)
 from figures import (CONFIRMATORY_CSV, RARE_MAX_SUPPORT, RECOMMENDED_CONF,
                      WAIT_SUPPORT_MIN, conf, top1)
@@ -412,7 +412,7 @@ def p_conf(c):
     # Same blue as the next panel's chart: same measure, so a colour change would
     # read as meaning something. Green is spoken for by the status tags.
     flat = c.flat
-    body = (svg_hbar([(band, k / nn if nn else 0.0,
+    body = (svg_hbar([(CONF_BAND_WORDS[band], k / nn if nn else 0.0,
                        f'{pctf(k / nn) if nn else "n/a"}  ·  {nn:,} frames', "#1565c0")
                       for band, nn, k in c.bins_all],
                      title="how often the first guess is right, by the model's own confidence")
