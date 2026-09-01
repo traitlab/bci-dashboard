@@ -114,6 +114,26 @@ def test_build_renders_the_no_score_note_when_nothing_joins(tmp_path_factory):
     assert not re.search(r"\d+\.\d%", html), "an accuracy percentage was printed anyway"
 
 
+def test_the_export_funnel_accounts_for_every_row(export_only_page):
+    """The funnel exists to say where the rows that are not in the accuracy
+    rate went. It once dropped the genus-only frames: the counts on screen did
+    not add up, and a reader who checked found rows missing. Steps, in order:
+    rows, labelled, joined to a cached answer, named a species, stopped at the
+    genus, no cached answer."""
+    html, _ = export_only_page
+    funnel = re.search(r'<ul class="todo">(.*?)</ul>', html, re.DOTALL)
+    assert funnel, "the export page rendered no funnel"
+    counts = [int(x.replace(",", ""))
+              for x in re.findall(r'<span class="n">([\d,]+)</span>', funnel.group(1))]
+    assert len(counts) == 6, f"expected six funnel steps, got {counts}"
+    rows, labelled, joined, species, genus, no_cache = counts
+    assert labelled <= rows
+    assert joined + no_cache == labelled, (
+        f"labelled {labelled} is not joined {joined} plus un-joined {no_cache}")
+    assert species + genus == joined, (
+        f"joined {joined} is not species {species} plus genus-only {genus}")
+
+
 @pytest.fixture(scope="session")
 def n_species():
     """Independent of every builder: the population size the snapshot's own
