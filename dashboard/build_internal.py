@@ -29,11 +29,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import core as hc  # noqa: E402
-import figures  # noqa: E402
-import panels as pn  # noqa: E402
-from assets import esc, hero, info_tip  # noqa: E402
-from history import latest_snapshot_dir, verify_snapshot  # noqa: E402
+import core as hc
+import figures
+import panels as pn
+from assets import esc, hero, info_tip
+from history import latest_snapshot_dir, verify_snapshot
 
 OUT_NAME = "label_queue_dashboard.html"
 TITLE = "BCI labelling: what to label next"

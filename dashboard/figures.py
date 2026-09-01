@@ -23,8 +23,8 @@ from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import core as hc  # noqa: E402
-from history import model_tag_of, snapshot_date_of  # noqa: E402
+import core as hc
+from history import model_tag_of, snapshot_date_of
 
 # A species is "rarely labelled" below this many frames, and a frame can be
 # deprioritised only at or above it. Both read hc.WELL_SAMPLED_MIN_N, the

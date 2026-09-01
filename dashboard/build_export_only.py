@@ -33,7 +33,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import core as hc  # noqa: E402
+import core as hc
 import panels as pn
 from assets import (
     cap,
@@ -42,7 +42,7 @@ from assets import (
     funnel_list,
     panel,
     pctf,
-)  # noqa: E402
+)
 
 
 def _load_gt_from_export():
