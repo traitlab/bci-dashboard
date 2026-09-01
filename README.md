@@ -28,7 +28,7 @@ cached Pl@ntNet responses.
    needs API keys                      needs only disk + stdlib
 
    predict/    ─┐
-   labelling/   ├─>  files  ─> measure.py ─> ten CSVs ─> build_*.py ─> HTML page
+   labelling/   ├─>  files  ─> measure.py ─> nine CSVs ─> build_*.py ─> HTML page
    (Pl@ntNet,  ─┘    on disk    (score        (snapshot)   (render and
     Labelbox)                    every                      cross-check)
                                  photo)
@@ -71,14 +71,13 @@ trend caveats live in the sibling `bci-dashboard-docs/metrics.md`.
 
 ## What the pages score today
 
-The pages score one row per photo, bucketed by confidence and support. Four other
+The pages score one row per photo, bucketed by confidence and support. Three other
 analyses run and write their own output, which `dashboard/core.py` does not read:
 
 | Analysis | Writes | Status |
 |---|---|---|
 | Crown-level scores (`predict/crown_accuracy.py`) | scores cut from the crown boxes in `data/crowns_export/` | off-page |
 | Embedding-ranked queue (`labelling/rank_unsent.py`) | a CoreSet order in `data/next_batch/queue_ranked.csv` | off-page |
-| Tiles (`dashboard/score_tiles.py`) | `photo` vs `tiles` vs `tiles@crop` on one set of labels | off-page |
 | Crop-coverage gate (`dashboard/measure.py`) | gated vs ungated in `coverage_gate.csv` | off-page |
 
 ## Layout
@@ -86,7 +85,7 @@ analyses run and write their own output, which `dashboard/core.py` does not read
 | | |
 |---|---|
 | `dashboard/` | measure, score, and build the pages. Stdlib only |
-| `predict/` | Pl@ntNet calls: per photo, per crown box, tiles, embeddings, checklist. The only side that needs an API key |
+| `predict/` | Pl@ntNet calls: per photo, per crown box, embeddings, checklist. The only side that needs an API key |
 | `labelling/` | Labelbox side: fold an export into the labels, rank and send batches, fold results back |
 | `bin/refresh.sh` | the full chain, above |
 | `input/boxes/` | crown boxes and the frame list. Tracked: the frame list defines the population |
