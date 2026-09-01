@@ -2,8 +2,9 @@
 
 Nothing exercised `build_external.py` or `build_internal.py` before this file,
 so every cleanup pass over them had to be verified by hand-diffing 185KB of
-HTML. `build_export_only.py`, `assets.py` and `explain.py` are still not
-exercised here.
+HTML. `assets.py` is exercised by `test_assets.py` instead of here, and
+`build_export_only.py` is exercised here alongside the other two builders.
+`explain.py` is still not exercised anywhere.
 Golden-file comparison would just move that problem into the test (any
 legitimate number change breaks it), so this asserts structure instead: the
 build's own snapshot cross-check passed, the page is one self-contained file,
@@ -43,6 +44,10 @@ GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
 SPLITS_CSV = REPO / "data" / "splits.csv"
 CACHE_DIR = REPO / "data" / "predictions" / "cache"
 
+# Same convention as core.GT_KEY_PREFIX / gt_from_export.GT_KEY_PREFIX: a GT or
+# splits global_key is "comb_<stem>.JPG", a cache file is "<stem>.JPG.json".
+GT_KEY_PREFIX = "comb_"
+
 # A fixed generation string, like the worktree byte-diff checks use: real
 # dates would make two builds of the same code differ for no reason a test
 # should care about.
@@ -53,18 +58,33 @@ _GENERATED = "2026-08-25-test"
 # filterable species table with its status legend, which is also what the
 # inline JS binds to. The send queue splits in two: `queue_counts` is the
 # how-many-per-queue breakdown and `queue_keys` is the frame-by-frame
-# send-first list with the camera note beside it.
+# send-first list with the camera note beside it. `snapshot` marks a page that
+# reconciles against `snapshots/model-health-2026-08-24` at build time and so
+# must print a `verified` line for every check it ran; the export page has no
+# such snapshot -- it is scoped to one Labelbox export -- so it carries none.
+#
+# `species_status` is narrower than `species`: it is the per-row
+# `data-species`/`data-status` attributes plus the status legend that
+# `panels.p_species` renders. `build_export_only.py` builds its own species
+# table straight off `assets.filterable_table` instead of going through
+# `panels.p_species`, and passes it no `row_attrs` -- so its page carries a
+# species table and filter box (`species`) but no row ever carries a status,
+# and no legend is rendered. That is a real gap in `build_export_only.py`
+# (the status dropdown and per-row status tag), left as found; the flag
+# records what is actually on the page rather than hiding the gap behind a
+# weaker shared assertion.
 #
 # Each flag now names exactly one page, so a flag no longer distinguishes
 # between pages the way it did while a third page carried `species` and
 # `queue_counts` together. The flags stay because they say what a page is
-# expected to carry, which is the claim the assertions need, and because
-# `build_export_only.py` belongs in here.
+# expected to carry, which is the claim the assertions need.
 PAGES = {
     "external_page": ("build_external.py", "model_health_dashboard.html",
-                      {"species", "confirmatory"}),
+                      {"species", "species_status", "confirmatory", "snapshot"}),
     "internal_page": ("build_internal.py", "label_queue_dashboard.html",
-                      {"queue_counts", "queue_keys"}),
+                      {"queue_counts", "queue_keys", "snapshot"}),
+    "export_only_page": ("build_export_only.py", "export_only_dashboard.html",
+                         {"species"}),
 }
 
 _GETELEMENTBYID = re.compile(r"getElementById\(\s*['\"]([^'\"]+)['\"]\s*\)")
@@ -87,20 +107,24 @@ def _require_buildable():
         pytest.skip("snapshots/model-health-2026-08-24 not present (fresh clone)")
 
 
-def _build(tmp_path_factory, script: str, out_name: str) -> tuple[str, str]:
+def _build(tmp_path_factory, script: str, out_name: str, *,
+           export: str | None = None) -> tuple[str, str]:
     """Run a builder as a real subprocess, the way `bin/refresh.sh` does.
 
     Returns (page_html, stdout). Raises via `assert` on a non-zero exit so
     the failure message carries the process's own stderr (a `VERIFY FAIL:
     ...` line from `history.verify_snapshot`, or a traceback).
+
+    `build_export_only.py` takes `--export` and no `--verify-against` -- it
+    has no snapshot to reconcile against -- so `export` switches which flags
+    get built rather than duplicating the subprocess call for one page.
     """
     out = tmp_path_factory.mktemp("page") / out_name
-    proc = subprocess.run(
-        [sys.executable, str(DASHBOARD / script),
-         "--out", str(out), "--verify-against", str(SNAPSHOT_DIR),
-         "--generated", _GENERATED],
-        capture_output=True, text=True, cwd=REPO,
-    )
+    args = [sys.executable, str(DASHBOARD / script), "--out", str(out),
+            "--generated", _GENERATED]
+    args += ["--export", export] if export is not None else (
+        ["--verify-against", str(SNAPSHOT_DIR)])
+    proc = subprocess.run(args, capture_output=True, text=True, cwd=REPO)
     assert proc.returncode == 0, (
         f"{script} exited {proc.returncode}\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}")
     return out.read_text(encoding="utf-8"), proc.stdout
@@ -116,6 +140,116 @@ def external_page(tmp_path_factory):
 def internal_page(tmp_path_factory):
     _require_buildable()
     return _build(tmp_path_factory, *PAGES["internal_page"][:2])
+
+
+# ---------------------------------------------------------------------------
+# The export page: no NDJSON export is tracked in the repo, so one is built at
+# test time from the repo's own real inputs rather than being fixture data
+# that would make this page skip on every machine.
+# ---------------------------------------------------------------------------
+
+def _gt_from_export():
+    """Import labelling/gt_from_export.py by path, the same trick
+    build_export_only.py's own `_load_gt_from_export` uses: labelling/ is not
+    a package on the normal import path."""
+    import importlib.util
+    path = REPO / "labelling" / "gt_from_export.py"
+    spec = importlib.util.spec_from_file_location("_gt_from_export", str(path))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _corpus_keys_with_species_gt():
+    """Every corpus global_key that also carries a species label in
+    gt_dominant_taxon.csv, split by whether the cache holds a prediction for
+    it, plus the GT map itself. All three come straight off disk."""
+    import csv
+    with open(GT_CSV, newline="", encoding="utf-8") as f:
+        gt = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
+    with open(SPLITS_CSV, newline="", encoding="utf-8") as f:
+        corpus = {r["global_key"] for r in csv.DictReader(f)}
+    cached = {p.stem for p in CACHE_DIR.glob("*.json")}
+    labelled = sorted(gk for gk in corpus if gk in gt)
+    with_cache = [gk for gk in labelled if gk[len(GT_KEY_PREFIX):] in cached]
+    without_cache = [gk for gk in labelled if gk[len(GT_KEY_PREFIX):] not in cached]
+    return with_cache, without_cache, gt
+
+
+def _write_export_ndjson(path, keys, gt) -> None:
+    """Emit NDJSON in the shape `gt_from_export.export_dominants` parses: one
+    data row per key, one project with one label carrying a single
+    full-frame Planta box whose Taxon radio answer is that key's own GT
+    species.
+
+    This fabricates no data and asserts nothing about Labelbox: every key and
+    species comes from the repo's own tracked data/gt_dominant_taxon.csv and
+    data/splits.csv, and the file exists only for the duration of the test.
+    """
+    import json
+    with open(path, "w", encoding="utf-8") as f:
+        for i, gk in enumerate(keys):
+            stem = gk[len(GT_KEY_PREFIX):]
+            row = {
+                "data_row": {"id": f"dr_{i}", "global_key": stem},
+                "projects": {"proj1": {"labels": [{"annotations": {"objects": [{
+                    "bounding_box": {"top": 0, "left": 0, "width": 100, "height": 100},
+                    "classifications": [{"radio_answer": {"name": gt[gk]}}],
+                }]}}]}},
+            }
+            f.write(json.dumps(row) + "\n")
+
+
+@pytest.fixture(scope="session")
+def export_fixture(tmp_path_factory):
+    """A deterministic slice of 48 real, cache-backed keys and the NDJSON
+    file built from them, shared by every test below that needs a scored
+    export page."""
+    _require_buildable()
+    with_cache, _, gt = _corpus_keys_with_species_gt()
+    keys = with_cache[:48]
+    path = tmp_path_factory.mktemp("export") / "export.ndjson"
+    _write_export_ndjson(path, keys, gt)
+    return path, keys, gt
+
+
+def test_the_generated_export_is_in_the_shape_export_dominants_parses(export_fixture):
+    """The hard part this suite exists to get right: nothing guarantees the
+    NDJSON shape invented above is the shape the real merge script accepts.
+    This calls `export_dominants` on the generated file directly and checks it
+    recovers exactly the species that were put in, rather than trusting the
+    shape by construction."""
+    path, keys, gt = export_fixture
+    dominants, _, _ = _gt_from_export().export_dominants(path)
+    assert dominants, "export_dominants returned nothing -- the NDJSON shape is wrong"
+    for gk in keys:
+        stem = gk[len(GT_KEY_PREFIX):]
+        assert dominants.get(stem) == gt[gk], (
+            f"export_dominants did not recover the species put in for {gk}")
+
+
+@pytest.fixture(scope="session")
+def export_only_page(tmp_path_factory, export_fixture):
+    _require_buildable()
+    path, _, _ = export_fixture
+    return _build(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
+
+
+def test_build_renders_the_no_score_note_when_nothing_joins(tmp_path_factory):
+    """The branch nothing else here covers: every labelled key in the export
+    has no cached Pl@ntNet prediction, so nothing can be scored. Real keys
+    again -- the corpus's own GT rows with no file under
+    data/predictions/cache -- not a fabricated gap."""
+    _require_buildable()
+    _, without_cache, gt = _corpus_keys_with_species_gt()
+    assert without_cache, (
+        "no GT key on this machine lacks a cached prediction -- nothing to build this from")
+    path = tmp_path_factory.mktemp("export_nocache") / "export.ndjson"
+    _write_export_ndjson(path, without_cache, gt)
+    html, _ = _build(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
+    assert ("No crown in this export both carries a species label and has a "
+            "cached Pl@ntNet prediction") in html
+    assert not re.search(r"\d+\.\d%", html), "an accuracy percentage was printed anyway"
 
 
 @pytest.fixture(scope="session")
@@ -141,8 +275,16 @@ def page(request):
 # ---------------------------------------------------------------------------
 
 def test_build_verifies_clean_against_the_snapshot(page):
-    html, stdout, _ = page
+    _, stdout, carries = page
     verified = [line for line in stdout.splitlines() if "verified" in line]
+    if "snapshot" not in carries:
+        # The export page reconciles against no snapshot -- it is scoped to
+        # one Labelbox export -- and write_page prints a verify line only per
+        # check in the list it is handed, so an empty list means no lines.
+        assert not verified, (
+            "page carries no snapshot to reconcile against but printed a verify line")
+        assert "VERIFY FAIL" not in stdout
+        return
     assert verified, "build printed no verify lines -- verify_snapshot did not run"
     assert "VERIFY FAIL" not in stdout
 
@@ -227,15 +369,19 @@ def test_tags_balance(page):
 def test_one_species_row_per_scored_species(page, n_species):
     html, _, carries = page
     rows = re.findall(r"<tr data-species=", html)
-    assert len(rows) == (n_species if "species" in carries else 0)
+    # Gated on `species_status`, not the broader `species`: the export page
+    # carries a species table but, per the PAGES comment above, no row is
+    # ever tagged `data-species`, so its count here is 0 regardless of how
+    # many species it actually scored.
+    assert len(rows) == (n_species if "species_status" in carries else 0)
 
 
 def test_every_row_status_has_a_matching_legend_entry(page):
     html, _, carries = page
     legend = _LEGEND.search(html)
-    if "species" not in carries:
-        assert legend is None, "page carries no species table but renders its legend"
-        assert not _ROW.findall(html), "page carries no species table but renders its rows"
+    if "species_status" not in carries:
+        assert legend is None, "page carries no species status legend but renders it"
+        assert not _ROW.findall(html), "page carries no species status legend but renders its rows"
         return
     assert legend, "no <ul class=\"status-legend\"> block -- legend was not rendered"
     legend_start = legend.start()
@@ -456,8 +602,8 @@ def test_the_filter_can_reach_every_row(page):
     invisible to it, which reads as a table that loses rows when you type."""
     html, _, carries = page
     tagged = [r for r in re.findall(r"<tr\b[^>]*>", html) if "data-species=" in r]
-    if "species" not in carries:
-        assert not tagged, "page carries no species table but renders filterable rows"
+    if "species_status" not in carries:
+        assert not tagged, "page carries no species status wiring but renders filterable rows"
         return
     assert tagged, "no filterable rows"
     for row in tagged:
