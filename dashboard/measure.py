@@ -55,6 +55,131 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def _csv(out_dir: str, name: str):
+    """Open one output CSV. Every writer below opens the same way, and the
+    ``newline=""`` is the part that must not be forgotten in a new one."""
+    return open(os.path.join(out_dir, name), "w", newline="", encoding="utf-8")
+
+
+def write_name_reconciliation(out_dir, h):
+    """Every distinct label name, what it normalized to, and which tier matched it."""
+    with _csv(out_dir, "name_reconciliation.csv") as f:
+        w = csv.writer(f)
+        w.writerow(["gt_raw_name", "normalized", "wcvp_accepted_binomial",
+                    "match_tier", "n_gt_crowns", "in_corpus_vocabulary"])
+        for name, cnt in sorted(h.gt_names.items(), key=lambda x: (-x[1], x[0])):
+            nn = normalize(name)
+            m = h.crosswalk.get(nn, "")
+            w.writerow([name, nn, m, h.tier_of_name[name], cnt,
+                        (m or nn) in h.corpus_norm])
+
+
+def write_per_species_health(out_dir, per_species):
+    """One row per species, straight from the aggregation: the page's table."""
+    with _csv(out_dir, "per_species_health.csv") as f:
+        w = csv.DictWriter(f, fieldnames=list(per_species[0].keys()))
+        w.writeheader()
+        for d in per_species:
+            w.writerow({k: (fmt(v) if isinstance(v, float) else v) for k, v in d.items()})
+
+
+def write_support_buckets(out_dir, B):
+    """Species grouped by how many labelled frames they have."""
+    with _csv(out_dir, "support_buckets.csv") as f:
+        w = csv.writer(f)
+        w.writerow(["support_bucket", "n_species", "n_crowns", "top1_accuracy",
+                    "top5_accuracy", "n_correct_top1", "n_correct_top5"])
+        for lab in BUCKET_ORDER:
+            b = B[lab]
+            if not b["n_crowns"]:
+                continue
+            w.writerow([lab, b["n_species"], b["n_crowns"],
+                        fmt(ratio(b["c1"], b["n_crowns"])),
+                        fmt(ratio(b["c5"], b["n_crowns"])), b["c1"], b["c5"]])
+
+
+def write_filter_gain(out_dir, B, *, n, c1, f1, f_abstain):
+    """What restricting the candidates to the BCI species list is worth, overall
+    and inside each labelled-frame group."""
+    with _csv(out_dir, "filter_gain.csv") as f:
+        w = csv.writer(f)
+        w.writerow(["scope", "n_crowns", "top1_global", "top1_bci_list_filtered",
+                    "delta_pp", "n_correct_global", "n_correct_filtered",
+                    "n_no_candidate_after_filter"])
+        w.writerow(["ALL", n, fmt(ratio(c1, n)), fmt(ratio(f1, n)),
+                    fmt(100.0 * (f1 - c1) / n, 2), c1, f1, f_abstain])
+        for lab in BUCKET_ORDER:
+            b = B[lab]
+            if not b["n_crowns"]:
+                continue
+            w.writerow([f"support_{lab}", b["n_crowns"],
+                        fmt(ratio(b["c1"], b["n_crowns"])),
+                        fmt(ratio(b["f1"], b["n_crowns"])),
+                        fmt(100.0 * (b["f1"] - b["c1"]) / b["n_crowns"], 2),
+                        b["c1"], b["f1"], b["fab"]])
+
+
+def write_confidence_calibration(out_dir, scopes, top1):
+    """How often the first guess is right inside each confidence band, and at
+    each threshold, for every scope."""
+    with _csv(out_dir, "confidence_calibration.csv") as f:
+        w = csv.writer(f)
+        w.writerow(["row_type", "scope", "band", "n_crowns", "top1_accuracy",
+                    "fraction_of_scope", "n_correct", "n_wrong",
+                    "error_rate_if_auto_accepted"])
+        for scope, rs in scopes:
+            for lo, hi in CONF_BINS:
+                sub = [r for r in rs if lo <= r["ranked"][0][1] < hi]
+                k = sum(1 for r in sub if top1(r) == r["gt"])
+                w.writerow(["bin", scope, f"[{lo:.1f},{min(hi, 1.0):.1f})", len(sub),
+                            fmt(ratio(k, len(sub))), fmt(ratio(len(sub), len(rs))),
+                            k, len(sub) - k, ""])
+            for t in CONF_THRESHOLDS:
+                sub = [r for r in rs if r["ranked"][0][1] >= t]
+                k = sum(1 for r in sub if top1(r) == r["gt"])
+                w.writerow(["threshold", scope, f">={t}", len(sub),
+                            fmt(ratio(k, len(sub))), fmt(ratio(len(sub), len(rs))),
+                            k, len(sub) - k, fmt(ratio(len(sub) - k, len(sub)))])
+
+
+def write_coverage_gate(out_dir, sweep):
+    """The headline at every crop-coverage threshold, gated and ungated."""
+    with _csv(out_dir, "coverage_gate.csv") as f:
+        w = csv.writer(f)
+        w.writerow(["min_coverage", "n_frames_admitted", "crown_top1",
+                    "macro_per_species_top1", "n_species"])
+        for g in sweep:
+            w.writerow([f"{g['min_coverage']:.2f}", g["n_admitted"],
+                        fmt(g["micro_top1"]), fmt(g["macro_top1"]), g["n_species"]])
+
+
+def write_send_first_queue(out_dir, queue_rows):
+    """The unlabelled pool in send order. The caller sorts first: the batch file
+    is built from the same list and must carry the same order."""
+    with _csv(out_dir, "send_first_queue.csv") as f:
+        w = csv.writer(f)
+        w.writerow(["queue", "global_key", "split", "predicted_species", "confidence",
+                    "species_labelled_crowns", "species_top1_accuracy"])
+        w.writerows(queue_rows)
+
+
+def write_send_batches(out_dir, batch_rows):
+    """The same order in batches a botanist can work in one sitting."""
+    with _csv(out_dir, "send_batches.csv") as f:
+        w = csv.writer(f)
+        w.writerow(["batch_id", "species_group", "global_key", "queue"])
+        w.writerows(batch_rows)
+
+
+def write_label_review_queue(out_dir, review_rows):
+    """The confident disagreements, most confident first."""
+    with _csv(out_dir, "label_review_queue.csv") as f:
+        w = csv.writer(f)
+        w.writerow(["global_key", "split", "gt_species", "predicted_species",
+                    "confidence", "labelbox_url"])
+        w.writerows(review_rows)
+
+
 def main() -> None:
     args = parse_args()
     out_dir = args.out_dir
@@ -72,15 +197,7 @@ def main() -> None:
     except FileNotFoundError as e:
         sys.exit(str(e))
 
-    with open(os.path.join(out_dir, "name_reconciliation.csv"), "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["gt_raw_name", "normalized", "wcvp_accepted_binomial",
-                    "match_tier", "n_gt_crowns", "in_corpus_vocabulary"])
-        for name, cnt in sorted(h.gt_names.items(), key=lambda x: (-x[1], x[0])):
-            nn = normalize(name)
-            m = h.crosswalk.get(nn, "")
-            w.writerow([name, nn, m, h.tier_of_name[name], cnt,
-                        (m or nn) in h.corpus_norm])
+    write_name_reconciliation(out_dir, h)
 
     log("--- EVALUABLE SETS ---")
     log(f"  GT frames joined to a cache file    : {len(h.records)}")
@@ -119,11 +236,7 @@ def main() -> None:
     macro1 = sum(d["top1_accuracy"] for d in per_species) / n_sp
     macro5 = sum(d["top5_accuracy"] for d in per_species) / n_sp
 
-    with open(os.path.join(out_dir, "per_species_health.csv"), "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=list(per_species[0].keys()))
-        w.writeheader()
-        for d in per_species:
-            w.writerow({k: (fmt(v) if isinstance(v, float) else v) for k, v in d.items()})
+    write_per_species_health(out_dir, per_species)
 
     # ---------------- 8. BCI species-list filter ----------------
     bci_list = {d["species"] for d in per_species}
@@ -171,34 +284,9 @@ def main() -> None:
         else:
             b["f1"] += ft == r["gt"]
 
-    with open(os.path.join(out_dir, "support_buckets.csv"), "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["support_bucket", "n_species", "n_crowns", "top1_accuracy",
-                    "top5_accuracy", "n_correct_top1", "n_correct_top5"])
-        for lab in BUCKET_ORDER:
-            b = B[lab]
-            if not b["n_crowns"]:
-                continue
-            w.writerow([lab, b["n_species"], b["n_crowns"],
-                        fmt(ratio(b["c1"], b["n_crowns"])),
-                        fmt(ratio(b["c5"], b["n_crowns"])), b["c1"], b["c5"]])
+    write_support_buckets(out_dir, B)
 
-    with open(os.path.join(out_dir, "filter_gain.csv"), "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["scope", "n_crowns", "top1_global", "top1_bci_list_filtered",
-                    "delta_pp", "n_correct_global", "n_correct_filtered",
-                    "n_no_candidate_after_filter"])
-        w.writerow(["ALL", n, fmt(ratio(c1, n)), fmt(ratio(f1, n)),
-                    fmt(100.0 * (f1 - c1) / n, 2), c1, f1, f_abstain])
-        for lab in BUCKET_ORDER:
-            b = B[lab]
-            if not b["n_crowns"]:
-                continue
-            w.writerow([f"support_{lab}", b["n_crowns"],
-                        fmt(ratio(b["c1"], b["n_crowns"])),
-                        fmt(ratio(b["f1"], b["n_crowns"])),
-                        fmt(100.0 * (b["f1"] - b["c1"]) / b["n_crowns"], 2),
-                        b["c1"], b["f1"], b["fab"]])
+    write_filter_gain(out_dir, B, n=n, c1=c1, f1=f1, f_abstain=f_abstain)
 
     # ---------------- 10. confidence calibration ----------------
     well = {d["species"] for d in per_species if d["n_labelled_crowns"] >= WELL_SAMPLED_MIN_N}
@@ -216,37 +304,14 @@ def main() -> None:
               (f"species_n_ge_{WELL_SAMPLED_MIN_N}_and_top1_ge_{RELIABLE_MIN_TOP1:.2f}",
                good_recs)]
 
-    with open(os.path.join(out_dir, "confidence_calibration.csv"), "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["row_type", "scope", "band", "n_crowns", "top1_accuracy",
-                    "fraction_of_scope", "n_correct", "n_wrong",
-                    "error_rate_if_auto_accepted"])
-        for scope, rs in scopes:
-            for lo, hi in CONF_BINS:
-                sub = [r for r in rs if lo <= r["ranked"][0][1] < hi]
-                k = sum(1 for r in sub if top1(r) == r["gt"])
-                w.writerow(["bin", scope, f"[{lo:.1f},{min(hi, 1.0):.1f})", len(sub),
-                            fmt(ratio(k, len(sub))), fmt(ratio(len(sub), len(rs))),
-                            k, len(sub) - k, ""])
-            for t in CONF_THRESHOLDS:
-                sub = [r for r in rs if r["ranked"][0][1] >= t]
-                k = sum(1 for r in sub if top1(r) == r["gt"])
-                w.writerow(["threshold", scope, f">={t}", len(sub),
-                            fmt(ratio(k, len(sub))), fmt(ratio(len(sub), len(rs))),
-                            k, len(sub) - k, fmt(ratio(len(sub) - k, len(sub)))])
+    write_confidence_calibration(out_dir, scopes, top1)
 
     # ---------------- 10b. crop-coverage gate ----------------
     # How the headline moves once only frames whose dominant labelled species fills
     # the crop are scored. Both rates are kept, so neither replaces the other.
     sweep = [coverage_gate_stats(sp_recs, t) for t in CROP_COVERAGE_SWEEP]
     gate = coverage_gate_stats(sp_recs, MIN_CROP_COVERAGE)
-    with open(os.path.join(out_dir, "coverage_gate.csv"), "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["min_coverage", "n_frames_admitted", "crown_top1",
-                    "macro_per_species_top1", "n_species"])
-        for g in sweep:
-            w.writerow([f"{g['min_coverage']:.2f}", g["n_admitted"],
-                        fmt(g["micro_top1"]), fmt(g["macro_top1"]), g["n_species"]])
+    write_coverage_gate(out_dir, sweep)
 
     # ---------------- 11. report ----------------
     log("=" * 84)
@@ -396,23 +461,18 @@ def main() -> None:
                            support.get(pred, 0),
                            fmt(top1_of.get(pred)) if pred in top1_of else ""])
 
-    with open(os.path.join(out_dir, "send_first_queue.csv"), "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["queue", "global_key", "split", "predicted_species", "confidence",
-                    "species_labelled_crowns", "species_top1_accuracy"])
-        # Queue order first, then weakest confidence first inside a queue: the
-        # most uncertain frame of a group is the one most worth an expert look.
-        queue_rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), float(r[4]), r[1]))
-        w.writerows(queue_rows)
+    # Queue order first, then weakest confidence first inside a queue: the most
+    # uncertain frame of a group is the one most worth an expert look. Sorted here
+    # rather than inside the writer because the batch file below is built from the
+    # same list and must carry the same order.
+    queue_rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), float(r[4]), r[1]))
+    write_send_first_queue(out_dir, queue_rows)
 
     # Species-grouped Labelbox send batches over the same priority order, capped
     # at BATCH_SIZE rows each: the CSV policy is priority-first globally, then
     # one species per batch so a send is never a mixed bag.
     batch_rows = chunk_send_batches(queue_rows, batch_size=BATCH_SIZE)
-    with open(os.path.join(out_dir, "send_batches.csv"), "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["batch_id", "species_group", "global_key", "queue"])
-        w.writerows(batch_rows)
+    write_send_batches(out_dir, batch_rows)
 
     n_unlab = sum(q_counts.values())
     n_batches = batch_rows[-1][0] if batch_rows else 0
@@ -439,11 +499,7 @@ def main() -> None:
                    for r in raised if r["global_key"] not in adjudicated]
     n_adjudicated = len(raised) - len(review_rows)
     review_rows.sort(key=lambda r: (-float(r[4]), r[1], r[0]))
-    with open(os.path.join(out_dir, "label_review_queue.csv"), "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["global_key", "split", "gt_species", "predicted_species",
-                    "confidence", "labelbox_url"])
-        w.writerows(review_rows)
+    write_label_review_queue(out_dir, review_rows)
 
     pairs = Counter((r[2], r[3]) for r in review_rows)
     log("--- LABELS WORTH A SECOND LOOK ---")
