@@ -233,8 +233,8 @@ def p_todo(c):
                 f'candidates contain exactly one species from that genus. The question '
                 f'there is yes or no, not which of {c.n_sp}. Those frames sit outside the '
                 f'{c.n_sp} species scored on this page, because they never named a species. '
-                f'The genus paragraph under &ldquo;What this cannot tell you&rdquo; says '
-                f'more.</p>')
+                f'The model-health page says more about what those frames can and '
+                f'cannot show.</p>')
     return panel(f"Where to spend botanist time next: {c.counts['ranking']} species are a "
                  f"cheap confirmation, {c.counts['unreachable']} are not worth time yet",
                  "<b>Work top to bottom.</b> Rows are ordered cheapest useful work first, "

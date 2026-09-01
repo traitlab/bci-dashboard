@@ -470,6 +470,22 @@ def test_no_anchor_ends_mid_phrase(page):
             f"phrase. Pass anchor= at that panel's call site.")
 
 
+def test_a_page_only_names_a_section_it_carries(page, panels):
+    """Prose that says "see X" has to mean a heading on the page in front of
+    the reader. The queue page once pointed at "What this cannot tell you",
+    which is a section of the model-health page, so the reader hunted for a
+    heading that was never going to appear. Naming the other page is fine;
+    naming a heading this page does not have is not."""
+    html, _, _ = page
+    headings = set(re.findall(r"<h2[^>]*>(.*?)</h2>", html, re.DOTALL))
+    for title, _lede in panels.SECTIONS.values():
+        if title is None or title in headings:
+            continue
+        assert f"&ldquo;{title}&rdquo;" not in html, (
+            f"the page quotes the section heading {title!r}, which is on the "
+            f"other page. Point at the page by name instead.")
+
+
 def test_each_id_is_unique(page):
     html, _, _ = page
     ids = _ID_ATTR.findall(html)
