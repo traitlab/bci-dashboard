@@ -40,12 +40,12 @@ import pytest
 # that trips this is not necessarily wrong -- it is a sentence someone has to
 # read again -- so the fix is to split it, and moving the number up is a
 # decision to make out loud.
-MAX_SENTENCE_WORDS = 33
+MAX_SENTENCE_WORDS = 31
 
 # The share of sentences allowed to run long. A hard per-sentence cap alone
 # lets the prose fill up with 25-word sentences, so this keeps the middle
-# short. Both pages are inside it today: 4% and 5%.
-MAX_LONG_SENTENCE_SHARE = 0.06
+# short. Both pages are inside it today: 1% and 3%.
+MAX_LONG_SENTENCE_SHARE = 0.04
 LONG_SENTENCE_WORDS = 25
 
 # Retired by CONTEXT.md, each with what a page says instead. The message is
