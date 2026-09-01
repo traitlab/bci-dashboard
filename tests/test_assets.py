@@ -168,6 +168,25 @@ def test_filterable_table_with_no_statuses_ships_no_status_dropdown(assets):
     assert 'id="species-count"' in out
 
 
+def test_the_sort_headings_can_be_reached_without_a_mouse(assets):
+    """The pages tell the reader to click any heading to sort. A control a page
+    names has to be reachable by whoever is reading it, so the headings carry a
+    tab stop, a role, Enter/Space activation and an aria-sort the row order can
+    be read off."""
+    js = assets.JS
+    for needed in ("th.tabIndex=0", "role','button'", "aria-sort",
+                   "e.key==='Enter'", "e.key===' '"):
+        assert needed in js, f"keyboard sorting lost {needed!r}"
+    assert "th.sortable:focus-visible" in assets.CSS, (
+        "a tab stop with no visible focus ring is a control a keyboard reader "
+        "cannot find")
+
+
+def test_an_empty_filter_result_says_so_in_words(assets):
+    assert "No species matches that filter." in assets.JS, (
+        "a bare '0 of 186' over an empty table reads as a broken page")
+
+
 def test_filterable_table_escapes_option_value_and_label(assets):
     out = assets.filterable_table([("Name", False)], [], options=[(INJECT, INJECT)])
     assert "<script>&" not in out
