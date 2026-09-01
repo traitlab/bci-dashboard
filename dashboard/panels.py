@@ -269,8 +269,9 @@ def p_send(c):
              f'how well that species is already measured. Weakest confidence first inside '
              f'each queue, so the top of the file is the next batch.</p>'
              f'<p class="note"><strong>{c.n_no_answer} unlabelled photos got no answer at '
-             f'all</strong>: the candidate list came back empty. Those are the '
-             f'candidate junk or non-plant photos (leaves in the water, bare trunks). There '
+             f'all</strong>: the candidate list came back empty. Those are the photos most '
+             f'likely to be junk or to show no plant (leaves in the water, bare trunks). '
+             f'There '
              f'is no reliable automatic rule for junk, so check that handful by eye before '
              f'queueing them rather than filtering on it.</p>'
              f'<p class="note"><b>Every frame scored on this page was shot with the zoom '
@@ -370,9 +371,9 @@ def p_wait(c):
             f're-sorts. Any frame can come back to the top.</p>'
             f'<p class="note">{len(c.eligible)} species have at least '
             f'{WAIT_SUPPORT_MIN} labelled frames, which is the second half of the rule. That '
-            f'count uses <code>train</code> frames only. The error rate above is measured on '
-            f'the {len(c.test_recs):,} <code>test</code> frames only, so no rule is graded '
-            f'on the frames that chose it.</p>')
+            f'count uses only the frames a rule is allowed to learn from. The error rate '
+            f'above is measured on the {len(c.test_recs):,} frames held back from that. So '
+            f'no rule is graded on the frames that chose it.</p>')
     return panel(f"Which frames can wait: {best['n']:,} of {len(c.test_recs):,} test frames, "
                  f"undone at the next model change",
                  "<b>Use this to order the queue, not to close frames.</b> These are the "
