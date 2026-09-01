@@ -111,28 +111,33 @@ HERO_READING = (
 # crown sentence is here rather than beside the headline because the headline is
 # the first thing on the page and a term defined under it is defined too late.
 HERO_TERMS = (
-    "A <b>frame</b> is one 4000&times;3000 drone photo. Its label is the species whose "
-    "outlined crowns cover the largest total area in the <i>whole</i> frame. The photo sent "
-    "to Pl@ntNet is the <b>1280&times;1280 centre crop</b>, which is 13.65% of that frame. "
-    "We asked Pl@ntNet for 5 names per crop (<code>nb-results=5</code>, our request "
-    "parameter, not a model limit); the <b>first guess</b> is the top-ranked one. Right "
-    "means it matches the frame's label. A <b>crown</b> is one canopy a botanist outlined "
-    "inside a frame; asking Pl@ntNet about each crown separately and pooling the answers by "
-    "how much of the frame each covers is what <b>region-aligned</b> means below, because "
-    "that is the same rule the frame's label is built from."
+    "A <b>frame</b> is one 4000&times;3000 drone photo. A <b>crown</b> is one tree canopy a "
+    "botanist outlined inside a frame. A frame's <b>label</b> is the species whose outlined "
+    "crowns cover the most area in the <i>whole</i> frame. "
+    "The <b>centre crop</b> is the fixed 1280&times;1280 square from the middle of a frame, "
+    "13.65% of it; that square is what most of this page sends to Pl@ntNet. "
+    "We ask Pl@ntNet for 5 names per photo (<code>nb-results=5</code>). That is our request "
+    "setting, not a limit of the model. The <b>first guess</b> is the top-ranked of the "
+    "five, and <b>right</b> means it matches the frame's label. "
+    "<b>Outlining the trees first</b> means something else: we ask Pl@ntNet about each "
+    "crown on its own, then combine the answers into one name for the frame, weighted by "
+    "how much of the frame each crown covers. That is the same rule the label itself is "
+    "built from, which is why it is the fairer of the two numbers at the top."
 )
 
 # The two regions above are not the same region, and the numbers below compare
 # across them. Stated here rather than in a footnote because every figure on
 # this page inherits the mismatch.
 HERO_REGION = (
-    "<strong>These four numbers score a centre crop against a whole-frame label.</strong> "
-    "On 1,377 of 3,777 evaluated records the labelled species covers less than half the "
-    "crop, and on 207 it covers none of it, so a wrong answer here is not always a wrong "
-    "identification. Read them as a provenance record of the centre-crop path, not as the "
-    "model's accuracy. The region-aligned number above is the one to quote, because its "
-    "unit of prediction is the unit the label describes. <a href=\"#where-the-headline-"
-    "comes-from\">Where the headline comes from</a> states the sample it was measured on."
+    "<strong>These four numbers judge a centre crop against a label for the whole "
+    "frame.</strong> The two are not always looking at the same tree: on 1,377 of 3,777 "
+    "scored frames the labelled species covers less than half the crop, and on 207 it "
+    "covers none of it. A wrong answer here is therefore not always a wrong "
+    "identification. Read these four as a record of what the centre-crop path did, not as "
+    "the model's accuracy. The number at the top of the page, where a botanist outlined "
+    "the trees first, is the one to quote: it names the same thing the label names. "
+    "<a href=\"#where-the-headline-comes-from\">Where these two numbers come from</a> "
+    "says which frames it was measured on."
 )
 
 # Queue name -> (what it is, why it is worth sending). Shown in the order
@@ -216,12 +221,12 @@ def pfmt(p, draws):
 
 
 def confirmatory_hero(cf):
-    """The two region arms side by side, crown first.
+    """The two ways of asking, side by side, outline-first leading.
 
-    Crown leads because it is the arm whose unit of prediction is the unit the
-    label describes. Photo stays beside it rather than being retired, because
-    every other number on this page is still measured on the centre crop and a
-    reader needs the two in the same field of view to know what the gap costs.
+    Outline-first leads because it names the same thing the label names. The
+    centre-crop number stays beside it rather than being retired, because every
+    other number on this page is still measured that way and a reader needs the
+    two in the same field of view to know what the gap costs.
     """
     if cf is None:
         raise SystemExit(
@@ -233,18 +238,21 @@ def confirmatory_hero(cf):
             f"the confirmatory result is stamped {cf.get('stamp')!r}, not "
             f"'CONFIRMATORY'. The stopping rule says the read happens once on the "
             f"complete set, so an exploratory number must not be published here.")
-    # What each arm actually asked moved into the panel below the cards. The card
-    # keeps the rate, its support and its interval, which is the whole of what a
-    # number needs to travel with.
-    arms = (("crown", "Region-aligned, given the crowns"),
-            ("photo", "Centre crop, legacy"))
+    # The card says what was done to the photo, not what the design calls it. A
+    # reader has to be able to tell the two numbers apart without opening a
+    # panel; "region-aligned" and "legacy" did not do that. What each way of
+    # asking did in detail is the panel below. The card keeps the rate, its
+    # support and its range, which is the whole of what a number needs to
+    # travel with.
+    ways = (("crown", "A botanist outlined the trees first"),
+            ("photo", "We sent the middle of the photo"))
     return hero([
-        (label, pctf(cf[f"{arm}_top1"]), "Top-1 on the frozen sample",
-         f'{int(cf[f"{arm}_hits"])} of {int(cf[f"{arm}_n"])} frames right. '
-         f'95% interval {pctf(cf[f"{arm}_top1_site_lo"])} to '
-         f'{pctf(cf[f"{arm}_top1_site_hi"])}, bootstrapped over the '
-         f'{int(cf["n_sites"])} sites.')
-        for arm, label in arms])
+        (label, pctf(cf[f"{way}_top1"]),
+         f'First guess right, on the {int(cf["n_frames"])} set-aside frames',
+         f'{int(cf[f"{way}_hits"])} of {int(cf[f"{way}_n"])} frames right. '
+         f'We are 95% sure the true rate is between '
+         f'{pctf(cf[f"{way}_top1_site_lo"])} and {pctf(cf[f"{way}_top1_site_hi"])}.')
+        for way, label in ways])
 
 
 def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
@@ -777,23 +785,34 @@ def p_confirmatory(c):
     if cf is None:
         raise SystemExit("p_confirmatory needs the frozen result; see confirmatory_hero")
     body = (
-        f'<p class="note"><strong>What each arm asked.</strong> Region-aligned is one '
-        f'identify call per labelled crown, pooled to the frame by box area; the crowns come '
-        f'from the botanist, so it is what naming costs once delineation is done, not what an '
-        f'unaided pipeline would score. Centre crop is one identify call on the fixed 1280 px '
-        f'centre square, 13.7% of the frame.</p>'
-        f'<p class="note"><strong>Population and support.</strong> {int(cf["n_frames"])} '
-        f'frames, drawn before any of these numbers existed, across {int(cf["n_sites"])} '
-        f'sites and {int(cf["n_days"])} flight days. Both arms scored every frame: '
-        f'{int(cf["crown_n"])} for crown, {int(cf["photo_n"])} for centre crop, so the two '
-        f'rates are paired on the same frames rather than measured on two samples. The '
-        f'interval is a percentile bootstrap over {int(cf["bootstrap_draws"]):,} resamples of '
-        f'whole sites, because frames from one site are not independent of each other.</p>')
+        f'<p class="note"><strong>What we did to each frame.</strong> For the top number we '
+        f'sent Pl@ntNet every tree crown a botanist had outlined, one at a time, then '
+        f'combined the answers into a single name for the frame. Each crown got a say in '
+        f'proportion to how much of the frame it covered. So the number says what naming '
+        f'costs once someone has already found the trees. It is not what a fully automatic '
+        f'pipeline would score. For the second number we sent one fixed square from the '
+        f'middle of the frame, 1280 px across, which is 13.7% of it.</p>'
+        f'<p class="note"><strong>Which frames, and how many.</strong> '
+        f'{int(cf["n_frames"])} frames from {int(cf["n_sites"])} sites and '
+        f'{int(cf["n_days"])} flight days, set aside before any of these numbers existed. '
+        f'Both ways of asking were run on every one of them: {int(cf["crown_n"])} frames '
+        f'each. The two rates therefore come from the same frames and can be compared '
+        f'directly.</p>'
+        f'<p class="note"><strong>Where the range comes from.</strong> Frames shot at the '
+        f'same site look alike, so treating them as {int(cf["n_frames"])} independent tries '
+        f'would make us look surer than we are. Instead we re-ran the whole count '
+        f'{int(cf["bootstrap_draws"]):,} times, each time drawing {int(cf["n_sites"])} whole '
+        f'sites at random and allowing repeats, and kept the middle 95% of the answers. That '
+        f'is the range on each card above.</p>')
     return panel(
-        'Where the headline comes from: the frozen sample, and what each arm asked',
-        "<b>Do not quote the region-aligned rate without the prior-exposure caveat.</b> "
-        "It is a real number on a pre-registered sample, and an operator had seen the same "
-        "arm at another unit before the sample was frozen.", body, open_=True)
+        'Where these two numbers come from, and what we did to each frame',
+        "<b>Do not quote the top number without the warning below it.</b> It is a real "
+        "number, measured on frames that were fixed before anyone looked. But someone on "
+        "the team had already seen a result from that method, elsewhere, before the frames "
+        "were fixed.", body, open_=True,
+        # The id is linked to from the four-rate panel and pinned by a test, so it
+        # outlives the wording of the summary above it.
+        anchor="where-the-headline-comes-from")
 
 
 def p_caveats(c):
@@ -809,49 +828,60 @@ def p_caveats(c):
     d, lo, hi = (cf["crown_minus_photo"], cf["crown_minus_photo_site_lo"],
                  cf["crown_minus_photo_site_hi"])
     body = (
-        f'<p class="note"><strong>The gap is the finding, not either number on its own.</strong> '
-        f'Crown beats centre crop by {100 * d:+.1f} points '
-        f'({100 * lo:+.1f} to {100 * hi:+.1f}, clustered on site). On '
-        f'{int(cf["crown_only_hits"])} frames the crown arm was right where the centre crop '
-        f'was wrong, and on {int(cf["photo_only_hits"])} the reverse. Cluster bootstrap '
-        f'p {pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}; exact McNemar, which '
-        f'assumes the pairs are independent and they are not, '
-        f'p = {cf["p_mcnemar_exact"]:.5f}. The design named the '
-        f'bootstrap as the answer when the two disagree. The unclustered interval every '
-        f'other number on this page uses would read '
-        f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])} for the '
-        f'crown arm, which is narrower than the data supports.</p>'
-        f'<div class="warn"><p><strong>The crown number was not produced blind, and the '
-        f'design says so in these words.</strong> Quoted in full from amendment A2 of '
-        f'<code>hypothesis.md</code>, which requires the words rather than a summary:</p>'
+        f'<p class="note"><strong>The gap between the two numbers is the finding, not '
+        f'either number on its own.</strong> Outlining the trees first is worth '
+        f'{100 * d:+.1f} points over sending the middle of the frame, and we are 95% sure '
+        f'the true gain is between {100 * lo:+.1f} and {100 * hi:+.1f} points. On '
+        f'{int(cf["crown_only_hits"])} frames outlining got the name right where the centre '
+        f'crop got it wrong; on {int(cf["photo_only_hits"])} it went the other way. A gap '
+        f'that lopsided almost never happens by chance, so we are confident it is real.</p>'
+        f'<p class="note">For the record, the two tests: cluster bootstrap '
+        f'p {pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}, and an exact McNemar '
+        f'test gives p = {cf["p_mcnemar_exact"]:.5f}. McNemar assumes every frame is '
+        f'independent of every other, and frames from one site are not, so the plan named '
+        f'the bootstrap as the answer where the two disagree. The narrower kind of range '
+        f'every other number on this page uses would read '
+        f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])} here, '
+        f'which is surer than the data supports.</p>'
+        f'<div class="warn"><p><strong>The top number was not produced blind.</strong> '
+        f'Before these frames were set aside, someone on the team had already seen how well '
+        f'the outline-first method scored, on a different set of photos. That does not make '
+        f'the number wrong and it does not touch the gap above, but the number has to travel '
+        f'with this warning. The plan requires its own words rather than a summary, so they '
+        f'are reproduced here in full from amendment A2 of <code>hypothesis.md</code>:</p>'
         f'{A2_PRIOR_EXPOSURE}</div>'
-        f'<div class="warn"><p><strong>A third arm was dropped after its interim number had '
-        f'been seen.</strong> Quoted in full from amendment A4, which requires the same:</p>'
+        f'<div class="warn"><p><strong>A third way of asking was dropped after we had seen '
+        f'how it was doing.</strong> The study planned to test a third method, tiles, and '
+        f'cut it partway through. Dropping a method after glimpsing its result is the kind '
+        f'of choice that can flatter the methods that survive. Amendment A4 requires its own '
+        f'words too:</p>'
         f'{A4_WHAT_THIS_COSTS}</div>'
         f'<div class="warn"><p><strong>What this rate is not.</strong></p><ul>'
-        f'<li><strong>It is not an unaided pipeline number.</strong> The crown arm is given '
-        f'the botanist&rsquo;s outlines and asked only to name what is inside them. The arm '
-        f'that would have answered the box-free question, tiles, was the one dropped. Read '
-        f'{pctf(cf["crown_top1"])} as the cost of naming once delineation is done.</li>'
+        f'<li><strong>It does not measure a fully automatic pipeline.</strong> The '
+        f'outline-first method is handed the botanist&rsquo;s outlines and asked only to '
+        f'name what is inside them. The method that would have answered the question with no '
+        f'outlines at all, tiles, is the one that was dropped. Read '
+        f'{pctf(cf["crown_top1"])} as the cost of naming once the trees have been found.</li>'
         f'<li><strong>It is per frame, not per species.</strong> The sample carries '
         f'{int(cf["n_species"])} species and the two '
         f'commonest hold {pctf(cf["top2_species_share"])} of them, so this rate is weighted '
         f'towards the species the model already knows best. That is the same objection this '
         f'page makes to the {pctf(c.now["micro_top1"])} figure below, and it applies here '
-        f'too. No per-species average was pre-registered for this sample and none is '
+        f'too. No per-species average for this sample was written into the plan, so none is '
         f'published.</li>'
         f'<li><strong>It is one lens, and not every site.</strong> Every frame '
         f'was shot with the {esc(cf["cameras"])} lens, at {int(cf["n_sites"])} of the 17 '
         f'field sites. Nothing here supports a camera claim: no mission in this design '
         f'carries both cameras.</li></ul></div>'
-        f'<p class="note">Every rule, threshold, cluster unit, test and stopping rule was '
-        f'fixed in <code>bci-dashboard-docs/hypothesis.md</code> before the data existed, and '
-        f'this page reads the result the scorer wrote rather than re-running it, because the '
-        f'stopping rule says the read happens once on the complete set.</p>')
+        f'<p class="note">Every rule behind these numbers was written down in '
+        f'<code>bci-dashboard-docs/hypothesis.md</code> before the data existed: which '
+        f'frames, which test, what counts as right, and when we were allowed to look. The '
+        f'plan allows one look at the finished set, so this page prints the result the '
+        f'scorer wrote that once and never recomputes it.</p>')
     return panel(
-        'The two caveats the design requires to travel with the headline',
-        "<b>Quoted, not summarised.</b> The design asks for the words themselves, because a "
-        "paraphrase of a prior-exposure caveat is how the caveat stops travelling.", body)
+        'Two warnings that must travel with the top number, and what it does not measure',
+        "<b>Quoted, not summarised.</b> The plan asks for its own words, because a "
+        "paraphrase of a warning is how the warning stops travelling.", body)
 
 
 def p_terms(c):
@@ -885,7 +915,7 @@ def p_weighting(c):
         # with the reasoning, and twice made this the second dense paragraph up top.
         + f'<p class="note"><strong>{c.unscoreable:,} of these frames belong to '
           f'{len(c.never)} species the model never names in five candidates, so they are '
-          f'wrong at every threshold.</strong> Without them the per-frame rate is '
+          f'counted wrong however the score is cut.</strong> Without them the per-frame rate is '
           f'{pctf(c.reach1)}. <a href="#what-this-cannot-tell-you">What this cannot tell '
           f'you</a> says why that is a limit of the question we asked, not proof the '
           f'model has never heard of them.</p>')

@@ -50,11 +50,11 @@ def build(h, *, generated, verify_dir, fallback_tag):
     # The head is two numbers and one line saying which to quote. Everything that
     # qualifies them is a panel below: the glossary, the caveats the design requires,
     # and the four corpus-wide rates with the region mismatch they inherit.
-    delta = (f'Asking Pl@ntNet about each labelled crown and pooling the answers to the '
-             f'frame is worth {100 * c.cf["crown_minus_photo"]:+.1f} points over asking '
-             f'about the fixed centre crop, on a sample fixed before either number '
-             f'existed (cluster bootstrap p '
-             f'{pn.pfmt(c.cf["p_cluster_bootstrap"], c.cf["bootstrap_draws"])}).')
+    delta = (f'Asking Pl@ntNet about each outlined crown, then combining the answers into '
+             f'one name for the frame, is worth {100 * c.cf["crown_minus_photo"]:+.1f} '
+             f'points over sending the fixed centre square. Measured on frames set aside '
+             f'before either number existed, and a gap that size almost never happens by '
+             f'chance.')
     P = ['<h1>Pl@ntNet on BCI: per-species model health</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
@@ -67,8 +67,8 @@ def build(h, *, generated, verify_dir, fallback_tag):
          # whose unit of prediction is the unit the label describes. The corpus-wide
          # grid follows it, inside a panel, not the other way round.
          pn.confirmatory_hero(c.cf),
-         f'<p class="note"><strong>Quote the region-aligned rate, with the caveats '
-         f'below.</strong> {info_tip(delta)}</p>']
+         f'<p class="note"><strong>Quote the top number, and carry the two warnings '
+         f'below it.</strong> {info_tip(delta)}</p>']
     P.append(pn.render(c, pn.EXTERNAL_PANELS))
 
     return pn.document(TITLE, "\n".join(P)), c.checks
