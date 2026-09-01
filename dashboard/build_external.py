@@ -33,7 +33,7 @@ from assets import esc, info_tip  # noqa: E402
 from history import latest_snapshot_dir, verify_snapshot  # noqa: E402
 
 OUT_NAME = "model_health_dashboard.html"
-TITLE = "Pl@ntNet on BCI - per-species model health"
+TITLE = "How well does Pl@ntNet name BCI trees?"
 
 
 def build(h, *, generated, verify_dir, fallback_tag):
@@ -55,14 +55,16 @@ def build(h, *, generated, verify_dir, fallback_tag):
              f'points over sending the fixed centre square. Measured on frames set aside '
              f'before either number existed, and a gap that size almost never happens by '
              f'chance.')
-    P = ['<h1>Pl@ntNet on BCI: per-species model health</h1>',
+    P = ['<h1>How well does Pl@ntNet name BCI trees?</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
          f'&middot; {c.n:,} labelled frames &middot; {c.n_sp} species</div>',
-         '<p class="intro">This page says how well Pl@ntNet names the species a botanist '
-         'labelled. Pl@ntNet has already guessed a species for the centre crop of every '
-         'labelled frame and we know the frame\'s label, so we can say per species how often '
-         'it is right. What to label next is a separate page.</p>',
+         f'<p class="intro">This page says how well Pl@ntNet names the trees a botanist '
+         f'labelled. The two numbers at the top come from {int(c.cf["n_frames"])} frames '
+         f'set aside in advance, and they show what difference it makes to outline the '
+         f'trees before asking. Everything below them covers all {c.n:,} labelled frames, '
+         f'one Pl@ntNet guess per frame, so we can say species by species how often the '
+         f'guess is right. What to label next is a separate page.</p>',
          # The headline first, on the frozen sample, because it is the only number here
          # whose unit of prediction is the unit the label describes. The corpus-wide
          # grid follows it, inside a panel, not the other way round.

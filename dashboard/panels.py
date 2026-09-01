@@ -686,7 +686,7 @@ def p_species(c):
     ))
     return panel(f"Look up one species: all {c.n_sp}, sortable and filterable",
                  "<b>Find a species you care about and read its status.</b> Click any "
-                 "heading to sort, type to filter.", body)
+                 "heading to sort, type to filter.", body, open_=True)
 
 
 def p_ceiling(c):
@@ -776,10 +776,12 @@ def p_confirmatory(c):
 
     Separate from the method panel because nothing here comes from the snapshot:
     it is a one-time read of frames fixed before the data existed, and a reader
-    who mixes it with the corpus-wide numbers will report a rate on a population
-    that was never measured. Open by default, and short, because it is the only
-    thing on the page a headline cannot travel without. The caveats it must
-    travel with are the panel directly below, so the first screen stays readable.
+    who mixes it with the whole-corpus numbers will report a rate on a set of
+    frames that was never measured. Closed, like the two panels beside it: a
+    reader arrives to look something up, not to read a method, and an open
+    method panel put a paragraph about resampling between them and the page.
+    What the reader must not miss is the line above the band, which says to
+    carry the warnings, and the summary of the panel that holds them.
     """
     cf = c.cf
     if cf is None:
@@ -809,7 +811,7 @@ def p_confirmatory(c):
         "<b>Do not quote the top number without the warning below it.</b> It is a real "
         "number, measured on frames that were fixed before anyone looked. But someone on "
         "the team had already seen a result from that method, elsewhere, before the frames "
-        "were fixed.", body, open_=True,
+        "were fixed.", body,
         # The id is linked to from the four-rate panel and pinned by a test, so it
         # outlives the wording of the summary above it.
         anchor="where-the-headline-comes-from")
@@ -946,8 +948,10 @@ SECTIONS = {
         "Which frames to send, which can wait, and the evidence behind the wait rule."),
     "model-health": (
         "How Pl@ntNet is doing against the labels",
-        "The two headline scores disagree. These panels say why, how any one species is "
-        "doing, and which labels deserve a second look."),
+        # No live figure in a lede: SECTIONS is a constant, so a number written
+        # here would not move with the snapshot and nothing would catch it.
+        "Which species it handles well, which labels look worth a second look, and why "
+        "two fair ways of averaging the same frames give very different answers."),
     "limits": (
         "What this cannot tell you",
         "The ceilings on every number above."),
