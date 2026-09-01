@@ -79,7 +79,7 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
         for col in ("top1_accuracy", "top5_accuracy"):
             if not close(r[col], row[col]):
                 fail(f"{col} for {row['species']!r}")
-    checks.append(f"per_species_health.csv: {len(ref)} species, crowns and both rates match")
+    checks.append(f"per_species_health.csv: {len(ref)} species, labelled frames and both rates match")
 
     for r in hc.read_csv_rows(os.path.join(directory, "support_buckets.csv")):
         b = buckets.get(r["support_bucket"])
@@ -89,7 +89,7 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
             fail(f"labelled-crown group {r['support_bucket']!r} counts")
         if not close(r["top1_accuracy"], b["c1"] / b["n_crowns"]):
             fail(f"labelled-crown group {r['support_bucket']!r} first-guess rate")
-    checks.append(f"support_buckets.csv: {len(buckets)} labelled-crown groups match")
+    checks.append(f"support_buckets.csv: {len(buckets)} labelled-frame groups match")
 
     path = os.path.join(directory, "confidence_calibration.csv")
     ref_bins = {r["band"]: r for r in hc.read_csv_rows(path)
@@ -119,8 +119,9 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
             fail(f"no line for {what} in {path}")
         if int(m.group(1)) != here:
             fail(f"{what}: {here} here vs {m.group(1)} in {path}")
-    checks.append(f"run_log.txt: the {never_all}-crown ceiling, the {unscoreable} unscoreable "
-                  f"evaluated crowns and the {strict_hits}-hit unreconciled baseline match")
+    checks.append(f"run_log.txt: the {never_all}-frame ceiling, the {unscoreable} frames that "
+                  f"cannot be scored, and the {strict_hits} right without name "
+                  f"reconciliation, all match")
 
     if n_no_answer is not None:
         m = re.search(r"unlabelled (?:crowns|frames) with NO answer\s*:\s*(\d+)", log)
@@ -138,7 +139,7 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
         if set(ref) - set(queue_counts):
             fail(f"send-first queues {sorted(set(ref) - set(queue_counts))} only in {path}")
         n_unlab = sum(ref.values())
-        checks.append(f"send_first_queue.csv: {n_unlab:,} unlabelled crowns across "
+        checks.append(f"send_first_queue.csv: {n_unlab:,} unlabelled photos across "
                       f"{len(ref)} queues match")
 
         # send_batches.csv must be a capped-size repartition of the exact same
@@ -174,7 +175,7 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
             fail(f"label review queue: {review_counts[0]} here vs {len(ref)} in {path}")
         if len(pairs) != review_counts[1]:
             fail(f"label review pairs: {review_counts[1]} here vs {len(pairs)} in {path}")
-        checks.append(f"label_review_queue.csv: {len(ref)} crowns, {len(pairs)} confusion "
+        checks.append(f"label_review_queue.csv: {len(ref)} frames, {len(pairs)} confusion "
                       f"pairs match")
 
     return checks
