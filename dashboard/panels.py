@@ -660,8 +660,9 @@ def p_terms(c):
     """
     return panel(
         'What the words mean: frame, label, crown, centre crop',
-        "<b>Which region was scored against which label is the whole of the difference "
-        "between the two numbers above.</b>",
+        "<b>Open this first if any of those four words is new.</b> Which part of a "
+        "photo was scored, and against which label, is the whole of the difference "
+        "between the two numbers above.",
         f'<p>{HERO_TERMS}</p>')
 
 

@@ -154,7 +154,10 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
     return panel(
         f"Every labelled frame, scored on the centre crop: four rates, and why "
         f"{pctf(now['micro_top1'])} and {pctf(now['macro_top1'])} disagree",
-        "<b>Same model, same centre crops, two ways of averaging.</b>",
+        "<b>Quote the per-species number.</b> Both rates are right, and they answer "
+        "different questions. Per species asks how many kinds of tree the model can "
+        "name, which is what a labelling programme moves. Per frame asks how often it "
+        "is right on a photo picked at random, which the commonest species decide.",
         # No note restating the two rates: the summary names both, the headline cards
         # state the distinction, and the chart labels its own bars with it.
         corpus_block
@@ -164,8 +167,7 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
         + f'<p class="note">Picture {n_sp} classes, one per species, {n:,} students, one quiz. '
           f'Count students and the big classes decide; score each class once and a class of one '
           f'counts as much as <em>{esc(cap(big["species"]))}</em>\'s '
-          f'{big["n_labelled_crowns"]:,}. <b>Quote the per-species number: a labelling '
-          f'programme exists to move it.</b></p>'
+          f'{big["n_labelled_crowns"]:,}.</p>'
           f'<p class="note">The {singles} single-frame species fill '
           f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the top bar and '
           f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the bottom. The key says why. '
