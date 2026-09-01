@@ -159,6 +159,15 @@ def test_filterable_table_wires_up_the_shared_element_ids(assets):
     assert '<option value="hard">Hard</option>' in out
 
 
+def test_filterable_table_with_no_statuses_ships_no_status_dropdown(assets):
+    out = assets.filterable_table([("Name", False)], [["a"]], options=[])
+    assert "<select" not in out, (
+        "a select holding only 'every status' is a control that cannot change "
+        "what the table shows")
+    assert 'id="species-filter"' in out
+    assert 'id="species-count"' in out
+
+
 def test_filterable_table_escapes_option_value_and_label(assets):
     out = assets.filterable_table([("Name", False)], [], options=[(INJECT, INJECT)])
     assert "<script>&" not in out
