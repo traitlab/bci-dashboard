@@ -47,6 +47,17 @@ CACHE_DIR = os.path.join(BASE, "predictions", "cache")
 DATA_ROW_IDS_CSV = os.path.join(BASE, "data_row_ids.csv")
 LABELBOX_URL = "https://app.labelbox.com/projects/{project_id}/data-rows/{data_row_id}"
 
+# Botanist verdicts on frames the review queue raised. A confident disagreement
+# is either a label error or a model error, and offline nothing can tell which;
+# once a botanist has ruled, the frame must stop reappearing, because the
+# prediction never changes and the queue would otherwise raise it forever.
+# Tracked in git: an untracked verdict is lost on the next clone.
+ADJUDICATIONS_CSV = os.path.join(BASE, "adjudications.csv")
+# The one verdict that suppresses a frame. A label ruled wrong is fixed in
+# Labelbox instead, where the next export carries the correction, so it needs
+# no entry here.
+LABEL_CONFIRMED = "label_confirmed_prediction_wrong"
+
 # Dated model-health-<date>/ folders: the trend history, kept beside the code
 # that reads it. Gitignored.
 SNAPSHOT_DIR = os.environ.get("BCI_DASHBOARD_SNAPSHOTS") or os.path.join(REPO, "snapshots")
@@ -184,6 +195,20 @@ def labelbox_urls(path: str = DATA_ROW_IDS_CSV) -> dict[str, str]:
             out[r["global_key"]] = LABELBOX_URL.format(
                 project_id=r["project_id"], data_row_id=r["data_row_id"])
     return out
+
+
+def adjudicated_keys(path: str = ADJUDICATIONS_CSV) -> set[str]:
+    """global_keys a botanist has ruled label-confirmed, so the review queue drops them.
+
+    Reads a file, never the API, on the same terms as ``labelbox_urls``: a
+    missing file is an empty set, not an error, so a checkout without one still
+    builds. Any other verdict is ignored here rather than rejected, so the file
+    can record a ruling the queue does not act on.
+    """
+    if not os.path.exists(path):
+        return set()
+    return {r["global_key"] for r in read_csv_rows(path)
+            if r.get("global_key") and r.get("verdict") == LABEL_CONFIRMED}
 
 
 def salvage_species_array(text: str):

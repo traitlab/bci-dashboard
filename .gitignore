@@ -8,6 +8,7 @@ build/
 snapshots/
 data/*
 !data/wcvp_cache.json
+!data/adjudications.csv
 .ruff_cache/
 .claude-flow/
 
