@@ -454,6 +454,22 @@ def test_no_anchor_carries_a_number(page):
         assert not any(c.isdigit() for c in eid), f"anchor {eid!r} carries a number"
 
 
+def test_no_anchor_ends_mid_phrase(page):
+    """An id is a link someone pastes into a message, so it has to read as a
+    phrase on its own. `slug()` keeps the first eight words, and eight words
+    into a summary can land on a joining word: "how this was measured and what
+    it does" says the opposite of the panel it points at. The fix is an
+    explicit `anchor=` at the call site, not a longer slug."""
+    html, _, _ = page
+    dangling = {"and", "or", "but", "with", "in", "of", "the", "a", "an", "it",
+                "for", "to", "on", "at", "is", "that", "what"}
+    for eid in re.findall(r'<details class="panel" id="([^"]+)"', html):
+        last = eid.rsplit("-", 1)[-1]
+        assert last not in dangling, (
+            f"anchor {eid!r} ends on {last!r}, so the link reads as half a "
+            f"phrase. Pass anchor= at that panel's call site.")
+
+
 def test_each_id_is_unique(page):
     html, _, _ = page
     ids = _ID_ATTR.findall(html)

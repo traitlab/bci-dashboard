@@ -235,4 +235,4 @@ def method_panel(*, tag, n, n_sp, n_cand, checks):
     return panel("How this was measured, and what it does not tell you",
                  "<b>Read this before quoting any number outside the team.</b> It names "
                  "the model, the request settings, and the one assumption that cannot be "
-                 "checked offline.", body)
+                 "checked offline.", body, anchor="how-this-was-measured")

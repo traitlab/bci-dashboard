@@ -398,7 +398,8 @@ def p_rules(c):
                  "labelled-frames condition",
                  "<b>Read this only if you want to move the confidence line.</b> Each row "
                  "trades how many frames it takes off the queue against how often a frame "
-                 "it pushed down was named wrong after all.", body)
+                 "it pushed down was named wrong after all.", body,
+                 anchor="how-the-rules-compare")
 
 
 def p_conf(c):
@@ -426,7 +427,8 @@ def p_conf(c):
               'suggested rule has two conditions.</p>')
     return panel("Can we trust the model's confidence? In bulk yes, on rare species no",
                  "<b>This is the evidence behind the two-part rule above.</b> Read it if "
-                 "someone proposes ordering the queue on confidence alone.", body)
+                 "someone proposes ordering the queue on confidence alone.", body,
+                 anchor="can-we-trust-the-confidence")
 
 
 def p_labels(c):
@@ -450,7 +452,8 @@ def p_labels(c):
     return panel("Does accuracy rise with more labels? It rises with abundance, and the "
                  "model is frozen",
                  "<b>Use this to see where the measurement is solid enough to act on.</b> "
-                 "Do not use it to argue that labelling raises accuracy.", body)
+                 "Do not use it to argue that labelling raises accuracy.", body,
+                 anchor="accuracy-and-labels")
 
 
 def p_species(c):
@@ -676,7 +679,8 @@ def p_caveats(c):
     return panel(
         'Two warnings that must travel with the top number, and what it does not measure',
         "<b>Quoted, not summarised.</b> The plan asks for its own words, because a "
-        "paraphrase of a warning is how the warning stops travelling.", body)
+        "paraphrase of a warning is how the warning stops travelling.", body,
+        anchor="two-warnings")
 
 
 def p_terms(c):
