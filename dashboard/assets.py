@@ -146,12 +146,6 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   display:inline-block;padding:2px 8px;border-radius:4px;
   font-size:0.74rem;font-weight:700;white-space:nowrap;
 }
-.info-tip{
-  display:inline-flex;align-items:center;justify-content:center;
-  width:1rem;height:1rem;border-radius:999px;
-  background:#eceff1;color:#546e7a;font-size:0.66rem;
-  font-weight:700;cursor:help;flex:0 0 auto;
-}
 .tag.reliable{background:#e8f5e9;color:#2e7d32}
 .tag.adequate{background:#e3f2fd;color:#1565c0}
 .tag.ranking{background:#ede7f6;color:#5e35b1}
@@ -473,13 +467,6 @@ def filterable_table(headers, rows, *, options, row_attrs=None):
                             row_attrs=row_attrs)
 
 
-def info_tip(reason: str) -> str:
-    """A standalone hover-explanation icon, for attaching a denominator or
-    definition to a plain number or label."""
-    reason = esc(reason)
-    return f'<span class="info-tip" title="{reason}" aria-label="{reason}">i</span>'
-
-
 def funnel_list(steps: list[tuple[int, str]]) -> str:
     """A count-then-label list, reusing the existing to-do-list markup
     (``.todo``/``.n``) already styled for 16b's per-species counts, so a
@@ -494,7 +481,7 @@ def funnel_list(steps: list[tuple[int, str]]) -> str:
 
 def status_tag(cls: str, label: str, *, sort_key: str | None = None) -> str:
     """Render a status tag. The explanation for each status is not repeated
-    here: it used to be a per-row ``title=`` (a hover icon via ``info_tip``),
+    here: it used to be a per-row ``title=`` on a small hover icon,
     but that stamped one of only a handful of distinct sentences onto every
     row of a 186-row table -- ~40KB of duplicated markup per page. Callers
     render the distinct sentences once via ``status_legend`` instead, next to

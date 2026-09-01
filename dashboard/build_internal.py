@@ -32,7 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import core as hc
 import figures
 import panels as pn
-from assets import esc, hero, info_tip
+from assets import esc, hero
 from history import latest_snapshot_dir, verify_snapshot
 
 OUT_NAME = "label_queue_dashboard.html"
@@ -52,9 +52,6 @@ def build(h, *, generated, verify_dir, fallback_tag):
     # Two counts and one line. The page is a check on the order, so the reasoning
     # behind the order lives in the panels that state it, not above them.
     send_now = c.queue_counts.get("long_tail", 0) + c.queue_counts.get("low_conf_known", 0)
-    batching = ("send_batches.csv carries the same order in batches of at most 100 with "
-                "each species group kept together. Read this page to check the order and "
-                "the rule behind it, then work the CSV.")
     P = ['<h1>What to label next</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
@@ -64,10 +61,12 @@ def build(h, *, generated, verify_dir, fallback_tag):
                 "the model is unsure of here."),
                ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
                 "The whole pool this page puts in an order.")]),
-         f'<p class="note"><strong>The page is not the deliverable. Work '
-         f'<code>send_batches.csv</code> in the snapshot folder.</strong> '
-         f'{info_tip(batching)} How Pl@ntNet scores against the labels is a separate '
-         f'page.</p>',
+         ('<p class="note"><strong>The page is not the deliverable. Work '
+          '<code>send_batches.csv</code> in the snapshot folder.</strong> '
+          'It carries the same order in batches of at most 100, with each species '
+          'group kept together. Read this page to check the order and the rule behind '
+          'it, then work the CSV. How Pl@ntNet scores against the labels is a separate '
+          'page.</p>'),
          pn.render(c, pn.INTERNAL_PANELS)]
 
     return pn.document(TITLE, "\n".join(P)), c.checks

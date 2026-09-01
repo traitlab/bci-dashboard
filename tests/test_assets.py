@@ -193,13 +193,6 @@ def test_filterable_table_escapes_option_value_and_label(assets):
     assert "&lt;script&gt;" in out
 
 
-def test_info_tip_escapes_the_reason_in_both_attributes(assets):
-    out = assets.info_tip(INJECT)
-    assert "<script>" not in out
-    assert 'title="&lt;script&gt;&amp;&quot;&lt;/script&gt;"' in out
-    assert '<span class="info-tip"' in out
-
-
 def test_funnel_list_of_no_steps_is_an_empty_list(assets):
     assert assets.funnel_list([]) == '<ul class="todo"></ul>'
 

@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import core as hc
 import figures
 import panels as pn
-from assets import esc, info_tip
+from assets import esc
 from history import latest_snapshot_dir, verify_snapshot
 
 OUT_NAME = "model_health_dashboard.html"
@@ -51,11 +51,6 @@ def build(h, *, generated, verify_dir, fallback_tag):
     # The head is two numbers and one line saying which to quote. Everything that
     # qualifies them is a panel below: the glossary, the caveats the design requires,
     # and the four corpus-wide rates with the region mismatch they inherit.
-    delta = (f'Asking Pl@ntNet about each outlined crown, then combining the answers into '
-             f'one name for the frame, is worth {100 * c.cf["crown_minus_photo"]:+.1f} '
-             f'points over sending the fixed centre square. Measured on frames set aside '
-             f'before either number existed, and a gap that size almost never happens by '
-             f'chance.')
     P = ['<h1>How well does Pl@ntNet name BCI trees?</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
@@ -70,8 +65,13 @@ def build(h, *, generated, verify_dir, fallback_tag):
          # whose unit of prediction is the unit the label describes. The corpus-wide
          # grid follows it, inside a panel, not the other way round.
          pn.confirmatory_hero(c.cf),
-         f'<p class="note"><strong>Quote the top number, and carry the two warnings '
-         f'below it.</strong> {info_tip(delta)}</p>']
+         # The gap used to sit in a hover tooltip, which is nothing on a phone and
+         # nothing to a reader who never hovers. It is the finding, so it is prose.
+         (f'<p class="note"><strong>Quote the top number, and carry the two warnings '
+          f'below it.</strong> Outlining the trees first is worth '
+          f'{100 * c.cf["crown_minus_photo"]:+.1f} points over sending the fixed centre '
+          f'square. That gap was measured on frames set aside before either number '
+          f'existed, and a gap that size almost never happens by chance.</p>')]
     P.append(pn.render(c, pn.EXTERNAL_PANELS))
 
     return pn.document(TITLE, "\n".join(P)), c.checks
