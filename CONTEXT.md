@@ -62,6 +62,7 @@ asking, never calls it an **arm**: that word belongs in `hypothesis.md`.
 | **pushed down the queue** | What the wait rule does to a frame. It is an ordering, never a label, and it is undone at the next model change. Never "deprioritised", never "revocable". |
 | **the labelled-frames condition** | The second half of the wait rule: the species must already have enough labelled frames. Spelled out rather than called a gate. |
 | **queue** | One of four groups the unlabelled pool is sorted into, worked top to bottom. |
+| **held back for grading** | The frames a rule is scored on, kept out of the frames it is allowed to learn from. A page spells the split out; the words `train` and `test` do not appear on one. |
 
 ## What the pages are
 
@@ -69,6 +70,7 @@ asking, never calls it an **arm**: that word belongs in `hypothesis.md`.
 |---|---|
 | **model-health page** | `build/model_health_dashboard.html`. How well Pl@ntNet names what a botanist labelled. The page that leaves the lab. |
 | **queue page** | `build/label_queue_dashboard.html`. What to label next. The labelling team's own tool; the deliverable beside it is `send_batches.csv`. |
+| **export-only page** | `build/export_only_dashboard.html`. One Labelbox export scored on its own, with no snapshot behind it and no corpus total. Answers "how did this batch do", nothing else. |
 | **snapshot** | One dated folder under `snapshots/` holding the CSVs a measurement pass wrote. A page is cross-checked against one and refuses to build if it disagrees. |
 | **panel** | One collapsible block on a page. Its summary must stand alone when everything is closed. |
 | **status** | One of six plain verdicts a species gets: right name in the list, too few labels to judge, wrong even with enough labels, mixed, usually right, never named in five candidates. |

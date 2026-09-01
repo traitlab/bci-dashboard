@@ -360,9 +360,10 @@ def p_wait(c):
     best = c.best
     body = (f'<div class="rec"><strong>Suggested rule: leave a frame for later when '
             f'Pl@ntNet is at least {RECOMMENDED_CONF} confident and its species already has '
-            f'{WAIT_SUPPORT_MIN} or more labelled frames.</strong> On held-out test frames '
-            f'that is {best["n"]:,} of {len(c.test_recs):,} ({pctf(best["share"])}), and the '
-            f'first guess is wrong on {pctf(best["err"])} of them.</div>'
+            f'{WAIT_SUPPORT_MIN} or more labelled frames.</strong> On the '
+            f'{len(c.test_recs):,} frames held back for grading, that rule reaches '
+            f'{best["n"]:,} of them ({pctf(best["share"])}), and the first guess is wrong '
+            f'on {pctf(best["err"])} of those.</div>'
             '<p class="note"><strong>Nothing here is a label.</strong> A frame that can wait '
             'keeps whatever label it already has, or none at all. No guess is ever written '
             'in as a label by this rule. It only pushes frames down the '
@@ -378,7 +379,7 @@ def p_wait(c):
             f'count uses only the frames a rule is allowed to learn from. The error rate '
             f'above is measured on the {len(c.test_recs):,} frames held back from that. So '
             f'no rule is graded on the frames that chose it.</p>')
-    return panel(f"Which frames can wait: {best['n']:,} of {len(c.test_recs):,} test frames, "
+    return panel(f"Which frames can wait: {best['n']:,} of {len(c.test_recs):,} held-out frames, "
                  f"undone at the next model change",
                  "<b>Use this to order the queue, not to close frames.</b> These are the "
                  "frames to look at last, and the ranking is recomputed from scratch "
@@ -395,7 +396,7 @@ def p_rules(c):
                    pctf(o["rare_rest"])] for o in c.ops])
     body += (f'<p class="note">A species with fewer than {RARE_MAX_SUPPORT} labelled frames '
              f'counts as rarely labelled: {len(c.rare)} of {c.n_sp} species, {c.n_rare_test} '
-             f'of the {len(c.test_recs):,} test frames. No rarely-labelled frame can be '
+             f'of the {len(c.test_recs):,} held-out frames. No rarely-labelled frame can be '
              f'pushed down the queue by a rule that also asks for labelled frames: that '
              f'second condition leaves them out.</p>')
     return panel("How the five candidate rules compare, with and without the "
