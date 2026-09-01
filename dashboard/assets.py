@@ -395,17 +395,30 @@ def section(title, lede, panels):
 
     ``panels`` is already-rendered panel HTML. The band is what makes a long page
     scannable when closed, so it carries the group's question, not a label.
+
+    No jump list: with every panel closed the summaries directly below are already
+    the contents, and a generated copy of them printed above was the same words twice.
     """
-    # Read back out of the rendered panels, not passed in: a hand-kept list is
-    # one more thing to forget when a panel is added.
-    links = "".join(
-        f'<li><a href="#{pid}">{esc(re.sub(r"<[^>]+>", "", summ).split(":")[0])}</a></li>'
-        for pid, summ in re.findall(
-            r'<details class="panel" id="([^"]+)"[^>]*><summary>(.*?)</summary>', panels)
-    )
-    nav = f'<ul class="jump">{links}</ul>' if links else ""
     return (f'<section class="grp" id="{slug(title)}"><h2>{title}</h2>'
-            f'<p class="lede">{lede}</p>{nav}\n{panels}</section>')
+            f'<p class="lede">{lede}</p>\n{panels}</section>')
+
+
+def hero(cards):
+    """The band of big numbers a page opens with.
+
+    ``cards`` is ``[(eyebrow, value, label, note), ...]``, leading card first. It is
+    one primitive rather than two inline copies because both pages open this way and
+    the ``.metric`` markup is what the grid CSS is written against.
+    """
+    out = ['<div class="hero">']
+    for i, (eyebrow, value, label, note) in enumerate(cards):
+        out.append(f'<div class="metric{" first" if i == 0 else ""}">'
+                   f'<div class="e">{eyebrow}</div>'
+                   f'<div class="row"><div class="v">{value}</div></div>'
+                   f'<div class="l">{label}</div>'
+                   f'<div class="n">{note}</div></div>')
+    out.append("</div>")
+    return "".join(out)
 
 
 def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):

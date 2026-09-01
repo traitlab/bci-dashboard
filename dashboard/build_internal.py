@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc  # noqa: E402
 import panels as pn  # noqa: E402
-from assets import esc  # noqa: E402
+from assets import esc, hero, info_tip  # noqa: E402
 from history import latest_snapshot_dir, verify_snapshot  # noqa: E402
 
 OUT_NAME = "label_queue_dashboard.html"
@@ -48,20 +48,25 @@ def build(h, *, generated, verify_dir, fallback_tag):
         never_all=c.never_all, unscoreable=c.unscoreable, strict_hits=c.strict1,
         queue_counts=c.queue_counts, n_no_answer=c.n_no_answer)
 
+    # Two counts and one line. The page is a check on the order, so the reasoning
+    # behind the order lives in the panels that state it, not above them.
+    send_now = c.queue_counts.get("long_tail", 0) + c.queue_counts.get("low_conf_known", 0)
+    batching = ("send_batches.csv carries the same order in batches of at most 100 with "
+                "each species group kept together. Read this page to check the order and "
+                "the rule behind it, then work the CSV.")
     P = ['<h1>What to label next</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
-         f'&middot; {c.n_unlab:,} unlabelled photos queued &middot; '
-         f'{c.n:,} labelled frames behind the ranking</div>',
-         '<p class="intro">This page says where botanist time is worth spending. Every '
-         'unlabelled photo already has a Pl@ntNet guess, and every species already has a '
-         'measured record, so the two together put the pool in an order: the frames that '
-         'buy the most per label first.</p>',
-         '<p class="intro"><strong>The page is not the deliverable.</strong> '
-         '<code>send_batches.csv</code> in the snapshot folder is, and it carries the same '
-         'order in batches of at most 100 with each species group kept together. Read this '
-         'page to check the order and the rule behind it, then work the CSV. How Pl@ntNet '
-         'scores against the labels is a separate page.</p>',
+         f'&middot; {c.n:,} labelled frames behind the ranking</div>',
+         hero([("Worth sending first", f"{send_now:,}", "unlabelled photos",
+                "They point at a species we barely have, or at a usually-right species "
+                "the model is unsure of here."),
+               ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
+                "The whole pool this page puts in an order.")]),
+         f'<p class="note"><strong>The page is not the deliverable. Work '
+         f'<code>send_batches.csv</code> in the snapshot folder.</strong> '
+         f'{info_tip(batching)} How Pl@ntNet scores against the labels is a separate '
+         f'page.</p>',
          pn.render(c, pn.INTERNAL_PANELS)]
 
     return pn.document(TITLE, "\n".join(P)), c.checks

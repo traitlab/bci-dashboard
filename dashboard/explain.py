@@ -124,8 +124,14 @@ def candidates_panel(*, recs, gen_n, gen_none):
         anchor="why-only-five-guesses-per-photo")
 
 
-def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp):
-    """Why the frame-weighted and per-species scores differ, with a picture."""
+def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
+                    corpus_block):
+    """The four corpus-wide numbers, and why two of them disagree.
+
+    ``corpus_block`` is the grid of the four rates and the caveats they inherit,
+    built by the caller because they are page copy rather than a computation. They
+    live inside this panel so the numbers and the explanation of them have one home.
+    """
     rows = []
     for lab in hc.BUCKET_ORDER:
         b = buckets.get(lab)
@@ -145,11 +151,13 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp):
     big = max(per_species, key=lambda d: d["n_labelled_crowns"])
     singles = buckets[thin]["n_species"]
     return panel(
-        f"Why one score says {pctf(now['micro_top1'])} and the other {pctf(now['macro_top1'])}",
+        f"Every labelled frame, scored on the centre crop: four rates, and why "
+        f"{pctf(now['micro_top1'])} and {pctf(now['macro_top1'])} disagree",
         "<b>Same model, same centre crops, two ways of averaging.</b>",
         # No note restating the two rates: the summary names both, the headline cards
         # state the distinction, and the chart labels its own bars with it.
-        svg_weight_pair(rows,
+        corpus_block
+        + svg_weight_pair(rows,
                           label_a=f"one vote per species ({n_sp} votes)",
                           label_b=f"one vote per frame ({n:,} votes)")
         + f'<p class="note">Picture {n_sp} classes, one per species, {n:,} students, one quiz. '
@@ -173,7 +181,6 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp):
           f'{100 * (well_micro - well_macro):.0f} points apart instead of {gap:.0f}. A '
           f'one-frame species scores only 0% or 100%, so those {singles} votes are coin '
           f'flips.</p>',
-        open_=True,
         # Both headline rates are in the summary and both move every snapshot.
         anchor="why-the-two-headline-scores-differ")
 
