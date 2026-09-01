@@ -511,7 +511,7 @@ def main() -> None:
     print(f"  Scores: {len(scores)} photos -> {score_path}")
 
     print(f"\nDone. Rebuild the dashboard over the new cache:")
-    print(f"  python3 dashboard/measure.py && python3 dashboard/build_simple.py")
+    print(f"  python3 dashboard/measure.py && python3 dashboard/build_external.py")
     print(f"  embeddings: {emb_path}")
     print(f"  species scores: {score_path}")
 

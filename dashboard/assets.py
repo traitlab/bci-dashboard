@@ -86,9 +86,6 @@ _EXTRA_CSS = """\
 body{max-width:1120px}
 h1{margin-bottom:2px}
 .intro{font-size:0.95rem;color:#424242;margin:10px 0 22px}
-.terms{font-size:0.83rem;color:#546e7a;background:#f4f7f9;border-left:3px solid #b0bec5;
-  border-radius:0 4px 4px 0;padding:10px 14px;margin:0 0 16px}
-.terms b{color:#263238}
 /* Sits under the headline grid, not beside it: the region mismatch applies to
    all four numbers at once, so a per-metric footnote would repeat it four times
    and still read as optional. */
@@ -169,20 +166,6 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .status-legend{list-style:none;font-size:0.82rem;color:#424242;
   margin:8px 0 14px;display:flex;flex-direction:column;gap:5px}
 .status-legend li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
-.rule-card{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:10px 0 4px}
-.chip{
-  display:inline-flex;align-items:center;gap:6px;padding:4px 10px;
-  border-radius:999px;font-size:0.78rem;font-weight:600;
-  border:1px solid #cfd8dc;background:#eceff1;color:#546e7a;
-}
-.chip.on{background:#e8f5e9;border-color:#a5d6a7;color:#2e7d32}
-.chip .dot{width:0.55rem;height:0.55rem;border-radius:999px;background:#90a4ae;flex:0 0 auto}
-.chip.on .dot{background:#2e7d32}
-.rule-badge{
-  display:inline-block;padding:4px 12px;border-radius:6px;
-  font-size:0.8rem;font-weight:700;
-}
-.rule-badge.wait{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}
 .todo{list-style:none;font-size:0.86rem;color:#424242}
 .todo li{margin:7px 0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .todo .n{font-weight:700;color:#212121;font-variant-numeric:tabular-nums}
@@ -211,13 +194,9 @@ h3.sub{font-size:0.95rem;font-weight:700;color:#37474f;margin:22px 0 8px}
 code.key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.72rem;
   color:#37474f;word-break:break-all}
 
-/* Jump list under each section band: 17 panels over 3 sections is more than a
-   reader will scroll blind, and the ids also make one panel linkable. */
-.jump{list-style:none;display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0 18px;padding:0}
-.jump a{font-size:0.83rem;color:#1565c0;text-decoration:none;border-bottom:1px solid #bbdefb}
-.jump a:hover,.jump a:focus{border-bottom-color:#1565c0}
 .tscroll{overflow-x:auto}
-/* An anchored panel has to be findable once the jump link scrolls to it. */
+/* Every panel carries an id, so a panel is linkable and has to be findable
+   once the browser scrolls to it. */
 details.panel:target>summary{background:#e3f2fd}
 
 /* The 2x2 headline grid has no room for two columns on a phone. The vendored
@@ -509,36 +488,6 @@ def status_legend(entries: list[tuple[str, str, str]]) -> str:
         for cls, label, reason in entries
     )
     return f'<ul class="status-legend">{items}</ul>'
-
-
-def threshold_card(conf_thresh: float, support_thresh: int) -> str:
-    """The 'why this threshold is safe' card: two chips plus a decision badge.
-
-    Both chips are drawn "on" together, the only state the rule ever lets
-    reach the "Can wait" badge: fail either one and review-now is always the
-    answer, so a single worked example next to the two live chips is enough to
-    make the AND explicit without a second, contradictory example to maintain.
-    """
-    chip_a = (f'<span class="chip on"><span class="dot"></span>'
-              f'confidence &ge; {conf_thresh:.0%}</span>')
-    chip_b = (f'<span class="chip on"><span class="dot"></span>'
-              f'support &ge; {support_thresh} frames</span>')
-    badge = '<span class="rule-badge wait">Can wait</span>'
-    return (
-        f'<p class="ask">We only auto-deprioritise a frame when the model is confident '
-        f'({conf_thresh:.0%}+) and we already have enough examples for that species '
-        f'({support_thresh}+ frames). If either condition fails, the frame stays in the '
-        'review queues above.</p>'
-        f'<div class="rule-card">{chip_a}{chip_b}<span>&rarr;</span>{badge}</div>'
-        '<p class="note">&ldquo;Confidence&rdquo; is the model&rsquo;s certainty for its '
-        'top guess. &ldquo;Support&rdquo; is how many labelled frames that species has in '
-        'this snapshot. Both chips must be green (as drawn) for the frame to wait; one '
-        'grey chip and the badge reads &ldquo;Review now&rdquo; instead. The rule is graded '
-        'out of sample, not on the frames that set it: which species clear the support gate '
-        'is decided from <b>train</b> frames only, and the resulting error rate is measured '
-        'on <b>test</b> frames only. The full page compares it against four alternatives '
-        'under &ldquo;How the five candidate rules compare&rdquo;.</p>'
-    )
 
 
 # --- inline SVG (hand-written in labelfirst's report idiom: no library, no CDN) ---

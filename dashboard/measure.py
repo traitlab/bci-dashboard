@@ -22,6 +22,7 @@ from core import (
     pct, ratio, fmt, genus_of, normalize, queue_of_prediction, chunk_send_batches,
     coverage_gate_stats, coverage_split, labelbox_urls,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
+    RELIABLE_MIN_TOP1,
     QUEUE_ORDER, REVIEW_CONF, BATCH_SIZE, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
     GT_KEY_PREFIX, GT_CSV, SPLITS_CSV, CACHE_DIR, WCVP_CACHE_JSON,
 )
@@ -207,11 +208,13 @@ def main() -> None:
     # frames it is then scored on: an optimistic, selection-biased number
     # rather than an out-of-sample estimate.
     good = {d["species"] for d in per_species
-            if d["n_labelled_crowns"] >= WELL_SAMPLED_MIN_N and d["top1_accuracy"] >= 0.90}
+            if d["n_labelled_crowns"] >= WELL_SAMPLED_MIN_N
+            and d["top1_accuracy"] >= RELIABLE_MIN_TOP1}
     good_recs = [r for r in sp_recs if r["gt"] in good]
     scopes = [("all_species_level_gt", sp_recs),
               (f"species_with_n_ge_{WELL_SAMPLED_MIN_N}", well_recs),
-              (f"species_n_ge_{WELL_SAMPLED_MIN_N}_and_top1_ge_0.90", good_recs)]
+              (f"species_n_ge_{WELL_SAMPLED_MIN_N}_and_top1_ge_{RELIABLE_MIN_TOP1:.2f}",
+               good_recs)]
 
     with open(os.path.join(out_dir, "confidence_calibration.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)

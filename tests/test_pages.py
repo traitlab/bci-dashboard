@@ -1,8 +1,9 @@
 """Every page builder, end to end: build a real page, assert invariants.
 
-Nothing exercised `build_external.py`, `build_internal.py`, `build_simple.py`,
-`build_export_only.py`, `assets.py` or `explain.py` before this file, so every
-cleanup pass over them had to be verified by hand-diffing 185KB of HTML.
+Nothing exercised `build_external.py` or `build_internal.py` before this file,
+so every cleanup pass over them had to be verified by hand-diffing 185KB of
+HTML. `build_export_only.py`, `assets.py` and `explain.py` are still not
+exercised here.
 Golden-file comparison would just move that problem into the test (any
 legitimate number change breaks it), so this asserts structure instead: the
 build's own snapshot cross-check passed, the page is one self-contained file,
@@ -47,19 +48,23 @@ CACHE_DIR = REPO / "data" / "predictions" / "cache"
 # should care about.
 _GENERATED = "2026-08-25-test"
 
-# What each page is expected to carry. `species` is the sortable, filterable
-# species table with its status legend, which is also what the inline JS binds
-# to. The send queue splits in two: `queue_counts` is the how-many-per-queue
-# breakdown, which both the internal page and the simple overview report and so
-# both gate on, and `queue_keys` is the frame-by-frame send-first list with the
-# camera note beside it, which only the internal page renders.
+# What each page is expected to carry, so a test states its expectation once
+# and every page is checked against the same list. `species` is the sortable,
+# filterable species table with its status legend, which is also what the
+# inline JS binds to. The send queue splits in two: `queue_counts` is the
+# how-many-per-queue breakdown and `queue_keys` is the frame-by-frame
+# send-first list with the camera note beside it.
+#
+# Each flag now names exactly one page, so a flag no longer distinguishes
+# between pages the way it did while a third page carried `species` and
+# `queue_counts` together. The flags stay because they say what a page is
+# expected to carry, which is the claim the assertions need, and because
+# `build_export_only.py` belongs in here.
 PAGES = {
     "external_page": ("build_external.py", "model_health_dashboard.html",
                       {"species", "confirmatory"}),
     "internal_page": ("build_internal.py", "label_queue_dashboard.html",
                       {"queue_counts", "queue_keys"}),
-    "simple_page": ("build_simple.py", "simple_dashboard.html",
-                    {"species", "queue_counts"}),
 }
 
 _GETELEMENTBYID = re.compile(r"getElementById\(\s*['\"]([^'\"]+)['\"]\s*\)")
@@ -111,12 +116,6 @@ def external_page(tmp_path_factory):
 def internal_page(tmp_path_factory):
     _require_buildable()
     return _build(tmp_path_factory, *PAGES["internal_page"][:2])
-
-
-@pytest.fixture(scope="session")
-def simple_page(tmp_path_factory):
-    _require_buildable()
-    return _build(tmp_path_factory, *PAGES["simple_page"][:2])
 
 
 @pytest.fixture(scope="session")
@@ -241,8 +240,8 @@ def test_every_row_status_has_a_matching_legend_entry(page):
     assert legend, "no <ul class=\"status-legend\"> block -- legend was not rendered"
     legend_start = legend.start()
     # Not the first <table> in the page -- panels earlier in the document
-    # (e.g. threshold_card) have tables of their own. The species table is
-    # the one the filter JS looks up by id.
+    # have tables of their own. The species table is the one the filter JS
+    # looks up by id.
     table_start = min(i for i in (html.find("id='species-table'"),
                                   html.find('id="species-table"')) if i >= 0)
     assert legend_start < table_start, "legend does not sit above the species table"

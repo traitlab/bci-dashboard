@@ -33,12 +33,12 @@ from explain import (BAND_SHORT, candidates_panel, method_panel,  # noqa: E402
                      weighting_panel)
 from history import model_tag_of, snapshot_date_of  # noqa: E402
 
-# A species is "rarely labelled" below this many frames. Same threshold as the
-# deprioritization support gate, so the two panels cannot disagree.
-RARE_MAX_SUPPORT = 10
-# Deliberately equal to hc.WELL_SAMPLED_MIN_N, the threshold hc.diagnose uses,
-# so this page renders the same status hc.diagnose would for the same species.
-WAIT_SUPPORT_MIN = 10
+# A species is "rarely labelled" below this many frames, and a frame can be
+# deprioritised only at or above it. Both read hc.WELL_SAMPLED_MIN_N, the
+# threshold hc.diagnose uses, so a page cannot render a status or a sentence
+# that disagrees with the rule the data layer applied.
+RARE_MAX_SUPPORT = hc.WELL_SAMPLED_MIN_N
+WAIT_SUPPORT_MIN = hc.WELL_SAMPLED_MIN_N
 RECOMMENDED_CONF = 0.8
 
 # The frozen confirmatory read, written by dashboard/score_confirmatory.py. The
@@ -75,7 +75,8 @@ STATUS = {
 
 STATUS_REASON = {
     "ranking": "The right name is already in the five, so this is the cheapest confirmation work.",
-    "unmeasured": "Fewer than 10 labelled frames, so the score is too thin to trust yet.",
+    "unmeasured": f"Fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, so the score is "
+                  f"too thin to trust yet.",
     "hard": "Enough frames, but the first guess is still weak, so more labels will not fix it.",
     "adequate": "Mixed results, so keep it in the normal review queue.",
     "reliable": "Usually right, so this species is low priority for extra work.",
@@ -137,9 +138,10 @@ HERO_REGION = (
 # Queue name -> (what it is, why it is worth sending). Shown in the order
 # hc.QUEUE_ORDER gives, which is the order the CSV is sorted in.
 QL = {"long_tail": ("Species we barely have",
-                    "The guess points at a species with fewer than 10 labelled frames, "
-                    "or one the model gets wrong even with more. These frames fill the "
-                    "long tail the labelling programme exists for"),
+                    f"The guess points at a species with fewer than "
+                    f"{hc.WELL_SAMPLED_MIN_N} labelled frames, or one the model gets "
+                    f"wrong even with more. These frames fill the long tail the "
+                    f"labelling programme exists for"),
       "low_conf_known": ("A usually-right species, guessed weakly",
                          "The species is normally identified well but the model is "
                          "unsure here, so the photo is either an odd one worth having "
@@ -257,10 +259,10 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     n, n_sp = len(sp_recs), len(per_species)
 
     c1 = sum(1 for r in sp_recs if top1(r) == r["gt"])
-    c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:5]])
+    _c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:5]])
     now = dict(macro_top1=sum(d["top1_accuracy"] for d in per_species) / n_sp,
                macro_top5=sum(d["top5_accuracy"] for d in per_species) / n_sp,
-               micro_top1=c1 / n, micro_top5=c5 / n)
+               micro_top1=c1 / n, micro_top5=_c5 / n)
 
     support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
     status = {d["species"]: hc.diagnose(d) for d in per_species}
@@ -283,13 +285,6 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
                  sum(1 for r in sub if top1(r) == r["gt"]))
                 for lo, hi in hc.CONF_BINS
                 for sub in ([r for r in sp_recs if lo <= conf(r) < hi],)]
-    # Accuracy at or above the can-wait confidence threshold, read off the same
-    # bands so the band table and the one-line summary cannot disagree.
-    _hi = [(nn, k) for (_band, nn, k), (lo, _) in zip(bins_all, hc.CONF_BINS)
-           if lo >= hc.WAIT_CONF - 1e-9]
-    conf_n, conf_k = sum(nn for nn, _ in _hi), sum(k for _, k in _hi)
-    conf_acc = conf_k / conf_n if conf_n else None
-
 
     # --- what this evaluation cannot score, and what name matching is worth ---
     # "Never named": in no cached candidate list, so no threshold scores it. Counted
@@ -316,9 +311,6 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     joined_stems = {stem for _, stem, _ in h.joined}
     queue_counts = {}
-    # Every frame a species is holding up, not just its long-tail ones: the
-    # one-screen page sorts species by this.
-    queue_pressure = defaultdict(int)
     lt_species = defaultdict(int)
     queue_rows = []
     n_no_answer = 0
@@ -333,8 +325,6 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
         q = hc.queue_of_prediction(pred, cf, support, acc_of)
         queue_counts[q] = queue_counts.get(q, 0) + 1
         queue_rows.append((q, stem, pred, cf))
-        if q in ("long_tail", "low_conf_known"):
-            queue_pressure[pred] += 1
         if q == "long_tail":
             lt_species[pred] += 1
     n_unlab = sum(queue_counts.values())
@@ -407,13 +397,11 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
 
     return SimpleNamespace(
         h=h, sp_recs=sp_recs, per_species=per_species, n=n, n_sp=n_sp,
-        c1=c1, c5=c5, now=now, support=support, status=status, counts=counts,
-        buckets=buckets, bins_all=bins_all, conf_n=conf_n, conf_k=conf_k,
-        conf_acc=conf_acc, never=never, never_crowns=never_crowns,
+        c1=c1, now=now, support=support, status=status, counts=counts,
+        buckets=buckets, bins_all=bins_all, never=never, never_crowns=never_crowns,
         never_all=never_all, reach=reach, reach1=reach1, unscoreable=n - len(reach),
         strict1=strict1, short5=short5, n_pred=n_pred, tag=tag, snap_date=snap_date,
-        queue_counts=queue_counts, queue_pressure=queue_pressure,
-        lt_species=lt_species, queue_rows=queue_rows,
+        queue_counts=queue_counts, lt_species=lt_species, queue_rows=queue_rows,
         n_no_answer=n_no_answer, n_unlab=n_unlab, scored_cams=scored_cams,
         queue_cams=queue_cams, confident=confident, review=review,
         confident_ok=confident_ok, review_pairs=review_pairs, review_counts=review_counts,
