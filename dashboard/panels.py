@@ -355,10 +355,10 @@ def p_wait(c):
 
 
 def p_rules(c):
-    body = table([("rule", False), ("frames that can wait", True),
+    body = table([("how sure the model has to be", False), ("frames that can wait", True),
                   ("share of the queue", True), ("of those, first guess wrong", True),
-                  ("rarely-labelled frames among them", True),
-                  ("rarely-labelled share of what is left", True)],
+                  ("rarely-labelled frames it pushed down", True),
+                  ("rarely-labelled share of the frames left at the top", True)],
                  [[f'<strong>{o["label"]}</strong>' if o is c.best else o["label"],
                    f'{o["n"]:,}', pctf(o["share"]), pctf(o["err"]), f'{o["rare"]}',
                    pctf(o["rare_rest"])] for o in c.ops])
@@ -389,7 +389,7 @@ def p_conf(c):
               'species.</strong> Ordering the queue on confidence alone would push exactly '
               'the species you care about to the bottom:</p>'
             + table([("labelled frames for that species", False),
-                     ("frames at confidence &ge; 0.7", True),
+                     ("frames the model was 0.7 or more sure about", True),
                      ("of those, first guess wrong", True)],
                     [[BAND_SHORT[lab], f"{flat[lab][0]:,}",
                       pctf(flat[lab][1] / flat[lab][0])]

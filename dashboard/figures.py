@@ -223,9 +223,9 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     rare = {s for s, k in support.items() if k < RARE_MAX_SUPPORT}
     n_rare_test = sum(1 for r in test_recs if r["gt"] in rare)
 
-    rules = [(f"confidence &ge; {t}, any species", t, False) for t in (0.7, 0.8)]
-    rules += [(f"confidence &ge; {t} and at least {WAIT_SUPPORT_MIN} labelled frames for "
-               f"that species", t, True) for t in (0.7, 0.8, 0.9)]
+    rules = [(f"{t} or more sure, any species", t, False) for t in (0.7, 0.8)]
+    rules += [(f"{t} or more sure, and the species has at least {WAIT_SUPPORT_MIN} "
+               f"labelled frames", t, True) for t in (0.7, 0.8, 0.9)]
     ops = []
     for label, thr, gate in rules:
         wait = [r for r in test_recs if conf(r) >= thr and (not gate or r["gt"] in eligible)]
