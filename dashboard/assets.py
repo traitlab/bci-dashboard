@@ -134,6 +134,7 @@ details.panel[open]>summary{border-bottom:1px solid #f0f0f0;margin-bottom:4px}
 }
 .controls .count{font-size:0.8rem;color:#757575}
 th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+th.sortable:focus-visible{outline:2px solid #1565c0;outline-offset:-2px}
 /* The arrow is the only thing telling the reader these headings sort, so it has
    to survive the #f5f5f5 header fill: 4.75:1 here against 1.72:1 before. */
 th.sortable:after{content:" \\2195";color:#6d6d6d;font-size:0.75rem}
@@ -241,7 +242,10 @@ JS = Template("""\
       r.classList.toggle('hidden',!ok);
       if(ok) shown++;
     });
-    count.textContent=shown+' of '+rows.length+' species shown';
+    // A bare "0 of 186" over an empty table leaves the reader wondering whether
+    // the page broke. Say what happened instead.
+    count.textContent=shown?(shown+' of '+rows.length+' species shown')
+                           :'No species matches that filter.';
   }
 
   // Sort key: the cell's own data-sort, else a descendant's, else its text.
@@ -257,10 +261,22 @@ JS = Template("""\
   var heads=Array.prototype.slice.call(table.tHead.rows[0].cells);
   heads.forEach(function(th,idx){
     if(!th.classList.contains('sortable')) return;
+    // Sorting was mouse-only: the headings carried no tab stop and no role, so a
+    // reader on a keyboard or a screen reader could not reach a control the page
+    // tells them to use ("click any heading to sort").
+    th.tabIndex=0;
+    th.setAttribute('role','button');
+    th.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){ e.preventDefault(); th.click(); }
+    });
     th.addEventListener('click',function(){
       var dir=th.classList.contains('desc')?'asc':'desc';
-      heads.forEach(function(o){o.classList.remove('asc','desc');});
+      heads.forEach(function(o){
+        o.classList.remove('asc','desc');
+        o.removeAttribute('aria-sort');
+      });
       th.classList.add(dir);
+      th.setAttribute('aria-sort',dir==='asc'?'ascending':'descending');
       rows.slice().sort(function(a,b){
         var x=key(a.cells[idx]),y=key(b.cells[idx]);
         var nx=parseFloat(x),ny=parseFloat(y);
