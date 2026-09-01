@@ -733,8 +733,8 @@ SECTIONS = {
         "How Pl@ntNet is doing against the labels",
         # No live figure in a lede: SECTIONS is a constant, so a number written
         # here would not move with the snapshot and nothing would catch it.
-        "Which species it handles well, which labels look worth a second look, and why "
-        "two fair ways of averaging the same frames give very different answers."),
+        "Which species it handles well, and which labels look worth a second look. "
+        "Also why two fair ways of averaging the same frames disagree."),
     "limits": (
         "What this cannot tell you",
         "The ceilings on every number above."),
