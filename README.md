@@ -3,14 +3,19 @@
 Two self-contained HTML pages, one per audience, built from the same
 measurement pass:
 
-1. **How well does Pl@ntNet name BCI drone close-ups today?**
-   `dashboard/build_external.py` reports top-1 accuracy per species, each with
-   its support count, its calibration, and the reason its status was assigned.
-   This is the page that leaves the lab.
-2. **Which photos should botanists label next?** `dashboard/build_internal.py`
-   reports a send-first queue and species-grouped batches. The page is a way to
-   check the order; the deliverable is `send_batches.csv` beside it, which the
-   labelling script reads.
+1. **How well does Pl@ntNet name BCI trees?** `dashboard/build_external.py`
+   reports, per species, how often Pl@ntNet's first guess is right, with the
+   number of labelled frames behind it, how well its confidence tracks that
+   rate, and why the species carries the status it does. This is the page that
+   leaves the lab.
+2. **What to label next.** `dashboard/build_internal.py` reports a send-first
+   queue and species-grouped batches. The page is a way to check the order;
+   the deliverable is `send_batches.csv` beside it, which the labelling script
+   reads.
+
+`CONTEXT.md` names every term the pages use, and the plain words a page says
+instead. Prose that reaches a page follows it, and
+`tests/test_plain_english.py` checks that it does.
 
 A page is a single file you can open, email, or drop on a share. It is rebuilt
 offline from files already on disk: a Labelbox export of botanist labels, plus
@@ -45,19 +50,21 @@ aborts on any number that disagrees.
   `coverage_gate.csv` reports gated beside ungated and the pages score the
   ungated population. `labelling/next_batch.py` does use it as a filter when
   choosing candidates.
-- The headline this repo publishes is measured region-aligned, not on that crop:
-  one identify call per labelled crown, pooled to the frame by box area, on 300
-  frames frozen before the numbers existed. `input/confirmatory_result_2026-08.csv`
-  holds it and `bci-dashboard-docs/hypothesis.md` fixed the design in advance. It
-  is a per-frame rate over 72 species, and the crowns come from the botanist, so
-  it is the cost of naming once delineation is done and not what an unaided
-  pipeline would score. The page states all three limits beside the number.
+- The headline this repo publishes is not measured on that crop. It is measured
+  crown by crown: one identify call per labelled crown, pooled to the frame by
+  box area, on 300 frames frozen before the numbers existed.
+  `input/confirmatory_result_2026-08.csv` holds it and
+  `bci-dashboard-docs/hypothesis.md` fixed the design in advance. It is a
+  per-frame rate over 72 species, and the crowns come from the botanist, so it
+  is the cost of naming once the trees have been found, not what a pipeline
+  with no outlines would score. The page states all three limits beside the
+  number.
 - Crop and box geometry is read from what the fetch recorded, so the numbers stay
   true if the crop ever changes.
 - A miss counts only within a known population. Out-of-scope species and
   in-checklist misses are separate groups, and `predict/fetch_checklist.py`
-  decides which a species belongs to. A species missing from a cached top-5 list
-  is unproven either way until it does.
+  decides which a species belongs to. A species missing from a cached list of
+  five names is unproven either way until it does.
 
 Definitions of every published number, the camera-gap decomposition, and the
 trend caveats live in the sibling `bci-dashboard-docs/metrics.md`.
@@ -71,7 +78,7 @@ analyses run and write their own output, which `dashboard/core.py` does not read
 |---|---|---|
 | Crown-level scores (`predict/crown_accuracy.py`) | scores cut from the crown boxes in `data/crowns_export/` | off-page |
 | Embedding-ranked queue (`labelling/rank_unsent.py`) | a CoreSet order in `data/next_batch/queue_ranked.csv` | off-page |
-| Tiles (`dashboard/score_tiles.py`) | `photo` vs `tiles` vs `tiles@crop` on one ground truth | off-page |
+| Tiles (`dashboard/score_tiles.py`) | `photo` vs `tiles` vs `tiles@crop` on one set of labels | off-page |
 | Crop-coverage gate (`dashboard/measure.py`) | gated vs ungated in `coverage_gate.csv` | off-page |
 
 ## Layout
@@ -80,7 +87,7 @@ analyses run and write their own output, which `dashboard/core.py` does not read
 |---|---|
 | `dashboard/` | measure, score, and build the pages. Stdlib only |
 | `predict/` | Pl@ntNet calls: per photo, per crown box, tiles, embeddings, checklist. The only side that needs an API key |
-| `labelling/` | Labelbox side: fold an export into ground truth, rank and send batches, fold results back |
+| `labelling/` | Labelbox side: fold an export into the labels, rank and send batches, fold results back |
 | `bin/refresh.sh` | the full chain, above |
 | `input/boxes/` | crown boxes and the frame list. Tracked: the frame list defines the population |
 | `data/`, `snapshots/`, `build/` | generated, gitignored |
