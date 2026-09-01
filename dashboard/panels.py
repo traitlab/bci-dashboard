@@ -292,7 +292,11 @@ def p_send(c):
                  "<b>Work the queues top to bottom.</b> The first two buy the most per label. "
                  "The long tail is where a species has almost nothing to be scored on. "
                  "Then come the photos where a usually-right species is guessed weakly.",
-                 body)
+                 # Open with the overview above it. This page is opened to answer
+                 # "what do I label next", and the answer is the queue table, not
+                 # a summary of the queue table. A reader who has to click to
+                 # reach the deliverable has been asked to guess where it is.
+                 body, open_=True, anchor="what-to-send-first")
 
 
 def p_review(c):
