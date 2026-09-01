@@ -155,8 +155,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .tag.reliable{background:#e8f5e9;color:#2e7d32}
 .tag.adequate{background:#e3f2fd;color:#1565c0}
 .tag.ranking{background:#ede7f6;color:#5e35b1}
-/* 78 of the 169 species carry this badge, which makes it the most common one on
-   the page; #e65100 on this fill was 3.46:1, #bf360c is 5.11:1. */
+/* The most common badge on the page, so its contrast matters most; #e65100 on
+   this fill was 3.46:1, #bf360c is 5.11:1. The species counts that were written
+   here went stale the next time a batch landed. */
 .tag.unmeasured{background:#fff3e0;color:#bf360c}
 .tag.hard{background:#ffebee;color:#c62828}
 .tag.unreachable{background:#eceff1;color:#455a64}
