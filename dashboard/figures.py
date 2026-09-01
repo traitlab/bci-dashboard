@@ -97,6 +97,14 @@ def load_confirmatory(path=CONFIRMATORY_CSV):
     return out
 
 
+# How many names we ask Pl@ntNet for per photo (config.yaml identify_nb_results).
+# A request setting, not a property of the model, and the number "the right name is
+# in the list" is measured at. Written once here because both pages state it in
+# prose, and prose that disagrees with the metric is the defect this file exists to
+# prevent. prepare() checks the cached predictions against it.
+N_CANDIDATES = 5
+
+
 def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     """Every figure both pages draw from, computed once off one ``Health``.
 
@@ -106,10 +114,16 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     property of the page, not of the measurement.
     """
     sp_recs, per_species = h.sp_recs, h.per_species
+    longest = max(len(r["ranked"]) for r in sp_recs + h.genus_recs)
+    if longest > N_CANDIDATES:
+        raise SystemExit(
+            f"cached predictions carry up to {longest} names per photo, but every rate\n"
+            f"and every sentence on both pages is written for {N_CANDIDATES}. Re-ingest\n"
+            f"changed the request setting: update N_CANDIDATES in dashboard/figures.py.")
     n, n_sp = len(sp_recs), len(per_species)
 
     c1 = sum(1 for r in sp_recs if top1(r) == r["gt"])
-    _c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:5]])
+    _c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:N_CANDIDATES]])
     now = dict(macro_top1=sum(d["top1_accuracy"] for d in per_species) / n_sp,
                macro_top5=sum(d["top5_accuracy"] for d in per_species) / n_sp,
                micro_top1=c1 / n, micro_top5=_c5 / n)
@@ -150,7 +164,7 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     # names instead says what that is worth, and it is a gain, never a source of error.
     strict1 = sum(1 for r in sp_recs
                   if r["ranked_strict"] and r["ranked_strict"][0][0] == r["gt_strict"])
-    short5 = sum(1 for r in sp_recs + h.genus_recs if len(r["ranked"]) < 5)
+    short5 = sum(1 for r in sp_recs + h.genus_recs if len(r["ranked"]) < N_CANDIDATES)
     n_pred = len(sp_recs) + len(h.genus_recs)
 
     tag = model_tag_of(verify_dir, fallback_tag)
@@ -248,7 +262,7 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     fam_names = len({r["gt"] for r in fam_recs})
     # Genus-only frames whose right answer is narrowed to one in-genus candidate:
     # the cheapest confirmation on the page, a yes/no rather than an identification.
-    in_gen = [sum(1 for b, _ in r["ranked"][:5] if hc.genus_of(b) == r["gt"]) for r in gen_recs]
+    in_gen = [sum(1 for b, _ in r["ranked"][:N_CANDIDATES] if hc.genus_of(b) == r["gt"]) for r in gen_recs]
     gen_any = sum(1 for k in in_gen if k)
     gen_one = sum(1 for k in in_gen if k == 1)
     gen_none = len(in_gen) - gen_any
@@ -268,4 +282,4 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
         flat=flat, eligible=eligible, test_recs=test_recs, rare=rare,
         n_rare_test=n_rare_test, ops=ops, best=best, gn=gn, fam_n=fam_n, gg1=gg1,
         fam_names=fam_names, gen_any=gen_any, gen_one=gen_one, gen_none=gen_none,
-        cf=load_confirmatory(), checks=None)
+        n_cand=N_CANDIDATES, cf=load_confirmatory(), checks=None)

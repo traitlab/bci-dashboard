@@ -156,7 +156,7 @@ def test_weighting_panel_raises_zero_division_when_no_species_is_well_sampled(ex
 # --- method_panel --------------------------------------------------------------
 
 def test_method_panel_returns_a_balanced_string_with_the_given_numbers(explain):
-    out = explain.method_panel(tag="run-1", n=100, n_sp=12, checks=["check a"])
+    out = explain.method_panel(tag="run-1", n=100, n_sp=12, n_cand=5, checks=["check a"])
     assert isinstance(out, str)
     assert _balanced(out)
     assert "100" in out
@@ -164,18 +164,18 @@ def test_method_panel_returns_a_balanced_string_with_the_given_numbers(explain):
 
 
 def test_method_panel_renders_every_check_as_its_own_li(explain):
-    out = explain.method_panel(tag="run-1", n=1, n_sp=1, checks=["first check", "second check"])
+    out = explain.method_panel(tag="run-1", n=1, n_sp=1, n_cand=5, checks=["first check", "second check"])
     assert "<li>first check</li>" in out
     assert "<li>second check</li>" in out
 
 
 def test_method_panel_escapes_a_check_containing_html(explain):
-    out = explain.method_panel(tag="run-1", n=1, n_sp=1, checks=[INJECT])
+    out = explain.method_panel(tag="run-1", n=1, n_sp=1, n_cand=5, checks=[INJECT])
     assert "<script>&" not in out
     assert "&lt;script&gt;" in out
 
 
 def test_method_panel_escapes_the_model_tag(explain):
-    out = explain.method_panel(tag=INJECT, n=1, n_sp=1, checks=[])
+    out = explain.method_panel(tag=INJECT, n=1, n_sp=1, n_cand=5, checks=[])
     assert "<script>&" not in out
     assert "&lt;script&gt;" in out

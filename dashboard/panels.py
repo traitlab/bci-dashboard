@@ -74,10 +74,10 @@ HEADLINES = [
      "each of the {n_sp} species counts once, however few frames it has"),
     ("micro_top1", "First guess is right", "per frame",
      "one vote per labelled frame, so common species dominate"),
-    ("macro_top5", "Right name is among the 5 requested", "per species",
-     "the ceiling reranking can reach at nb-results=5, not the model's ceiling"),
-    ("micro_top5", "Right name is among the 5 requested", "per frame",
-     "we only ever asked Pl@ntNet for 5 names"),
+    ("macro_top5", "Right name is among the {k} requested", "per species",
+     "the ceiling reranking can reach at nb-results={k}, not the model's ceiling"),
+    ("micro_top5", "Right name is among the {k} requested", "per frame",
+     "we only ever asked Pl@ntNet for {k} names"),
 ]
 
 # Sits directly under the grid. Without it the two columns read as a
@@ -96,21 +96,28 @@ CROP_SHARE = f"{100 * CROP_SIZE ** 2 / (FRAME_W * FRAME_H):.1f}%"
 # What a reader has to know before any number on the page means anything. The
 # crown sentence is here rather than beside the headline because the headline is
 # the first thing on the page and a term defined under it is defined too late.
-HERO_TERMS = (
-    f"A <b>frame</b> is one {FRAME_W}&times;{FRAME_H} drone photo. A <b>crown</b> is one tree "
-    "canopy a botanist outlined inside a frame. A frame's <b>label</b> is the species whose "
-    "outlined crowns cover the most area in the <i>whole</i> frame. "
-    f"The <b>centre crop</b> is the fixed {CROP_SIZE}&times;{CROP_SIZE} square from the middle "
-    f"of a frame, {CROP_SHARE} of it. That square is what most of this page sends to "
-    "Pl@ntNet. "
-    "We ask Pl@ntNet for 5 names per photo (<code>nb-results=5</code>). That is our request "
-    "setting, not a limit of the model. The <b>first guess</b> is the top-ranked of the "
-    "five, and <b>right</b> means it matches the frame's label. "
-    "<b>Outlining the trees first</b> means something else. We ask Pl@ntNet about each "
-    "crown on its own. Then we combine the answers into one name for the frame, weighted "
-    "by how much of the frame each crown covers. That is the same rule the label itself is "
-    "built from, which is why it is the fairer of the two numbers at the top."
-)
+def hero_terms(k):
+    """The four words, and the request setting, in the wording the page uses.
+
+    A function rather than a constant because the number of names we ask for is a
+    setting, and a setting written into a constant is a sentence that stops being
+    true without anything noticing.
+    """
+    return (
+        f"A <b>frame</b> is one {FRAME_W}&times;{FRAME_H} drone photo. A <b>crown</b> is one tree "
+        "canopy a botanist outlined inside a frame. A frame's <b>label</b> is the species whose "
+        "outlined crowns cover the most area in the <i>whole</i> frame. "
+        f"The <b>centre crop</b> is the fixed {CROP_SIZE}&times;{CROP_SIZE} square from the middle "
+        f"of a frame, {CROP_SHARE} of it. That square is what most of this page sends to "
+        "Pl@ntNet. "
+        f"We ask Pl@ntNet for {k} names per photo (<code>nb-results={k}</code>). That is our "
+        "request setting, not a limit of the model. The <b>first guess</b> is the top-ranked "
+        "of those names, and <b>right</b> means it matches the frame's label. "
+        "<b>Outlining the trees first</b> means something else. We ask Pl@ntNet about each "
+        "crown on its own. Then we combine the answers into one name for the frame, weighted "
+        "by how much of the frame each crown covers. That is the same rule the label itself is "
+        "built from, which is why it is the fairer of the two numbers at the top."
+    )
 
 # The two regions above are not the same region, and the numbers below compare
 # across them. Stated here rather than in a footnote because every figure on
@@ -680,7 +687,7 @@ def p_terms(c):
         "<b>Open this first if any of those four words is new.</b> Which part of a "
         "photo was scored, and against which label, is the whole of the difference "
         "between the two numbers above.",
-        f'<p>{HERO_TERMS}</p>')
+        f'<p>{hero_terms(c.n_cand)}</p>')
 
 
 def p_candidates(c):
@@ -692,7 +699,8 @@ def p_weighting(c):
     # the page into the one panel that explains them. The grid reuses the headline
     # card markup, so a reader meets the same shape twice and no new CSS exists.
     corpus = (
-        hero([(averaged, pctf(c.now[metric]), question, note.format(n_sp=c.n_sp))
+        hero([(averaged, pctf(c.now[metric]), question.format(k=c.n_cand),
+               note.format(n_sp=c.n_sp, k=c.n_cand))
               for metric, question, averaged, note in HEADLINES])
         + f'<p class="caveat">{hero_region(c)}</p>'
         + f'<p class="note">{HERO_READING}</p>'
@@ -714,7 +722,7 @@ def p_method(c):
         raise SystemExit("the method panel reports the build's own verification lines, so "
                          "the page must run verify_snapshot and set ctx.checks before "
                          "rendering it.")
-    return method_panel(tag=c.tag, n=c.n, n_sp=c.n_sp, checks=c.checks)
+    return method_panel(tag=c.tag, n=c.n, n_sp=c.n_sp, n_cand=c.n_cand, checks=c.checks)
 
 
 # ---------------------------------------------------------------------------

@@ -189,17 +189,18 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
         anchor="why-the-two-headline-scores-differ")
 
 
-def method_panel(*, tag, n, n_sp, checks):
+def method_panel(*, tag, n, n_sp, n_cand, checks):
     """Model, request settings, evaluated set, and the untestable assumption."""
     body = ('<ul class="prov">'
             f'<li>Predictions: <code>identify/k-central-america</code>, model run '
             f'<code>{esc(tag)}</code>. The Central America regional model, not the '
             f'worldwide one, so a regional restriction is already in place.</li>'
-            f'<li>Request settings: <code>nb-results=5</code>, sent explicitly on every '
+            f'<li>Request settings: <code>nb-results={n_cand}</code>, sent explicitly on every '
             f'request from <code>config.yaml</code> <code>identify_nb_results</code> and not '
             f'an API default, plus <code>no-reject=true</code>, organs detected '
             f'automatically, and <code>include-related-images=false</code>, on a '
-            f'1280&nbsp;px centre crop of each frame photo. A correct answer at position 6 '
+            f'1280&nbsp;px centre crop of each frame photo. A correct answer at position '
+            f'{n_cand + 1} '
             f'or beyond was never returned and cannot be seen here.</li>'
             f'<li>Evaluated set: {n:,} frames across {n_sp} species carrying a botanist '
             f'label that names a species rather than only a genus. They are the historical '
