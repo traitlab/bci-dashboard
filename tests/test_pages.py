@@ -32,17 +32,19 @@ from __future__ import annotations
 
 import pathlib
 import re
-import subprocess
-import sys
 
 import pytest
+from conftest import (
+    CACHE_DIR,
+    GT_CSV,
+    PAGES,
+    SNAPSHOT_DIR,
+    SPLITS_CSV,
+    build_page,
+    require_buildable,
+)
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-DASHBOARD = REPO / "dashboard"
-SNAPSHOT_DIR = REPO / "snapshots" / "model-health-2026-08-24"
-GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
-SPLITS_CSV = REPO / "data" / "splits.csv"
-CACHE_DIR = REPO / "data" / "predictions" / "cache"
 
 # Same convention as core.GT_KEY_PREFIX / gt_from_export.GT_KEY_PREFIX: a GT or
 # splits global_key is "comb_<stem>.JPG", a cache file is "<stem>.JPG.json".
@@ -52,44 +54,7 @@ GT_KEY_PREFIX = "comb_"
 # the id-presence check below has to know which one it is.
 STATUS_SELECT_ID = "status-filter"
 
-# A fixed generation string, like the worktree byte-diff checks use: real
-# dates would make two builds of the same code differ for no reason a test
-# should care about.
-_GENERATED = "2026-08-25-test"
 
-# What each page is expected to carry, so a test states its expectation once
-# and every page is checked against the same list. `species` is the sortable,
-# filterable species table with its status legend, which is also what the
-# inline JS binds to. The send queue splits in two: `queue_counts` is the
-# how-many-per-queue breakdown and `queue_keys` is the frame-by-frame
-# send-first list with the camera note beside it. `snapshot` marks a page that
-# reconciles against `snapshots/model-health-2026-08-24` at build time and so
-# must print a `verified` line for every check it ran; the export page has no
-# such snapshot -- it is scoped to one Labelbox export -- so it carries none.
-#
-# `species_status` is narrower than `species`: it is the per-row
-# `data-species`/`data-status` attributes plus the status legend that
-# `panels.p_species` renders. `build_export_only.py` builds its own species
-# table straight off `assets.filterable_table` instead of going through
-# `panels.p_species`, and passes it no `row_attrs` -- so its page carries a
-# species table and filter box (`species`) but no row ever carries a status,
-# and no legend is rendered. That is a real gap in `build_export_only.py`
-# (the status dropdown and per-row status tag), left as found; the flag
-# records what is actually on the page rather than hiding the gap behind a
-# weaker shared assertion.
-#
-# Each flag now names exactly one page, so a flag no longer distinguishes
-# between pages the way it did while a third page carried `species` and
-# `queue_counts` together. The flags stay because they say what a page is
-# expected to carry, which is the claim the assertions need.
-PAGES = {
-    "external_page": ("build_external.py", "model_health_dashboard.html",
-                      {"species", "species_status", "confirmatory", "snapshot"}),
-    "internal_page": ("build_internal.py", "label_queue_dashboard.html",
-                      {"queue_counts", "queue_keys", "snapshot"}),
-    "export_only_page": ("build_export_only.py", "export_only_dashboard.html",
-                         {"species"}),
-}
 
 _GETELEMENTBYID = re.compile(r"getElementById\(\s*['\"]([^'\"]+)['\"]\s*\)")
 _ID_ATTR = re.compile(r"""\bid=['"]([^'"]+)['"]""")
@@ -99,51 +64,8 @@ _TAG_LABEL = re.compile(r'<span class="tag [^"]*"[^>]*>([^<]*)</span>')
 _ROW = re.compile(r"<tr data-species=.*?</tr>", re.S)
 
 
-def _require_buildable():
-    """Skip on a fresh clone: the builders need measurement inputs and a
-    snapshot to verify against, neither of which is tracked in git."""
-    for path, label in ((GT_CSV, "data/gt_dominant_taxon.csv"),
-                        (SPLITS_CSV, "data/splits.csv"),
-                        (CACHE_DIR, "data/predictions/cache")):
-        if not path.exists():
-            pytest.skip(f"{label} not present (fresh clone)")
-    if not SNAPSHOT_DIR.exists():
-        pytest.skip("snapshots/model-health-2026-08-24 not present (fresh clone)")
 
 
-def _build(tmp_path_factory, script: str, out_name: str, *,
-           export: str | None = None) -> tuple[str, str]:
-    """Run a builder as a real subprocess, the way `bin/refresh.sh` does.
-
-    Returns (page_html, stdout). Raises via `assert` on a non-zero exit so
-    the failure message carries the process's own stderr (a `VERIFY FAIL:
-    ...` line from `history.verify_snapshot`, or a traceback).
-
-    `build_export_only.py` takes `--export` and no `--verify-against` -- it
-    has no snapshot to reconcile against -- so `export` switches which flags
-    get built rather than duplicating the subprocess call for one page.
-    """
-    out = tmp_path_factory.mktemp("page") / out_name
-    args = [sys.executable, str(DASHBOARD / script), "--out", str(out),
-            "--generated", _GENERATED]
-    args += ["--export", export] if export is not None else (
-        ["--verify-against", str(SNAPSHOT_DIR)])
-    proc = subprocess.run(args, capture_output=True, text=True, cwd=REPO)
-    assert proc.returncode == 0, (
-        f"{script} exited {proc.returncode}\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}")
-    return out.read_text(encoding="utf-8"), proc.stdout
-
-
-@pytest.fixture(scope="session")
-def external_page(tmp_path_factory):
-    _require_buildable()
-    return _build(tmp_path_factory, *PAGES["external_page"][:2])
-
-
-@pytest.fixture(scope="session")
-def internal_page(tmp_path_factory):
-    _require_buildable()
-    return _build(tmp_path_factory, *PAGES["internal_page"][:2])
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +131,7 @@ def export_fixture(tmp_path_factory):
     """A deterministic slice of 48 real, cache-backed keys and the NDJSON
     file built from them, shared by every test below that needs a scored
     export page."""
-    _require_buildable()
+    require_buildable()
     with_cache, _, gt = _corpus_keys_with_species_gt()
     keys = with_cache[:48]
     path = tmp_path_factory.mktemp("export") / "export.ndjson"
@@ -234,9 +156,9 @@ def test_the_generated_export_is_in_the_shape_export_dominants_parses(export_fix
 
 @pytest.fixture(scope="session")
 def export_only_page(tmp_path_factory, export_fixture):
-    _require_buildable()
+    require_buildable()
     path, _, _ = export_fixture
-    return _build(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
+    return build_page(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
 
 
 def test_build_renders_the_no_score_note_when_nothing_joins(tmp_path_factory):
@@ -244,13 +166,13 @@ def test_build_renders_the_no_score_note_when_nothing_joins(tmp_path_factory):
     has no cached Pl@ntNet prediction, so nothing can be scored. Real keys
     again -- the corpus's own GT rows with no file under
     data/predictions/cache -- not a fabricated gap."""
-    _require_buildable()
+    require_buildable()
     _, without_cache, gt = _corpus_keys_with_species_gt()
     assert without_cache, (
         "no GT key on this machine lacks a cached prediction -- nothing to build this from")
     path = tmp_path_factory.mktemp("export_nocache") / "export.ndjson"
     _write_export_ndjson(path, without_cache, gt)
-    html, _ = _build(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
+    html, _ = build_page(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
     assert ("No crown in this export both carries a species label and has a "
             "cached Pl@ntNet prediction") in html
     assert not re.search(r"\d+\.\d%", html), "an accuracy percentage was printed anyway"

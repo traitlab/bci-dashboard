@@ -119,9 +119,9 @@ HERO_TERMS = (
     "We ask Pl@ntNet for 5 names per photo (<code>nb-results=5</code>). That is our request "
     "setting, not a limit of the model. The <b>first guess</b> is the top-ranked of the "
     "five, and <b>right</b> means it matches the frame's label. "
-    "<b>Outlining the trees first</b> means something else: we ask Pl@ntNet about each "
-    "crown on its own, then combine the answers into one name for the frame, weighted by "
-    "how much of the frame each crown covers. That is the same rule the label itself is "
+    "<b>Outlining the trees first</b> means something else. We ask Pl@ntNet about each "
+    "crown on its own. Then we combine the answers into one name for the frame, weighted "
+    "by how much of the frame each crown covers. That is the same rule the label itself is "
     "built from, which is why it is the fairer of the two numbers at the top."
 )
 
@@ -438,7 +438,7 @@ def p_todo(c):
     # The page-level orientation moved down here off the head: this is the open panel,
     # so it is the first thing a reader lands in either way.
     body = ['<p class="note">Every unlabelled photo already has a Pl@ntNet guess, and every '
-            'species already has a measured record, so the two together put the pool in an '
+            'species already has a measured record. Together those two put the pool in an '
             'order: the frames that buy the most per label first.</p>',
             '<ul class="todo">']
     body += [f'<li><span class="n">{c.counts[k]}</span> species '
@@ -478,7 +478,7 @@ def p_send(c):
                        f"{c.support.get(pred, 0):,}"]
                       for i, (_, stem, pred, cf) in enumerate(head, 1)]))
     top_lt = sorted(c.lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
-    body += (f'<p class="note">Most-named species in the first queue: '
+    body += (f'<p class="note"><b>Most-named species in the first queue.</b> '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
              + '.</p>'
              f'<p class="note">Every frame, in order, is in <code>send_first_queue.csv</code> '
@@ -573,8 +573,8 @@ def p_wait(c):
             f'that is {best["n"]:,} of {len(c.test_recs):,} ({pctf(best["share"])}), and the '
             f'first guess is wrong on {pctf(best["err"])} of them.</div>'
             '<p class="note"><strong>Nothing here is a label.</strong> A frame that can wait '
-            'keeps whatever ground truth it already has, or none at all. No prediction is '
-            'ever written into ground truth by this rule. It only pushes frames down the '
+            'keeps whatever label it already has, or none at all. No guess is ever written '
+            'in as a label by this rule. It only pushes frames down the '
             "botanist's queue.</p>"
             f'<p class="note"><strong>The decision expires with the model.</strong> Pl@ntNet '
             f'ships a new model every few months, on its own schedule rather than ours, and '
@@ -836,12 +836,13 @@ def p_caveats(c):
         f'{int(cf["crown_only_hits"])} frames outlining got the name right where the centre '
         f'crop got it wrong; on {int(cf["photo_only_hits"])} it went the other way. A gap '
         f'that lopsided almost never happens by chance, so we are confident it is real.</p>'
-        f'<p class="note">For the record, the two tests: cluster bootstrap '
-        f'p {pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}, and an exact McNemar '
-        f'test gives p = {cf["p_mcnemar_exact"]:.5f}. McNemar assumes every frame is '
-        f'independent of every other, and frames from one site are not, so the plan named '
-        f'the bootstrap as the answer where the two disagree. The narrower kind of range '
-        f'every other number on this page uses would read '
+        f'<p class="note">For the record, the two tests the plan named. The site-aware '
+        f'resampling test, the one described above, gives '
+        f'p {pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}. An exact McNemar test '
+        f'gives p = {cf["p_mcnemar_exact"]:.5f}. McNemar assumes every frame is independent '
+        f'of every other, and frames from one site are not, so the plan named the resampling '
+        f'test as the answer where the two disagree. The narrower kind of range every other '
+        f'number on this page uses would read '
         f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])} here, '
         f'which is surer than the data supports.</p>'
         f'<div class="warn"><p><strong>The top number was not produced blind.</strong> '
