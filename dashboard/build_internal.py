@@ -30,6 +30,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc  # noqa: E402
+import figures  # noqa: E402
 import panels as pn  # noqa: E402
 from assets import esc, hero, info_tip  # noqa: E402
 from history import latest_snapshot_dir, verify_snapshot  # noqa: E402
@@ -39,7 +40,7 @@ TITLE = "BCI labelling: what to label next"
 
 
 def build(h, *, generated, verify_dir, fallback_tag):
-    c = pn.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
+    c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
 
     # The send queue is this page's whole subject, so it gates on both queue
     # CSVs. The review queue belongs to the external page and is checked there.

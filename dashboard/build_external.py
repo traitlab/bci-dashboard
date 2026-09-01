@@ -28,6 +28,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc  # noqa: E402
+import figures  # noqa: E402
 import panels as pn  # noqa: E402
 from assets import esc, info_tip  # noqa: E402
 from history import latest_snapshot_dir, verify_snapshot  # noqa: E402
@@ -37,7 +38,7 @@ TITLE = "How well does Pl@ntNet name BCI trees?"
 
 
 def build(h, *, generated, verify_dir, fallback_tag):
-    c = pn.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
+    c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
 
     # This page reports no send queue, so it does not gate on one. It still
     # gates on every CSV behind a number it does print, including the review
