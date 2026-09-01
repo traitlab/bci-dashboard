@@ -427,36 +427,20 @@ class Health:
     gt_rows: list
     split_rows: list
     split_of: dict
-    cache_files: list
     predictions: dict
-    status_count: Counter
-    length_hist: Counter
-    corpus_vocab: Counter
     maxk: int
-    n_entries: int
-    n_cov_ne_score: int
-    n_unsorted: int
     joined: list
     missing_cache: list
     crosswalk: dict
-    wcvp_raw: dict
     corpus_norm: set
-    corpus_genera: set
-    corpus_raw: set
     corpus_canon: set
     gt_names: Counter
     tier_of_name: dict
-    tier_names: Counter
     tier_crowns: Counter
-    applied_synonyms: list
-    absent_names: list
-    genus_only_gt: list
-    genus_in_corpus_only: list
     records: list
     sp_recs: list
     genus_recs: list
     per_species: list
-    by_sp: dict
     canon: Callable[[str], str]
     crop_frames: dict
     crop_suspect: list
@@ -601,14 +585,13 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
 
     gt_names = Counter(r["wcvp_canonical_name"] for r in gt_rows)
     tier_of_name, tier_names, tier_crowns = {}, Counter(), Counter()
-    applied_synonyms, absent_names, genus_only_gt, genus_in_corpus_only = [], [], [], []
+    applied_synonyms, absent_names, genus_in_corpus_only = [], [], []
 
     for name, cnt in gt_names.items():
         nn = normalize(name)
         mapped = crosswalk.get(nn)
         if not is_species_level(nn):
             t = "c_gt_label_is_genus_only"
-            genus_only_gt.append((name, cnt))
         elif name in corpus_raw:
             t = "a_exact_binomial"
         elif nn in corpus_norm:
@@ -759,19 +742,12 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     per_species.sort(key=lambda d: (-d["n_labelled_crowns"], d["species"]))
 
     return Health(
-        gt_rows=gt_rows, split_rows=split_rows, split_of=split_of,
-        cache_files=cache_files, predictions=predictions, status_count=status_count,
-        length_hist=length_hist, corpus_vocab=corpus_vocab, maxk=maxk,
-        n_entries=n_entries, n_cov_ne_score=n_cov_ne_score, n_unsorted=n_unsorted,
-        joined=joined, missing_cache=missing_cache, crosswalk=crosswalk,
-        wcvp_raw=wcvp_raw, corpus_norm=corpus_norm, corpus_genera=corpus_genera,
-        corpus_raw=corpus_raw, corpus_canon=corpus_canon, gt_names=gt_names,
-        tier_of_name=tier_of_name, tier_names=tier_names, tier_crowns=tier_crowns,
-        applied_synonyms=applied_synonyms, absent_names=absent_names,
-        genus_only_gt=genus_only_gt, genus_in_corpus_only=genus_in_corpus_only,
-        records=records, sp_recs=sp_recs, genus_recs=genus_recs,
-        per_species=per_species, by_sp=by_sp, canon=canon,
-        crop_frames=crop_frames, crop_suspect=crop_suspect,
-        crop_min_coverage=min_coverage, n_crop_joined=n_crop_joined,
-        crop_admitted=crop_admitted, crop_rejected=crop_rejected,
+        gt_rows=gt_rows, split_rows=split_rows, split_of=split_of, predictions=predictions,
+        maxk=maxk, joined=joined, missing_cache=missing_cache, crosswalk=crosswalk,
+        corpus_norm=corpus_norm, corpus_canon=corpus_canon, gt_names=gt_names,
+        tier_of_name=tier_of_name, tier_crowns=tier_crowns, records=records,
+        sp_recs=sp_recs, genus_recs=genus_recs, per_species=per_species, canon=canon,
+        crop_frames=crop_frames, crop_suspect=crop_suspect, crop_min_coverage=min_coverage,
+        n_crop_joined=n_crop_joined, crop_admitted=crop_admitted,
+        crop_rejected=crop_rejected,
     )
