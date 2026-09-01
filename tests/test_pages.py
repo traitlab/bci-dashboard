@@ -432,8 +432,8 @@ def test_the_camera_note_counts_the_frames_it_describes(internal_page):
     naming a camera the build aborts, so this checks the number that survived
     is the number of keys actually rendered as tele."""
     html, _ = internal_page
-    m = re.search(r"(\d[\d,]*) of the ([\d,]*) photos in this queue \(([\d.]+)%\) are tele",
-                  html)
+    m = re.search(r"Tele frames are (\d[\d,]*) of the ([\d,]*) photos in this queue "
+                  r"\(([\d.]+)%\)", html)
     assert m, "the camera note is not on the page"
     tele = int(m.group(1).replace(",", ""))
     pool = int(m.group(2).replace(",", ""))
@@ -443,7 +443,7 @@ def test_the_camera_note_counts_the_frames_it_describes(internal_page):
     # The note says the scored population is all zoom. If a tele key ever reaches
     # the scored table the sentence beside it becomes false, so check the claim
     # rather than only the arithmetic.
-    assert "Every frame scored on this page was shot with the zoom lens" in html
+    assert "The long-lens camera (called <i>tele</i>) took none of them" in html
 
 
 def test_only_the_internal_page_renders_the_queue(page):

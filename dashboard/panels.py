@@ -108,7 +108,8 @@ def hero_terms(k):
         "canopy a botanist outlined inside a frame. A frame's <b>label</b> is the species whose "
         "outlined crowns cover the most area in the <i>whole</i> frame. "
         f"The <b>centre crop</b> is the fixed {CROP_SIZE}&times;{CROP_SIZE} square from the middle "
-        f"of a frame, {CROP_SHARE} of it. That square is what most of this page sends to "
+        f"of a frame, which is {CROP_SHARE} of the frame&rsquo;s area. That square is what "
+        "most of this page sends to "
         "Pl@ntNet. "
         f"We ask Pl@ntNet for {k} names per photo (<code>nb-results={k}</code>). That is our "
         "request setting, not a limit of the model. The <b>first guess</b> is the top-ranked "
@@ -275,24 +276,33 @@ def p_send(c):
              f'There '
              f'is no reliable automatic rule for junk, so check that handful by eye before '
              f'queueing them rather than filtering on it.</p>'
-             f'<p class="note"><b>Every frame scored on this page was shot with the zoom '
-             f'lens</b> ({c.scored_cams["zoom"]:,} of {sum(c.scored_cams.values()):,}). '
-             f'But {c.queue_cams["tele"]:,} of the {sum(c.queue_cams.values()):,} photos in '
-             f'this queue ({pctf(c.queue_cams["tele"] / sum(c.queue_cams.values()))}) are '
-             f'tele. No '
-             f'accuracy on this page has been measured on a tele frame, because no tele '
-             f'frame has a botanist label yet. So how well the model reads that lens is '
-             f'not known from here. Sending them is how it becomes known.</p>'
+             f'<p class="note"><b>The drone carries two cameras, and every frame scored '
+             f'on this page came from one of them.</b> The wide-angle camera (called '
+             f'<i>zoom</i> in the file names) took {c.scored_cams["zoom"]:,} of the '
+             f'{sum(c.scored_cams.values()):,} scored frames. The long-lens camera '
+             f'(called <i>tele</i>) took none of them, because no tele frame has a '
+             f'botanist label yet. Tele frames are '
+             f'{c.queue_cams["tele"]:,} of the {sum(c.queue_cams.values()):,} photos in '
+             f'this queue ({pctf(c.queue_cams["tele"] / sum(c.queue_cams.values()))}). '
+             f'How well the model reads that camera is not known from here. Sending them '
+             f'is how it becomes known.</p>'
              f'<p class="note">The pool is {c.n_unlab:,} of {len(c.h.split_rows):,} photos: '
              f'the frames with a cached Pl@ntNet answer and no botanist label. The species '
              f'record behind each queue is the one measured above, so a model update '
              f're-sorts this queue exactly as it re-sorts the can-wait one.</p>')
-    return panel(f"What to send to the botanist first: "
-                 f"{c.queue_counts.get('long_tail', 0):,} "
-                 f"of {c.n_unlab:,} unlabelled photos point at species we barely have",
-                 "<b>Work the queues top to bottom.</b> The first two buy the most per label. "
-                 "The long tail is where a species has almost nothing to be scored on. "
-                 "Then come the photos where a usually-right species is guessed weakly.",
+    # The same two queues the hero counts, added the same way. When the heading
+    # named only the first queue, the hero's larger number and this smaller one
+    # looked like two answers to the same question.
+    send_now = (c.queue_counts.get("long_tail", 0)
+                + c.queue_counts.get("low_conf_known", 0))
+    return panel(f"What to send to the botanist first: {send_now:,} "
+                 f"of {c.n_unlab:,} unlabelled photos",
+                 f"<b>Work the queues top to bottom.</b> Two queues make up that "
+                 f"{send_now:,}. First come {c.queue_counts.get('long_tail', 0):,} photos "
+                 f"pointing at a species we barely have. Then "
+                 f"{c.queue_counts.get('low_conf_known', 0):,} showing a usually-right "
+                 f"species the model is unsure of here. Both buy more per label than "
+                 f"anything below them.",
                  # Open with the overview above it. This page is opened to answer
                  # "what do I label next", and the answer is the queue table, not
                  # a summary of the queue table. A reader who has to click to
@@ -377,7 +387,10 @@ def p_wait(c):
             f're-sorts. Any frame can come back to the top.</p>'
             f'<p class="note">{len(c.eligible)} species have at least '
             f'{WAIT_SUPPORT_MIN} labelled frames, which is the second half of the rule. That '
-            f'count uses only the frames a rule is allowed to learn from. The error rate '
+            f'count uses only the frames a rule is allowed to learn from. So it is smaller '
+            f'than the number of species with {WAIT_SUPPORT_MIN} labels in total. Do not '
+            f'read it against the rarely-labelled count elsewhere on this page, which '
+            f'counts every label. The error rate '
             f'above is measured on the {len(c.test_recs):,} frames held back from that. So '
             f'no rule is graded on the frames that chose it.</p>')
     return panel(f"Which frames can wait: {best['n']:,} of {len(c.test_recs):,} held-out frames, "

@@ -189,9 +189,15 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           f'Count students and the big classes decide; score each class once and a class of one '
           f'counts as much as <em>{esc(cap(big["species"]))}</em>\'s '
           f'{big["n_labelled_crowns"]:,}.</p>'
-          f'<p class="note">The {singles} single-frame species fill '
-          f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the top bar and '
-          f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the bottom. The key says why. '
+          # Name the bars by their own labels, not by position: the second share is
+          # a sliver too thin to carry a printed label, so "2% of the bottom" sent a
+          # reader looking for a 2% they could not find.
+          f'<p class="note">The {singles} single-frame species are '
+          f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the votes in the '
+          f'one-vote-per-species bar. They are only '
+          f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the votes in the '
+          f'one-vote-per-frame bar, a slice too thin to be labelled there. '
+          f'The key says why. '
           f'Pl@ntNet is right {pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} of the '
           f'time on species we labelled once, against '
           f'{pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at {BAND_WORD[fat]}. Rare in '
@@ -202,8 +208,9 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           f'species are near '
           f'misses settled from the short list; on rare ones the model does not know the '
           f'plant.</p>'
-          f'<p class="note"><b>Set aside species under {hc.WELL_SAMPLED_MIN_N} frames and the '
-          f'scores become {pctf(well_micro)} and {pctf(well_macro)}</b>, '
+          f'<p class="note"><b>Set aside species under {hc.WELL_SAMPLED_MIN_N} frames and '
+          f'the scores become {pctf(well_micro)} per frame and {pctf(well_macro)} per '
+          f'species</b>, '
           f'{100 * (well_micro - well_macro):.0f} points apart instead of {gap:.0f}. A '
           f'one-frame species scores only 0% or 100%, so those {singles} votes are coin '
           f'flips.</p>',

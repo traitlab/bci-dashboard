@@ -119,9 +119,12 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
             fail(f"no line for {what} in {path}")
         if int(m.group(1)) != here:
             fail(f"{what}: {here} here vs {m.group(1)} in {path}")
-    checks.append(f"run_log.txt: the {never_all:,}-frame ceiling, the {unscoreable:,} frames that "
-                  f"cannot be scored, and the {strict_hits:,} right without name "
-                  f"reconciliation, all match")
+    # Named the way the headline names them. The page calls these frames "counted
+    # wrong however the score is cut"; calling the same 82 frames "cannot be scored"
+    # here read as a second, different group.
+    checks.append(f"run_log.txt: the {never_all:,}-frame ceiling, the {unscoreable:,} frames "
+                  f"whose species the model never names, and the {strict_hits:,} right "
+                  f"without name reconciliation, all match")
 
     if n_no_answer is not None:
         m = re.search(r"unlabelled (?:crowns|frames) with NO answer\s*:\s*(\d+)", log)
