@@ -391,7 +391,7 @@ def p_rules(c):
     body = table([("how sure the model has to be", False), ("frames that can wait", True),
                   ("share of the queue", True), ("of those, first guess wrong", True),
                   ("rarely-labelled frames it pushed down", True),
-                  ("rarely-labelled share of the frames left at the top", True)],
+                  ("of what is left at the top, share rarely labelled", True)],
                  [[f'<strong>{o["label"]}</strong>' if o is c.best else o["label"],
                    f'{o["n"]:,}', pctf(o["share"]), pctf(o["err"]), f'{o["rare"]}',
                    pctf(o["rare_rest"])] for o in c.ops])
