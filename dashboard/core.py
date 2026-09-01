@@ -21,6 +21,7 @@ import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 # --- INPUT PATHS ---
 # Every path is derived from the checkout, so a clone runs anywhere. Each one
@@ -475,54 +476,20 @@ class Health:
     crop_rejected: list
 
 
-def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
-                wcvp_cache=WCVP_CACHE_JSON, boxes_csv=None,
-                min_coverage=MIN_CROP_COVERAGE,
-                log: Callable[[str], None] | None = None) -> Health:
-    def _log(msg: str = "") -> None:
-        if log is not None:
-            log(msg)
+def scan_cache(cache_dir):
+    """Every cached Pl@ntNet response, read once.
 
-    for p in (gt_csv, splits_csv, cache_dir):
-        if not os.path.exists(p):
-            raise FileNotFoundError(f"MISSING INPUT: {p}")
-        _log(f"  input ok : {p}")
-    _log(f"  wcvp cache: {wcvp_cache if wcvp_cache and os.path.exists(wcvp_cache) else 'ABSENT (tier d disabled)'}")
-    _log("")
-
-    # ---------------- 1. load GT + splits ----------------
-    gt_rows = read_csv_rows(gt_csv)
-    split_rows = read_csv_rows(splits_csv)
-    split_of = {r["global_key"]: r["split"] for r in split_rows}
-
-    _log("--- INPUTS ---")
-    _log(f"gt_dominant_taxon.csv rows            : {len(gt_rows)}")
-    _log(f"  distinct global_key                 : {len(set(r['global_key'] for r in gt_rows))}")
-    _log(f"  distinct wcvp_canonical_name        : {len(set(r['wcvp_canonical_name'] for r in gt_rows))}")
-    _log(f"splits.csv rows                       : {len(split_rows)}")
-    sc = Counter(r["split"] for r in split_rows)
-    for k in sorted(sc, key=lambda x: (-sc[x], x)):
-        _log(f"  split '{k}'{'':<{max(0, 16 - len(k))}}: {sc[k]}")
-    gt_split = Counter(split_of.get(r["global_key"], "<not in splits>") for r in gt_rows)
-    _log("  split values among GT crowns        : " +
-         ", ".join(f"{k or '<empty>'}={v}" for k, v in sorted(gt_split.items())))
-    _log(f"  GT coverage of the photo corpus     : {len(gt_rows)} / {len(split_rows)} "
-         f"= {pct(len(gt_rows), len(split_rows))} of photos carry a GT label.")
-    _log("  That labelled subset is the historical botanist labelling record, not a")
-    _log("  random draw, so per-species rates transfer to the unlabelled remainder only")
-    _log("  under an assumption that cannot be tested offline.")
-    _log("  NOTE: all evaluation below pools train+valid+test. The cached predictions")
-    _log("  come from a frozen third-party API that never saw these splits, so there is")
-    _log("  no train/test leakage to control for; splits are reported for traceability only.")
-    _log("")
-
-    # ---------------- 2. scan cache ----------------
-    cache_files = sorted(f for f in os.listdir(cache_dir) if f.endswith(".json"))
+    Returns the ranked list per photo stem, plus the counts the run log
+    reports about them: how each file parsed, the histogram of list lengths,
+    and the two invariants that say the lists are what the pages assume --
+    both score fields carry the same number, and every list is descending.
+    """
+    files = sorted(f for f in os.listdir(cache_dir) if f.endswith(".json"))
     predictions, status_count, length_hist = {}, Counter(), Counter()
     corpus_vocab = Counter()
     n_entries = n_cov_ne_score = n_unsorted = 0
 
-    for fn in cache_files:
+    for fn in files:
         sp, status = load_cache_entry(os.path.join(cache_dir, fn))
         status_count[status] += 1
         ranked = []
@@ -543,6 +510,15 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
         for b, _ in ranked:
             corpus_vocab[normalize(b)] += 1
 
+    return SimpleNamespace(
+        files=files, predictions=predictions, status_count=status_count,
+        length_hist=length_hist, corpus_vocab=corpus_vocab, n_entries=n_entries,
+        n_cov_ne_score=n_cov_ne_score, n_unsorted=n_unsorted, maxk=max(length_hist))
+
+
+def _log_cache(_log, s):
+    """The two run-log blocks about the cache: where it came from, and what
+    parsing it found. Text only -- every number is already in ``s``."""
     _log("--- CACHED PREDICTIONS: PROVENANCE ---")
     _log("  Read from predict/ingest_photos.py + config.yaml")
     _log("  + bin/sbatch_ingest.sh (the run that filled this cache):")
@@ -560,49 +536,36 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     _log("    short from the API itself.")
     _log("")
     _log("--- CACHED PREDICTIONS: PARSE ---")
-    _log(f"cache .json files                     : {len(cache_files)}")
+    _log(f"cache .json files                     : {len(s.files)}")
     for k in ("ok", "salvaged", "unreadable"):
-        _log(f"  parsed {k:<30}: {status_count.get(k, 0)}")
+        _log(f"  parsed {k:<30}: {s.status_count.get(k, 0)}")
     _log("  ('salvaged' = payload truncated inside per_tiles_embeddings; the ranked")
     _log("   species array precedes it and was recovered by bracket-matching.)")
     _log("  prediction-list length histogram    : " +
-         ", ".join(f"len={k}:{v}" for k, v in sorted(length_hist.items())))
-    maxk = max(length_hist)
-    _log(f"  MAX list length observed            : {maxk}")
+         ", ".join(f"len={k}:{v}" for k, v in sorted(s.length_hist.items())))
+    _log(f"  MAX list length observed            : {s.maxk}")
     _log("  => 'top-5' IS the full returned list. The cap is the client-side request")
     _log("     parameter nb-results=5 (config.yaml plantnet.identify_nb_results), not a")
     _log("     model limit: a re-ingest with a larger nb-results would return more. No")
     _log("     deeper candidate exists in this cache and none can be recovered offline.")
-    _log(f"  total candidate entries             : {n_entries}")
-    _log(f"  entries where coverage != max_score : {n_cov_ne_score}  "
+    _log(f"  total candidate entries             : {s.n_entries}")
+    _log(f"  entries where coverage != max_score : {s.n_cov_ne_score}  "
          f"(0 confirms both fields hold the same identify score)")
-    _log(f"  entries breaking descending order   : {n_unsorted}  "
+    _log(f"  entries breaking descending order   : {s.n_unsorted}  "
          f"(0 confirms the list is ranked; index 0 is top-1)")
-    _log(f"  distinct predicted binomials        : {len(corpus_vocab)}")
+    _log(f"  distinct predicted binomials        : {len(s.corpus_vocab)}")
     _log("")
 
-    # ---------------- 3. join ----------------
-    joined, missing_cache = [], []
-    for r in gt_rows:
-        gk = r["global_key"]
-        stem = gk.removeprefix(GT_KEY_PREFIX)
-        if stem in predictions:
-            joined.append((gk, stem, r["wcvp_canonical_name"]))
-        else:
-            missing_cache.append(gk)
 
-    _log("--- JOIN (global_key -> cache file) ---")
-    _log(f"  convention                          : GT '{GT_KEY_PREFIX}<stem>.JPG'  ->  cache '<stem>.JPG.json'")
-    _log(f"  byte-exact key join                 : 0 / {len(gt_rows)}   (GT keys carry the '{GT_KEY_PREFIX}' prefix; cache names do not)")
-    _log(f"  after stripping '{GT_KEY_PREFIX}'            : {len(joined)} / {len(gt_rows)}   ({pct(len(joined), len(gt_rows))})")
-    _log(f"  GT crowns with no cached response   : {len(missing_cache)}")
-    for gk in sorted(missing_cache):
-        _log(f"      {gk}")
-    _log(f"  joined but empty prediction list    : {sum(1 for _, s, _ in joined if not predictions[s])}")
-    _log("")
+def reconcile_names(gt_rows, predictions, corpus_vocab, crosswalk):
+    """Sort every botanist label into one tier against the names the cache
+    actually returned.
 
-    # ---------------- 4. name reconciliation tiers ----------------
-    crosswalk, wcvp_raw = load_wcvp_crosswalk(wcvp_cache)
+    The tiers say why a label could or could not be matched: byte-exact,
+    matched after normalising, matched through the WCVP synonym crosswalk,
+    genus-only, or absent from every cached list. The last two are the
+    ceiling the pages report -- a label no answer can ever be right about.
+    """
     corpus_norm = set(corpus_vocab)
     corpus_genera = {genus_of(b) for b in corpus_norm if b}
     # raw (un-normalized) predicted binomials, for the byte-exact tier (a)
@@ -634,6 +597,16 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
         tier_names[t] += 1
         tier_crowns[t] += cnt
 
+    return SimpleNamespace(
+        corpus_norm=corpus_norm, corpus_raw=corpus_raw, gt_names=gt_names,
+        tier_of_name=tier_of_name, tier_names=tier_names, tier_crowns=tier_crowns,
+        applied_synonyms=applied_synonyms, absent_names=absent_names,
+        genus_in_corpus_only=genus_in_corpus_only)
+
+
+def _log_reconciliation(_log, n, scan, gt_rows, crosswalk, wcvp_raw):
+    """The run-log block about name matching, including the ceiling line the
+    pages quote. Text only -- every number is already in ``n``."""
     _log("--- NAME RECONCILIATION ---")
     _log("  GT column is called 'wcvp_canonical_name' but IS NOT WCVP-resolved: it is a")
     _log("  string-strip of the Labelbox field label (see labelling/")
@@ -641,24 +614,24 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     _log("  and pre-revision synonyms ('Arrabidaea candicans') survive in it.")
     _log("")
     _log("  'corpus vocabulary' = every distinct binomial appearing anywhere in the")
-    _log(f"  {len(cache_files)} cached top-{maxk} lists ({len(corpus_vocab)} names). It is NOT Pl@ntNet's full")
+    _log(f"  {len(scan.files)} cached top-{scan.maxk} lists ({len(scan.corpus_vocab)} names). It is NOT Pl@ntNet's full")
     _log("  label set: a species the model knows but never ranked top-5 on any BCI photo")
     _log("  is indistinguishable here from a species the model does not know at all.")
     _log("")
     _log(f"  {'tier':<28} {'distinct GT names':>18} {'GT crowns':>10}")
     for t in ("a_exact_binomial", "b_normalized", "d_wcvp_synonym",
               "c_gt_label_is_genus_only", "c_genus_only_in_corpus", "e_absent_from_corpus"):
-        _log(f"  {t:<28} {tier_names.get(t, 0):>18} {tier_crowns.get(t, 0):>10}")
+        _log(f"  {t:<28} {n.tier_names.get(t, 0):>18} {n.tier_crowns.get(t, 0):>10}")
     _log(f"  crosswalk entries loaded            : {len(crosswalk)} name changes from "
          f"{len(wcvp_raw)} WCVP cache records")
     _log("")
     _log("  (d) WCVP synonym mappings actually APPLIED (audit these):")
-    for name, mapped, cnt in sorted(applied_synonyms, key=lambda x: -x[2]):
+    for name, mapped, cnt in sorted(n.applied_synonyms, key=lambda x: -x[2]):
         _log(f"      {cnt:>4} crowns  {name}  ->  {mapped}")
     _log("")
     _log("  CEILING ON ACHIEVABLE SPECIES-LEVEL ACCURACY")
-    ceil_names = tier_names["e_absent_from_corpus"] + tier_names["c_genus_only_in_corpus"]
-    ceil_crowns = tier_crowns["e_absent_from_corpus"] + tier_crowns["c_genus_only_in_corpus"]
+    ceil_names = n.tier_names["e_absent_from_corpus"] + n.tier_names["c_genus_only_in_corpus"]
+    ceil_crowns = n.tier_crowns["e_absent_from_corpus"] + n.tier_crowns["c_genus_only_in_corpus"]
     _log(f"      {ceil_crowns} GT crowns across {ceil_names} species can NEVER be scored correct from")
     _log("      this cache: after normalization and WCVP synonym resolution their name")
     _log(f"      still appears in no cached prediction list. ({ceil_crowns} is out of all {len(gt_rows)} GT")
@@ -666,19 +639,167 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     _log("      under HEADLINE as the 'restricted to reachable crowns' line.)")
     _log("")
     _log("  GT species whose genus IS in the corpus but the exact epithet is not:")
-    for name, mapped, cnt in sorted(genus_in_corpus_only, key=lambda x: -x[2]):
+    for name, mapped, cnt in sorted(n.genus_in_corpus_only, key=lambda x: -x[2]):
         _log(f"      {cnt:>4} crowns  {name}" + (f"  (wcvp-> {mapped})" if mapped else ""))
     _log("")
     _log("  GT species absent from the corpus entirely (genus not seen either):")
-    for name, mapped, cnt in sorted(absent_names, key=lambda x: -x[2]):
+    for name, mapped, cnt in sorted(n.absent_names, key=lambda x: -x[2]):
         _log(f"      {cnt:>4} crowns  {name}" + (f"  (wcvp-> {mapped})" if mapped else ""))
     _log("")
-    _log(f"  GT labels the botanist left at genus level: {tier_names['c_gt_label_is_genus_only']} genera, "
-         f"{tier_crowns['c_gt_label_is_genus_only']} crowns.")
+    _log(f"  GT labels the botanist left at genus level: {n.tier_names['c_gt_label_is_genus_only']} genera, "
+         f"{n.tier_crowns['c_gt_label_is_genus_only']} crowns.")
     _log("      EXCLUDED from the species-level headline; scored separately at genus level.")
     _log("")
 
-    # ---------------- 5. build evaluable records ----------------
+
+def _log_inputs(_log, gt_rows, split_rows, split_of):
+    """The run-log block about the two input CSVs, including the sentence the
+    pages repeat: the labelled subset is a record, not a random draw."""
+    _log("--- INPUTS ---")
+    _log(f"gt_dominant_taxon.csv rows            : {len(gt_rows)}")
+    _log(f"  distinct global_key                 : {len(set(r['global_key'] for r in gt_rows))}")
+    _log(f"  distinct wcvp_canonical_name        : {len(set(r['wcvp_canonical_name'] for r in gt_rows))}")
+    _log(f"splits.csv rows                       : {len(split_rows)}")
+    sc = Counter(r["split"] for r in split_rows)
+    for k in sorted(sc, key=lambda x: (-sc[x], x)):
+        _log(f"  split '{k}'{'':<{max(0, 16 - len(k))}}: {sc[k]}")
+    gt_split = Counter(split_of.get(r["global_key"], "<not in splits>") for r in gt_rows)
+    _log("  split values among GT crowns        : " +
+         ", ".join(f"{k or '<empty>'}={v}" for k, v in sorted(gt_split.items())))
+    _log(f"  GT coverage of the photo corpus     : {len(gt_rows)} / {len(split_rows)} "
+         f"= {pct(len(gt_rows), len(split_rows))} of photos carry a GT label.")
+    _log("  That labelled subset is the historical botanist labelling record, not a")
+    _log("  random draw, so per-species rates transfer to the unlabelled remainder only")
+    _log("  under an assumption that cannot be tested offline.")
+    _log("  NOTE: all evaluation below pools train+valid+test. The cached predictions")
+    _log("  come from a frozen third-party API that never saw these splits, so there is")
+    _log("  no train/test leakage to control for; splits are reported for traceability only.")
+    _log("")
+
+
+def _log_join(_log, gt_rows, joined, missing_cache, predictions):
+    """The run-log block about matching a label row to its cached answer,
+    including every label that has none."""
+    _log("--- JOIN (global_key -> cache file) ---")
+    _log(f"  convention                          : GT '{GT_KEY_PREFIX}<stem>.JPG'  ->  cache '<stem>.JPG.json'")
+    _log(f"  byte-exact key join                 : 0 / {len(gt_rows)}   (GT keys carry the '{GT_KEY_PREFIX}' prefix; cache names do not)")
+    _log(f"  after stripping '{GT_KEY_PREFIX}'            : {len(joined)} / {len(gt_rows)}   ({pct(len(joined), len(gt_rows))})")
+    _log(f"  GT crowns with no cached response   : {len(missing_cache)}")
+    for gk in sorted(missing_cache):
+        _log(f"      {gk}")
+    _log(f"  joined but empty prediction list    : {sum(1 for _, s, _ in joined if not predictions[s])}")
+    _log("")
+
+
+def _log_crop_gate(_log, records, sp_recs, crop_frames, crop_suspect,
+                   n_crop_joined, crop_admitted, crop_rejected, min_coverage):
+    """The run-log block about the crop-coverage gate. The pages report it as a
+    diagnostic sweep, never as a filter behind a headline."""
+    _log("--- CROP COVERAGE GATE ---")
+    _log("  Predictions were made from a fixed centre crop of each frame; ground truth")
+    _log("  boxes are drawn anywhere in the frame. A frame is admitted only when its")
+    _log("  dominant labelled species covers at least the threshold share of that crop.")
+    _log(f"  box geometry available for          : {len(crop_frames)} base frames "
+         f"({len(crop_suspect)} frames not trusted and excluded)")
+    _log(f"  joined to a GT record               : {n_crop_joined} / {len(records)} "
+         f"({pct(n_crop_joined, len(records))})")
+    n_sp_cov = sum(1 for r in sp_recs if r["crop_coverage"] is not None)
+    _log(f"  joined within the primary set       : {n_sp_cov} / {len(sp_recs)} "
+         f"({pct(n_sp_cov, len(sp_recs))})")
+    _log(f"  admitted at coverage >= {min_coverage:.2f}        : {len(crop_admitted)} "
+         f"(rejected {len(crop_rejected)}, of which "
+         f"{len(sp_recs) - n_sp_cov} for unknown geometry)")
+    _log("")
+
+
+def aggregate_per_species(sp_recs, corpus_norm, corpus_canon):
+    """One row per species: how many labelled frames it has, how often the first
+    guess is right, how often the right name is anywhere in the returned list,
+    and how sure the model was.
+
+    The list is the five names we asked for. ``figures.N_CANDIDATES`` is where
+    that number is stated for the pages, and it aborts a build whose cache
+    carries more, so the two cannot drift apart unnoticed.
+    """
+    def top1(r):
+        return r["ranked"][0][0]
+
+    by_sp = defaultdict(list)
+    for r in sp_recs:
+        by_sp[r["gt"]].append(r)
+
+    per_species = []
+    for sp, rs in by_sp.items():
+        m = len(rs)
+        k1 = sum(1 for r in rs if top1(r) == sp)
+        k5 = sum(1 for r in rs if sp in [b for b, _ in r["ranked"][:5]])
+        confs_ok = [r["ranked"][0][1] for r in rs if top1(r) == sp]
+        per_species.append({
+            "species": sp,
+            "gt_raw_labels": "|".join(sorted({r["gt_raw"] for r in rs})),
+            "n_labelled_crowns": m,
+            "n_correct_top1": k1,
+            "top1_accuracy": k1 / m,
+            "n_correct_top5": k5,
+            "top5_accuracy": k5 / m,
+            "mean_top1_confidence": sum(r["ranked"][0][1] for r in rs) / m,
+            "mean_top1_confidence_when_correct": (sum(confs_ok) / len(confs_ok)) if confs_ok else None,
+            "in_corpus_vocabulary": sp in corpus_norm or sp in corpus_canon,
+            "support_bucket": bucket_label(m),
+        })
+    per_species.sort(key=lambda d: (-d["n_labelled_crowns"], d["species"]))
+    return per_species
+
+
+def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
+                wcvp_cache=WCVP_CACHE_JSON, boxes_csv=None,
+                min_coverage=MIN_CROP_COVERAGE,
+                log: Callable[[str], None] | None = None) -> Health:
+    def _log(msg: str = "") -> None:
+        if log is not None:
+            log(msg)
+
+    for p in (gt_csv, splits_csv, cache_dir):
+        if not os.path.exists(p):
+            raise FileNotFoundError(f"MISSING INPUT: {p}")
+        _log(f"  input ok : {p}")
+    _log(f"  wcvp cache: {wcvp_cache if wcvp_cache and os.path.exists(wcvp_cache) else 'ABSENT (tier d disabled)'}")
+    _log("")
+
+    # ---------------- 1. the two input CSVs ----------------
+    gt_rows = read_csv_rows(gt_csv)
+    split_rows = read_csv_rows(splits_csv)
+    split_of = {r["global_key"]: r["split"] for r in split_rows}
+
+    _log_inputs(_log, gt_rows, split_rows, split_of)
+
+    # ---------------- 2. every cached Pl@ntNet answer ----------------
+    scan = scan_cache(cache_dir)
+    predictions, maxk = scan.predictions, scan.maxk
+    corpus_vocab = scan.corpus_vocab
+    _log_cache(_log, scan)
+
+    # ---------------- 3. match each label row to its cached answer ----------
+    joined, missing_cache = [], []
+    for r in gt_rows:
+        gk = r["global_key"]
+        stem = gk.removeprefix(GT_KEY_PREFIX)
+        if stem in predictions:
+            joined.append((gk, stem, r["wcvp_canonical_name"]))
+        else:
+            missing_cache.append(gk)
+
+    _log_join(_log, gt_rows, joined, missing_cache, predictions)
+
+    # ---------------- 4. sort each label into a name-matching tier ----------
+    crosswalk, wcvp_raw = load_wcvp_crosswalk(wcvp_cache)
+    names = reconcile_names(gt_rows, predictions, corpus_vocab, crosswalk)
+    corpus_norm, corpus_raw = names.corpus_norm, names.corpus_raw
+    gt_names, tier_of_name = names.gt_names, names.tier_of_name
+    tier_crowns = names.tier_crowns
+    _log_reconciliation(_log, names, scan, gt_rows, crosswalk, wcvp_raw)
+
+    # ---------------- 5. one record per frame we can score ----------------
     def canon(name: str) -> str:
         """Normalize + apply the local WCVP crosswalk (tiers a-d)."""
         nn = normalize(name)
@@ -717,54 +838,12 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
 
     n_crop_joined = sum(1 for r in records if r["crop_coverage"] is not None)
     crop_admitted, crop_rejected = coverage_split(sp_recs, min_coverage)
-    _log("--- CROP COVERAGE GATE ---")
-    _log("  Predictions were made from a fixed centre crop of each frame; ground truth")
-    _log("  boxes are drawn anywhere in the frame. A frame is admitted only when its")
-    _log("  dominant labelled species covers at least the threshold share of that crop.")
-    _log(f"  box geometry available for          : {len(crop_frames)} base frames "
-         f"({len(crop_suspect)} frames not trusted and excluded)")
-    _log(f"  joined to a GT record               : {n_crop_joined} / {len(records)} "
-         f"({pct(n_crop_joined, len(records))})")
-    n_sp_cov = sum(1 for r in sp_recs if r["crop_coverage"] is not None)
-    _log(f"  joined within the primary set       : {n_sp_cov} / {len(sp_recs)} "
-         f"({pct(n_sp_cov, len(sp_recs))})")
-    _log(f"  admitted at coverage >= {min_coverage:.2f}        : {len(crop_admitted)} "
-         f"(rejected {len(crop_rejected)}, of which "
-         f"{len(sp_recs) - n_sp_cov} for unknown geometry)")
-    _log("")
+    _log_crop_gate(_log, records, sp_recs, crop_frames, crop_suspect,
+                   n_crop_joined, crop_admitted, crop_rejected, min_coverage)
 
-    # ---------------- 7. per-species ----------------
-    def top1(r, key="ranked"):
-        return r[key][0][0]
-
-    def hit(r, k, key="ranked", gtkey="gt"):
-        return r[gtkey] in [b for b, _ in r[key][:k]]
-
-    by_sp = defaultdict(list)
-    for r in sp_recs:
-        by_sp[r["gt"]].append(r)
-
+    # ---------------- 6. one row per species ----------------
     corpus_canon = {canon(b) for b in corpus_raw}
-    per_species = []
-    for sp, rs in by_sp.items():
-        m = len(rs)
-        k1 = sum(1 for r in rs if top1(r) == sp)
-        k5 = sum(1 for r in rs if hit(r, 5))
-        confs_ok = [r["ranked"][0][1] for r in rs if top1(r) == sp]
-        per_species.append({
-            "species": sp,
-            "gt_raw_labels": "|".join(sorted({r["gt_raw"] for r in rs})),
-            "n_labelled_crowns": m,
-            "n_correct_top1": k1,
-            "top1_accuracy": k1 / m,
-            "n_correct_top5": k5,
-            "top5_accuracy": k5 / m,
-            "mean_top1_confidence": sum(r["ranked"][0][1] for r in rs) / m,
-            "mean_top1_confidence_when_correct": (sum(confs_ok) / len(confs_ok)) if confs_ok else None,
-            "in_corpus_vocabulary": sp in corpus_norm or sp in corpus_canon,
-            "support_bucket": bucket_label(m),
-        })
-    per_species.sort(key=lambda d: (-d["n_labelled_crowns"], d["species"]))
+    per_species = aggregate_per_species(sp_recs, corpus_norm, corpus_canon)
 
     return Health(
         gt_rows=gt_rows, split_rows=split_rows, split_of=split_of, predictions=predictions,
