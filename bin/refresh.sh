@@ -76,9 +76,6 @@ python3 dashboard/build_external.py --verify-against "$SNAP" \
   --out "$REPO/build/model_health_dashboard.html" --generated "$TODAY"
 python3 dashboard/build_internal.py --verify-against "$SNAP" \
   --out "$REPO/build/label_queue_dashboard.html" --generated "$TODAY"
-python3 dashboard/build_simple.py \
-  --out "$REPO/build/simple_dashboard.html" --generated "$TODAY"
 cp "$REPO/build/model_health_dashboard.html" "$SNAP/"
 cp "$REPO/build/label_queue_dashboard.html" "$SNAP/"
-cp "$REPO/build/simple_dashboard.html" "$SNAP/"
 echo "refresh: done; snapshot $SNAP"

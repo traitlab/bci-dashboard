@@ -13,6 +13,7 @@ script and other consumers (e.g. a dashboard) can share one code path.
 from __future__ import annotations
 
 import csv
+import datetime as _dt
 import json
 import os
 import re
@@ -60,6 +61,25 @@ if not os.path.exists(WCVP_CACHE_JSON):
 
 # global_key in the CSVs is "comb_<stem>.JPG"; cache file is "<stem>.JPG.json"
 GT_KEY_PREFIX = "comb_"
+
+
+def gt_provenance(gt_csv: str = GT_CSV) -> str:
+    """One line saying which export the ground truth was merged from.
+
+    ``labelling/gt_from_export.py`` writes a sidecar next to the GT at merge
+    time, so a page describes the batch it was actually built over rather than
+    a batch baked into its prose. Without a sidecar, fall back to the file's
+    own date: vague, but never stale.
+
+    Lives here, not in a page module, so every page states the same provenance
+    for the same data (same reason ``diagnose`` lives here).
+    """
+    sidecar = os.path.splitext(gt_csv)[0] + ".provenance.txt"
+    if os.path.exists(sidecar):
+        with open(sidecar, encoding="utf-8") as f:
+            return f.read().strip()
+    mtime = _dt.date.fromtimestamp(os.path.getmtime(gt_csv)).isoformat()
+    return f"Ground truth: {os.path.basename(gt_csv)}, dated {mtime}."
 
 CONF_BINS = [(0.0, 0.5), (0.5, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.01)]
 CONF_THRESHOLDS = [0.7, 0.8, 0.9]
@@ -334,13 +354,13 @@ def diagnose(row: dict) -> str:
     n, a1, a5 = row["n_labelled_crowns"], row["top1_accuracy"], row["top5_accuracy"]
     if not row["in_corpus_vocabulary"]:
         return "unreachable"
-    if n >= WELL_SAMPLED_MIN_N and a1 >= 0.90:
+    if n >= WELL_SAMPLED_MIN_N and a1 >= RELIABLE_MIN_TOP1:
         return "reliable"
     if a5 - a1 >= 0.20 and a5 >= 0.60:
         return "ranking"
     if n < WELL_SAMPLED_MIN_N:
         return "unmeasured"
-    return "hard" if a1 < 0.70 else "adequate"
+    return "hard" if a1 < HARD_MAX_TOP1 else "adequate"
 
 
 # --- Crop coverage gate ---

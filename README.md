@@ -12,9 +12,6 @@ measurement pass:
    check the order; the deliverable is `send_batches.csv` beside it, which the
    labelling script reads.
 
-`dashboard/build_simple.py` is a third page, a one-screen overview of both for a
-reader who wants neither in full.
-
 A page is a single file you can open, email, or drop on a share. It is rebuilt
 offline from files already on disk: a Labelbox export of botanist labels, plus
 cached Pl@ntNet responses.
