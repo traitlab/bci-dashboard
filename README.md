@@ -15,7 +15,7 @@ measurement pass:
 
 A third builder, `dashboard/build_export_only.py`, answers a narrower
 question: how did *this one* Labelbox export do. It reads one NDJSON file and
-scores only the crowns that export labels, so it never mixes a new batch into
+scores only the frames that export labels, so it never mixes a new batch into
 the running total. It is a spot check on a delivery, not a page anyone
 publishes.
 
@@ -114,6 +114,12 @@ Or the measurement pass and one page alone:
 python3 dashboard/measure.py --out-dir snapshots/model-health-$(date +%F)
 python3 dashboard/build_external.py --out build/model_health_dashboard.html
 python3 dashboard/build_internal.py --out build/label_queue_dashboard.html
+```
+
+Or one export on its own, with no snapshot and no corpus total:
+
+```bash
+python3 dashboard/build_export_only.py --export path/to/export.ndjson
 ```
 
 ## Configure
