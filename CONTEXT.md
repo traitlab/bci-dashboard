@@ -14,7 +14,7 @@ this file.
 | **frame** | One 4000x3000 drone photo. The unit everything is counted in. |
 | **crown** | One tree canopy a botanist outlined inside a frame. |
 | **label** | The species a frame belongs to: the one whose outlined crowns cover the most area in the whole frame. Also called the botanist's label. Never "ground truth" on a page. |
-| **centre crop** | The fixed 1280x1280 square from the middle of a frame, 13.65% of it. This is what gets sent to Pl@ntNet on the old path. |
+| **centre crop** | The fixed 1280x1280 square from the middle of a frame, 13.7% of it. This is what gets sent to Pl@ntNet on the old path. |
 | **labelled frame** | A frame that has a botanist's label. The count of these for one species is how much evidence we have about that species; on a page, "labelled frames", never "support". |
 | **unlabelled photo** | A frame with a Pl@ntNet guess and no botanist label. The pool the queue orders. |
 | **site** | One field location. There are 17; frames from the same site are alike, which is why a range is worked out by drawing whole sites. |

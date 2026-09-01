@@ -24,12 +24,13 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import core as hc  # noqa: E402
-from assets import (CSS, JS, cap, esc, filterable_table, hero, panel,  # noqa: E402
+import core as hc
+from assets import (CSS, JS, cap, esc, filterable_table, hero, panel,
                     pctf, section, status_legend, status_tag, svg_hbar, table)
-from explain import (BAND_SHORT, candidates_panel, method_panel,  # noqa: E402
+from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
+from explain import (BAND_SHORT, candidates_panel, method_panel,
                      weighting_panel)
-from figures import (CONFIRMATORY_CSV, RARE_MAX_SUPPORT, RECOMMENDED_CONF,  # noqa: E402
+from figures import (CONFIRMATORY_CSV, RARE_MAX_SUPPORT, RECOMMENDED_CONF,
                      WAIT_SUPPORT_MIN, conf, top1)
 
 # Enough to answer "what do I send next" without a CSV reader. A batch is 100
@@ -89,15 +90,20 @@ HERO_READING = (
     "species with many frames are the ones Pl@ntNet already knows."
 )
 
+# The centre crop as a share of the frame. Derived, and formatted once, because the
+# page printed it twice at two roundings (13.65% and 13.7%) and a reader met both.
+CROP_SHARE = f"{100 * CROP_SIZE ** 2 / (FRAME_W * FRAME_H):.1f}%"
+
 # What a reader has to know before any number on the page means anything. The
 # crown sentence is here rather than beside the headline because the headline is
 # the first thing on the page and a term defined under it is defined too late.
 HERO_TERMS = (
-    "A <b>frame</b> is one 4000&times;3000 drone photo. A <b>crown</b> is one tree canopy a "
-    "botanist outlined inside a frame. A frame's <b>label</b> is the species whose outlined "
-    "crowns cover the most area in the <i>whole</i> frame. "
-    "The <b>centre crop</b> is the fixed 1280&times;1280 square from the middle of a frame, "
-    "13.65% of it; that square is what most of this page sends to Pl@ntNet. "
+    f"A <b>frame</b> is one {FRAME_W}&times;{FRAME_H} drone photo. A <b>crown</b> is one tree "
+    "canopy a botanist outlined inside a frame. A frame's <b>label</b> is the species whose "
+    "outlined crowns cover the most area in the <i>whole</i> frame. "
+    f"The <b>centre crop</b> is the fixed {CROP_SIZE}&times;{CROP_SIZE} square from the middle "
+    f"of a frame, {CROP_SHARE} of it. That square is what most of this page sends to "
+    "Pl@ntNet. "
     "We ask Pl@ntNet for 5 names per photo (<code>nb-results=5</code>). That is our request "
     "setting, not a limit of the model. The <b>first guess</b> is the top-ranked of the "
     "five, and <b>right</b> means it matches the frame's label. "
@@ -568,7 +574,7 @@ def p_confirmatory(c):
         f'proportion to how much of the frame it covered. So the number says what naming '
         f'costs once someone has already found the trees. It is not what a fully automatic '
         f'pipeline would score. For the second number we sent one fixed square from the '
-        f'middle of the frame, 1280 px across, which is 13.7% of it.</p>'
+        f'middle of the frame, {CROP_SIZE} px across, which is {CROP_SHARE} of it.</p>'
         f'<p class="note"><strong>Which frames, and how many.</strong> '
         f'{int(cf["n_frames"])} frames from {int(cf["n_sites"])} sites and '
         f'{int(cf["n_days"])} flight days, set aside before any of these numbers existed. '
