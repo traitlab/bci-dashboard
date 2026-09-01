@@ -344,9 +344,11 @@ def p_review(c):
                  f'{pctf(c.confident_ok)} above.</p>')
     return panel(f"Labels worth a second look: {c.review_counts[0]} frames where Pl@ntNet "
                  f"confidently disagrees",
-                 "<b>Possible label errors, possible model errors.</b> Either way they "
-                 "are the disagreements most worth an expert's minute, once the cheap "
-                 "queues above are worked through.", body)
+                 # No cross-page pointer here: this panel is on the model-health
+                 # page and the queues it used to defer to are on the other one.
+                 f"<b>Put these {c.review_counts[0]} frames in front of a botanist.</b> "
+                 f"Either the label is wrong or the model is, and one look settles "
+                 f"which. They are the disagreements most worth an expert's minute.", body)
 
 
 def p_wait(c):
