@@ -209,9 +209,10 @@ def p_todo(c):
                 f'<p class="note"><strong>Cheaper still, and not counted in any row above: '
                 f'{c.gen_one:,} frames whose botanist label stops at the genus and whose five '
                 f'candidates contain exactly one species from that genus.</strong> The question '
-                f'there is yes or no, not which of {c.n_sp}. Those frames are outside the '
-                f'{c.n_sp} species scored on this page because they never named a species; see '
-                f'the genus paragraph under &ldquo;What this cannot tell you&rdquo;.</p>')
+                f'there is yes or no, not which of {c.n_sp}. Those frames sit outside the '
+                f'{c.n_sp} species scored on this page, because they never named a species. '
+                f'The genus paragraph under &ldquo;What this cannot tell you&rdquo; says '
+                f'more.</p>')
     return panel(f"Where to spend botanist time next: {c.counts['ranking']} species are a "
                  f"cheap confirmation, {c.counts['unreachable']} are not worth time yet",
                  "<b>Work top to bottom.</b> Rows are ordered cheapest useful work first, "
@@ -255,7 +256,7 @@ def p_send(c):
              f'{c.queue_cams["tele"]:,} of the {sum(c.queue_cams.values()):,} photos in this '
              f'queue ({pctf(c.queue_cams["tele"] / sum(c.queue_cams.values()))}) are tele. No '
              f'accuracy on this page has been measured on a tele frame, because no tele '
-             f'frame has a botanist label yet, so how well the model reads that lens is '
+             f'frame has a botanist label yet. So how well the model reads that lens is '
              f'not known from here. Sending them is how it becomes known.</p>'
              f'<p class="note">The pool is {c.n_unlab:,} of {len(c.h.split_rows):,} photos: '
              f'the frames with a cached Pl@ntNet answer and no botanist label. The species '
@@ -264,9 +265,9 @@ def p_send(c):
     return panel(f"What to send to the botanist first: "
                  f"{c.queue_counts.get('long_tail', 0):,} "
                  f"of {c.n_unlab:,} unlabelled photos point at species we barely have",
-                 "<b>Work the queues top to bottom.</b> The first two buy the most per "
-                 "label: the long tail, where a species has almost nothing to be scored "
-                 "on, and the photos where a usually-right species is guessed weakly.",
+                 "<b>Work the queues top to bottom.</b> The first two buy the most per label. "
+                 "The long tail is where a species has almost nothing to be scored on. "
+                 "Then come the photos where a usually-right species is guessed weakly.",
                  body)
 
 
@@ -337,15 +338,15 @@ def p_wait(c):
             'in as a label by this rule. It only pushes frames down the '
             "botanist's queue.</p>"
             f'<p class="note"><strong>The decision expires with the model.</strong> Pl@ntNet '
-            f'ships a new model every few months, on its own schedule rather than ours, and '
-            f'a frame pushed down the queue under <code>{esc(c.tag)}</code> is not pushed '
+            f'ships a new model every few months, on its own schedule rather than ours. A '
+            f'frame pushed down the queue under <code>{esc(c.tag)}</code> is not pushed '
             f'down under the next one. Re-run this page after every model change and the '
             f'queue '
             f're-sorts. Any frame can come back to the top.</p>'
             f'<p class="note">{len(c.eligible)} species have at least '
             f'{WAIT_SUPPORT_MIN} labelled frames, which is the second half of the rule. That '
-            f'count uses <code>train</code> frames only, and the error rate above is measured '
-            f'on the {len(c.test_recs):,} <code>test</code> frames only, so no rule is graded '
+            f'count uses <code>train</code> frames only. The error rate above is measured on '
+            f'the {len(c.test_recs):,} <code>test</code> frames only, so no rule is graded '
             f'on the frames that chose it.</p>')
     return panel(f"Which frames can wait: {best['n']:,} of {len(c.test_recs):,} test frames, "
                  f"undone at the next model change",
