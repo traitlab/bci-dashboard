@@ -336,10 +336,18 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     queue_cams = Counter(camera_of(stem) for _, stem, _, _ in queue_rows)
 
     confident = [r for r in sp_recs if conf(r) >= hc.REVIEW_CONF]
-    review = [r for r in confident if top1(r) != r["gt"]]
+    # Same filter as measure.py's label_review_queue.csv, or verify_snapshot
+    # aborts the build on the count mismatch. That check is the guard.
+    adjudicated = hc.adjudicated_keys()
+    raised = [r for r in confident if top1(r) != r["gt"]]
+    review = [r for r in raised if r["global_key"] not in adjudicated]
+    n_adjudicated = len(raised) - len(review)
     # The claim the review panel rests on. Measured, not asserted: it moves with
     # every batch, and stale it argues for spending expert time on the wrong list.
-    confident_ok = (len(confident) - len(review)) / len(confident)
+    # Counted over every disagreement, adjudicated or not: a botanist confirming
+    # the label makes the model's guess wrong, not right.
+    confident_hits = len(confident) - len(raised)
+    confident_ok = confident_hits / len(confident)
     review_pairs = defaultdict(list)
     for r in review:
         review_pairs[(r["gt"], top1(r))].append(conf(r))
@@ -404,7 +412,9 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
         queue_counts=queue_counts, lt_species=lt_species, queue_rows=queue_rows,
         n_no_answer=n_no_answer, n_unlab=n_unlab, scored_cams=scored_cams,
         queue_cams=queue_cams, confident=confident, review=review,
-        confident_ok=confident_ok, review_pairs=review_pairs, review_counts=review_counts,
+        confident_ok=confident_ok, confident_hits=confident_hits,
+        n_adjudicated=n_adjudicated,
+        review_pairs=review_pairs, review_counts=review_counts,
         flat=flat, eligible=eligible, test_recs=test_recs, rare=rare,
         n_rare_test=n_rare_test, ops=ops, best=best, gn=gn, fam_n=fam_n, gg1=gg1,
         fam_names=fam_names, gen_any=gen_any, gen_one=gen_one, gen_none=gen_none,
@@ -525,7 +535,7 @@ def p_review(c):
     body += (f'<p class="note">Each row is a labelled frame where the model is at least '
              f'{hc.REVIEW_CONF:.1f} confident in a <em>different</em> species. A first guess '
              f'this confident is right {pctf(c.confident_ok)} of the time in bulk '
-             f'({len(c.confident) - len(c.review):,} of {len(c.confident):,}), so each of '
+             f'({c.confident_hits:,} of {len(c.confident):,}), so each of '
              f'these is either a rare confident model error or a label error, and a label '
              f'error found this way is the cheapest label fix available. Offline there is no '
              f'way to tell which; that is the botanist\'s minute. '
@@ -534,6 +544,13 @@ def p_review(c):
              f'<p class="note">Not urgent: work this list after the send-first queues. A '
              f'confusion pair that keeps recurring is a signal about the species, not just '
              f'the photo.</p>')
+    if c.n_adjudicated:
+        body += (f'<p class="note">{c.n_adjudicated} further frame'
+                 f'{"" if c.n_adjudicated == 1 else "s"} disagree at this confidence and '
+                 f'are not listed: a botanist has already confirmed the label, so the model '
+                 f'is simply wrong there and the frame would otherwise return to this list '
+                 f'on every build. They still count against the '
+                 f'{pctf(c.confident_ok)} above.</p>')
     return panel(f"Labels worth a second look: {c.review_counts[0]} frames where Pl@ntNet "
                  f"confidently disagrees",
                  "<b>Possible label errors, possible model errors.</b> Either way they "

@@ -20,7 +20,7 @@ from collections import Counter, defaultdict
 from core import (
     load_health,
     pct, ratio, fmt, genus_of, normalize, queue_of_prediction, chunk_send_batches,
-    coverage_gate_stats, coverage_split, labelbox_urls,
+    coverage_gate_stats, coverage_split, labelbox_urls, adjudicated_keys,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
     QUEUE_ORDER, REVIEW_CONF, BATCH_SIZE, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
@@ -431,10 +431,13 @@ def main() -> None:
     # First guess wrong at high confidence: either the label or the model is wrong.
     # Worked after the cheap queues. Sorted most confident first.
     urls = labelbox_urls()
+    adjudicated = adjudicated_keys()
+    raised = [r for r in sp_recs
+              if top1(r) != r["gt"] and r["ranked"][0][1] >= REVIEW_CONF]
     review_rows = [[r["global_key"], r["split"], r["gt"], top1(r),
                     f"{r['ranked'][0][1]:.6f}", urls.get(r["global_key"], "")]
-                   for r in sp_recs
-                   if top1(r) != r["gt"] and r["ranked"][0][1] >= REVIEW_CONF]
+                   for r in raised if r["global_key"] not in adjudicated]
+    n_adjudicated = len(raised) - len(review_rows)
     review_rows.sort(key=lambda r: (-float(r[4]), r[1], r[0]))
     with open(os.path.join(out_dir, "label_review_queue.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
@@ -447,6 +450,8 @@ def main() -> None:
     log(f"  first guess wrong at confidence >= {REVIEW_CONF} : {len(review_rows)} "
         f"of {n} evaluated frames ({pct(len(review_rows), n)})")
     log(f"  distinct species-to-species confusions  : {len(pairs)}")
+    # Printed even at zero: a queue that silently shrank is worse than a long one.
+    log(f"  suppressed, botanist confirmed the label : {n_adjudicated}")
     log("")
 
     log("--- FILES WRITTEN ---")
