@@ -48,6 +48,10 @@ CACHE_DIR = REPO / "data" / "predictions" / "cache"
 # splits global_key is "comb_<stem>.JPG", a cache file is "<stem>.JPG.json".
 GT_KEY_PREFIX = "comb_"
 
+# The status dropdown is the only element the inline JS tolerates missing, so
+# the id-presence check below has to know which one it is.
+STATUS_SELECT_ID = "status-filter"
+
 # A fixed generation string, like the worktree byte-diff checks use: real
 # dates would make two builds of the same code differ for no reason a test
 # should care about.
@@ -339,9 +343,13 @@ def test_every_id_the_js_looks_up_exists_exactly_once(page):
     found = {eid: counts.get(eid, 0) for eid in ids}
     if "species" in carries:
         for eid, k in found.items():
-            assert k == 1, (
+            # The status select is the one lookup the JS guards, because a page
+            # with no statuses to offer ships no select. Every other id is
+            # dereferenced straight away and has to be there exactly once.
+            want = 1 if (eid != STATUS_SELECT_ID or "species_status" in carries) else 0
+            assert k == want, (
                 f"id {eid!r} (looked up by the inline JS) appears {k} times in the "
-                f"page, not once")
+                f"page, not {want}")
     else:
         # The whole block guards on the species table and returns early without
         # one, so every id it reaches for has to be absent together. Half of

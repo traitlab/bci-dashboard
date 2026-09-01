@@ -228,7 +228,7 @@ JS = Template("""\
 
   function apply(){
     var needle=(q.value||'').trim().toLowerCase();
-    var want=sel.value;
+    var want=sel?sel.value:'all';
     var shown=0;
     rows.forEach(function(r){
       // Fall back to the first cell when a caller ships no data-species: an
@@ -271,7 +271,7 @@ JS = Template("""\
   });
 
   q.addEventListener('input',apply);
-  sel.addEventListener('change',apply);
+  if(sel) sel.addEventListener('change',apply);
   apply();
 })();
 
@@ -434,16 +434,23 @@ def filterable_table(headers, rows, *, options, row_attrs=None):
     explicit rather than two copies of the same literal staying in sync by
     accident.
     """
-    opts = "".join(
-        f'<option value="{esc(value)}">{esc(label)}</option>' for value, label in options
-    )
+    # No options means no status to filter on, so no select: rendering one
+    # holding nothing but "every status" offers the reader a control that
+    # cannot change what the table shows. The JS treats an absent select as
+    # "every status", which is the only thing it could have said anyway.
+    if options:
+        opts = "".join(
+            f'<option value="{esc(value)}">{esc(label)}</option>' for value, label in options
+        )
+        select = (f'<select id="{_SELECT_ID}" aria-label="filter by status">'
+                  f'<option value="all">every status</option>{opts}</select>')
+    else:
+        select = ""
     controls = (
         '<div class="controls">'
         f'<input id="{_INPUT_ID}" type="search" placeholder="filter species&hellip;" size="28" '
         f'aria-label="filter species">'
-        f'<select id="{_SELECT_ID}" aria-label="filter by status">'
-        f'<option value="all">every status</option>'
-        f"{opts}</select><span class=\"count\" id=\"{_COUNT_ID}\"></span></div>"
+        f"{select}<span class=\"count\" id=\"{_COUNT_ID}\"></span></div>"
     )
     return controls + table(headers, rows, tid=_TABLE_ID, sortable_from=0,
                             row_attrs=row_attrs)
