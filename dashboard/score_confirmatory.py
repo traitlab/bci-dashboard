@@ -262,7 +262,10 @@ def bootstrap_p(rows, a, b, unit, draws=BOOTSTRAP_DRAWS, seed=SEED):
 
 # --- report ------------------------------------------------------------------
 
-def report(rows, missing, complete, draws=BOOTSTRAP_DRAWS):
+def report(rows, missing, complete, stat, draws=BOOTSTRAP_DRAWS):
+    """The run log. ``stat`` is ``result_rows`` as a dict, so every number the
+    log prints is the number the CSV publishes rather than a second resampling
+    of the same rows."""
     n = len(rows)
     stamp = "CONFIRMATORY" if complete else "EXPLORATORY"
     log(f"=== {stamp} read of the frozen {n} ===")
@@ -284,17 +287,16 @@ def report(rows, missing, complete, draws=BOOTSTRAP_DRAWS):
         if not scorable:
             log(f"  {a:7} {'0':>4}  no data")
             continue
-        acc = accuracy(scorable, a)
-        hits = sum(hit(r, a) for r in scorable)
-        def acc_of(sample, arm=a):
-            return accuracy(sample, arm)
-
-        s_lo, s_hi = cluster_bootstrap(scorable, "site", acc_of, draws)
-        d_lo, d_hi = cluster_bootstrap(scorable, "day", acc_of, draws)
-        w_lo, w_hi = wilson(hits, len(scorable))
+        acc = stat[f"{a}_top1"]
+        # The day-clustered interval is the one number here that no published
+        # row carries, so it is the only bootstrap this function still runs.
+        d_lo, d_hi = cluster_bootstrap(
+            scorable, "day", lambda x, arm=a: accuracy(x, arm), draws)
+        s_lo, s_hi = stat[f"{a}_top1_site_lo"], stat[f"{a}_top1_site_hi"]
+        w_lo, w_hi = stat[f"{a}_top1_wilson_lo"], stat[f"{a}_top1_wilson_hi"]
         log(f"  {a:7} {len(scorable):4d}  {acc:6.1%}  "
             f"[{s_lo:6.1%},{s_hi:6.1%}]  [{d_lo:6.1%},{d_hi:6.1%}]  "
-            f"[{w_lo:6.1%},{w_hi:6.1%}]  {accuracy(scorable, a, 5):6.1%}")
+            f"[{w_lo:6.1%},{w_hi:6.1%}]  {stat[f'{a}_top5']:6.1%}")
     log("  Wilson is the unclustered interval the page already publishes. It is")
     log("  too narrow here, and is shown so the cost of clustering is visible.")
     log("  crown top-5 is bounded by the number of distinct species its crowns")
@@ -304,13 +306,13 @@ def report(rows, missing, complete, draws=BOOTSTRAP_DRAWS):
     log("P3, primary since tiles was dropped: crown against photo, paired on")
     log("    the frame. The test, the cluster unit and the tie-break are the ones")
     log("    P1 was to be read with; only the second arm changed.")
-    pairs, crown_only, photo_only = discordance(rows, "crown", "photo")
-    p_exact = mcnemar_exact(crown_only, photo_only)
-    log(f"  pairs {pairs}, crown-only {crown_only}, photo-only {photo_only}")
-    log(f"  exact McNemar, two-sided        p = {p_exact:.5f}")
-    p_boot, band = bootstrap_p(rows, "crown", "photo", "site", draws)
-    if band:
-        d, lo, hi = band
+    log(f"  pairs {stat['paired_n']}, crown-only {stat['crown_only_hits']}, "
+        f"photo-only {stat['photo_only_hits']}")
+    log(f"  exact McNemar, two-sided        p = {stat['p_mcnemar_exact']:.5f}")
+    if "crown_minus_photo" in stat:
+        d = stat["crown_minus_photo"]
+        lo, hi = stat["crown_minus_photo_site_lo"], stat["crown_minus_photo_site_hi"]
+        p_boot = stat["p_cluster_bootstrap"]
         log(f"  difference                      {d:+.1%} "
             f"[{lo:+.1%}, {hi:+.1%}] clustered on site")
         log(f"  cluster bootstrap, two-sided    p = {p_boot:.5f}")
@@ -322,11 +324,9 @@ def report(rows, missing, complete, draws=BOOTSTRAP_DRAWS):
 
     log("P2: the region-aligned arm beats 50% top-1")
     for a in ALIGNED:
-        scorable = [r for r in rows if r[a] is not None]
-        if not scorable:
+        if f"{a}_top1_site_lo" not in stat:
             continue
-        lo, _ = cluster_bootstrap(scorable, "site",
-                                  lambda x, arm=a: accuracy(x, arm), draws)
+        lo = stat[f"{a}_top1_site_lo"]
         log(f"  {a:6} lower bound of the site-clustered interval {lo:6.1%}  "
             f"{'beats' if lo > 0.5 else 'does not beat'} 50%")
     log("")
@@ -403,13 +403,13 @@ def result_rows(rows, complete, draws=BOOTSTRAP_DRAWS):
     return out
 
 
-def write_result(rows, complete, path, draws=BOOTSTRAP_DRAWS):
+def write_result(pairs, path):
     path = pathlib.Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh, lineterminator="\n")
         w.writerow(["key", "value"])
-        for k, v in result_rows(rows, complete, draws):
+        for k, v in pairs:
             w.writerow([k, f"{v:.6f}" if isinstance(v, float) else v])
     log(f"wrote {path}")
 
@@ -460,9 +460,10 @@ def main(argv=None):
     canon = canonicaliser()
     rows, missing = build_rows(frozen, load_boxes(), canon)
     complete = not any(missing[a] for a in ALIGNED)
-    report(rows, missing, complete, args.draws)
+    published = result_rows(rows, complete, args.draws)
+    report(rows, missing, complete, dict(published), args.draws)
     if args.out:
-        write_result(rows, complete, args.out, args.draws)
+        write_result(published, args.out)
     if args.adjudication:
         if not complete:
             log("\nrefusing to write the adjudication sheet: the set is not "
