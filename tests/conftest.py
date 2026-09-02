@@ -424,3 +424,16 @@ def external_page(tmp_path_factory):
 def internal_page(tmp_path_factory):
     require_buildable()
     return build_page(tmp_path_factory, *PAGES["internal_page"][:2])
+
+
+@pytest.fixture(params=sorted(PAGES))
+def page(request):
+    """Every shared page assertion against all three pages, written once.
+
+    Yields ``(html, stdout, panels-this-page-carries)``. Here rather than in
+    one test file because `test_pages.py` and `test_page_navigation.py` both
+    run against all three, and a second copy of the parametrisation is how one
+    file quietly stops covering a page.
+    """
+    html, stdout = request.getfixturevalue(request.param)
+    return html, stdout, PAGES[request.param][2]

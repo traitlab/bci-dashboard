@@ -45,18 +45,6 @@ from conftest import (
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
-# The status dropdown is the only element the inline JS tolerates missing, so
-# the id-presence check below has to know which one it is.
-STATUS_SELECT_ID = "status-filter"
-# id -> the flag a page must carry for that element to be rendered. Both are
-# looked up behind a guard in the JS, so their absence is correct, not a break.
-GUARDED_IDS = {STATUS_SELECT_ID: "species_status", "show-thin": "species_thin"}
-
-
-
-_GETELEMENTBYID = re.compile(r"getElementById\(\s*['\"]([^'\"]+)['\"]\s*\)")
-_ID_ATTR = re.compile(r"""\bid=['"]([^'"]+)['"]""")
-_SCRIPT_BODY = re.compile(r"<script>(.*)</script>", re.S)
 _LEGEND = re.compile(r'<ul class="status-legend">.*?</ul>', re.S)
 _TAG_LABEL = re.compile(r'<span class="tag [^"]*"[^>]*>([^<]*)</span>')
 _ROW = re.compile(r"<tr data-status=.*?</tr>", re.S)
@@ -155,13 +143,6 @@ def n_species():
         return sum(1 for _ in csv.DictReader(f))
 
 
-@pytest.fixture(params=sorted(PAGES))
-def page(request):
-    """Runs every shared assertion against all three pages without writing it
-    three times. Yields (html, stdout, panels-this-page-carries)."""
-    html, stdout = request.getfixturevalue(request.param)
-    return html, stdout, PAGES[request.param][2]
-
 
 # ---------------------------------------------------------------------------
 # The build itself
@@ -214,39 +195,6 @@ def test_page_has_no_external_asset_references(page):
     anchors = set(re.findall(r'<a\s[^>]*href="(https?://[^"]+)"', html))
     assert all(u.startswith("https://app.labelbox.com/projects/") for u in anchors), (
         f"unexpected outbound link: {sorted(anchors)[:3]}")
-
-
-# ---------------------------------------------------------------------------
-# JS <-> HTML id coupling: derived from the JS text, not hardcoded here
-# ---------------------------------------------------------------------------
-
-def test_every_id_the_js_looks_up_exists_exactly_once(page):
-    html, _, carries = page
-    script = _SCRIPT_BODY.search(html)
-    assert script, "no inline <script> block -- JS was not embedded"
-    ids = _GETELEMENTBYID.findall(script.group(1))
-    assert ids, "no getElementById calls found in the inline script"
-    counts = {}
-    for m in _ID_ATTR.finditer(html):
-        counts[m.group(1)] = counts.get(m.group(1), 0) + 1
-    found = {eid: counts.get(eid, 0) for eid in ids}
-    if "species" in carries:
-        for eid, k in found.items():
-            # Two lookups are guarded in the JS: the status select, absent on a
-            # page with no statuses to offer, and the show-all checkbox, absent
-            # on a page that hides no rows. Every other id is dereferenced
-            # straight away and has to be there exactly once.
-            flag = GUARDED_IDS.get(eid)
-            want = 1 if (flag is None or flag in carries) else 0
-            assert k == want, (
-                f"id {eid!r} (looked up by the inline JS) appears {k} times in the "
-                f"page, not {want}")
-    else:
-        # The whole block guards on the species table and returns early without
-        # one, so every id it reaches for has to be absent together. Half of
-        # them present is a page that throws on the first keystroke.
-        assert set(found.values()) == {0}, (
-            f"page carries no species table but wires up part of the filter: {found}")
 
 
 # ---------------------------------------------------------------------------
@@ -516,108 +464,3 @@ def test_only_the_internal_page_renders_the_queue(page):
     assert bool(keys) == ("queue_keys" in carries), (
         f"page renders {len(keys)} queue keys but carries the list: "
         f"{'queue_keys' in carries}")
-
-
-# ---------------------------------------------------------------------------
-# anchors and jump lists
-# ---------------------------------------------------------------------------
-# These five gate behaviour shipped in fcb0aec (panel anchors, per-section jump
-# lists, the table scroll wrapper) and in af4b521 (the status legend). They are
-# assertions about the page, not about any builder's internals, so they run
-# against every page like everything above.
-
-def test_every_link_into_the_page_lands_on_something(page):
-    """The jump lists are generated from the panels, so a broken one means the
-    two have drifted apart. Since the split it also catches a link left behind
-    pointing at a section that moved to the other page."""
-    html, _, _ = page
-    targets = set(_ID_ATTR.findall(html))
-    for href in set(re.findall(r'href="#([^"]+)"', html)):
-        assert href in targets, f"jump link #{href} has no target"
-
-
-def test_no_anchor_carries_a_number(page):
-    """An id built from a summary that states a live count changes on the next
-    snapshot, and every saved link to it breaks. `panel()` rejects those, so
-    this is the assertion that the guard is actually wired up."""
-    html, _, _ = page
-    for eid in re.findall(r'<details class="panel" id="([^"]+)"', html):
-        assert not any(c.isdigit() for c in eid), f"anchor {eid!r} carries a number"
-
-
-def test_no_anchor_ends_mid_phrase(page):
-    """An id is a link someone pastes into a message, so it has to read as a
-    phrase on its own. `slug()` keeps the first eight words, and eight words
-    into a summary can land on a joining word: "how this was measured and what
-    it does" says the opposite of the panel it points at. The fix is an
-    explicit `anchor=` at the call site, not a longer slug."""
-    html, _, _ = page
-    dangling = {"and", "or", "but", "with", "in", "of", "the", "a", "an", "it",
-                "for", "to", "on", "at", "is", "that", "what"}
-    for eid in re.findall(r'<details class="panel" id="([^"]+)"', html):
-        last = eid.rsplit("-", 1)[-1]
-        assert last not in dangling, (
-            f"anchor {eid!r} ends on {last!r}, so the link reads as half a "
-            f"phrase. Pass anchor= at that panel's call site.")
-
-
-def test_a_page_only_names_a_section_it_carries(page, pagemod):
-    """Prose that says "see X" has to mean a heading on the page in front of
-    the reader. The queue page once pointed at "What this cannot tell you",
-    which is a section of the model-health page, so the reader hunted for a
-    heading that was never going to appear. Naming the other page is fine;
-    naming a heading this page does not have is not."""
-    html, _, _ = page
-    headings = set(re.findall(r"<h2[^>]*>(.*?)</h2>", html, re.DOTALL))
-    for title, _lede in pagemod.SECTIONS.values():
-        if title is None or title in headings:
-            continue
-        assert f"&ldquo;{title}&rdquo;" not in html, (
-            f"the page quotes the section heading {title!r}, which is on the "
-            f"other page. Point at the page by name instead.")
-
-
-def test_each_id_is_unique(page):
-    html, _, _ = page
-    ids = _ID_ATTR.findall(html)
-    duplicated = {i for i in ids if ids.count(i) > 1}
-    assert not duplicated, f"duplicate ids: {sorted(duplicated)}"
-
-
-def test_a_wide_table_scrolls_inside_its_own_box(page):
-    """Without the wrapper the widest table sets the page width and every
-    paragraph scrolls sideways with it on a phone."""
-    html, _, _ = page
-    assert len(re.findall(r"<table\b", html)) == html.count('class="tscroll"')
-
-
-def test_the_filter_can_reach_every_row(page):
-    """The filter reads the first cell for the name and data-status for the
-    status. A row missing either is invisible to it, which reads as a table
-    that loses rows when you type."""
-    html, _, carries = page
-    tagged = [r for r in re.findall(r"<tr\b[^>]*>", html) if "data-status=" in r]
-    if "species_status" not in carries:
-        assert not tagged, "page carries no species status wiring but renders filterable rows"
-        return
-    assert tagged, "no filterable rows"
-    for row in _ROW.findall(html):
-        first = re.match(r"<tr\b[^>]*>\s*<td[^>]*>(.*?)</td>", row, re.S)
-        assert first and re.sub(r"<[^>]+>", "", first.group(1)).strip(), (
-            f"row has no species name to match: {row}")
-
-
-def test_the_stylesheet_has_no_rule_no_page_uses(external_page, internal_page, style):
-    """Dead CSS is invisible bloat: it survives every rewrite because nothing
-    fails when it stops matching anything. Two classes did survive that way.
-
-    ``JS_APPLIED`` are set by the sort and filter code at runtime, so they are
-    absent from the built HTML and still live."""
-    JS_APPLIED = {"asc", "desc", "hidden"}
-    styled = set(re.findall(r"\.([a-zA-Z][\w-]*)", style.CSS))
-    html = external_page[0] + internal_page[0]
-    used = set()
-    for group in re.findall(r'class="([^"]+)"', html):
-        used.update(group.split())
-    dead = sorted(styled - used - JS_APPLIED)
-    assert not dead, f"CSS rules nothing on either page carries: {dead}"
