@@ -44,39 +44,28 @@ from photo import (
     download_image,
     load_config,
     load_image_list,
+    post_image,
     save_cache,
+    with_retry,
 )
 
 EMBEDDING_DIMS = 768
 DEFAULT_DELAY = 0.5
 DEFAULT_INPUT = "data/next_batch/unsent_for_plantnet.csv"
 DEFAULT_OUT   = "data/embeddings"
-MAX_RETRIES   = 3
-API_TIMEOUT   = 60
-BACKOFF       = [1, 5, 10]
 
 
 def call_embeddings_api(jpeg_bytes: bytes, filename: str, api_key: str,
                         api_url: str) -> dict:
     """Post one crop to the embeddings endpoint. ``api_url`` comes from
     config.yaml, the same place ingest_photos.py reads it: an endpoint typed
-    here as well would keep posting to the old one after a Pl@ntNet move."""
-    last = None
-    for attempt in range(MAX_RETRIES):
-        resp = requests.post(
-            api_url,
-            files=[("image", (filename, jpeg_bytes, "image/jpeg"))],
-            params={"api-key": api_key},
-            timeout=API_TIMEOUT,
-        )
-        if resp.status_code == 429:
-            raise QuotaExceededError(resp.text)
-        if resp.status_code < 500:
-            resp.raise_for_status()
-            return resp.json()
-        last = f"HTTP {resp.status_code}: {resp.text[:200]}"
-        time.sleep(BACKOFF[attempt])
-    raise RuntimeError(last)
+    here as well would keep posting to the old one after a Pl@ntNet move.
+
+    The post, the retry and the 429 come from photo.py, so this path stops and
+    resumes on a spent key exactly the way the other two do.
+    """
+    return with_retry(post_image, api_url, "image", jpeg_bytes, filename,
+                      params={"api-key": api_key})
 
 
 def extract_embedding(response: dict) -> list[float]:

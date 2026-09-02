@@ -118,45 +118,66 @@ def download_image(url: str, timeout: int = 30) -> bytes:
     return resp.content
 
 
-def call_identify_api(jpeg_bytes: bytes, filename: str, api_url: str,
-                      api_key: str, nb_results: int,
-                      organs: str, lang: str) -> dict:
+def post_image(url: str, field: str, jpeg_bytes: bytes, filename: str,
+               params: dict, data: dict | None = None,
+               timeout: int = API_TIMEOUT) -> dict:
+    """One image posted to one Pl@ntNet endpoint, with the quota answer named.
+
+    Every call in predict/ goes through here. They differ in the field name,
+    the parameters and how long they may take, and in nothing else. Written
+    once so a 429 cannot be a plain HTTPError on one path and a
+    QuotaExceededError on another, which is what decides whether a run stops
+    and resumes or burns the rest of its images on failures.
     """
-    Call /v2/identify endpoint. Returns parsed JSON response.
-    Raises QuotaExceededError on HTTP 429, RuntimeError on other failures.
+    resp = requests.post(
+        url,
+        files=[(field, (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
+        data=data,
+        params=params,
+        timeout=timeout,
+    )
+    if resp.status_code == 429:
+        left = resp.headers.get("X-RateLimit-Remaining", "unknown")
+        raise QuotaExceededError(
+            f"API quota exceeded (HTTP 429). Remaining: {left}")
+    if resp.status_code != 200:
+        raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+    return resp.json()
+
+
+def with_retry(fn, *args, **kwargs):
+    """`fn` again after a wait, up to MAX_RETRIES, except when the key is out.
+
+    A quota answer is not a transient failure: retrying it spends the wait and
+    returns the same 429. Every other failure is worth one more try, since the
+    runs this serves are thousands of images long and a single dropped
+    connection should not end one.
     """
     for attempt in range(MAX_RETRIES):
         try:
-            resp = requests.post(
-                api_url,
-                files=[("images", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
-                data={"organs": organs},
-                params={
-                    "api-key": api_key,
-                    "nb-results": nb_results,
-                    "no-reject": "true",
-                    "include-related-images": "false",
-                    "lang": lang,
-                },
-                timeout=API_TIMEOUT,
-            )
-            if resp.status_code == 429:
-                raise QuotaExceededError(
-                    f"API quota exceeded (HTTP 429). "
-                    f"Remaining: {resp.headers.get('X-RateLimit-Remaining', 'unknown')}"
-                )
-            if resp.status_code != 200:
-                raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:200]}")
-            return resp.json()
+            return fn(*args, **kwargs)
         except QuotaExceededError:
             raise
         except Exception as e:
-            if attempt < MAX_RETRIES - 1:
-                wait = BACKOFF[attempt]
-                print(f"    Attempt {attempt + 1} failed ({e}), retrying in {wait}s...")
-                time.sleep(wait)
-            else:
+            if attempt == MAX_RETRIES - 1:
                 raise
+            wait = BACKOFF[attempt]
+            print(f"    Attempt {attempt + 1} failed ({e}), retrying in {wait}s...")
+            time.sleep(wait)
+
+
+def call_identify_api(jpeg_bytes: bytes, filename: str, api_url: str,
+                      api_key: str, nb_results: int,
+                      organs: str, lang: str) -> dict:
+    """Call /v2/identify. Returns parsed JSON.
+    Raises QuotaExceededError on HTTP 429, RuntimeError on other failures.
+    """
+    return with_retry(
+        post_image, api_url, "images", jpeg_bytes, filename,
+        params={"api-key": api_key, "nb-results": nb_results,
+                "no-reject": "true", "include-related-images": "false",
+                "lang": lang},
+        data={"organs": organs})
 
 
 def parse_response(response: dict, global_key: str, image_url: str,

@@ -46,7 +46,7 @@ def call_recorder(ingest, monkeypatch):
         calls.append(fn.__name__)
         return replies[fn.__name__]
 
-    monkeypatch.setattr(ingest, "_api_call_with_retry", fake)
+    monkeypatch.setattr(ingest, "with_retry", fake)
     monkeypatch.setattr(ingest.time, "sleep", lambda _s: None)
     return calls
 

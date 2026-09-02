@@ -24,7 +24,6 @@ that reaches it is available.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import os
 import sys
@@ -34,18 +33,18 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 from photo import (
+    API_TIMEOUT,
     CROP_SIZE,
     QuotaExceededError,
     center_crop_jpeg_box,
     load_config,
+    post_image,
+    with_retry,
 )
 
 REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "data"
 
-MAX_RETRIES = 3
-BACKOFF = [1, 5, 10]
-API_TIMEOUT = 60
 DEFAULT_DELAY = 0.5
 
 # The quadrat endpoint. The path documented as /v2/survey/<project> returns 404;
@@ -79,42 +78,6 @@ def download_image_bytes(url: str) -> bytes:
 center_crop_jpeg_from_bytes = center_crop_jpeg_box
 
 
-def _api_call_with_retry(fn, *args, **kwargs):
-    for attempt in range(MAX_RETRIES):
-        try:
-            return fn(*args, **kwargs)
-        except QuotaExceededError:
-            raise
-        except Exception as e:
-            if attempt < MAX_RETRIES - 1:
-                wait = BACKOFF[attempt]
-                print(f"    Attempt {attempt + 1} failed ({e}), retrying in {wait}s...")
-                time.sleep(wait)
-            else:
-                raise
-
-
-def _post(url: str, field: str, jpeg_bytes: bytes, filename: str,
-          params: dict, data: dict | None = None, timeout: int = API_TIMEOUT) -> dict:
-    """One image posted to one endpoint, with the quota answer named.
-
-    The three calls below differ in the field name, the parameters and how
-    long they may take, and in nothing else. Written once so a 429 cannot be
-    a plain HTTPError on one path and a QuotaExceededError on another.
-    """
-    resp = requests.post(
-        url,
-        files=[(field, (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
-        data=data,
-        params=params,
-        timeout=timeout,
-    )
-    if resp.status_code == 429:
-        raise QuotaExceededError("Quota exceeded (HTTP 429)")
-    resp.raise_for_status()
-    return resp.json()
-
-
 def call_identify(jpeg_bytes: bytes, filename: str, api_key: str,
                   api_url: str, nb_results: int, organs: str,
                   lang: str) -> dict:
@@ -125,7 +88,7 @@ def call_identify(jpeg_bytes: bytes, filename: str, api_key: str,
     was missing outright, so this path took Pl@ntNet's default language for
     common names while photo.py asked for the configured one.
     """
-    return _post(api_url, "images", jpeg_bytes, filename,
+    return post_image(api_url, "images", jpeg_bytes, filename,
                  params={"api-key": api_key, "nb-results": nb_results,
                          "no-reject": "true", "include-related-images": "false",
                          "lang": lang},
@@ -134,7 +97,7 @@ def call_identify(jpeg_bytes: bytes, filename: str, api_key: str,
 
 def call_embeddings(jpeg_bytes: bytes, filename: str, api_key: str,
                     api_url: str) -> dict:
-    return _post(api_url, "image", jpeg_bytes, filename,
+    return post_image(api_url, "image", jpeg_bytes, filename,
                  params={"api-key": api_key})
 
 
@@ -150,7 +113,7 @@ def call_survey(jpeg_bytes: bytes, filename: str, api_key: str,
     Verified 2026-08-15 against a 4000x3000 frame: 140 sub-queries at
     tile_size 518 / tile_stride 259, and the quadrat quota counter did not move.
     """
-    return _post(survey_url, "image", jpeg_bytes, filename,
+    return post_image(survey_url, "image", jpeg_bytes, filename,
                  params={"api-key": api_key}, timeout=SURVEY_TIMEOUT)
 
 
@@ -240,16 +203,16 @@ def process_image(
     jpeg_bytes, orig_w, orig_h, crop_box = center_crop_jpeg_from_bytes(read_bytes())
 
     if survey_url:
-        result = _api_call_with_retry(call_survey, jpeg_bytes, filename, api_key,
+        result = with_retry(call_survey, jpeg_bytes, filename, api_key,
                                       survey_url)
     else:
         pn_cfg = config["plantnet"]
-        id_resp = _api_call_with_retry(
+        id_resp = with_retry(
             call_identify, jpeg_bytes, filename, api_key, pn_cfg["identify_url"],
             pn_cfg["identify_nb_results"], pn_cfg["identify_organs"], pn_cfg["identify_lang"]
         )
         time.sleep(delay)
-        emb_resp = _api_call_with_retry(
+        emb_resp = with_retry(
             call_embeddings, jpeg_bytes, filename, api_key, pn_cfg["embeddings_api_url"]
         )
         result = identify_to_survey_json(id_resp, emb_resp)

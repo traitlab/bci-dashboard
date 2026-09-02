@@ -112,6 +112,15 @@ def ingest():
 
 
 @pytest.fixture(scope="session")
+def embed():
+    """Imported the way the script runs it, with photo.py as a sibling: the
+    post, the retry and the crop all come from there."""
+    _require("numpy", "requests", "yaml", "dotenv", "PIL")
+    with _on_path(REPO / "predict"):
+        yield load("_embed_under_test", REPO / "predict" / "embed.py")
+
+
+@pytest.fixture(scope="session")
 def photo():
     _require("PIL", "requests", "yaml", "dotenv")
     return load("_photo_under_test", REPO / "predict" / "photo.py")
