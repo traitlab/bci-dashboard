@@ -49,10 +49,14 @@ def build(h, *, generated, verify_dir, fallback_tag):
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
          f'&middot; {c.n:,} labelled frames &middot; {c.n_sp} species</div>',
+         # The set-aside sample is not named here. Both cards below say "on the
+         # {n} set-aside frames" in their own sublabel, and the note under them
+         # says the gap was measured before either number existed, so a reader
+         # met it three times in the first hundred words. The intro's job is
+         # what the two numbers compare.
          f'<p class="intro">This page says how well Pl@ntNet names the trees a botanist '
-         f'labelled. The two numbers at the top come from {int(c.cf["n_frames"])} frames '
-         f'set aside in advance. They show what difference it makes to outline the trees '
-         f'before asking.</p>'
+         f'labelled. The two numbers at the top show what difference it makes to outline '
+         f'the trees before asking.</p>'
          f'<p class="intro">Everything below them covers all {c.n:,} labelled frames, one '
          f'Pl@ntNet guess per frame. That is what lets the page say, species by species, '
          f'how often the guess is right. What to label next is a separate page, <code>label_queue_dashboard.html</code>.</p>',
