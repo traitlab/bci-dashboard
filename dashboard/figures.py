@@ -155,29 +155,15 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     # The logic lives in core so this page and measure.py cannot drift apart.
     acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     joined_stems = {stem for _, stem, _ in h.joined}
-    queue_counts = {}
-    lt_species = defaultdict(int)
-    queue_rows = []
-    n_no_answer = 0
-    for stem in sorted(h.predictions):
-        if stem in joined_stems:
-            continue
-        ranked = [(h.canon(b), s) for b, s in h.predictions[stem]]
-        if not ranked:
-            n_no_answer += 1
-            continue
-        pred, cf = ranked[0]
-        q = hc.queue_of_prediction(pred, cf, support, acc_of)
-        queue_counts[q] = queue_counts.get(q, 0) + 1
-        queue_rows.append((q, stem, pred, cf))
-        if q == "long_tail":
-            lt_species[pred] += 1
+    # The same call measure.py makes, so the page and send_first_queue.csv are
+    # one list read twice rather than two lists that have to be reconciled.
+    queue_rows, n_no_answer = hc.send_first_rows(h.predictions, joined_stems,
+                                                 h.canon, support, acc_of)
+    queue_counts = Counter(q for q, _, _, _ in queue_rows)
+    lt_species = Counter(pred for q, _, pred, _ in queue_rows if q == "long_tail")
     n_unlab = sum(queue_counts.values())
-    # send_first_queue.csv's own order. The page prints the head of that file and
-    # tells the reader to open the rest, so two sorts would be two lists.
-    queue_rows.sort(key=lambda r: (hc.QUEUE_ORDER.index(r[0]), r[3], r[1]))
-    # The same order in the form send_first_queue.csv writes it, so
-    # verify_snapshot can compare the two lists row for row.
+    # The rows in the form send_first_queue.csv writes them, so verify_snapshot
+    # can compare the two lists row for row.
     queue_keys = [hc.GT_KEY_PREFIX + stem for _, stem, _, _ in queue_rows]
 
     # How many scored frames the centre crop mostly misses. Read under the species

@@ -378,6 +378,33 @@ def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> st
     return "normal"
 
 
+def send_first_rows(predictions, joined_stems, canon, support, top1) -> tuple:
+    """Every unlabelled frame's queue, in the order send_first_queue.csv writes.
+
+    Returns ``([(queue, stem, species, confidence), ...], n_no_answer)``.
+    ``measure.py`` writes the CSV from this and ``figures.py`` counts the page
+    from it: both used to walk the cache themselves, and `verify_snapshot` then
+    compared the two lists row for row to catch the drift. One walk means there
+    is no drift to catch.
+
+    Order is queue first, then least confident inside a queue, then the stem:
+    the most uncertain frame of a group is the one most worth an expert look.
+    A frame the model answered nothing for is counted, not queued.
+    """
+    rows, n_no_answer = [], 0
+    for stem in sorted(predictions):
+        if stem in joined_stems:
+            continue
+        ranked = [(canon(name), score) for name, score in predictions[stem]]
+        if not ranked:
+            n_no_answer += 1
+            continue
+        pred, conf = ranked[0]
+        rows.append((queue_of_prediction(pred, conf, support, top1), stem, pred, conf))
+    rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), r[3], r[1]))
+    return rows, n_no_answer
+
+
 def diagnose(row: dict) -> str:
     """Per-species status. First matching rule wins; order is the point.
 

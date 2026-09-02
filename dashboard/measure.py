@@ -20,11 +20,11 @@ import run_log as rl
 from health import load_health
 from core import (
     add_input_flags, summarise,
-    ratio, fmt, genus_of, normalize, queue_of_prediction, chunk_send_batches,
+    ratio, fmt, genus_of, normalize, send_first_rows, chunk_send_batches,
     coverage_gate_stats, labelbox_urls, adjudicated_keys,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
-    QUEUE_ORDER, REVIEW_CONF, BATCH_SIZE, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
+    REVIEW_CONF, BATCH_SIZE, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
     GT_KEY_PREFIX, N_CANDIDATES,
 )
 
@@ -315,29 +315,15 @@ def main() -> None:
     joined_stems = {stem for _, stem, _ in h.joined}
     support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
     top1_of = {d["species"]: d["top1_accuracy"] for d in per_species}
-    queue_rows = []
-    q_counts = Counter()
-    n_no_answer = 0
-    for stem in sorted(h.predictions):
-        if stem in joined_stems:
-            continue
-        ranked = [(h.canon(b), s) for b, s in h.predictions[stem]]
-        gk = GT_KEY_PREFIX + stem
-        if not ranked:
-            n_no_answer += 1
-            continue
-        pred, conf = ranked[0]
-        q = queue_of_prediction(pred, conf, support, top1_of)
-        q_counts[q] += 1
-        queue_rows.append([q, gk, h.split_of.get(gk, ""), pred, f"{conf:.6f}",
-                           support.get(pred, 0),
-                           fmt(top1_of.get(pred)) if pred in top1_of else ""])
-
-    # Queue order first, then weakest confidence first inside a queue: the most
-    # uncertain frame of a group is the one most worth an expert look. Sorted here
-    # rather than inside the writer because the batch file below is built from the
-    # same list and must carry the same order.
-    queue_rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), float(r[4]), r[1]))
+    # The queue decision and its order live in core, because figures.py builds
+    # the same list for the page. The CSV columns are this file's own.
+    decided, n_no_answer = send_first_rows(h.predictions, joined_stems, h.canon,
+                                           support, top1_of)
+    q_counts = Counter(q for q, _, _, _ in decided)
+    queue_rows = [[q, GT_KEY_PREFIX + stem, h.split_of.get(GT_KEY_PREFIX + stem, ""),
+                   pred, f"{conf:.6f}", support.get(pred, 0),
+                   fmt(top1_of.get(pred)) if pred in top1_of else ""]
+                  for q, stem, pred, conf in decided]
     write_send_first_queue(out_dir, queue_rows)
 
     # Species-grouped Labelbox send batches over the same priority order, capped
