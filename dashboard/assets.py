@@ -450,6 +450,16 @@ def funnel_list(steps: list[tuple[int, str]]) -> str:
     return f'<ul class="todo">{rows}</ul>'
 
 
+def num_cell(value, shown: str) -> str:
+    """A table cell whose sort order is a number the reader never sees.
+
+    The JS sorts on ``data-sort``, so a formatted cell ("50.3%", "1,204") would
+    otherwise sort as text. Both species tables build their numeric cells here
+    rather than each repeating the attribute, which is how the two once drifted.
+    """
+    return f'<span data-sort="{value}">{shown}</span>'
+
+
 def status_tag(cls: str, label: str) -> str:
     """Render a status tag. The explanation is not repeated per row: a
     former hover-icon ``title=`` duplicated ~40KB of markup across a

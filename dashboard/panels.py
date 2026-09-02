@@ -14,8 +14,8 @@ import datetime as _dt
 import os
 
 import core as hc
-from assets import (CSS, JS, cap, esc, filterable_table, hero, panel, strip_comments,
-                    pctf, section, status_legend, status_tag, table)
+from assets import (CSS, JS, cap, esc, filterable_table, hero, num_cell, panel, pctf,
+                    section, status_legend, status_tag, strip_comments, table)
 from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
 from explain import (candidates_panel, method_panel,
                      weighting_panel)
@@ -299,11 +299,11 @@ def p_species(c):
         sp, st = d["species"], c.status[d["species"]]
         sp_rows.append([
             f'<span class="sp">{esc(cap(sp))}</span>',
-            f'<span data-sort="{d["n_labelled_crowns"]}">{d["n_labelled_crowns"]:,}</span>',
-            f'<span data-sort="{d["top1_accuracy"]:.6f}">{pctf(d["top1_accuracy"])}</span>',
-            f'<span data-sort="{d["top5_accuracy"]:.6f}">{pctf(d["top5_accuracy"])}</span>',
-            f'<span data-sort="{d["mean_top1_confidence"]:.6f}">'
-            f'{d["mean_top1_confidence"]:.2f}</span>',
+            num_cell(d["n_labelled_crowns"], f'{d["n_labelled_crowns"]:,}'),
+            num_cell(f'{d["top1_accuracy"]:.6f}', pctf(d["top1_accuracy"])),
+            num_cell(f'{d["top5_accuracy"]:.6f}', pctf(d["top5_accuracy"])),
+            num_cell(f'{d["mean_top1_confidence"]:.6f}',
+                     f'{d["mean_top1_confidence"]:.2f}'),
             status_tag(st, STATUS[st][0])])
         attrs.append(f' data-status="{st}"'
                      + (' data-thin="1"' if _starts_hidden(d, st) else ""))
