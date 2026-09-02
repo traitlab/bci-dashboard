@@ -93,7 +93,8 @@ def hero_terms(k):
         "area in the <i>whole</i> frame.",
         f"The <b>centre crop</b> is the fixed {CROP_SIZE}&times;{CROP_SIZE} square from "
         f"the middle of a frame, which is {CROP_SHARE} of the frame&rsquo;s area. Every "
-        f"corpus-wide number below was scored on that square. We ask Pl@ntNet for {k} "
+        f"number below that covers all the labelled frames was scored on that square. "
+        f"We ask Pl@ntNet for {k} "
         f"names per photo (<code>nb-results={k}</code>). That is our request setting, "
         f"not a limit of the model.",
         "The <b>first guess</b> is the top-ranked of those names, and <b>right</b> "
@@ -513,19 +514,23 @@ def p_caveats(c):
         f'{int(cf["crown_only_hits"])} frames outlining got the name right where the centre '
         f'crop got it wrong; on {int(cf["photo_only_hits"])} it went the other way. A gap '
         f'that lopsided almost never happens by chance, so we are confident it is real.</p>'
-        f'<p class="note">The plan named two tests. The site-aware resampling test '
-        f'described above gives p {pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}; '
-        f'an exact McNemar test gives p = {cf["p_mcnemar_exact"]:.5f}. A <b>p</b> is the '
-        f'chance of a gap at least this big if outlining made no difference. Smaller means '
-        f'harder to explain by luck. McNemar assumes every frame is independent, and frames '
-        f'from one site are not. So the plan named the resampling test as the answer where '
-        f'the two disagree.</p>'
+        # "site-aware resampling" and "site-resampled" were the page's own words,
+        # not the plan's, and nothing on the page said what they meant. Said as
+        # what the test does instead.
+        f'<p class="note">The plan named two tests. Re-drawing whole sites at random, '
+        f'rather than single frames, gives p '
+        f'{pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}; an exact McNemar test '
+        f'gives p = {cf["p_mcnemar_exact"]:.5f}. A <b>p</b> is the chance of a gap at '
+        f'least this big if outlining made no difference. Smaller means harder to explain '
+        f'by luck. McNemar treats every frame as its own independent draw, and frames from '
+        f'one site are not. So the plan named the re-drawing test as the answer where the '
+        f'two disagree.</p>'
         # Its own paragraph: the range is a different claim from the two p-values,
         # not the same one restated.
         f'<p class="note">The ordinary textbook range for the top number would read '
         f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])}. It '
-        f'assumes independence too, so it is narrower than the data supports, and the two '
-        f'cards at the top carry the site-resampled range instead.</p>'
+        f'treats every frame as its own independent draw too, so it is narrower than the '
+        f'data supports. The two cards at the top carry the whole-site range instead.</p>'
         f'<div class="warn"><p><strong>The top number was not produced blind.</strong> '
         f'Before these frames were set aside, someone on the team had already seen how well '
         f'the outline-first method scored, on a different set of photos. That does not make '
