@@ -272,8 +272,8 @@ JS = Template("""\
   apply();
 })();
 
-// Printing. Only two panels are open by default, so printing the page as it sits
-// would hand someone a sheet of headings. Open everything for the print, then put
+// Printing. The model-health page opens nothing and the queue page opens two, so
+// printing either as it sits would hand someone a sheet of headings. Open everything for the print, then put
 // it back, and keep this out of the block above, which returns early when there is
 // no species table. A reader who prints from a browser without these events still
 // gets whatever they had open, which is the old behaviour, not a worse one.
