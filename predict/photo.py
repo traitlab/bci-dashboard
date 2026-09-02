@@ -4,7 +4,7 @@ Pl@ntNet single-species predictions, one call per photo.
 Calls the Pl@ntNet /v2/identify/{project} endpoint (one call per image, 1 credit
 each) and saves the top-N species results + organ predictions per image.
 
-Uses a 1280x1280 centre crop and a disk-cache/resume pattern. Safe to stop and
+Uses a centre crop CROP_SIZE px on a side and a disk-cache/resume pattern. Safe to stop and
 resume at any time.
 
 Config (config.yaml):

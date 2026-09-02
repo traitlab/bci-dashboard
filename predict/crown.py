@@ -1,11 +1,11 @@
 """
 Phase 18a - Pl@ntNet predictions per CROWN instead of per photo.
 
-13a sends a fixed 1280 square cut from the centre of each base frame, so a
-prediction is scored against crown labels that may lie entirely outside the
-region the model saw. This script sends each labelled crown's own pixels, which
-removes the mismatch instead of filtering around it: the unit of prediction and
-the unit of ground truth become the same object.
+13a sends a fixed square, CROP_SIZE px on a side, cut from the centre of each
+base frame, so a prediction is scored against crown labels that may lie entirely
+outside the region the model saw. This script sends each labelled crown's own
+pixels, which removes the mismatch instead of filtering around it: the unit of
+prediction and the unit of ground truth become the same object.
 
 It also stores the geometry it used. 13a and the ingest script both computed crop
 offsets and discarded them, which is why the region had to be reconstructed

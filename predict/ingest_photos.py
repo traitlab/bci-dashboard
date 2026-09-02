@@ -48,7 +48,7 @@ OUT = REPO / "data"
 
 DEFAULT_DELAY = 0.5
 
-# One call runs 140 sub-queries over a 4000x3000 frame, so it is not a 60s job.
+# One call runs 140 sub-queries over a whole frame, so it is not a 60s job.
 SURVEY_TIMEOUT = 300
 IMG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
