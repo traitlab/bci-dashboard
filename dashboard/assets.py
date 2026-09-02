@@ -148,6 +148,10 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .status-legend{list-style:none;font-size:0.82rem;color:#424242;
   margin:8px 0 14px;display:flex;flex-direction:column;gap:5px}
 .status-legend li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+/* The vocabulary panel: one definition per row, so a reader looking up one
+   word does not read the other five to find it. */
+.terms{list-style:none;font-size:0.86rem;color:#424242}
+.terms li{margin:8px 0;padding-left:12px;border-left:2px solid #e0e0e0}
 .todo{list-style:none;font-size:0.86rem;color:#424242}
 .todo li{margin:7px 0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .todo .n{font-weight:700;color:#212121;font-variant-numeric:tabular-nums}

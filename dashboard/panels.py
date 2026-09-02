@@ -135,26 +135,35 @@ CROP_SHARE = f"{100 * CROP_SIZE ** 2 / (FRAME_W * FRAME_H):.1f}%"
 def hero_terms(k):
     """The four words, and the request setting, in the wording the page uses.
 
-    A function rather than a constant because the number of names we ask for is a
-    setting, and a setting written into a constant is a sentence that stops being
-    true without anything noticing.
+    A list rather than one paragraph: six definitions run together made the
+    first panel on the page the densest block on it, and a reader looking up
+    one word had to read all six to find it. Wording is unchanged.
+
+    A function rather than a constant because the number of names we ask for is
+    a setting, and a setting written into a constant is a sentence that stops
+    being true without anything noticing.
     """
-    return (
-        f"A <b>frame</b> is one {FRAME_W}&times;{FRAME_H} drone photo. A <b>crown</b> is one tree "
-        "canopy a botanist outlined inside a frame. A frame's <b>label</b> is the species whose "
-        "outlined crowns cover the most area in the <i>whole</i> frame. "
-        f"The <b>centre crop</b> is the fixed {CROP_SIZE}&times;{CROP_SIZE} square from the middle "
-        f"of a frame, which is {CROP_SHARE} of the frame&rsquo;s area. That square is what "
-        "most of this page sends to "
-        "Pl@ntNet. "
-        f"We ask Pl@ntNet for {k} names per photo (<code>nb-results={k}</code>). That is our "
-        "request setting, not a limit of the model. The <b>first guess</b> is the top-ranked "
-        "of those names, and <b>right</b> means it matches the frame's label. "
-        "<b>Outlining the trees first</b> means something else. We ask Pl@ntNet about each "
-        "crown on its own. Then we combine the answers into one name for the frame, weighted "
-        "by how much of the frame each crown covers. That is the same rule the label itself is "
-        "built from, which is why it is the fairer of the two numbers at the top."
-    )
+    items = [
+        f"A <b>frame</b> is one {FRAME_W}&times;{FRAME_H} drone photo.",
+        "A <b>crown</b> is one tree canopy a botanist outlined inside a frame.",
+        "A frame's <b>label</b> is the species whose outlined crowns cover the most "
+        "area in the <i>whole</i> frame.",
+        f"The <b>centre crop</b> is the fixed {CROP_SIZE}&times;{CROP_SIZE} square from "
+        f"the middle of a frame, which is {CROP_SHARE} of the frame&rsquo;s area. That "
+        f"square is what most of this page sends to Pl@ntNet. We ask Pl@ntNet for {k} "
+        f"names per photo (<code>nb-results={k}</code>). That is our request setting, "
+        f"not a limit of the model.",
+        "The <b>first guess</b> is the top-ranked of those names, and <b>right</b> "
+        "means it matches the frame's label.",
+        "<b>Outlining the trees first</b> means something else. We ask Pl@ntNet about "
+        "each crown on its own. Then we combine the answers into one name for the "
+        "frame, weighted by how much of the frame each crown covers. That is the same "
+        "rule the label itself is built from, which is why it is the fairer of the two "
+        "numbers at the top.",
+    ]
+    return ('<ul class="terms">'
+            + "".join(f"<li>{t}</li>" for t in items) + "</ul>")
+
 
 def crop_mismatch(c):
     """How many scored frames the centre crop mostly misses. Two counts, used
@@ -874,7 +883,7 @@ def p_terms(c):
         "<b>Four words do all the work on this page.</b> Which part of a "
         "photo was scored, and against which label, is the whole of the difference "
         "between the two numbers above.",
-        f'<p>{hero_terms(c.n_cand)}</p>')
+        hero_terms(c.n_cand))
 
 
 def p_candidates(c):
