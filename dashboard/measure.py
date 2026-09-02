@@ -46,6 +46,14 @@ OUTPUTS = ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
            "send_first_queue.csv", "send_batches.csv", "label_review_queue.csv",
            "coverage_gate.csv", "run_log.txt")
 
+# Three of those no build reads back. They are evidence a person opens, not
+# input to a page: what restricting candidates to the BCI list is worth, which
+# tier matched every label name, and the coverage threshold labelling/ shares
+# rather than a page input. Everything else is recomputed and compared on every
+# build, so a page cannot drift from the snapshot it was built against.
+NOT_READ_BACK_BY_A_BUILD = ("filter_gain.csv", "name_reconciliation.csv",
+                            "coverage_gate.csv")
+
 LOG_LINES: list[str] = []
 
 

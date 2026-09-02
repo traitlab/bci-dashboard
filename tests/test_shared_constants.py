@@ -437,3 +437,27 @@ def test_the_dashboard_folder_holds_only_the_modules_that_build_the_pages():
     assert not strays, (
         f"dashboard/ holds {strays}, which are not modules. Generated tables "
         f"belong in build/tables, where measure.py writes them.")
+
+
+def test_every_generated_table_is_either_verified_or_declared_unverified():
+    """A build aborts when a page disagrees with the snapshot, one file at a time.
+
+    That guarantee is only as wide as the list of files `history.py` checks.
+    Add an eleventh output to `measure.py` and nothing says whether a page
+    depends on it, so nothing notices when it goes stale. `measure.py` names
+    the three nobody reads back, and this holds that claim to the checks that
+    actually exist.
+    """
+    measure = (REPO / "dashboard" / "measure.py").read_text(encoding="utf-8")
+    history = (REPO / "dashboard" / "history.py").read_text(encoding="utf-8")
+    outputs = set(re.findall(r'"([\w.]+\.(?:csv|txt))"',
+                             measure[measure.index("OUTPUTS = ("):
+                                     measure.index("NOT_READ_BACK_BY_A_BUILD")]))
+    declared = set(re.findall(r'"([\w.]+\.csv)"',
+                              measure[measure.index("NOT_READ_BACK_BY_A_BUILD"):]
+                              .split(")")[0]))
+    checked = set(re.findall(r'"?([\w.]+\.(?:csv|txt))', history))
+    assert outputs - declared == checked & outputs, (
+        f"measure.py writes {sorted(outputs)} and says {sorted(declared)} are never "
+        f"read back, but history.py checks {sorted(checked & outputs)}. A file in "
+        f"neither list is a table a page may be built from without comparison.")
