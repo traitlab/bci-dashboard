@@ -63,8 +63,12 @@ def p_todo(c):
                 f'candidates hold exactly one species from that genus, so the question is yes '
                 f'or no, not which of {c.n_sp}. No species was named on them, so they sit '
                 f'outside the {c.n_sp} scored here.</p>')
-    return panel(f"Where to spend botanist time next: {c.counts['ranking']} cheap "
-                 f"confirmations, {c.counts['unreachable']} not worth time yet",
+    # The heading counted the "never returned" rows as the ones to skip, which
+    # is a third of what the lede says can be skipped. Two numbers for one fact,
+    # and the smaller one on top. The heading now names only the cheapest work
+    # and leaves the skipping to the sentence that lists all three rows.
+    return panel(f"Where to spend botanist time next: {c.counts['ranking']} species "
+                 f"are one confirmation away",
                  "<b>Work top to bottom.</b> Rows are ordered cheapest useful work "
                  "first. Three of them you can skip: "
                  + ", ".join(f"&ldquo;{uncap(STATUS[k][0])}&rdquo;" for k in SKIP_STATUSES)
