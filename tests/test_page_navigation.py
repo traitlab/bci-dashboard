@@ -186,3 +186,34 @@ def test_every_status_a_row_carries_is_one_the_dropdown_offers(page):
     assert carried and carried <= offered, (
         f"rows carry {sorted(carried - offered)}, which the dropdown does not "
         f"offer, so those rows vanish when a reader picks any status")
+
+
+def test_no_sort_key_ships_a_digit_the_sort_cannot_use(page):
+    """`data-sort` exists only for JavaScript's `parseFloat`, which cannot tell
+    "0.000000" from "0". The zeros are readable by nobody and were 1.5KB of a
+    100KB page, so `assets.sort_key` trims them. This catches a caller that
+    formats its own key and puts them back."""
+    html, _, _ = page
+    padded = [v for v in re.findall(r'data-sort="([^"]*)"', html)
+              if "." in v and v.endswith(("0", "."))]
+    assert not padded, (
+        f"{len(padded)} sort keys end in a zero that changes nothing, "
+        f"such as {padded[:3]}. Build them with assets.sort_key.")
+
+
+def test_every_rounded_species_cell_still_sorts_on_the_figure_behind_it(page):
+    """A cell showing 92.9% sorts on 0.928571, carried in `data-sort` on the
+    cell itself. Drop the attribute and the table still renders and still
+    sorts, on the text "92.9%", so two species rounding alike swap places and
+    nothing anywhere says so."""
+    html, _, carries = page
+    rounded = [row for row in species_rows(html) if "%" in row]
+    if "species" not in carries:
+        assert not rounded
+        return
+    assert rounded, "the species table shows no percentage at all"
+    for row in rounded:
+        for cell in re.findall(r"<td[^>]*>[^<]*%</td>", row):
+            assert "data-sort=" in cell, (
+                f"{cell} shows a rounded percentage and sorts on the text of "
+                f"it, so species that round alike sort arbitrarily")
