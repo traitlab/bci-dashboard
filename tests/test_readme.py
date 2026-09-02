@@ -186,3 +186,46 @@ def test_the_headline_rates_metrics_md_quotes_are_the_ones_the_snapshot_holds(co
         f"metrics.md says {said.group(1)} frames, the snapshot holds {crowns}.")
     assert int(said.group(2).replace(",", "")) == len(rows), (
         f"metrics.md says {said.group(2)} species, the snapshot holds {len(rows)}.")
+
+
+def test_metrics_md_cites_symbols_that_exist_and_no_line_numbers(core):
+    """A line number in prose is a citation with a shelf life.
+
+    `metrics.md` pointed at `dashboard/crop_overlap.py:136-138` for the
+    definition of `coverage` and at `labelling/next_batch.py:394-399` for the
+    one place the gate filters. Both had drifted: 394-399 is now the middle of
+    an output-table list. A symbol name survives an edit above it, so the rule
+    is that the file cites `module.symbol`, and this checks each one is real.
+    """
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    doc = os.path.join(os.path.dirname(root), "bci-dashboard-docs", "metrics.md")
+    if not os.path.exists(doc):
+        pytest.skip("sibling bci-dashboard-docs/metrics.md not present")
+    with open(doc, encoding="utf-8") as fh:
+        text = fh.read()
+
+    numbered = re.findall(r"`([\w./]+\.py:[\d-]+)`", text)
+    assert not numbered, (
+        f"metrics.md cites {numbered} by line number, which goes stale on the "
+        f"next edit above it. Cite `module.symbol` instead.")
+
+    modules = {}
+    for where in ("dashboard", "predict", "labelling"):
+        folder = os.path.join(root, where)
+        for name in os.listdir(folder):
+            if name.endswith(".py"):
+                with open(os.path.join(folder, name), encoding="utf-8") as fh:
+                    modules[name[:-3]] = fh.read()
+    missing = []
+    # A call or an upper-case constant. Anything else with a dot in it is a
+    # filename: `history.csv` is not the `csv` member of a `history` module.
+    cited = (re.findall(r"`(\w+)\.(\w+)\(\)`", text)
+             + re.findall(r"`(\w+)\.([A-Z][A-Z_0-9]+)`", text))
+    for module, symbol in cited:
+        if module not in modules:
+            continue
+        if not re.search(rf"^(?:def|class) +{symbol}\b|^{symbol} *=",
+                         modules[module], re.MULTILINE):
+            missing.append(f"{module}.{symbol}")
+    assert not missing, (
+        f"metrics.md cites {missing}, which the module no longer defines.")
