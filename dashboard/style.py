@@ -162,10 +162,14 @@ section.grp>h2{
 .subtitle{color:#6d6d6d}
 /* A sub-heading inside a panel body, count table apart from photo table. */
 h3.sub{font-size:0.95rem;font-weight:700;color:#37474f;margin:22px 0 8px}
-/* The contact sheet: the head of a queue as pictures. Wraps rather than
-   scrolls, because a row that runs off the side hides the frames a reader most
-   needs to see, and the count per queue is fixed and small. */
-.sheet{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+/* The contact sheet: the head of a queue as pictures. The column count is
+   fixed rather than left to the width, because a wrapping row divides the fixed
+   count per queue by whatever fits and leaves a ragged last row that reads as a
+   gap in the data. Six columns divide the twelve frames evenly and fit inside
+   the panel on both pages. max-content, so the pixel size stays in one place,
+   on the img tag, where THUMB_PX writes it. */
+.sheet{display:grid;grid-template-columns:repeat(6,max-content);
+  justify-content:start;gap:6px;margin:0 0 14px}
 .sheet img{display:block;border-radius:3px;border:1px solid #e0e0e0}
 /* A command meant to be copied whole, so it wraps rather than running off the
    right edge on a phone. */
@@ -184,6 +188,8 @@ details.panel:target>summary{background:#e3f2fd}
 /* No room for two columns on a phone; the vendored 640px query stays as it is. */
 @media(max-width:640px){
   .hero{grid-template-columns:1fr}
+  /* Six 112px columns run off a phone; three fit and still divide twelve. */
+  .sheet{grid-template-columns:repeat(3,max-content)}
 }
 """
 
