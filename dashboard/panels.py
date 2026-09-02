@@ -485,9 +485,11 @@ def p_review(c):
                     f'<span class="sp">{esc(cap(top1(r)))}</span>',
                     f"{conf(r):.2f}"]
                    for r in top_review])
+    # "label-and-guess pair" everywhere: the table above is introduced with that
+    # phrase, and "confusion pair" was the same thing under a second name.
     body += ('<p class="note">Not urgent: work this list after the send-first queues. A '
-             'confusion pair that keeps recurring is a signal about the species, not just '
-             'the photo.</p>')
+             'label-and-guess pair that keeps recurring is a signal about the species, '
+             'not just the photo.</p>')
     if c.n_adjudicated:
         body += (f'<p class="note">{c.n_adjudicated} further frame'
                  f'{"" if c.n_adjudicated == 1 else "s"} disagree at this confidence and '
@@ -868,7 +870,11 @@ def p_caveats(c):
         f'Two of its words are the plan&rsquo;s, not this page&rsquo;s: <b>tiles</b> is the '
         f'third way of asking, the one that was cut, and a <b>quadrat</b> is a marked-out '
         f'ground plot.</p>'
-        f'<p>The 85.4% it names is a per-crown rate over every labelled photo. '
+        # The plan's own "top-1" is left unglossed on purpose: the sentence below
+        # says what its 85.4% counts, and repeating the term would put it in this
+        # page's prose, which says "first guess" everywhere.
+        f'<p>The 85.4% it names counts only a first guess, per crown, over every '
+        f'labelled photo. '
         f'Do not read it against the {pctf(cf["crown_top1"])} at the top, which scores a '
         f'whole frame on this fixed sample.</p>'
         f'{A2_PRIOR_EXPOSURE}</div>'
