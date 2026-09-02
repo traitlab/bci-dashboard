@@ -144,10 +144,9 @@ def markdown_prose(text: str) -> list[str]:
     for line in text.splitlines():
         stripped = line.strip()
         starts_block = stripped.startswith(("-", "*", "|", "#", ">"))
-        if not stripped or starts_block:
-            if current:
-                blocks.append(" ".join(current))
-                current = []
+        if current and (not stripped or starts_block):
+            blocks.append(" ".join(current))
+            current = []
         if not stripped or stripped.startswith(("|", "#", ">")):
             continue
         current.append(stripped.lstrip("-* "))
