@@ -185,11 +185,24 @@ def check_send_batches(directory, queue_path, n_unlab):
                  f"contiguous, {runs}")
     if len(brows) != n_unlab:
         fail(f"send_batches.csv: {len(brows)} rows vs {n_unlab} in {queue_path}")
-    if {r["global_key"] for r in brows} != {r["global_key"]
-                                            for r in hc.read_csv_rows(queue_path)}:
+    qrows = hc.read_csv_rows(queue_path)
+    if {r["global_key"] for r in brows} != {r["global_key"] for r in qrows}:
         fail(f"send_batches.csv: global_key set does not match {queue_path}")
+
+    # The checks above accept any valid repartition of the queue, so a change to
+    # the packing rule slips through: the old file stays structurally legal and
+    # the build stays quiet. Recompute the assignment and require this exact one.
+    want = queues.chunk_send_batches(
+        [[r[c] for c in queues.SEND_FIRST_COLUMNS] for r in qrows])
+    got = [[r["batch_id"], r["species_group"], r["global_key"], r["queue"]]
+           for r in brows]
+    if [[str(v) for v in row] for row in want] != got:
+        fail(f"send_batches.csv is a valid repartition of {queue_path} but not the "
+             f"one queues.chunk_send_batches makes from it. Re-run measure.py.")
+
     return (f"send_batches.csv: {len(brows):,} rows in {len(by_batch)} batches, "
-            f"contiguous species groups and at most {queues.BATCH_SIZE} rows each")
+            f"the assignment chunk_send_batches makes, at most "
+            f"{queues.BATCH_SIZE} rows each")
 
 
 def check_review_queue(directory, review_counts):
