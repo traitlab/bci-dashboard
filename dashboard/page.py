@@ -20,9 +20,10 @@ import health as hl
 from assets import section, strip_comments
 from style import CSS, JS
 from history import latest_snapshot_dir
+from confirmatory_panels import p_caveats, p_confirmatory
 from panels import (
-    p_candidates, p_caveats, p_ceiling, p_confirmatory, p_counts, p_method,
-    p_review, p_species, p_terms, p_weighting)
+    p_candidates, p_ceiling, p_counts, p_method, p_review, p_species, p_terms,
+    p_weighting)
 from queue_panels import p_conf, p_rules, p_send, p_todo, p_wait
 
 

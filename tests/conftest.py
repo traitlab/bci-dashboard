@@ -131,6 +131,16 @@ def style():
 
 
 @pytest.fixture(scope="session")
+def confirmatory_panels():
+    """The frozen experiment's two panels, and the two amendments they quote
+    verbatim. Its own fixture because the quotes are what several tests need,
+    and they are literals a test can read without a snapshot."""
+    with _on_path(REPO / "dashboard"):
+        import confirmatory_panels
+        yield confirmatory_panels
+
+
+@pytest.fixture(scope="session")
 def panels():
     """The model-health page's panel functions. `dashboard/` on the path,
     because panels imports core and assets as siblings. Every function here

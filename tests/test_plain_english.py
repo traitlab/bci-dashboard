@@ -110,14 +110,14 @@ def sentences(blocks: list[str]) -> list[str]:
 
 
 @pytest.fixture(scope="session")
-def quoted(panels, core, assets):
+def quoted(confirmatory_panels, core, assets):
     """Text the page reproduces rather than writes: the two blocks
     `hypothesis.md` requires verbatim, and the provenance line the merge
     script wrote to its sidecar. Taken from the modules that render them
     rather than retyped, because retyped they would drift and this file would
     start excluding nothing.
     """
-    return (panels.A2_PRIOR_EXPOSURE, panels.A4_WHAT_THIS_COSTS,
+    return (confirmatory_panels.A2_PRIOR_EXPOSURE, confirmatory_panels.A4_WHAT_THIS_COSTS,
             assets.esc(core.gt_provenance()))
 
 

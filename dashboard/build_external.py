@@ -22,9 +22,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import confirmatory_panels as cp
 import figures
 import page as pg
-import panels as pn
 from assets import esc
 from history import verify_snapshot
 
@@ -59,7 +59,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
          # The headline first, on the frozen sample, because it is the only number here
          # whose unit of prediction is the unit the label describes. The corpus-wide
          # grid follows it, inside a panel, not the other way round.
-         pn.confirmatory_hero(c.cf),
+         cp.confirmatory_hero(c.cf),
          # The gap is the finding, so it is prose rather than a hover tooltip nothing
          # on a phone would see.
          (f'<p class="note"><strong>Quote the top number, and carry the two warnings '
