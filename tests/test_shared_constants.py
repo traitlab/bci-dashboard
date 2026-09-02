@@ -227,3 +227,16 @@ def test_every_input_boxes_path_a_script_names_is_a_file_that_is_there(source):
             f"{source.relative_to(REPO)} names input/boxes/{name}, which is not "
             f"there. input/boxes holds "
             f"{sorted(p.name for p in (REPO / 'input' / 'boxes').iterdir())}.")
+
+
+def test_the_tile_window_is_the_one_the_survey_call_documents():
+    """`crown.py` counts sampled crowns smaller than Pl@ntNet's own tile
+    window, and the only record of how wide that window is sits in
+    `ingest_photos.call_survey`'s docstring, measured against a real frame.
+    A reader who changes one has no reason to look at the other, and the count
+    would then be reported under a width nothing measured."""
+    px = value_of("TILE_WINDOW_PX", "predict/crown.py")
+    survey = (REPO / "predict" / "ingest_photos.py").read_text(encoding="utf-8")
+    assert f"{px}px window" in survey, (
+        f"crown.py counts crowns under {px}px and ingest_photos.py documents a "
+        f"different window. One of the two moved.")

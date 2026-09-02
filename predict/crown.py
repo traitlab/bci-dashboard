@@ -65,6 +65,13 @@ DATASET_ROWS = REPO / "data" / "dataset_rows.jsonl"
 # Pl@ntNet would be identifying texture rather than a plant.
 MIN_BOX_SIDE = 128
 
+# Pl@ntNet's own window on a frame, the one it slides when it surveys a whole
+# image (predict/ingest_photos.py records the measurement). The sample line
+# below counts crowns smaller than that, which are crowns smaller than what the
+# model looks at in one step. It was the number 518 typed into the comparison
+# and again into the words beside it.
+TILE_WINDOW_PX = 518
+
 # Identify quota is 10,000/day. Stop below it so a run never trips the limit
 # mid-crown and leaves a half-written cache entry.
 DEFAULT_MAX_CALLS = 9500
@@ -420,8 +427,8 @@ def main(argv=None) -> int | None:
         if sides:
             log(f"  sampled shorter side px      : min {sides[0]}, "
                 f"median {sides[len(sides) // 2]}, max {sides[-1]}")
-            log(f"  sampled below 518 px         : "
-                f"{sum(1 for s in sides if s < 518)} of {len(sides)}")
+            log(f"  sampled below {TILE_WINDOW_PX} px         : "
+                f"{sum(1 for s in sides if s < TILE_WINDOW_PX)} of {len(sides)}")
     log(f"  to request                   : {len(todo)}  (1 credit each)")
     log(f"  this run will stop after     : {min(len(todo), args.max_calls)} calls")
     log(f"  frames to download           : {len({t[0] for t in todo[:args.max_calls]})}")
