@@ -37,15 +37,6 @@ body{
 }
 h1{font-size:1.6rem;font-weight:700;margin-bottom:4px;color:#212121}
 .subtitle{font-size:0.85rem;color:#757575;margin-bottom:8px}
-.card{
-  background:#fff;border:1px solid #e0e0e0;border-radius:8px;
-  padding:20px 24px;margin-bottom:20px;
-  box-shadow:0 1px 3px rgba(0,0,0,0.04);
-}
-.card h2{
-  font-size:1.05rem;font-weight:600;color:#424242;margin-bottom:12px;
-  border-bottom:1px solid #f0f0f0;padding-bottom:6px;
-}
 section{margin-bottom:32px}
 section h2{font-size:1.05rem;font-weight:600;color:#424242;margin-bottom:12px;
   border-bottom:1px solid #e0e0e0;padding-bottom:4px}
@@ -65,18 +56,12 @@ summary{
   padding:6px 0;
 }
 summary:hover{text-decoration:underline}
-.footer{
-  margin-top:40px;padding-top:12px;border-top:1px solid #e0e0e0;
-  font-size:0.75rem;color:#bdbdbd;text-align:center;
-}
 @media(max-width:640px){
   body{padding:16px 12px 40px}
   svg{width:100%!important;height:auto!important}
 }
 @media print{
   body{background:#fff;max-width:none;padding:0}
-  .card{box-shadow:none;border:1px solid #ccc;break-inside:avoid}
-  .footer{display:none}
   summary{color:#333}
 }
 """

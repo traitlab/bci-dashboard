@@ -540,3 +540,19 @@ def test_the_filter_can_reach_every_row(page):
     assert tagged, "no filterable rows"
     for row in tagged:
         assert "data-status=" in row, f"row filterable by name but not status: {row}"
+
+
+def test_the_stylesheet_has_no_rule_no_page_uses(external_page, internal_page, assets):
+    """Dead CSS is invisible bloat: it survives every rewrite because nothing
+    fails when it stops matching anything. Two classes did survive that way.
+
+    ``JS_APPLIED`` are set by the sort and filter code at runtime, so they are
+    absent from the built HTML and still live."""
+    JS_APPLIED = {"asc", "desc", "hidden"}
+    styled = set(re.findall(r"\.([a-zA-Z][\w-]*)", assets.CSS))
+    html = external_page[0] + internal_page[0]
+    used = set()
+    for group in re.findall(r'class="([^"]+)"', html):
+        used.update(group.split())
+    dead = sorted(styled - used - JS_APPLIED)
+    assert not dead, f"CSS rules nothing on either page carries: {dead}"
