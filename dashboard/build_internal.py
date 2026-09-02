@@ -57,8 +57,8 @@ def build(h, *, generated, verify_dir, fallback_tag):
          f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
          f'&middot; {c.n:,} labelled frames behind the ranking</div>',
          hero([("Worth sending first", f"{send_now:,}", "unlabelled photos",
-                "They point at a species we barely have, or at a usually-right species "
-                "the model is unsure of here."),
+                "They point at a species we barely have or barely get right, or at a "
+                "usually-right species the model is unsure of here."),
                ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
                 "The whole pool this page puts in an order.")]),
          ('<p class="note"><strong>The page is not the deliverable. Work '

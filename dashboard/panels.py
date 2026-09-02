@@ -169,7 +169,7 @@ def hero_region(c):
 
 # Queue name -> (what it is, why it is worth sending). Shown in the order
 # hc.QUEUE_ORDER gives, which is the order the CSV is sorted in.
-QL = {"long_tail": ("Species we barely have",
+QL = {"long_tail": ("Species we barely have, or barely get right",
                     f"The guess points at a species with fewer than "
                     f"{hc.WELL_SAMPLED_MIN_N} labelled frames, or one the model gets "
                     f"wrong even with more. These frames fill the long tail the "
@@ -323,7 +323,12 @@ def p_send(c):
     top_lt = sorted(c.lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
     body += ('<p class="note"><b>Most-named species in the first queue.</b> '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
-             + '.</p>'
+             + '. '
+             # Several of these have well over ten labels, and a reader who checks
+             # them against the species table finds the queue name contradicted.
+             f'Some of these already have more than {WAIT_SUPPORT_MIN} labelled frames. '
+             f'They are here on the other half of the rule: the model still gets them '
+             f'right less than {pctf(hc.HARD_MAX_TOP1)} of the time.</p>'
              # Two CSVs sit in the snapshot folder and the page named both as the
              # thing to work, 200 lines apart. This says which is which.
              f'<p class="note"><code>send_first_queue.csv</code> in the snapshot folder is '
@@ -363,7 +368,7 @@ def p_send(c):
                  f"of {c.n_unlab:,} unlabelled photos",
                  f"<b>Work the queues top to bottom.</b> Two queues make up that "
                  f"{send_now:,}. First come {c.queue_counts.get('long_tail', 0):,} photos "
-                 f"pointing at a species we barely have. Then "
+                 f"pointing at a species we barely have, or barely get right. Then "
                  f"{c.queue_counts.get('low_conf_known', 0):,} showing a usually-right "
                  f"species the model is unsure of here. Both buy more per label than "
                  f"anything below them.",
