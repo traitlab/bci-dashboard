@@ -753,8 +753,8 @@ def p_caveats(c):
         f'Before these frames were set aside, someone on the team had already seen how well '
         f'the outline-first method scored, on a different set of photos. That does not make '
         f'the number wrong and it does not touch the gap above, but the number has to travel '
-        f'with this warning. The plan requires its own words rather than a summary, so they '
-        f'are reproduced here in full from amendment A2 of <code>hypothesis.md</code>. '
+        f'with this warning. The plan&rsquo;s own wording is below in full, from amendment '
+        f'A2 of <code>hypothesis.md</code>. '
         f'Two of its words are the plan&rsquo;s, not this page&rsquo;s: <b>tiles</b> is the '
         f'third way of asking, the one that was cut, and a <b>quadrat</b> is a marked-out '
         f'ground plot. The 85.4% it names is a per-crown rate over every labelled photo. '
@@ -764,8 +764,7 @@ def p_caveats(c):
         f'<div class="warn"><p><strong>A third way of asking was dropped after we had seen '
         f'how it was doing.</strong> The study planned to test a third method, tiles, and '
         f'cut it partway through. Dropping a method after glimpsing its result is the kind '
-        f'of choice that can flatter the methods that survive. Amendment A4 requires its own '
-        f'words too:</p>'
+        f'of choice that can flatter the methods that survive. Amendment A4, in full:</p>'
         f'{A4_WHAT_THIS_COSTS}</div>'
         f'<div class="warn"><p><strong>What this rate is not.</strong></p><ul>'
         f'<li><strong>It does not measure a fully automatic pipeline.</strong> The '
@@ -794,8 +793,8 @@ def p_caveats(c):
         f'scorer wrote that once and never recomputes it.</p>')
     return panel(
         'Two warnings that must travel with the top number, and what it does not measure',
-        "<b>Quoted, not summarised.</b> The plan asks for its own words, because a "
-        "paraphrase of a warning is how the warning stops travelling.", body,
+        "<b>Quoted, not summarised.</b> The grey blocks are the plan&rsquo;s own words, "
+        "copied rather than reworded.", body,
         anchor="two-warnings")
 
 
