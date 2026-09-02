@@ -190,8 +190,10 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
     big = max(per_species, key=lambda d: d["n_labelled_crowns"])
     singles = buckets[thin]["n_species"]
     return panel(
-        f"Every labelled frame, scored on the centre crop: four rates, and why "
-        f"{pctf(now['micro_top1'])} and {pctf(now['macro_top1'])} disagree",
+        # The "why X and Y disagree" clause is gone: the paragraph under the
+        # headline grid answers that once, and repeating it here made this the
+        # longest title on the page.
+        "Every labelled frame, scored on the centre crop: four rates",
         "<b>Quote the number at the top of the page, not these four.</b> These cover "
         "every labelled frame instead of the frozen sample, so they answer a different "
         "question. If you cite one of them anyway, cite the per-species rate, never the "

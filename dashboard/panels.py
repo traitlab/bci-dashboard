@@ -728,8 +728,11 @@ def p_ceiling(c):
               f'family would need a list of which family every Pl@ntNet name belongs to, and '
               f'we do not have one here. Counting them in would have reported '
               f'{pctf(c.gg1 / (gn + c.fam_n))} instead of {pctf(c.gg1 / gn)}.</p>')
+    # The cap clause used to hang off this title, at 119 characters the longest
+    # on the page. The ask below already says the cap is one of the two
+    # explanations, so the title only has to say what the panel is about.
     return panel(f"What labelling cannot fix: {len(c.never)} species, {c.never_crowns} frames "
-                 f"the model never named, and why the five-candidate cap may be the cause",
+                 f"the model never named",
                  "<b>Do not spend expert time renaming or relabelling these.</b> Either "
                  "the model cannot return the species, or we never asked for enough "
                  "candidates to find out. Only re-running the predictions can tell the two "
