@@ -279,3 +279,45 @@ def test_every_script_a_file_points_at_is_a_script_that_is_there(source):
             f"{source.relative_to(REPO)} points at {name}, which is not there. "
             f"Either the file moved and this mention did not, or the name is a "
             f"typo.")
+
+
+def test_the_note_over_edge_tolerance_still_counts_the_boxes_it_claims():
+    """``crop_overlap.EDGE_TOLERANCE`` is 4 px because a sweep of the box CSV
+    found the overhang small and rare, and the comment above it writes that
+    sweep down: how many frames overhang, out of how many, and the largest
+    coordinate seen. Three measured numbers, in prose, over a file that is
+    tracked in the repo. So re-run the sweep and hold the sentence to it. A
+    new box export otherwise moves the numbers and the stated reason for the
+    constant quietly becomes fiction.
+    """
+    source = (REPO / "dashboard" / "crop_overlap.py").read_text(encoding="utf-8")
+    claim = re.search(
+        r"# ([\d,]+) of ([\d,]+) frames have a box edge 1-2 px outside it.*?"
+        r"largest coordinate is ([\d,]+) x ([\d,]+)\)", source, re.DOTALL)
+    assert claim, ("the note above EDGE_TOLERANCE no longer states its counts "
+                   "in a shape this can read")
+    said_over, said_frames, said_x, said_y = (
+        int(g.replace(",", "")) for g in claim.groups())
+
+    width = int(value_of("FRAME_W", "dashboard/crop_overlap.py"))
+    height = int(value_of("FRAME_H", "dashboard/crop_overlap.py"))
+    boxes = (REPO / "input" / "boxes" / "crop_bounding_boxes.csv")
+    rows = list(csv.DictReader(boxes.read_text(encoding="utf-8").splitlines()))
+
+    frames = {row["base_image"] for row in rows}
+    over = {row["base_image"] for row in rows
+            if float(row["x_max"]) > width or float(row["y_max"]) > height
+            or float(row["x_min"]) < 0 or float(row["y_min"]) < 0}
+    largest = (max(float(row["x_max"]) for row in rows),
+               max(float(row["y_max"]) for row in rows))
+
+    assert (said_over, said_frames) == (len(over), len(frames)), (
+        f"the note says {said_over} of {said_frames} frames overhang and the "
+        f"box CSV now has {len(over)} of {len(frames)}")
+    assert (said_x, said_y) == largest, (
+        f"the note says the largest coordinate is {said_x} x {said_y} and the "
+        f"box CSV now reaches {largest[0]:.0f} x {largest[1]:.0f}")
+    assert max(largest[0] - width, largest[1] - height) <= int(
+        value_of("EDGE_TOLERANCE", "dashboard/crop_overlap.py")), (
+        "a box now hangs further outside the frame than EDGE_TOLERANCE "
+        "forgives, so the overhang is no longer a rounding artifact")

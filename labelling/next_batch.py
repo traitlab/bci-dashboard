@@ -82,7 +82,8 @@ VERDICT_ORDER = ("send", "low_coverage", "other_crown", "unknown_geometry")
 
 # The one batch the botanists have worked so far. The report divides the
 # unsent pool by it, because "15 batches like the one you know" is a size a
-# reader can hold and "3,269 photos" is not.
+# reader can hold and a four-digit photo count is not. The pool itself is not
+# named here: it moves with the queue, and the report is what counts it.
 PILOT_BATCH_PHOTOS = 213
 
 
