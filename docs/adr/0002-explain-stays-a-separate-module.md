@@ -68,3 +68,15 @@ candidate is `panels.py`, not `explain.py`.
 - **`explain.py`'s own contents.** The known colour-ramp limitation recorded in
   its `BAND_COLOR` comment, that the ramp carries no order without hue, is a
   palette question and is untouched here.
+
+## Later: 2026-09-02
+
+`candidates_panel` is gone. The "Why only five guesses per photo" panel was
+dropped from the external page, and with no page carrying it the function and
+its adapter went too. The interface is now three symbols, `weighting_panel`,
+`method_panel` and `BAND_SHORT`, in front of a correspondingly smaller module.
+
+This weakens the ratio the decision rested on without reversing it: the seam is
+still one-way, still small relative to what it hides, and merging into
+`panels.py` would still buy nothing. If a second panel leaves, the argument is
+worth reopening rather than assumed.

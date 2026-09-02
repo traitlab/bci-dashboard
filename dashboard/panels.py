@@ -12,8 +12,7 @@ import core as hc
 from assets import (cap, esc, filterable_table, hero, num_cell, panel, pctf,
                     status_legend, status_tag, table)
 from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
-from explain import (CONFIDENCE_IS_SHARED, candidates_panel, method_panel,
-                     weighting_panel)
+from explain import method_panel, weighting_panel
 from figures import conf, top1
 from status_words import (STATUS, filter_options, legend_entries,
                           status_precedence_note)
@@ -259,10 +258,11 @@ def p_species(c):
             + f'<p class="note">Hidden rows are still reachable: type a name, or pick a '
               f'status, and they appear. Tick <i>show all {c.n_sp}</i> to keep them all '
               f'on screen.</p>'
-            + f'<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own '
-              f'score for its first guess, averaged over that species&rsquo; frames. '
-              f'{CONFIDENCE_IS_SHARED} So 0.86 means it put nearly all of that on one '
-              f'name, and 0.32 means it was spread thin.</p>'
+            + '<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own '
+              'score for its first guess, averaged over that species&rsquo; frames. '
+              'Pl@ntNet spreads 100% of its confidence across every species it '
+              'knows. So 0.86 means it put nearly all of that on one '
+              'name, and 0.32 means it was spread thin.</p>'
             + filterable_table(
         [("Species", False), ("Labelled frames", True),
          ("First guess right", True), ("Right name in the list", True),
@@ -344,11 +344,6 @@ def p_terms(c):
         "photo was scored, and against which label, is the whole of the difference "
         "between the two numbers above.",
         hero_terms(c.n_cand))
-
-
-def p_candidates(c):
-    return candidates_panel(recs=c.sp_recs + c.h.genus_recs, n_scored=c.n,
-                            gen_n=c.gn, gen_none=c.gen_none)
 
 
 def p_weighting(c):
