@@ -275,4 +275,8 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
         n_rare_test=n_rare_test, ops=ops, best=best, gn=gn, fam_n=fam_n, gg1=gg1,
         fam_names=fam_names, gen_any=gen_any, gen_one=gen_one, gen_none=gen_none,
         n_cand=N_CANDIDATES, cf=load_confirmatory(), checks=None,
-        crop_half=crop_half, crop_none=crop_none)
+        crop_half=crop_half, crop_none=crop_none,
+        # Every frame a botanist has labelled at all, whatever rank the name
+        # stops at and whether or not a Pl@ntNet answer was cached for it. The
+        # widest of the three frame counts the page reconciles.
+        n_gt=len(h.gt_rows))

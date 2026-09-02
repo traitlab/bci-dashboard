@@ -66,20 +66,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
           f'{100 * c.cf["crown_minus_photo"]:+.1f} points over sending the fixed centre '
           f'square. That gap was measured on frames set aside before either number '
           f'existed.</p>'),
-         # Three frame counts run through this page and a reader who meets them one
-         # at a time cannot tell whether they contradict each other. They do not. Said
-         # once, below the headline rather than above it: this is arithmetic a reader
-         # needs before the panels, not before the finding.
-         f'<p class="note"><strong>Three frame counts run through this page: '
-         f'{c.n:,}, {c.n_pred:,} and {len(h.gt_rows):,}.</strong> The first is the frames '
-         f'that carry a label naming a species, and every '
-         f'accuracy rate on this page is measured on those. Add {c.gn:,} frames labelled '
-         f'only to a genus and {c.fam_n:,} labelled only to a family and you get the '
-         f'{c.n_pred:,} frames that have a cached Pl@ntNet answer.</p>'
-         f'<p class="note">{len(h.gt_rows):,} is every frame a botanist has '
-         f'labelled at all, the '
-         f'{len(h.gt_rows) - c.n_pred} with no cached answer included. Each number below '
-         f'says which of the three it is using.</p>']
+         ]
     P.append(pn.render(c, pn.EXTERNAL_PANELS))
 
     return pn.document(TITLE, "\n".join(P)), c.checks

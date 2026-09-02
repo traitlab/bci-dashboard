@@ -652,11 +652,36 @@ SECTIONS = {
 
 # panel id -> (section key, builder). A panel belongs to the goal it serves, so
 # the confidence evidence sits with the queue rule it justifies and the species
+def p_counts(c):
+    """Why the page prints three different frame counts.
+
+    Was always-visible prose under the hero cards, and at 89 words it was a
+    fifth of everything a reader saw before clicking. It answers a question
+    nobody has yet on landing: it is what you want when you have met 3,277 in
+    one panel and 3,749 in another and cannot tell whether the page contradicts
+    itself. Closed, with the three numbers in the summary, it is there the
+    moment that happens and costs nothing until then.
+    """
+    return panel(
+        f"Why three different frame counts: {c.n:,}, {c.n_pred:,} and {c.n_gt:,}",
+        "<b>They do not contradict each other.</b> Each counts a different thing.",
+        f'<p class="note"><b>{c.n:,}</b> frames carry a label naming a species. Every '
+        f'accuracy rate on this page is measured on those.</p>'
+        f'<p class="note"><b>{c.n_pred:,}</b> frames have a cached Pl@ntNet answer: the '
+        f'{c.n:,} above, plus {c.gn:,} labelled only to a genus and {c.fam_n:,} labelled '
+        f'only to a family.</p>'
+        f'<p class="note"><b>{c.n_gt:,}</b> frames a botanist has labelled at all, the '
+        f'{c.n_gt - c.n_pred} with no cached answer included.</p>'
+        f'<p class="note">Each number on this page says which of the three it is '
+        f'using.</p>')
+
+
 # lookup sits with the scores it reports.
 PANELS = {
     "confirmatory": ("headline", p_confirmatory),
     "caveats": ("headline", p_caveats),
     "terms": ("headline", p_terms),
+    "counts": ("headline", p_counts),
     "todo": ("label-first", p_todo),
     "send": ("label-first", p_send),
     "wait": ("label-first", p_wait),
@@ -679,7 +704,7 @@ INTERNAL_PANELS = ("todo", "send", "wait", "rules", "conf")
 # "terms" leads: frame, crown, label and centre crop are load-bearing from the
 # first card down, and a reader who met them third had already been through two
 # sections that used them.
-EXTERNAL_PANELS = ("terms", "confirmatory", "caveats", "species", "review",
+EXTERNAL_PANELS = ("terms", "counts", "confirmatory", "caveats", "species", "review",
                    "weighting", "candidates", "ceiling", "method")
 
 if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
