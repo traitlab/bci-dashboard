@@ -121,8 +121,15 @@ HERO_READING = (
     "which is what a labelling programme moves. Quote it for a species picked off the "
     "checklist. <b>Per frame</b> asks how often it is right on a photo picked at "
     "random, which the commonest species decide. Quote it for a photo picked off the "
-    "drive. Per frame is the higher of the two "
-    "because the species with many frames are the ones Pl@ntNet already knows."
+    "drive."
+)
+
+# Why the two differ, kept out of HERO_READING so the instruction and the
+# explanation are separate paragraphs: a reader who only needs to know which
+# rate to quote can stop after the first.
+HERO_WHY_DIFFER = (
+    "Per frame is the higher of the two because the species with many frames "
+    "are the ones Pl@ntNet already knows."
 )
 
 # The centre crop as a share of the frame. Derived, and formatted once, because the
@@ -912,6 +919,7 @@ def p_weighting(c):
               for metric, question, averaged, note in HEADLINES])
         + f'<div class="caveat">{hero_region(c)}</div>'
         + f'<p class="note">{HERO_READING}</p>'
+        + f'<p class="note">{HERO_WHY_DIFFER}</p>'
         # One sentence, not the full caveat: the ceiling panel states the same numbers
         # with the reasoning, and twice made this the second dense paragraph up top.
         + f'<p class="note"><strong>{c.unscoreable:,} of these frames belong to '
