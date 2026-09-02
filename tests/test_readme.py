@@ -248,7 +248,7 @@ CROP_TABLE = (
     (r"covers 0% of the crop \| ([\d,]+) \|", "zero"),
     (r"no labelled box touches the crop at all \| ([\d,]+) \|", "untouched"),
     (r"of ([\d,]+) with a crop dominant\) \| ([\d,]+) \|", "dominant_disagrees"),
-    (r"admits it anyway \| ([\d,]+) \|", "admitted"),
+    (r"the gate rejects it \| ([\d,]+) \|", "over_the_line_but_another_tree"),
 )
 
 
@@ -279,7 +279,7 @@ def test_the_crop_coverage_table_in_metrics_md_still_recomputes(core):
     frames = crop_overlap.load_boxes(crop_overlap.BOXES_CSV)
     rect = crop_overlap.crop_rect()
     got = dict.fromkeys(("lt50", "zero", "untouched", "dominant_disagrees",
-                         "admitted", "with_dominant"), 0)
+                         "over_the_line_but_another_tree", "with_dominant"), 0)
     for rec in h.records:
         key = rec["global_key"].removeprefix(health.GT_KEY_PREFIX)
         share = {}
@@ -296,7 +296,9 @@ def test_the_crop_coverage_table_in_metrics_md_still_recomputes(core):
         dominant, covered = max(share.items(), key=lambda kv: kv[1])
         if dominant != h.canon(rec["gt"]):
             got["dominant_disagrees"] += 1
-            got["admitted"] += covered >= core.MIN_CROP_COVERAGE
+            # Over the line on the other tree's share. `coverage_split` rejects
+            # these, so the count says what the coverage test alone would miss.
+            got["over_the_line_but_another_tree"] += covered >= core.MIN_CROP_COVERAGE
 
     said = re.search(r"Measured on the ([\d,]+) evaluated records", text)
     assert said and int(said.group(1).replace(",", "")) == len(h.records), (
