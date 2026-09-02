@@ -35,12 +35,10 @@ from explain import (candidates_panel, method_panel,
                      weighting_panel)
 from figures import (CONFIRMATORY_CSV, conf, top1)
 from queue_panels import p_conf, p_rules, p_send, p_todo, p_wait
-from status_words import (STATUS, STATUS_REASON, status_precedence_note)
+from status_words import STATUS, STATUS_REASON, status_precedence_note
 
-# Enough to answer "what do I send next" without a CSV reader. A batch is 100
-# frames, so 25 is one morning's work and still short enough to read.
-SEND_PREVIEW = 25
-# Same reasoning, shorter: this list is read, not worked through.
+# The second-look list is read, not worked through, so it is shorter than the
+# send preview (which belongs to the queue page, in queue_panels.py).
 REVIEW_PREVIEW = 15
 
 
