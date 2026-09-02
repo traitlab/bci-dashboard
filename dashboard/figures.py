@@ -63,9 +63,10 @@ def conf(r):
 
 
 def camera_of(key):
-    """Which drone lens shot a frame, read off its key.
+    """Which drone camera shot a frame, read off its key.
 
-    The drone flies a zoom and a tele lens and the filename records which.
+    The drone carries a wide-angle camera and a long-lens one, named ``zoom``
+    and ``tele`` in the file names, and the key records which took the frame.
     Counted, not assumed: the two populations are not the same one.
     """
     low = key.lower()

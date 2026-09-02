@@ -18,7 +18,7 @@ this file.
 | **labelled frame** | A frame that has a botanist's label. The count of these for one species is how much evidence we have about that species; on a page, "labelled frames", never "support". |
 | **unlabelled photo** | A frame with a Pl@ntNet guess and no botanist label. The pool the queue orders. |
 | **site** | One field location. There are 17; frames from the same site are alike, which is why a range is worked out by drawing whole sites. |
-| **lens** | zoom or tele. Every scored frame so far is zoom. |
+| **camera** | The drone carries two: the wide-angle one, named `zoom` in the file names, and the long-lens one, named `tele`. Every scored frame so far is `zoom`. On a page they are cameras, never lenses, and the file-name word is introduced before it is used. |
 
 ## What the model does
 
@@ -62,7 +62,7 @@ asking, never calls it an **arm**: that word belongs in `hypothesis.md`.
 | **pushed down the queue** | What the wait rule does to a frame. It is an ordering, never a label, and it is undone at the next model change. Never "deprioritised", never "revocable". |
 | **the labelled-frames condition** | The second half of the wait rule: the species must already have enough labelled frames. Spelled out rather than called a gate. |
 | **queue** | One of four groups the unlabelled pool is sorted into, worked top to bottom. |
-| **held back for grading** | The frames a rule is scored on, kept out of the frames it is allowed to learn from. A page spells the split out; the words `train` and `test` do not appear on one. |
+| **held back for grading** | The frames a rule is scored on, kept out of the frames it is allowed to learn from. A page spells the split out rather than naming it. The one exception is citing the source: a page may say which value of the `split` column in `splits.csv` holds them, so a reader can find the same frames. |
 | **confidence band** | A range of Pl@ntNet confidence, written "0.7 to 0.8" and "0.9 and up". The CSVs keep the interval notation `[0.7,0.8)`; a page never shows it. |
 
 ## What the pages are
