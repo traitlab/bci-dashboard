@@ -34,7 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc
 import figures
-import panels as pn
+import page as pg
 from assets import (
     cap,
     esc,
@@ -46,6 +46,7 @@ from assets import (
     status_legend,
     status_tag,
 )
+from status_words import STATUS, STATUS_REASON, status_precedence_note
 
 
 def _load_gt_from_export():
@@ -195,11 +196,11 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
                 esc(cap(d["species"])),
                 num_cell(d["n_labelled_crowns"], f'{d["n_labelled_crowns"]:,}'),
                 num_cell(f'{d["top1_accuracy"]:.6f}', pctf(d["top1_accuracy"])),
-                status_tag(st, pn.STATUS[st][0]),
+                status_tag(st, STATUS[st][0]),
             ])
             attrs.append(f' data-status="{st}"')
         body = status_legend(
-            [(st, pn.STATUS[st][0], pn.STATUS_REASON[st]) for st in pn.STATUS]
+            [(st, STATUS[st][0], STATUS_REASON[st]) for st in STATUS]
         ) + filterable_table(
             [
                 ("Species", False),
@@ -208,16 +209,16 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
                 ("Status", False),
             ],
             rows,
-            options=[(k, v[0]) for k, v in pn.STATUS.items()],
+            options=[(k, v[0]) for k, v in STATUS.items()],
             row_attrs=attrs,
         )
         P.append(panel(
             f"Look up one species: all {len(per_species)} in this export",
             "<b>Find a species you care about and read its status.</b> Click any "
-            "heading to sort, type to filter. " + pn.status_precedence_note(),
+            "heading to sort, type to filter. " + status_precedence_note(),
             body, open_=True))
 
-    return pn.document("Pl@ntNet on BCI - this export only", "\n".join(P))
+    return pg.document("Pl@ntNet on BCI - this export only", "\n".join(P))
 
 
 def main() -> None:
@@ -257,7 +258,7 @@ def main() -> None:
     print(f"  species-level, scoreable    : {len(h.sp_recs):,}")
     # No verify list: this page is scoped to one export and has no snapshot to
     # reconcile against, so it passes an empty one.
-    pn.write_page(page, [], args.out)
+    pg.write_page(page, [], args.out)
 
 
 if __name__ == "__main__":

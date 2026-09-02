@@ -562,7 +562,7 @@ def test_no_anchor_ends_mid_phrase(page):
             f"phrase. Pass anchor= at that panel's call site.")
 
 
-def test_a_page_only_names_a_section_it_carries(page, panels):
+def test_a_page_only_names_a_section_it_carries(page, pagemod):
     """Prose that says "see X" has to mean a heading on the page in front of
     the reader. The queue page once pointed at "What this cannot tell you",
     which is a section of the model-health page, so the reader hunted for a
@@ -570,7 +570,7 @@ def test_a_page_only_names_a_section_it_carries(page, panels):
     naming a heading this page does not have is not."""
     html, _, _ = page
     headings = set(re.findall(r"<h2[^>]*>(.*?)</h2>", html, re.DOTALL))
-    for title, _lede in panels.SECTIONS.values():
+    for title, _lede in pagemod.SECTIONS.values():
         if title is None or title in headings:
             continue
         assert f"&ldquo;{title}&rdquo;" not in html, (

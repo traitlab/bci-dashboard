@@ -113,12 +113,24 @@ def assets():
 
 @pytest.fixture(scope="session")
 def panels():
-    """`dashboard/` on the path, because panels imports core and assets as
-    siblings. Only the registry and the section machinery are reachable
-    without a snapshot; `prepare` needs the measurement inputs."""
+    """The model-health page's panel functions. `dashboard/` on the path,
+    because panels imports core and assets as siblings. Every function here
+    needs a figure namespace, so a test without a snapshot can only read the
+    module constants."""
     with _on_path(REPO / "dashboard"):
         import panels
         yield panels
+
+
+@pytest.fixture(scope="session")
+def pagemod():
+    """`page`, which holds the panel registry, the section layout and the
+    builder plumbing. Named `pagemod` because `page` is already the built HTML
+    in `test_pages.py`. Reachable without a snapshot, unlike the panels it
+    registers."""
+    with _on_path(REPO / "dashboard"):
+        import page
+        yield page
 
 
 @pytest.fixture(scope="session")

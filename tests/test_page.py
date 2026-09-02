@@ -31,44 +31,44 @@ _ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 # The registry: PANELS, SECTIONS, INTERNAL_PANELS, EXTERNAL_PANELS
 # ---------------------------------------------------------------------------
 
-def test_every_panel_belongs_to_exactly_one_page(panels):
+def test_every_panel_belongs_to_exactly_one_page(pagemod, panels):
     # panels.py already raises SystemExit at import time if this is violated
     # (see the `if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS)`
     # check right after the registry), so importing the module at all is one
     # proof of this. Asserted again here so a future refactor that removes
     # that guard still has a test catching the drift.
-    internal = set(panels.INTERNAL_PANELS)
-    external = set(panels.EXTERNAL_PANELS)
-    assert internal | external == set(panels.PANELS)
+    internal = set(pagemod.INTERNAL_PANELS)
+    external = set(pagemod.EXTERNAL_PANELS)
+    assert internal | external == set(pagemod.PANELS)
     assert not (internal & external), (
         f"panels claimed by both pages: {sorted(internal & external)}")
 
 
-def test_internal_and_external_panel_lists_have_no_duplicates(panels):
+def test_internal_and_external_panel_lists_have_no_duplicates(pagemod):
     # A tuple, unlike PANELS, does not enforce uniqueness on its own -- a panel
     # id repeated in INTERNAL_PANELS would render the same section twice.
-    assert len(panels.INTERNAL_PANELS) == len(set(panels.INTERNAL_PANELS))
-    assert len(panels.EXTERNAL_PANELS) == len(set(panels.EXTERNAL_PANELS))
+    assert len(pagemod.INTERNAL_PANELS) == len(set(pagemod.INTERNAL_PANELS))
+    assert len(pagemod.EXTERNAL_PANELS) == len(set(pagemod.EXTERNAL_PANELS))
 
 
-def test_every_panel_entry_has_a_known_section_and_a_callable_builder(panels):
-    for pid, (section_key, builder) in panels.PANELS.items():
-        assert section_key in panels.SECTIONS, (
+def test_every_panel_entry_has_a_known_section_and_a_callable_builder(pagemod):
+    for pid, (section_key, builder) in pagemod.PANELS.items():
+        assert section_key in pagemod.SECTIONS, (
             f"panel {pid!r} claims section {section_key!r}, which is not in SECTIONS")
         assert callable(builder), f"panel {pid!r}'s builder is not callable"
 
 
-def test_panel_ids_are_non_empty_and_valid_html_id_fragments(panels):
-    for pid in panels.PANELS:
+def test_panel_ids_are_non_empty_and_valid_html_id_fragments(pagemod):
+    for pid in pagemod.PANELS:
         assert pid, "a panel id is empty"
         assert _ID_RE.match(pid), f"panel id {pid!r} is not a valid HTML id fragment"
 
 
-def test_section_headings_are_non_empty_except_the_headline_band(panels):
+def test_section_headings_are_non_empty_except_the_headline_band(pagemod):
     # `render()` treats a title of None as the un-headed band the headline
     # cards sit in; every other section must carry a real heading and lede,
     # since a blank one would print an empty <h2> or <p class="lede">.
-    for key, (title, lede) in panels.SECTIONS.items():
+    for key, (title, lede) in pagemod.SECTIONS.items():
         if key == "headline":
             assert title is None and lede is None
             continue
@@ -76,22 +76,22 @@ def test_section_headings_are_non_empty_except_the_headline_band(panels):
         assert lede, f"section {key!r} has an empty lede"
 
 
-def test_every_section_key_used_by_a_panel_is_a_real_section(panels):
-    used = {section_key for section_key, _ in panels.PANELS.values()}
-    assert used <= set(panels.SECTIONS)
+def test_every_section_key_used_by_a_panel_is_a_real_section(pagemod):
+    used = {section_key for section_key, _ in pagemod.PANELS.values()}
+    assert used <= set(pagemod.SECTIONS)
 
 
 # ---------------------------------------------------------------------------
 # render(): section assembly and the id-collision guard it exists to enforce
 # ---------------------------------------------------------------------------
 
-def test_render_rejects_an_unknown_panel_id(panels):
+def test_render_rejects_an_unknown_panel_id(pagemod):
     with pytest.raises(SystemExit, match="no such panel"):
-        panels.render(None, ["not-a-real-panel-id"])
+        pagemod.render(None, ["not-a-real-panel-id"])
 
 
-def test_render_of_no_panels_is_empty(panels):
-    assert panels.render(None, []) == ""
+def test_render_of_no_panels_is_empty(pagemod):
+    assert pagemod.render(None, []) == ""
 
 
 # ---------------------------------------------------------------------------
@@ -116,7 +116,7 @@ def test_status_and_status_reason_entries_are_non_empty(panels):
         assert reason.strip(), f"STATUS_REASON[{key!r}] is empty"
 
 
-def test_ql_covers_every_queue_hc_diagnoses(queue_panels):
+def test_ql_covers_every_queue_hc_diagnoses(core, queue_panels):
     # QL is read in QUEUE_ORDER, hc.QUEUE_ORDER's own order (p_send). Derived
     # from core.py rather than a copied literal list, so this fails the moment
     # a queue is added or renamed on either side without the other.
@@ -163,16 +163,16 @@ def test_rare_and_wait_thresholds_are_the_well_sampled_constant(queue_panels):
 # parse_args: defaults, and the flags bin/refresh.sh actually passes
 # ---------------------------------------------------------------------------
 
-def test_parse_args_defaults(panels, monkeypatch):
+def test_parse_args_defaults(pagemod, monkeypatch):
     monkeypatch.setattr("sys.argv", ["build_external.py"])
-    args = panels.parse_args("doc", "some_page.html")
+    args = pagemod.parse_args("doc", "some_page.html")
     assert args.model_tag == "unknown"
     assert args.verify_against is None
     assert args.generated is None
     assert args.out.endswith("some_page.html")
 
 
-def test_parse_args_accepts_every_flag_bin_refresh_sh_passes(panels, monkeypatch):
+def test_parse_args_accepts_every_flag_bin_refresh_sh_passes(pagemod, monkeypatch):
     # bin/refresh.sh calls both builders as:
     #   python3 dashboard/build_*.py --verify-against "$SNAP" \
     #       --out "$REPO/build/*.html" --generated "$TODAY"
@@ -184,17 +184,17 @@ def test_parse_args_accepts_every_flag_bin_refresh_sh_passes(panels, monkeypatch
         "--out", "/tmp/out.html",
         "--generated", "2026-08-25",
     ])
-    args = panels.parse_args("doc", "some_page.html")
+    args = pagemod.parse_args("doc", "some_page.html")
     assert args.verify_against == "/tmp/snap"
     assert args.out == "/tmp/out.html"
     assert args.generated == "2026-08-25"
 
 
-def test_parse_args_default_out_is_under_the_repo_build_dir(panels, monkeypatch):
+def test_parse_args_default_out_is_under_the_repo_build_dir(pagemod, monkeypatch):
     import core as hc
 
     monkeypatch.setattr("sys.argv", ["build_internal.py"])
-    args = panels.parse_args("doc", "label_queue_dashboard.html")
+    args = pagemod.parse_args("doc", "label_queue_dashboard.html")
     assert args.out == os.path.join(hc.REPO, "build", "label_queue_dashboard.html")
 
 
@@ -202,15 +202,15 @@ def test_parse_args_default_out_is_under_the_repo_build_dir(panels, monkeypatch)
 # document(): the page wrapper, a pure function of a title and a body
 # ---------------------------------------------------------------------------
 
-def test_document_embeds_css_and_js_inline_with_no_external_reference(panels, assets):
+def test_document_embeds_css_and_js_inline_with_no_external_reference(assets, pagemod, panels):
     strip_comments = assets.strip_comments
-    html = panels.document("A Title", "<p>body</p>")
+    html = pagemod.document("A Title", "<p>body</p>")
     assert "<title>A Title</title>" in html
     assert "<p>body</p>" in html
     # panels.py inlines CSS and JS with the maintainer comments stripped, so the
     # module's own copies must show up whole apart from those.
-    assert f"<style>{strip_comments(panels.CSS)}</style>" in html
-    assert f"<script>{strip_comments(panels.JS)}</script>" in html
+    assert f"<style>{strip_comments(pagemod.CSS)}</style>" in html
+    assert f"<script>{strip_comments(pagemod.JS)}</script>" in html
     # Stripping is comments only: no rule and no statement may go with them.
     assert "box-sizing:border-box" in html and "addEventListener" in html
     assert "/*" not in html.split("</style>")[0]
@@ -218,8 +218,8 @@ def test_document_embeds_css_and_js_inline_with_no_external_reference(panels, as
     assert "script src" not in html
 
 
-def test_document_is_one_self_contained_html_document(panels):
-    html = panels.document("T", "body")
+def test_document_is_one_self_contained_html_document(pagemod):
+    html = pagemod.document("T", "body")
     assert html.startswith("<!DOCTYPE html>")
     assert html.count("<html") == 1
     assert html.rstrip().endswith("</html>")

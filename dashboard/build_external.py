@@ -23,6 +23,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import figures
+import page as pg
 import panels as pn
 from assets import esc
 from history import verify_snapshot
@@ -67,13 +68,13 @@ def build(h, *, generated, verify_dir, fallback_tag):
           f'square. That gap was measured on frames set aside before either number '
           f'existed.</p>'),
          ]
-    P.append(pn.render(c, pn.EXTERNAL_PANELS))
+    P.append(pg.render(c, pg.EXTERNAL_PANELS))
 
-    return pn.document(TITLE, "\n".join(P)), c.checks
+    return pg.document(TITLE, "\n".join(P)), c.checks
 
 
 def main() -> None:
-    pn.run(__doc__, OUT_NAME, build)
+    pg.run(__doc__, OUT_NAME, build)
 
 
 if __name__ == "__main__":
