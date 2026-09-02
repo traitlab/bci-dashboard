@@ -6,8 +6,9 @@ here once instead of each builder keeping a list. ``render`` groups the chosen
 panels into sections; ``run`` is the whole of both builders' ``main()``.
 
 The panels themselves are elsewhere: the model-health ones in ``panels.py``,
-the queue page's in ``queue_panels.py``. This module knows what a page is made
-of, never what a panel says.
+the queue page's in ``queue_panels.py``, the frozen experiment's in
+``confirmatory_panels.py``. This module knows what a page is made of, never
+what a panel says.
 """
 
 from __future__ import annotations

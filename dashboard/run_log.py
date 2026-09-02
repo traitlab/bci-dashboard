@@ -5,7 +5,7 @@ cache, which names could never be scored right and why, what the crop-coverage
 sweep saw. A page quotes two numbers from here; the rest is for whoever has to
 answer "where did this come from" a year from now.
 
-They print and return nothing. ``core.load_health`` calls them only when a
+They print and return nothing. ``health.load_health`` calls them only when a
 caller passes it a ``log``, which only measure.py does, so the three page
 builders never reach this file.
 """

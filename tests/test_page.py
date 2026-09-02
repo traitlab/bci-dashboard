@@ -207,8 +207,8 @@ def test_document_embeds_css_and_js_inline_with_no_external_reference(assets, pa
     html = pagemod.document("A Title", "<p>body</p>")
     assert "<title>A Title</title>" in html
     assert "<p>body</p>" in html
-    # panels.py inlines CSS and JS with the maintainer comments stripped, so the
-    # module's own copies must show up whole apart from those.
+    # page.py inlines the CSS and JS with the maintainer comments stripped, so
+    # style.py's own copies must show up whole apart from those.
     assert f"<style>{strip_comments(pagemod.CSS)}</style>" in html
     assert f"<script>{strip_comments(pagemod.JS)}</script>" in html
     # Stripping is comments only: no rule and no statement may go with them.
