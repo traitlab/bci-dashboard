@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import contextlib
 import importlib.util
+import io
 import pathlib
 import subprocess
 import sys
@@ -84,6 +85,20 @@ def _require(*packages, who="predict"):
     """
     for name in packages:
         pytest.importorskip(name, reason=f"{who} needs {name}")
+
+
+@pytest.fixture
+def jpeg():
+    """A solid JPEG of a given size, as bytes. Two files ask a fetch path what
+    it did with a frame, and they have to hand it the same kind of frame."""
+    Image = pytest.importorskip("PIL.Image", reason="predict needs PIL")
+
+    def make(w, h):
+        buf = io.BytesIO()
+        Image.new("RGB", (w, h), (11, 99, 33)).save(buf, format="JPEG")
+        return buf.getvalue()
+
+    return make
 
 
 @pytest.fixture(scope="session")

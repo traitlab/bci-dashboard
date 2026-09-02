@@ -79,10 +79,6 @@ def download_image_bytes(url: str) -> bytes:
 center_crop_jpeg_from_bytes = center_crop_jpeg_box
 
 
-def center_crop_jpeg(image_path: Path) -> tuple[bytes, int, int, tuple]:
-    return center_crop_jpeg_from_bytes(image_path.read_bytes())
-
-
 def _api_call_with_retry(fn, *args, **kwargs):
     for attempt in range(MAX_RETRIES):
         try:
@@ -221,84 +217,40 @@ def stamp_geometry(result: dict, frame_w: int, frame_h: int, box: tuple) -> dict
     return result
 
 
-def process_photo(
-    photo_path: Path,
-    api_key: str,
-    config: dict,
-    cache_dir: Path,
-    survey_url: str | None = None,
-    delay: float = DEFAULT_DELAY,
-) -> dict | None:
-    filename = photo_path.name
-    cache_file = cache_dir / f"{filename}.json"
-    if cache_file.exists():
-        with open(cache_file) as f:
-            return json.load(f)
-
-    jpeg_bytes, orig_w, orig_h, crop_box = center_crop_jpeg(photo_path)
-
-    if survey_url:
-        raw = _api_call_with_retry(call_survey, jpeg_bytes, filename, api_key, survey_url)
-        result = raw
-    else:
-        identify_url = config["plantnet"]["identify_url"]
-        embeddings_url = config["plantnet"]["embeddings_api_url"]
-        nb_results = config["plantnet"]["identify_nb_results"]
-        organs = config["plantnet"]["identify_organs"]
-        lang = config["plantnet"]["identify_lang"]
-
-        id_resp = _api_call_with_retry(
-            call_identify, jpeg_bytes, filename, api_key, identify_url,
-            nb_results, organs, lang
-        )
-        time.sleep(delay)
-        emb_resp = _api_call_with_retry(
-            call_embeddings, jpeg_bytes, filename, api_key, embeddings_url
-        )
-        result = identify_to_survey_json(id_resp, emb_resp)
-
-    stamp_geometry(result, orig_w, orig_h, crop_box)
-
-    tmp = cache_file.with_suffix(".tmp")
-    with open(tmp, "w") as f:
-        json.dump(result, f)
-    tmp.replace(cache_file)
-    return result
-
-
-def process_url(
+def process_image(
     filename: str,
-    url: str,
+    read_bytes,
     api_key: str,
     config: dict,
     cache_dir: Path,
     survey_url: str | None = None,
     delay: float = DEFAULT_DELAY,
 ) -> dict | None:
+    """One photo, cached under ``filename``. ``read_bytes`` returns its pixels.
+
+    A local file and a URL differ only in that call, so both modes run this:
+    a second copy of the crop, the two calls and the atomic cache write is how
+    the streaming path once stopped recording the crop rectangle.
+    """
     cache_file = cache_dir / f"{filename}.json"
     if cache_file.exists():
         with open(cache_file) as f:
             return json.load(f)
 
-    raw_image = download_image_bytes(url)
-    jpeg_bytes, orig_w, orig_h, crop_box = center_crop_jpeg_from_bytes(raw_image)
+    jpeg_bytes, orig_w, orig_h, crop_box = center_crop_jpeg_from_bytes(read_bytes())
 
     if survey_url:
-        result = _api_call_with_retry(call_survey, jpeg_bytes, filename, api_key, survey_url)
+        result = _api_call_with_retry(call_survey, jpeg_bytes, filename, api_key,
+                                      survey_url)
     else:
-        identify_url = config["plantnet"]["identify_url"]
-        embeddings_url = config["plantnet"]["embeddings_api_url"]
-        nb_results = config["plantnet"]["identify_nb_results"]
-        organs = config["plantnet"]["identify_organs"]
-        lang = config["plantnet"]["identify_lang"]
-
+        pn_cfg = config["plantnet"]
         id_resp = _api_call_with_retry(
-            call_identify, jpeg_bytes, filename, api_key, identify_url,
-            nb_results, organs, lang
+            call_identify, jpeg_bytes, filename, api_key, pn_cfg["identify_url"],
+            pn_cfg["identify_nb_results"], pn_cfg["identify_organs"], pn_cfg["identify_lang"]
         )
         time.sleep(delay)
         emb_resp = _api_call_with_retry(
-            call_embeddings, jpeg_bytes, filename, api_key, embeddings_url
+            call_embeddings, jpeg_bytes, filename, api_key, pn_cfg["embeddings_api_url"]
         )
         result = identify_to_survey_json(id_resp, emb_resp)
 
@@ -346,85 +298,55 @@ def main() -> None:
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     if args.csv:
-        entries = load_csv_urls(args.csv)
-        if not entries:
+        rows = load_csv_urls(args.csv)
+        if not rows:
             sys.exit(f"No valid rows in {args.csv}")
-        if args.test:
-            entries = entries[:1]
-            print("TEST MODE: 1 image only\n")
-
-        mode = "survey" if args.survey_endpoint else "identify+embeddings"
-        cached = sum(1 for gk, _ in entries if (cache_dir / f"{gk}.json").exists())
-        print(f"Ingesting {len(entries)} photos via {mode} (streaming from URLs)")
-        print(f"  Cached: {cached}, remaining: {len(entries) - cached}\n")
-
-        processed = 0
-        failed = []
-        for i, (gk, url) in enumerate(entries, 1):
-            print(f"  [{i}/{len(entries)}] {gk} ... ", end="", flush=True)
-            try:
-                result = process_url(
-                    gk, url, api_key, config, cache_dir,
-                    survey_url=args.survey_endpoint, delay=args.delay,
-                )
-                if result:
-                    n_sp = len(result.get("results", {}).get("species", []))
-                    print(f"OK ({n_sp} species)")
-                    processed += 1
-                else:
-                    print("SKIP (no result)")
-            except QuotaExceededError as e:
-                print(f"\n\nQUOTA EXHAUSTED after {processed} images: {e}")
-                print("Safe to resume -- cached images will be skipped.")
-                break
-            except Exception as e:
-                print(f"FAIL ({e})")
-                failed.append(gk)
-
-            if i < len(entries):
-                time.sleep(args.delay)
+        # The pixels are fetched when the photo is due, not now: CSV mode
+        # streams from the bucket and never writes image data to disk.
+        photos = [(gk, lambda url=url: download_image_bytes(url)) for gk, url in rows]
+        streaming = " (streaming from URLs)"
     else:
-        photos = sorted(
-            p for p in args.photos.iterdir()
-            if p.suffix.lower() in IMG_EXTENSIONS
-        )
-        if not photos:
+        files = sorted(p for p in args.photos.iterdir()
+                       if p.suffix.lower() in IMG_EXTENSIONS)
+        if not files:
             sys.exit(f"No image files found in {args.photos}")
+        photos = [(p.name, p.read_bytes) for p in files]
+        streaming = ""
 
-        if args.test:
-            photos = photos[:1]
-            print("TEST MODE: 1 image only\n")
+    if args.test:
+        photos = photos[:1]
+        print("TEST MODE: 1 image only\n")
 
-        mode = "survey" if args.survey_endpoint else "identify+embeddings"
-        cached = sum(1 for p in photos if (cache_dir / f"{p.name}.json").exists())
-        print(f"Ingesting {len(photos)} photos via {mode}")
-        print(f"  Cached: {cached}, remaining: {len(photos) - cached}\n")
+    mode = "survey" if args.survey_endpoint else "identify+embeddings"
+    cached = sum(1 for name, _ in photos if (cache_dir / f"{name}.json").exists())
+    print(f"Ingesting {len(photos)} photos via {mode}{streaming}")
+    print(f"  Cached: {cached}, remaining: {len(photos) - cached}\n")
 
-        processed = 0
-        failed = []
-        for i, photo in enumerate(photos, 1):
-            print(f"  [{i}/{len(photos)}] {photo.name} ... ", end="", flush=True)
-            try:
-                result = process_photo(
-                    photo, api_key, config, cache_dir,
-                    survey_url=args.survey_endpoint, delay=args.delay,
-                )
-                if result:
-                    n_sp = len(result.get("results", {}).get("species", []))
-                    print(f"OK ({n_sp} species)")
-                    processed += 1
-                else:
-                    print("SKIP (no result)")
-            except QuotaExceededError as e:
-                print(f"\n\nQUOTA EXHAUSTED after {processed} images: {e}")
-                print("Safe to resume -- cached images will be skipped.")
-                break
-            except Exception as e:
-                print(f"FAIL ({e})")
-                failed.append(photo.name)
+    processed = 0
+    failed = []
+    for i, (name, read_bytes) in enumerate(photos, 1):
+        print(f"  [{i}/{len(photos)}] {name} ... ", end="", flush=True)
+        try:
+            result = process_image(
+                name, read_bytes, api_key, config, cache_dir,
+                survey_url=args.survey_endpoint, delay=args.delay,
+            )
+            if result:
+                n_sp = len(result.get("results", {}).get("species", []))
+                print(f"OK ({n_sp} species)")
+                processed += 1
+            else:
+                print("SKIP (no result)")
+        except QuotaExceededError as e:
+            print(f"\n\nQUOTA EXHAUSTED after {processed} images: {e}")
+            print("Safe to resume -- cached images will be skipped.")
+            break
+        except Exception as e:
+            print(f"FAIL ({e})")
+            failed.append(name)
 
-            if i < len(photos):
-                time.sleep(args.delay)
+        if i < len(photos):
+            time.sleep(args.delay)
 
     print(f"\nAPI calls done: {processed} processed, {len(failed)} failed")
     if failed:

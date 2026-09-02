@@ -11,21 +11,6 @@ that broke the constant.
 
 import io
 
-import pytest
-
-
-@pytest.fixture
-def jpeg():
-    """A solid JPEG of a given size, as bytes."""
-    Image = pytest.importorskip("PIL.Image", reason="predict needs PIL")
-
-    def make(w, h):
-        buf = io.BytesIO()
-        Image.new("RGB", (w, h), (11, 99, 33)).save(buf, format="JPEG")
-        return buf.getvalue()
-
-    return make
-
 
 def _size(data):
     from PIL import Image
