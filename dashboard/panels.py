@@ -927,7 +927,10 @@ SECTIONS = {
         "Also why two fair ways of averaging the same frames disagree."),
     "limits": (
         "What this cannot tell you",
-        "The ceilings on every number above."),
+        # The method panel sits here too, and it is provenance rather than a
+        # ceiling, so the lede says both instead of describing two-thirds of
+        # what the reader is about to open.
+        "The ceilings on every number above, and where the numbers came from."),
 }
 
 # panel id -> (section key, builder). A panel belongs to the goal it serves, so
