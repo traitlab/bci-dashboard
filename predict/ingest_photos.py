@@ -1,39 +1,24 @@
 """Ingest drone photos: call Pl@ntNet, aggregate, and score.
 
-For each photo, calls the Pl@ntNet identify + embeddings endpoints (the
-2-call fallback when direct survey API access isn't available), writes
-a survey-compatible JSON per image, then runs the aggregation and
-scoring steps from predict/aggregate_survey.py.
+Per photo, calls identify + embeddings (the two-call stand-in for direct
+survey access) and writes one survey-shaped JSON, then runs the aggregation
+and scoring in predict/aggregate_survey.py.
 
-Input: either a local directory (--photos) or a CSV with image_url
-column (--csv). The CSV mode streams each photo in memory from its URL,
-never touching disk for image data. Use this for bulk processing from
-Arbutus object storage without downloading the full image set.
+Photos come from a local directory (--photos) or from a CSV carrying
+image_url (--csv). CSV mode streams each photo from its URL and never writes
+image data to disk, which is how the Arbutus bucket is processed.
 
-Output per image (in --out-dir/cache/):
-    <filename>.json  — survey-compatible JSON (same schema as 14b)
-
-Aggregated outputs (in --out-dir/):
-    survey_embeddings.json       — coverage-weighted embeddings
-    survey_species_scores.json   — rarity-weighted species scores
+Output per image, in --out-dir/cache/: <filename>.json, the survey-shaped
+record. Aggregated, in --out-dir/: survey_embeddings.json (coverage-weighted)
+and survey_species_scores.json (rarity-weighted).
 
 Usage:
-    # Stream from CSV (no local photos needed):
-    python predict/ingest_photos.py \\
-        --csv input/boxes/bci_images_for_plantnet_w_split.csv
+    python predict/ingest_photos.py --csv input/boxes/bci_images_for_plantnet_w_split.csv
+    python predict/ingest_photos.py --photos /data/new_drone_photos/
+    python predict/ingest_photos.py --csv ... --test        # one image
 
-    # From local directory:
-    python predict/ingest_photos.py \\
-        --photos /data/new_drone_photos/
-
-    # Direct survey endpoint (if available):
-    python predict/ingest_photos.py \\
-        --photos /data/new_drone_photos/ \\
-        --survey-endpoint https://my-api.plantnet.org/v2/survey/k-central-america
-
-    # Test mode (1 image):
-    python predict/ingest_photos.py \\
-        --csv input/boxes/bci_images_for_plantnet_w_split.csv --test
+--survey-endpoint <url> calls the survey API directly instead, when a key
+that reaches it is available.
 """
 
 from __future__ import annotations
@@ -113,6 +98,27 @@ def _api_call_with_retry(fn, *args, **kwargs):
                 raise
 
 
+def _post(url: str, field: str, jpeg_bytes: bytes, filename: str,
+          params: dict, data: dict | None = None, timeout: int = API_TIMEOUT) -> dict:
+    """One image posted to one endpoint, with the quota answer named.
+
+    The three calls below differ in the field name, the parameters and how
+    long they may take, and in nothing else. Written once so a 429 cannot be
+    a plain HTTPError on one path and a QuotaExceededError on another.
+    """
+    resp = requests.post(
+        url,
+        files=[(field, (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
+        data=data,
+        params=params,
+        timeout=timeout,
+    )
+    if resp.status_code == 429:
+        raise QuotaExceededError("Quota exceeded (HTTP 429)")
+    resp.raise_for_status()
+    return resp.json()
+
+
 def call_identify(jpeg_bytes: bytes, filename: str, api_key: str,
                   api_url: str, nb_results: int, organs: str) -> dict:
     """One identify call. Both request settings come from config.yaml.
@@ -120,32 +126,16 @@ def call_identify(jpeg_bytes: bytes, filename: str, api_key: str,
     `organs` used to be "auto" typed here, so `plantnet.identify_organs` moved
     `predict/photo.py` and left this path asking the old way, silently.
     """
-    resp = requests.post(
-        api_url,
-        files=[("images", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
-        data={"organs": organs},
-        params={"api-key": api_key, "nb-results": nb_results,
-                "no-reject": "true", "include-related-images": "false"},
-        timeout=API_TIMEOUT,
-    )
-    if resp.status_code == 429:
-        raise QuotaExceededError(f"Quota exceeded (HTTP 429)")
-    resp.raise_for_status()
-    return resp.json()
+    return _post(api_url, "images", jpeg_bytes, filename,
+                 params={"api-key": api_key, "nb-results": nb_results,
+                         "no-reject": "true", "include-related-images": "false"},
+                 data={"organs": organs})
 
 
 def call_embeddings(jpeg_bytes: bytes, filename: str, api_key: str,
                     api_url: str) -> dict:
-    resp = requests.post(
-        api_url,
-        files=[("image", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
-        params={"api-key": api_key},
-        timeout=API_TIMEOUT,
-    )
-    if resp.status_code == 429:
-        raise QuotaExceededError(f"Quota exceeded (HTTP 429)")
-    resp.raise_for_status()
-    return resp.json()
+    return _post(api_url, "image", jpeg_bytes, filename,
+                 params={"api-key": api_key})
 
 
 def call_survey(jpeg_bytes: bytes, filename: str, api_key: str,
@@ -160,16 +150,8 @@ def call_survey(jpeg_bytes: bytes, filename: str, api_key: str,
     Verified 2026-08-15 against a 4000x3000 frame: 140 sub-queries at
     tile_size 518 / tile_stride 259, and the quadrat quota counter did not move.
     """
-    resp = requests.post(
-        survey_url,
-        files=[("image", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
-        params={"api-key": api_key},
-        timeout=SURVEY_TIMEOUT,
-    )
-    if resp.status_code == 429:
-        raise QuotaExceededError(f"Quota exceeded (HTTP 429)")
-    resp.raise_for_status()
-    return resp.json()
+    return _post(survey_url, "image", jpeg_bytes, filename,
+                 params={"api-key": api_key}, timeout=SURVEY_TIMEOUT)
 
 
 def identify_to_survey_json(identify_resp: dict, emb_resp: dict) -> dict:
@@ -445,7 +427,7 @@ def main() -> None:
     if args.no_aggregate:
         n_cached = len(list(cache_dir.glob("*.json")))
         print(f"\n--no-aggregate: {n_cached} JSONs in {cache_dir}")
-        print(f"Aggregate locally with:")
+        print("Aggregate locally with:")
         print(f"  python3 predict/aggregate_survey.py --survey-dir {cache_dir}")
         return
 
@@ -495,8 +477,8 @@ def main() -> None:
         json.dump(scores, f)
     print(f"  Scores: {len(scores)} photos -> {score_path}")
 
-    print(f"\nDone. Rebuild the dashboard over the new cache:")
-    print(f"  python3 dashboard/measure.py && python3 dashboard/build_external.py")
+    print("\nDone. Rebuild the dashboard over the new cache:")
+    print("  python3 dashboard/measure.py && python3 dashboard/build_external.py")
     print(f"  embeddings: {emb_path}")
     print(f"  species scores: {score_path}")
 
