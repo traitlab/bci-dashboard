@@ -25,8 +25,8 @@ the fetch this draw authorises fills one of them, so a --verify that re-derived
 the pool would fail the moment fetching began. The manifest freezes the pool
 and --verify redraws from it.
 
-Stratification. Frames are not independent draws: 47 flight days and 12 sites
-carry them, and one site holds a third of the pool. The draw is proportional to
+Stratification. Frames are not independent draws: 40 flight days and 12 sites
+carry them, and one site holds 26.3% of the pool. The draw is proportional to
 site, with any one site capped at CAP of the sample so a single plot cannot
 carry the headline. What a capped site sheds is spread over the uncapped ones,
 to a fixed point, then rounded by largest remainder.
