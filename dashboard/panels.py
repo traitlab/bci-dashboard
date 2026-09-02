@@ -342,7 +342,16 @@ def p_send(c):
 
 def p_review(c):
     pair_rows = sorted(c.review_pairs.items(), key=lambda kv: -len(kv[1]))[:10]
-    body = (table([("botanist label", False), ("Pl@ntNet's first guess", False),
+    # What each table is, before it rather than after it. The heading promises 51
+    # frames and the first table showed ten rows summing to a fraction of that,
+    # with nothing saying it was a grouping rather than the list.
+    body = (f'<p class="note">The {c.review_counts[0]} frames fall into '
+            f'{len(c.review_pairs)} label-and-guess pairs. The '
+            f'{len(pair_rows)} commonest pairs are first, then the '
+            f'{REVIEW_PREVIEW} single frames the model is surest about. All '
+            f'{c.review_counts[0]} are in <code>label_review_queue.csv</code> in the '
+            f'snapshot folder.</p>'
+            + table([("botanist label", False), ("Pl@ntNet's first guess", False),
                    ("frames", True), ("mean confidence", True)],
                   [[f'<span class="sp">{esc(cap(gt))}</span>',
                     f'<span class="sp">{esc(cap(pr))}</span>',
@@ -709,7 +718,12 @@ def p_caveats(c):
         f'the outline-first method scored, on a different set of photos. That does not make '
         f'the number wrong and it does not touch the gap above, but the number has to travel '
         f'with this warning. The plan requires its own words rather than a summary, so they '
-        f'are reproduced here in full from amendment A2 of <code>hypothesis.md</code>:</p>'
+        f'are reproduced here in full from amendment A2 of <code>hypothesis.md</code>. '
+        f'Two of its words are the plan&rsquo;s, not this page&rsquo;s: <b>tiles</b> is the '
+        f'third way of asking, the one that was cut, and a <b>quadrat</b> is a marked-out '
+        f'ground plot. The 85.4% it names is a per-crown rate over every labelled photo. '
+        f'Do not read it against the {pctf(cf["crown_top1"])} at the top, which scores a '
+        f'whole frame on this fixed sample.</p>'
         f'{A2_PRIOR_EXPOSURE}</div>'
         f'<div class="warn"><p><strong>A third way of asking was dropped after we had seen '
         f'how it was doing.</strong> The study planned to test a third method, tiles, and '
