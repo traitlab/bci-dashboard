@@ -271,9 +271,12 @@ def report(rows, missing, complete, stat, draws=BOOTSTRAP_DRAWS):
                 f"e.g. {missing[a][0]}")
     log("")
 
-    log("primary endpoint: frame-level top-1 accuracy, and top-5")
+    # The list length is core's, not a 5 typed here: the same constant decides
+    # how many names were asked for and how wide the last column is named.
+    top_n = f"top-{core.N_CANDIDATES}"
+    log(f"primary endpoint: frame-level top-1 accuracy, and {top_n}")
     log(f"  {'arm':7} {'n':>4}  {'top-1':>6}  {'95% CI by site':>16}  "
-        f"{'by day':>16}  {'Wilson':>16}  {'top-5':>6}")
+        f"{'by day':>16}  {'Wilson':>16}  {top_n:>6}")
     for a in ARMS:
         scorable = [r for r in rows if r[a] is not None]
         if not scorable:

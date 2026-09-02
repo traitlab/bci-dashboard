@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import figures
 import page as pg
 from assets import esc, hero
+from queues import BATCH_SIZE
 from history import verify_snapshot
 
 OUT_NAME = "label_queue_dashboard.html"
@@ -56,7 +57,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
                 "The whole pool this page puts in an order.")]),
          ('<p class="note"><strong>The page is not the deliverable. Work '
           '<code>send_batches.csv</code> in the snapshot folder.</strong> '
-          'It carries the same order in batches of at most 100, with each species '
+          f'It carries the same order in batches of at most {BATCH_SIZE}, with each species '
           'group kept together. Read this page to check the order and the rule behind '
           'it, then work the CSV. How Pl@ntNet scores against the labels is a separate '
           'page, <code>model_health_dashboard.html</code>.</p>'),

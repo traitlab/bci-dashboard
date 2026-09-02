@@ -24,6 +24,7 @@ from core import (
     GT_KEY_PREFIX,
     MIN_CROP_COVERAGE,
     N_CANDIDATES,
+    RELIABLE_MIN_TOP1,
     REVIEW_CONF,
     WELL_SAMPLED_MIN_N,
     coverage_split,
@@ -61,7 +62,7 @@ def log_cache(_log, s):
     _log("  prediction-list length histogram    : " +
          ", ".join(f"len={k}:{v}" for k, v in sorted(s.length_hist.items())))
     _log(f"  MAX list length observed            : {s.maxk}")
-    _log("  => 'top-5' IS the full returned list. The cap is the client-side request")
+    _log(f"  => 'top-{N_CANDIDATES}' IS the full returned list. The cap is the client-side request")
     _log(f"     parameter nb-results={N_CANDIDATES} (config.yaml plantnet.identify_nb_results), not a")
     _log("     model limit: a re-ingest with a larger nb-results would return more. No")
     _log("     deeper candidate exists in this cache and none can be recovered offline.")
@@ -85,7 +86,7 @@ def log_reconciliation(_log, n, scan, gt_rows, crosswalk, wcvp_raw):
     _log("")
     _log("  'corpus vocabulary' = every distinct binomial appearing anywhere in the")
     _log(f"  {len(scan.files)} cached top-{scan.maxk} lists ({len(scan.corpus_vocab)} names). It is NOT Pl@ntNet's full")
-    _log("  label set: a species the model knows but never ranked top-5 on any BCI photo")
+    _log(f"  label set: a species the model knows but never ranked top-{N_CANDIDATES} on any BCI photo")
     _log("  is indistinguishable here from a species the model does not know at all.")
     _log("")
     _log(f"  {'tier':<28} {'distinct GT names':>18} {'GT crowns':>10}")
@@ -298,7 +299,7 @@ def log_filter_gain(_log, B, bci_list, n, c1, f1, f_abstain, still_wrong, maxk, 
     _log(f"  present in the returned list, and the list was capped at nb-results={N_CANDIDATES}.")
     _log(f"    frames still wrong after filtering  : {len(still_wrong)}")
     _log(f"      ... whose list was full (len={maxk})     : {sw_full}  <- cap could be binding;")
-    _log("            a correct candidate may exist at rank 6+ and was never returned")
+    _log(f"            a correct candidate may exist at rank {N_CANDIDATES + 1}+ and was never returned")
     _log(f"      ... whose list was short (len<{maxk})    : {sw_short}  <- cap NOT binding; the API")
     _log("            returned everything it had, so no re-ranking could have helped")
     _log(f"      ... full list AND GT name absent from the whole corpus : {sw_full_unreachable}")
@@ -316,8 +317,8 @@ def log_calibration(_log, scopes, top1, n, good, good_recs):
     _log("--- CONFIDENCE CALIBRATION / TRIAGE FEASIBILITY ---")
     _log(f"  third scope = the {len(good)} species the proposed rule would whitelist "
         f"(n>={WELL_SAMPLED_MIN_N} labelled frames AND")
-    _log(f"  measured top-1 >= 90%), covering {len(good_recs)} of the {n} primary frames "
-        f"({pct(len(good_recs), n)}).")
+    _log(f"  measured top-1 >= {RELIABLE_MIN_TOP1:.0%}), covering {len(good_recs)} of the {n} primary "
+        f"frames ({pct(len(good_recs), n)}).")
     _log("  Its accuracy is OPTIMISTIC: the whitelist is selected on the very frames it is")
     _log("  then scored on. Treat it as an upper bound until validated on held-out frames.")
     _log("")
