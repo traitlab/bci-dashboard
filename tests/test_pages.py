@@ -281,6 +281,32 @@ def test_one_species_row_per_scored_species(page, n_species):
         assert rows
 
 
+def test_the_hidden_rows_are_the_ones_the_prose_says_they_are(page, panels, core):
+    """The count in the prose, the marked rows and the threshold agree.
+
+    Three things can drift apart: the sentence naming how many species start
+    hidden, the ``data-thin`` attributes the JS filters on, and the cut-off in
+    ``panels.THIN_MIN_FRAMES``. A reader who unticks the box and counts is
+    entitled to find the number the page gave them.
+    """
+    html, _, carries = page
+    marked = re.findall(r'<tr [^>]*data-thin="1"', html)
+    if "species_thin" not in carries:
+        assert not marked, "page ships no show-all checkbox but hides rows anyway"
+        return
+    said = re.search(r"<b>(\d+) of these (\d+) species start hidden\.</b>", html)
+    assert said, "no sentence saying how many species start hidden"
+    assert len(marked) == int(said.group(1)), (
+        f"prose says {said.group(1)} species start hidden, "
+        f"{len(marked)} rows carry data-thin")
+    assert 0 < len(marked) < int(said.group(2)), (
+        "every row hidden, or none: the checkbox would have nothing to do")
+    # The threshold is stated in the same sentence, so it cannot quietly become
+    # a second number beside the status column's own cut-off.
+    assert f"fewer than {panels.THIN_MIN_FRAMES} labelled frames" in html
+    assert panels.THIN_MIN_FRAMES == core.WELL_SAMPLED_MIN_N
+
+
 def test_every_row_status_has_a_matching_legend_entry(page):
     html, _, carries = page
     legend = _LEGEND.search(html)
