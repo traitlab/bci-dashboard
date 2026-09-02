@@ -1,7 +1,12 @@
 # ADR 0001: `dashboard/assets.py` stays one module
 
-- Status: accepted
+- Status: superseded in part by ADR 0003
 - Date: 2026-09-01
+
+The stylesheet and the script left this module on 2026-09-02, under the
+condition that `tests/test_style.py` checks the coupling this ADR said
+nobody could. The rest of it stands: the renderers are not split by kind
+of output.
 
 ## Context
 
