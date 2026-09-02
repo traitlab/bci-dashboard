@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Daily model-health refresh: fold the newest Labelbox export into the ground
-# truth, snapshot, rebuild every dashboard page. Safe to re-run:
+# truth, snapshot, rebuild both cumulative pages. Safe to re-run:
+#
+# The export-only page is not built here. It scores one export on its own and
+# needs that export named, so it is a spot check somebody asks for.
 #
 # - a snapshot folder for today already exists  -> stop (a same-day GT change
 #   is a human event; handle it by hand)

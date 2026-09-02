@@ -155,7 +155,7 @@ def test_rare_and_wait_thresholds_are_the_well_sampled_constant(queue_panels):
 
 
 # ---------------------------------------------------------------------------
-# parse_args: defaults, and the flags bin/refresh.sh actually passes
+# parse_args: the defaults, which are what a bare run gets
 # ---------------------------------------------------------------------------
 
 def test_parse_args_defaults(pagemod, monkeypatch):
@@ -167,22 +167,10 @@ def test_parse_args_defaults(pagemod, monkeypatch):
     assert args.out.endswith("some_page.html")
 
 
-def test_parse_args_accepts_every_flag_bin_refresh_sh_passes(pagemod, monkeypatch):
-    # bin/refresh.sh calls both builders as:
-    #   python3 dashboard/build_*.py --verify-against "$SNAP" \
-    #       --out "$REPO/build/*.html" --generated "$TODAY"
-    # A flag refresh.sh passes that parse_args does not accept would abort
-    # every scheduled refresh with an argparse error.
-    monkeypatch.setattr("sys.argv", [
-        "build_external.py",
-        "--verify-against", "/tmp/snap",
-        "--out", "/tmp/out.html",
-        "--generated", "2026-08-25",
-    ])
-    args = pagemod.parse_args("doc", "some_page.html")
-    assert args.verify_against == "/tmp/snap"
-    assert args.out == "/tmp/out.html"
-    assert args.generated == "2026-08-25"
+# The flags refresh.sh passes were retyped here and checked against
+# parse_args, which is a copy of a command line that lives in a file.
+# tests/test_documented_commands.py reads refresh.sh, the README and every
+# module docstring instead, and puts each command to the script it names.
 
 
 def test_parse_args_default_out_is_under_the_repo_build_dir(pagemod, monkeypatch):
