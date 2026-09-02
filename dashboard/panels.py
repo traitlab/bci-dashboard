@@ -179,6 +179,20 @@ QL = {"long_tail": ("Species we barely have",
                    "The two-part rule below says these can wait; look at them last")}
 
 
+def cam_phrase(cameras):
+    """Name the camera the way the queue page names it, when there is one.
+
+    The frozen sample is single-camera by design, but the field is read from the
+    frame keys rather than assumed, so a future sample carrying both must not
+    render as one camera with two names.
+    """
+    return ({"zoom": "the drone&rsquo;s wide-angle camera, named <code>zoom</code> in the "
+                     "file names",
+             "tele": "the drone&rsquo;s long-lens camera, named <code>tele</code> in the "
+                     "file names"}.get(cameras)
+            or f"these cameras: <code>{esc(cameras)}</code>")
+
+
 def pfmt(p, draws):
     """A bootstrap p that came back zero is a resolution limit, not a zero.
 
@@ -391,6 +405,14 @@ def p_wait(c):
             f'{len(c.test_recs):,} frames held back for grading, that rule reaches '
             f'{best["n"]:,} of them ({pctf(best["share"])}), and the first guess is wrong '
             f'on {pctf(best["err"])} of those.</div>'
+            # What 479 is. Every count in the comparison table below is a share of
+            # it, so a reader who cannot picture the set cannot audit the table.
+            f'<p class="note"><strong>What those {len(c.test_recs):,} frames are.</strong> '
+            f'They are the labelled frames marked <code>test</code> in '
+            f'<code>splits.csv</code>, which is an input to this page rather than something '
+            f'it computes. The species side of the rule was decided from the other frames, '
+            f'so nothing here is graded on the frames that chose it. Every count in the '
+            f'comparison table below is out of those {len(c.test_recs):,}.</p>'
             '<p class="note"><strong>Nothing here is a label.</strong> A frame that can wait '
             'keeps whatever label it already has, or none at all. No guess is ever written '
             'in as a label by this rule. It only pushes frames down the '
@@ -677,10 +699,11 @@ def p_caveats(c):
         f'in the plan, an exact McNemar test, '
         f'gives p = {cf["p_mcnemar_exact"]:.5f}. McNemar assumes every frame is independent '
         f'of every other, and frames from one site are not. So the plan named the resampling '
-        f'test as the answer where the two disagree. The narrower kind of range every other '
-        f'number on this page uses would read '
-        f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])} here, '
-        f'which is surer than the data supports.</p>'
+        f'test as the answer where the two disagree. For contrast, the ordinary textbook '
+        f'range for the top number would read '
+        f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])}. It '
+        f'assumes every frame is independent, so it is narrower than the data supports. '
+        f'The two cards at the top of the page carry the site-resampled range instead.</p>'
         f'<div class="warn"><p><strong>The top number was not produced blind.</strong> '
         f'Before these frames were set aside, someone on the team had already seen how well '
         f'the outline-first method scored, on a different set of photos. That does not make '
@@ -709,9 +732,10 @@ def p_caveats(c):
         f'too. No per-species average for this sample was written into the plan, so none is '
         f'published.</li>'
         f'<li><strong>It is one camera, and not every site.</strong> Every frame '
-        f'was shot with the {esc(cf["cameras"])} camera, at {int(cf["n_sites"])} of the 17 '
-        f'field sites. Nothing here supports a camera claim: no mission in this design '
-        f'carries both cameras.</li></ul></div>'
+        f'was shot with {cam_phrase(cf["cameras"])}, at {int(cf["n_sites"])} of '
+        f'the 17 field sites. The drone carries a second camera, and no mission in '
+        f'this design flies both, so nothing here says how the model reads that one.'
+        f'</li></ul></div>'
         f'<p class="note">Every rule behind these numbers was written down in '
         f'<code>bci-dashboard-docs/hypothesis.md</code> before the data existed. That means '
         f'which frames, which test, what counts as right, and when we were allowed to look. '
