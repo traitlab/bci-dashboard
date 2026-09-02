@@ -32,28 +32,12 @@ from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
-from photo import load_config
+from photo import api_and_project
 
 REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "data"
 
 TIMEOUT = 300  # the unpaginated list is documented as a long response
-
-
-def api_and_project():
-    """The API root and the project id, both read off config.yaml.
-
-    The checklist only answers "can Pl@ntNet name this species" for the project
-    the cached predictions came from. Typed here, the id was a second copy of
-    the tail of ``identify_url``, and a project change would have left the
-    dashboard calling a species absent against the wrong label set.
-    """
-    url = load_config()["plantnet"]["identify_url"].rstrip("/")
-    if "/identify/" not in url:
-        sys.exit(f"config.yaml plantnet.identify_url is not "
-                 f".../identify/<project>: {url}")
-    base, project = url.rsplit("/identify/", 1)
-    return base, project
 
 
 def project_species_count(api: str, api_key: str, project: str):
@@ -95,7 +79,10 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args()
 
-    api, configured = api_and_project()
+    try:
+        api, configured = api_and_project()
+    except ValueError as bad:
+        sys.exit(str(bad))
     project = args.project or configured
 
     load_dotenv(REPO / ".env")

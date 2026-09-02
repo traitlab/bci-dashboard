@@ -64,6 +64,23 @@ def load_config():
         return yaml.safe_load(f)
 
 
+def api_and_project(config=None):
+    """The API root and the project id, both read off ``identify_url``.
+
+    Every other Pl@ntNet route this repo calls is that root plus that project:
+    the quadrat endpoint the ingest falls back from, the species checklist the
+    dashboard reads absence from. Typed out, each was a second copy of the tail
+    of one setting, and pointing the run at another project would have left
+    them answering for a model the cached predictions never came from.
+    """
+    url = (config or load_config())["plantnet"]["identify_url"].rstrip("/")
+    if "/identify/" not in url:
+        raise ValueError(f"config.yaml plantnet.identify_url is not "
+                         f".../identify/<project>: {url}")
+    base, project = url.rsplit("/identify/", 1)
+    return base, project
+
+
 def load_image_list(csv_path: Path) -> list[dict]:
     with open(csv_path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))

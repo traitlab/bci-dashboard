@@ -36,6 +36,7 @@ from photo import (
     API_TIMEOUT,
     CROP_SIZE,
     QuotaExceededError,
+    api_and_project,
     center_crop_jpeg_box,
     load_config,
     post_image,
@@ -47,9 +48,6 @@ OUT = REPO / "data"
 
 DEFAULT_DELAY = 0.5
 
-# The quadrat endpoint. The path documented as /v2/survey/<project> returns 404;
-# this is the one that answers, and the trailing 'tiles' is the flavor.
-SURVEY_TILES_URL = "https://my-api.plantnet.org/v2/survey/tiles/k-central-america"
 # One call runs 140 sub-queries over a 4000x3000 frame, so it is not a 60s job.
 SURVEY_TIMEOUT = 300
 IMG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
@@ -101,8 +99,20 @@ def call_embeddings(jpeg_bytes: bytes, filename: str, api_key: str,
                  params={"api-key": api_key})
 
 
+def survey_tiles_url(config=None) -> str:
+    """The quadrat endpoint for the project config.yaml names.
+
+    The path documented as /v2/survey/<project> returns 404; this is the one
+    that answers, and the trailing 'tiles' is the flavor. Built from the same
+    setting the identify calls use, so the two arms cannot end up on different
+    projects.
+    """
+    base, project = api_and_project(config)
+    return f"{base}/survey/tiles/{project}"
+
+
 def call_survey(jpeg_bytes: bytes, filename: str, api_key: str,
-                survey_url: str = SURVEY_TILES_URL) -> dict:
+                survey_url: str | None = None) -> dict:
     """Quadrat: the API slides a 518px window over the whole frame itself.
 
     The field is 'image', singular, unlike identify's 'images'. Sending the
@@ -113,7 +123,7 @@ def call_survey(jpeg_bytes: bytes, filename: str, api_key: str,
     Verified 2026-08-15 against a 4000x3000 frame: 140 sub-queries at
     tile_size 518 / tile_stride 259, and the quadrat quota counter did not move.
     """
-    return post_image(survey_url, "image", jpeg_bytes, filename,
+    return post_image(survey_url or survey_tiles_url(), "image", jpeg_bytes, filename,
                  params={"api-key": api_key}, timeout=SURVEY_TIMEOUT)
 
 

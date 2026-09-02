@@ -197,11 +197,23 @@ def test_the_checklist_is_fetched_for_the_project_the_predictions_came_from(
         f"two no longer rebuild it.")
 
 
-def test_a_config_that_names_no_project_stops_the_run(checklist, monkeypatch):
-    """Rather than fetching some other project's species list and writing it
-    to the file the dashboard reads."""
-    monkeypatch.setattr(checklist, "load_config",
-                        lambda: {"plantnet": {"identify_url": "https://example/v2/survey"}})
-    with pytest.raises(SystemExit) as stop:
-        checklist.api_and_project()
-    assert "identify" in str(stop.value)
+def settings_project(settings):
+    identify = settings.load_config()["plantnet"]["identify_url"].rstrip("/")
+    base, project = identify.rsplit("/identify/", 1)
+    return base, project
+
+
+def test_a_config_that_names_no_project_is_refused(photo):
+    """Rather than fetching some other project's species list, or posting the
+    quadrat call to a URL built out of half a setting."""
+    with pytest.raises(ValueError) as bad:
+        photo.api_and_project({"plantnet": {"identify_url": "https://example/v2/survey"}})
+    assert "identify" in str(bad.value)
+
+
+def test_the_quadrat_endpoint_is_the_same_project_as_the_identify_calls(ingest, settings):
+    """The two arms have to answer for one model. The quadrat URL used to be
+    typed out in full, project id included."""
+    api, project = settings_project(settings)
+    assert ingest.survey_tiles_url() == f"{api}/survey/tiles/{project}"
+
