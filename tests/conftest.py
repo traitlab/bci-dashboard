@@ -122,6 +122,15 @@ def panels():
 
 
 @pytest.fixture(scope="session")
+def queue_panels():
+    """The internal queue page\'s own panels, split out of `panels` so the two
+    audiences do not share a 1,100-line module. Same path dance as `panels`."""
+    with _on_path(REPO / "dashboard"):
+        import queue_panels
+        yield queue_panels
+
+
+@pytest.fixture(scope="session")
 def explain():
     """`dashboard/` on the path, because explain imports `core` and `assets` as
     siblings. `_near_miss`, the band dicts and constants, and the three panel

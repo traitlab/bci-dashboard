@@ -116,17 +116,17 @@ def test_status_and_status_reason_entries_are_non_empty(panels):
         assert reason.strip(), f"STATUS_REASON[{key!r}] is empty"
 
 
-def test_ql_covers_every_queue_hc_diagnoses(panels):
+def test_ql_covers_every_queue_hc_diagnoses(queue_panels):
     # QL is read in QUEUE_ORDER, hc.QUEUE_ORDER's own order (p_send). Derived
     # from core.py rather than a copied literal list, so this fails the moment
     # a queue is added or renamed on either side without the other.
     import core as hc  # already on sys.path via the `panels` fixture
 
-    assert set(panels.QL) == set(hc.QUEUE_ORDER)
+    assert set(queue_panels.QL) == set(hc.QUEUE_ORDER)
 
 
-def test_ql_entries_are_non_empty(panels):
-    for key, (label, why) in panels.QL.items():
+def test_ql_entries_are_non_empty(queue_panels):
+    for key, (label, why) in queue_panels.QL.items():
         assert label.strip(), f"QL[{key!r}] has an empty label"
         assert why.strip(), f"QL[{key!r}] has an empty why"
 
@@ -142,21 +142,21 @@ def test_status_reason_unmeasured_quotes_the_well_sampled_constant(panels):
     assert str(hc.WELL_SAMPLED_MIN_N) in panels.STATUS_REASON["unmeasured"]
 
 
-def test_ql_long_tail_quotes_the_well_sampled_constant(panels):
+def test_ql_long_tail_quotes_the_well_sampled_constant(queue_panels):
     import core as hc
 
-    assert str(hc.WELL_SAMPLED_MIN_N) in panels.QL["long_tail"][1]
+    assert str(hc.WELL_SAMPLED_MIN_N) in queue_panels.QL["long_tail"][1]
 
 
-def test_rare_and_wait_thresholds_are_the_well_sampled_constant(panels):
+def test_rare_and_wait_thresholds_are_the_well_sampled_constant(queue_panels):
     # RARE_MAX_SUPPORT and WAIT_SUPPORT_MIN both alias hc.WELL_SAMPLED_MIN_N
     # rather than restating it, per the comment above their definition --
     # if either drifted into its own literal, a page could show a status
     # that disagrees with the rule hc.diagnose actually applied.
     import core as hc
 
-    assert panels.RARE_MAX_SUPPORT == hc.WELL_SAMPLED_MIN_N
-    assert panels.WAIT_SUPPORT_MIN == hc.WELL_SAMPLED_MIN_N
+    assert queue_panels.RARE_MAX_SUPPORT == hc.WELL_SAMPLED_MIN_N
+    assert queue_panels.WAIT_SUPPORT_MIN == hc.WELL_SAMPLED_MIN_N
 
 
 # ---------------------------------------------------------------------------

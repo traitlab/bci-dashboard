@@ -1,0 +1,77 @@
+"""The status vocabulary both pages share: what each status is called, why a
+species gets it, and which ones a botanist can pass over.
+
+Kept out of ``panels.py`` because three modules read it -- both page builders
+and the export-only page -- and a word changed in one place has to change the
+legend, the table and the to-do list together.
+
+Stdlib only, like the rest of ``dashboard/``.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import core as hc
+
+# key -> (label, what to do about it). Order is the order of the to-do list:
+# cheapest useful work first, safe-to-skip last.
+STATUS = {
+    "ranking": ("Right name in the list, not first",
+                "Cheapest work here. Confirm the name from the short list instead of "
+                "identifying from scratch"),
+    "unmeasured": ("Too few labels to judge",
+                   "Label a few more before trusting any number for it"),
+    "hard": ("Wrong even with enough labels",
+             "More labels will not fix this one. Treat it as a model limit"),
+    "adequate": ("Mixed", "Keep it in the normal review queue"),
+    "reliable": ("Usually right", "Lowest priority. Spot-check a few and move on"),
+    # "in five candidates" described the wrong set. core.diagnose reads
+    # in_corpus_vocabulary, which is true when the name came back on ANY BCI
+    # photo, not only on this species' own frames. Rows showing 0.0% in the
+    # list column with a different status are the difference, and the old
+    # wording made those rows look like a contradiction.
+    "unreachable": ("Never returned on any BCI photo",
+                    "Nothing to do until we know whether Pl@ntNet carries this "
+                    "species at all"),
+}
+
+# The rows a botanist can pass over. Two of them are not last in STATUS order,
+# and the panel used to claim "the last two rows", which sent a reader past a
+# skippable row to reach two rows of live work.
+SKIP_STATUSES = ("hard", "reliable", "unreachable")
+
+
+def uncap(label):
+    """A status label mid-sentence. Only the first letter drops: ``.lower()``
+    turned "Never returned on any BCI photo" into "any bci photo"."""
+    return label[:1].lower() + label[1:]
+
+STATUS_REASON = {
+    "ranking": "The right name is already in the five, so this is the cheapest confirmation work.",
+    "unmeasured": f"Fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, so the score is "
+                  f"too thin to trust yet.",
+    "hard": "Enough frames, but the first guess is still weak, so more labels will not fix it.",
+    "adequate": "Mixed results, so keep it in the normal review queue.",
+    "reliable": "Usually right, so this species is low priority for extra work.",
+    "unreachable": "Pl@ntNet never returned this name on any BCI photo, not just on this "
+                   "species\u2019 own frames. Labelling will not recover it. A row showing "
+                   "0.0% in the list column under some other status was returned on another "
+                   "species\u2019 photo, so the model can produce that name.",
+}
+
+def status_precedence_note():
+    """One sentence saying a species gets the first status that fits it.
+
+    Built from ``hc.STATUS_PRECEDENCE`` rather than written out, so a change to
+    the order in ``diagnose`` cannot leave the page describing the old one.
+    """
+    names = [uncap(STATUS[k][0]) for k in hc.STATUS_PRECEDENCE]
+    return ("Each species gets one status. The rules are checked in this order: "
+            + ", then ".join(f"&ldquo;{n}&rdquo;" for n in names)
+            + f". So a few-frame species can still show as &ldquo;{names[2]}&rdquo;. "
+            "That is the point: it is cheap work whatever its count. Read the "
+            "labelled-frames column next to the status.")
