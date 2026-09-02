@@ -16,7 +16,8 @@ from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
 from explain import (CONFIDENCE_IS_SHARED, candidates_panel, method_panel,
                      weighting_panel)
 from figures import conf, top1
-from status_words import STATUS, STATUS_REASON, status_precedence_note
+from status_words import (STATUS, filter_options, legend_entries,
+                          status_precedence_note)
 
 # The second-look list is read, not worked through, so it is shorter than the
 # send preview (which belongs to the queue page, in queue_panels.py).
@@ -261,7 +262,7 @@ def p_species(c):
             f'<p class="note">So a low rate can mean the crop missed the tree rather '
             f'than that the model missed the name. Read a row as a flag for a second look, '
             f'not as that species&rsquo; identification accuracy.</p>'
-            + status_legend([(st, STATUS[st][0], STATUS_REASON[st]) for st in STATUS])
+            + status_legend(legend_entries())
             + f'<p class="note">{status_precedence_note()}</p>'
             + f'<p class="note"><b>{n_thin} of these {c.n_sp} species start hidden.</b> '
               f'They carry fewer than {THIN_MIN_FRAMES} labelled frames each, the same '
@@ -281,7 +282,7 @@ def p_species(c):
          ("First guess right", True), ("Right name in the list", True),
          ("Model's confidence", True), ("Status", False)],
         sp_rows,
-        options=[(k, v[0]) for k, v in STATUS.items()],
+        options=filter_options(),
         row_attrs=attrs,
         thin_label=f"show all {c.n_sp}",
     ))

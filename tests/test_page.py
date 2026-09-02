@@ -99,20 +99,19 @@ def test_render_of_no_panels_is_empty(pagemod):
 # an entry, or a reader hits a KeyError or a blank cell.
 # ---------------------------------------------------------------------------
 
-def test_status_reason_covers_every_status_key(panels):
+def test_status_reason_covers_every_status_key(status_words):
     # STATUS is the order the to-do list prints in; STATUS_REASON is the
-    # legend sentence for each. p_species looks both up by the same key
-    # (see status_legend([(st, STATUS[st][0], STATUS_REASON[st]) ...])), so a
-    # status present in one and missing from the other is a KeyError waiting
-    # on whichever species first gets that status.
-    assert set(panels.STATUS) == set(panels.STATUS_REASON)
+    # legend sentence for each. `status_words.legend_entries` looks both up by
+    # the same key, so a status present in one and missing from the other is a
+    # KeyError waiting on whichever species first gets that status.
+    assert set(status_words.STATUS) == set(status_words.STATUS_REASON)
 
 
-def test_status_and_status_reason_entries_are_non_empty(panels):
-    for key, (label, action) in panels.STATUS.items():
+def test_status_and_status_reason_entries_are_non_empty(status_words):
+    for key, (label, action) in status_words.STATUS.items():
         assert label.strip(), f"STATUS[{key!r}] has an empty label"
         assert action.strip(), f"STATUS[{key!r}] has an empty action"
-    for key, reason in panels.STATUS_REASON.items():
+    for key, reason in status_words.STATUS_REASON.items():
         assert reason.strip(), f"STATUS_REASON[{key!r}] is empty"
 
 
@@ -136,10 +135,8 @@ def test_ql_entries_are_non_empty(queue_panels):
 # that happened to match the constant's value on the day it was written.
 # ---------------------------------------------------------------------------
 
-def test_status_reason_unmeasured_quotes_the_well_sampled_constant(panels):
-    import core as hc
-
-    assert str(hc.WELL_SAMPLED_MIN_N) in panels.STATUS_REASON["unmeasured"]
+def test_status_reason_unmeasured_quotes_the_well_sampled_constant(status_words, core):
+    assert str(core.WELL_SAMPLED_MIN_N) in status_words.STATUS_REASON["unmeasured"]
 
 
 def test_ql_long_tail_quotes_the_well_sampled_constant(queue_panels):

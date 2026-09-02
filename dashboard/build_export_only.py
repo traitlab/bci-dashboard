@@ -41,13 +41,16 @@ from assets import (
     esc,
     filterable_table,
     funnel_list,
+    hero,
     num_cell,
     panel,
     pctf,
     status_legend,
     status_tag,
 )
-from status_words import STATUS, STATUS_REASON, status_precedence_note
+from panels import HEADLINES
+from status_words import (STATUS, filter_options, legend_entries,
+                          status_precedence_note)
 
 
 def _load_gt_from_export():
@@ -152,13 +155,12 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
             ),
         ]
     )
-    P.append(
-        f'<div class="hero">'
-        f'<div class="metric first"><div class="v">{pctf(macro1)}</div>'
-        f'<div class="l">Right first guess, averaged across species</div>'
-        f'<div class="n">this export\u2019s {n_sp} species, each counted once</div></div>'
-        f"</div>"
-    )
+    # `assets.hero` and the model-health page's own wording, rather than the
+    # markup and a second phrasing typed here. Two pages calling one number two
+    # things is a reader's problem before it is a maintenance one.
+    _, question, averaged, _ = HEADLINES[0]
+    P.append(hero([(averaged, pctf(macro1), question.format(k=figures.N_CANDIDATES),
+                    f"this export\u2019s {n_sp} species, each counted once")]))
     if n:
         P.append(
             f'<p class="note">Averaged across frames instead of species: '
@@ -200,9 +202,7 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
                 status_tag(st, STATUS[st][0]),
             ])
             attrs.append(f' data-status="{st}"')
-        body = status_legend(
-            [(st, STATUS[st][0], STATUS_REASON[st]) for st in STATUS]
-        ) + filterable_table(
+        body = status_legend(legend_entries()) + filterable_table(
             [
                 ("Species", False),
                 ("Labelled frames", True),
@@ -210,7 +210,7 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
                 ("Status", False),
             ],
             rows,
-            options=[(k, v[0]) for k, v in STATUS.items()],
+            options=filter_options(),
             row_attrs=attrs,
         )
         P.append(panel(

@@ -66,3 +66,17 @@ def status_precedence_note():
             + f". So a few-frame species can still show as &ldquo;{names[2]}&rdquo;. "
             "That is the point: it is cheap work whatever its count. Read the "
             "labelled-frames column next to the status.")
+
+
+def legend_entries():
+    """The status legend's rows: ``(key, label, why)`` in read order.
+
+    Two pages render this table, and both wrote the comprehension out. One
+    definition here means a status added to ``STATUS`` reaches both legends.
+    """
+    return [(k, STATUS[k][0], STATUS_REASON[k]) for k in STATUS]
+
+
+def filter_options():
+    """The status filter's options: ``(key, label)`` in read order."""
+    return [(k, v[0]) for k, v in STATUS.items()]
