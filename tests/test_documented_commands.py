@@ -57,6 +57,10 @@ def documented() -> dict[tuple[str, frozenset], list[str]]:
 
     found: dict[tuple[str, frozenset], list[str]] = {}
     for where, text in sources.items():
+        # A shell continuation is one command, and the regex stops at a
+        # newline. Without this, every flag after the first backslash goes
+        # unchecked: `bin/sbatch_ingest.sh` is four lines and one command.
+        text = text.replace("\\\n", " ")
         for script, rest in COMMAND.findall(text):
             key = (script, frozenset(FLAG.findall(rest)))
             found.setdefault(key, []).append(where)
