@@ -62,8 +62,9 @@ def p_todo(c):
                 f'<p class="note"><strong>Cheaper still, and in no row above: {c.gen_one:,} '
                 f'frames whose botanist label stops at the genus.</strong> Their five '
                 f'candidates hold exactly one species from that genus, so the question is '
-                f'yes or no, not which of {c.n_sp}. They never named a species, so they sit '
-                f'outside the {c.n_sp} scored here. The model-health page says more.</p>')
+                f'yes or no, not which of {c.n_sp}. No botanist named a species on them, so '
+                f'they sit outside the {c.n_sp} scored here. The model-health page says '
+                f'more.</p>')
     return panel(f"Where to spend botanist time next: {c.counts['ranking']} cheap "
                  f"confirmations, {c.counts['unreachable']} not worth time yet",
                  "<b>Work top to bottom.</b> Rows are ordered cheapest useful work "
@@ -95,7 +96,7 @@ def p_send(c):
              + UNGRADED_NOTE
              + '<p class="note"><b>Read the confidence column as how little the model '
                'knows, not as how likely the named species is.</b> A frame lands in a '
-               'queue on which species was guessed, whatever the confidence, and inside a '
+               'queue on which species was guessed, whatever the confidence. Inside a '
                'queue the weakest guesses come first. A number near the bottom of the '
                'scale means Pl@ntNet recognised almost nothing, which is the reason to '
                'look.</p>'

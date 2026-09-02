@@ -325,7 +325,10 @@ def p_species(c):
               f'They carry fewer than {THIN_MIN_FRAMES} labelled frames each, the same '
               f'cut-off as the &ldquo;too few labels to judge&rdquo; status. On that few '
               f'frames a rate can only land on a handful of values, so it says little '
-              f'about the model. Species the model never returned on any BCI photo stay '
+              f'about the model. The queue page counts {len(c.rare)} species under the same '
+              f'cut-off, the never-returned ones included; here those stay on screen, which '
+              f'is the whole of the difference. Species the model never returned on any '
+              f'BCI photo stay '
               f'on screen however few frames they carry.</p>'
             + f'<p class="note">Type a name and the species appears anyway, and so does '
               f'picking a status. Tick <i>show all {c.n_sp}</i> to keep them all on '
@@ -375,12 +378,12 @@ def p_ceiling(c):
             + table([("Species", False), ("Labelled frames", True)],
                     [[f'<span class="sp">{esc(cap(d["species"]))}</span>',
                       f'{d["n_labelled_crowns"]:,}'] for d in c.never])
-            + f'<p class="note"><strong>Spelling and renamed species cost us '
-              f'nothing.</strong> Labels and predictions are put into the same standard form '
+            + f'<p class="note"><strong>Spelling and renamed species do not cost us any '
+              f'frames.</strong> Labels and predictions are put into the same standard form '
               f'before comparison, and old names are resolved to current ones. Raw names '
               f'would score {pctf(c.strict1 / n)} on the centre crop rather than '
-              f'{pctf(c.c1 / n)}. That matching is a gain of {c.c1 - c.strict1} frames '
-              f'already banked, not a source of error.</p>'
+              f'{pctf(c.c1 / n)}, so the matching wins {c.c1 - c.strict1} frames. Those '
+              f'{c.c1 - c.strict1} are already inside every rate on this page.</p>'
               f'<p class="note"><strong>{gn:,} further frames carry only a genus '
               f'name</strong> and are left out of every species number above. Scored at '
               f'genus level they reach {pctf(c.gg1 / gn) if gn else "n/a"}.</p>'
