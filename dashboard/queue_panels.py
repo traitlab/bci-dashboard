@@ -16,23 +16,22 @@ from status_words import STATUS, SKIP_STATUSES, uncap
 # frames, so 25 is one morning\'s work and still short enough to read.
 SEND_PREVIEW = 25
 
-# Queue name -> (what it is, why it is worth sending). Shown in the order
+# Queue name -> (what it is, which frames land in it). The second half is the
+# rule `queues.queue_of_prediction` applies, written from the same constants it
+# reads, in the order it tries them: first match wins. Shown in the order
 # queues.QUEUE_ORDER gives, which is the order the CSV is sorted in.
 QL = {"long_tail": ("Species we barely have, or barely get right",
-                    f"The guess points at a species with fewer than "
-                    f"{hc.WELL_SAMPLED_MIN_N} labelled frames, or one the model gets "
-                    f"wrong even with more. These frames fill the long tail the "
-                    f"labelling programme exists for"),
+                    f"Fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, or right less "
+                    f"than {pctf(hc.HARD_MAX_TOP1, 0)} of the time"),
       "low_conf_known": ("A usually-right species, guessed weakly",
-                         "The species is normally identified well but the model is "
-                         "unsure here, so the photo is either an odd one worth having "
-                         "or a quiet miss"),
+                         f"Right at least {pctf(hc.RELIABLE_MIN_TOP1, 0)} of the time "
+                         f"overall, but confidence under {hc.LOW_CONF:.2f} here"),
       # Not "Everything else": a further category follows it.
       "normal": ("The ordinary queue",
-                 "Neither a cheap confirmation nor safe to leave, so these follow "
-                 "the first two"),
+                 "Neither of the two above, and not confident enough to wait"),
       "can_wait": ("Confident on a well-covered species",
-                   "The two-part rule below says these can wait; look at them last")}
+                   f"Confidence {hc.WAIT_CONF:.2f} or more, and {hc.WELL_SAMPLED_MIN_N} or "
+                   f"more labelled frames already")}
 
 
 # Above the 25 filenames, not below them: a reader who meets the list first has
@@ -41,6 +40,18 @@ UNGRADED_NOTE = (
     '<p class="note"><b>This order has not been graded.</b> Nothing measures whether it '
     'fills gaps faster than sending photos at random. It is a reasonable guess about '
     'where our labels are thin. The wait rule further down <em>is</em> measured.</p>')
+
+
+# The page's own hand-off: the queue is only worth building if a batch reaches
+# Labelbox, and the command that does it is one line. Named here rather than in
+# the README because this is where a reader stands when they need it.
+DISPATCH = (
+    '<h3 class="sub">Sending a batch</h3>'
+    f'<p class="note"><a href="send_batches.csv">send_batches.csv</a> is this same queue '
+    f'packed into batches of {queues.BATCH_SIZE}, each species kept whole. Send batch 1 '
+    f'of round 1 with:</p>'
+    '<pre class="cmd">python3 labelling/dispatch_round.py --round 1 --csv build/tables/send_batches.csv --batch 1 --test</pre>'
+    '<p class="note">Drop <code>--test</code> once the dry run looks right.</p>')
 
 
 def p_todo(c):
@@ -79,13 +90,19 @@ def send_pool_table(c):
             f'the ones with a cached Pl@ntNet answer and no botanist label. The other '
             f'{len(c.h.split_rows) - c.n_unlab:,} are already labelled or have no answer to '
             f'rank. Every share below is out of that {c.n_unlab:,}.</p>')
-    body += table([("queue", False), ("unlabelled frames", True),
-                  ("share of the pool", True)],
-                 [[f'<strong>{esc(QL[q][0])}</strong>' if q in ("long_tail", "low_conf_known")
-                   else esc(QL[q][0]),
-                   f'{c.queue_counts.get(q, 0):,}',
-                   pctf(c.queue_counts.get(q, 0) / c.n_unlab if c.n_unlab else None)]
-                  for q in queues.QUEUE_ORDER])
+    body += table([("queue", False), ("which frames land here", False),
+                   ("unlabelled frames", True), ("share of the pool", True)],
+                  [[f'<strong>{esc(QL[q][0])}</strong>' if q in ("long_tail", "low_conf_known")
+                    else esc(QL[q][0]),
+                    esc(QL[q][1]),
+                    f'{c.queue_counts.get(q, 0):,}',
+                    pctf(c.queue_counts.get(q, 0) / c.n_unlab if c.n_unlab else None)]
+                   for q in queues.QUEUE_ORDER])
+    # The ladder is tried in this order and the first match wins, which is the
+    # only way to read the table without contradiction: a weak guess on a rare
+    # species is long tail, not "guessed weakly".
+    body += ('<p class="note">Rows are tried top to bottom. The first one that fits '
+             'wins, so a weak guess on a rare species stays in the first queue.</p>')
     return body
 
 
@@ -124,10 +141,7 @@ def send_notes(c):
              # Several of these have well over ten labels, and a reader who checks
              # them against the species table finds the queue name contradicted.
              f'Some already have more than {WAIT_SUPPORT_MIN} labelled frames; they are here '
-             # nd=0: a rule someone chose, not a rate anyone measured. "70.0%"
-             # reads as a measurement to one decimal place.
-             f'on the other half of the rule, right less than {pctf(hc.HARD_MAX_TOP1, 0)} of '
-             f'the time.</p>'
+             f'on the second half of the first row above, not the first.</p>'
              f'<p class="note"><strong>{c.n_no_answer} unlabelled photos got no answer at '
              f'all</strong>: the candidate list came back empty. Likeliest to be junk or to '
              f'show no plant, and no automatic rule for junk is reliable, so check that '
@@ -147,7 +161,7 @@ def send_notes(c):
 def p_send(c):
     """The page's answer to "what do I label next": queue sizes, the head of
     the queue, then the caveats that qualify both."""
-    body = send_pool_table(c) + send_preview_table(c) + send_notes(c)
+    body = send_pool_table(c) + send_preview_table(c) + DISPATCH + send_notes(c)
     # The same two queues the hero counts, added the same way, so both agree.
     send_now = (c.queue_counts.get("long_tail", 0)
                 + c.queue_counts.get("low_conf_known", 0))
@@ -166,10 +180,10 @@ def p_send(c):
                  body, open_=True, anchor="what-to-send-first")
 
 
-def p_wait(c):
-    """The rule for leaving a frame alone, and the numbers behind the thresholds."""
+def _wait_rule(c) -> str:
+    """The rule in force, what it reaches, and every caveat on it."""
     best = c.best
-    body = (f'<div class="rec"><strong>Suggested rule: leave a frame for later when '
+    return (f'<div class="rec"><strong>Suggested rule: leave a frame for later when '
             f'Pl@ntNet is at least {RECOMMENDED_CONF} confident and its species already has '
             f'{WAIT_SUPPORT_MIN} or more labelled frames.</strong> On the '
             f'{len(c.test_recs):,} frames held back for grading, that rule reaches '
@@ -205,49 +219,37 @@ def p_wait(c):
                f'heading above, which happens to be the same size.'
                if c.counts["ranking"] == len(c.eligible) else '')
             + '</p>')
-    # The summary below already says the ranking is recomputed on model change.
-    return panel(f"Which frames can wait: {best['n']:,} of the {len(c.test_recs):,} frames "
-                 f"held back for grading",
-                 "<b>Use this to order the queue, not to close frames.</b> These are the "
-                 "frames to look at last, and the ranking is recomputed from scratch "
-                 "whenever Pl@ntNet updates.", body)
 
 
-def p_rules(c):
-    """Every confidence threshold side by side, so the recommended one is a choice
+def _rules_compared(c) -> str:
+    """Every confidence threshold side by side, so the one in force is a choice
     a reader can check rather than a number to accept."""
-    body = table([("how sure the model has to be", False), ("frames that can wait", True),
-                  ("share of the queue", True), ("of those, first guess wrong", True),
-                  ("rarely-labelled frames it pushed down", True),
-                  ("of what is left at the top, share rarely labelled", True)],
-                 [[f'<strong>{o["label"]}</strong>' if o is c.best else o["label"],
-                   f'{o["n"]:,}', pctf(o["share"]), pctf(o["err"]), f'{o["rare"]}',
-                   pctf(o["rare_rest"])] for o in c.ops])
-    body += (f'<p class="note">A species with fewer than {RARE_MAX_SUPPORT} labelled frames '
-             f'counts as rarely labelled: {len(c.rare)} of {c.n_sp} species, {c.n_rare_test} '
-             f'of the {len(c.test_recs):,} held-out frames. The second half of the rule '
-             f'leaves every one of them at the top of the queue.</p>')
-    # Four of the five rows describe rules not in force, so the summary carries
-    # the one that is and the rest open on request.
-    b = c.best
-    return panel(f'The {len(c.ops)} rules we compared, and why the one in force won',
-                 f'<b>Read this only if you want to move the confidence line.</b> The rule '
-                 f'in force is <em>{b["label"]}</em>. Each row trades how many frames it '
-                 f'takes off the queue against how often a frame it pushed down was named '
-                 f'wrong after all.', body,
-                 anchor="how-the-rules-compare")
+    body = (f'<h3 class="sub">The {len(c.ops)} rules we compared</h3>'
+            + table([("how sure the model has to be", False), ("frames that can wait", True),
+                     ("share of the queue", True), ("of those, first guess wrong", True),
+                     ("rarely-labelled frames it pushed down", True),
+                     ("of what is left at the top, share rarely labelled", True)],
+                    [[f'<strong>{o["label"]}</strong>' if o is c.best else o["label"],
+                      f'{o["n"]:,}', pctf(o["share"]), pctf(o["err"]), f'{o["rare"]}',
+                      pctf(o["rare_rest"])] for o in c.ops]))
+    return body + (f'<p class="note">A species with fewer than {RARE_MAX_SUPPORT} labelled '
+                   f'frames counts as rarely labelled: {len(c.rare)} of {c.n_sp} species, '
+                   f'{c.n_rare_test} of the {len(c.test_recs):,} held-out frames. The second '
+                   f'half of the rule leaves every one of them at the top of the queue.</p>')
 
 
-def p_conf(c):
+def _confidence_evidence(c) -> str:
     """How often the first guess is right at each confidence band, over all frames
     at once. This is the evidence that ordering the queue by confidence works."""
-    # Same blue as the next panel's chart: same measure, so a colour change would
-    # read as meaning something. Green is spoken for by the status tags.
+    # Same blue as the chart on the model-health page: same measure, so a colour
+    # change would read as meaning something. Green is spoken for by the tags.
     flat = c.flat
-    body = (svg_hbar([(CONF_BAND_WORDS[band], k / nn if nn else 0.0,
-                       f'{pctf(k / nn) if nn else "n/a"}  ·  {nn:,} frames', "#1565c0")
-                      for band, nn, k in c.bins_all],
-                     title="how often the first guess is right, by the model's own confidence")
+    return ('<h3 class="sub">Can we trust the confidence? In bulk yes, on rare species no</h3>'
+            + svg_hbar([(CONF_BAND_WORDS[band], k / nn if nn else 0.0,
+                         f'{pctf(k / nn) if nn else "n/a"}  &middot;  {nn:,} frames', "#1565c0")
+                        for band, nn, k in c.bins_all],
+                       title="how often the first guess is right, "
+                             "by the model's own confidence")
             + '<p class="note">Over all frames at once the score is trustworthy: when the '
               'model is sure it is almost always right. That is what makes ordering the '
               'queue possible at all. <strong>On rarely-labelled species it is not</strong>, '
@@ -262,7 +264,21 @@ def p_conf(c):
             + '<p class="note">Raising the confidence line does not repair this. '
               'Requiring the species to have been measured first does, which is why the '
               'suggested rule has two conditions.</p>')
-    return panel("Can we trust the model's confidence? In bulk yes, on rare species no",
-                 "<b>This is the evidence behind the two-part rule above.</b> Read it if "
-                 "someone proposes ordering the queue on confidence alone.", body,
-                 anchor="can-we-trust-the-confidence")
+
+
+def p_evidence(c):
+    """The wait rule, the thresholds it was chosen against, and the calibration
+    behind ordering on confidence at all.
+
+    One panel, closed, rather than three: a reader working the queue needs the
+    two open panels above and nothing else, and a reader arguing with the rule
+    wants all three pieces of evidence in one place. Splitting them made the
+    page three screens long to say one thing.
+    """
+    return panel(f"Which frames can wait, and why the line sits where it does: "
+                 f"{c.best['n']:,} of {len(c.test_recs):,} frames held back for grading",
+                 "<b>Read this to move the confidence line, or to check the wait rule.</b> "
+                 f"The rule in force is <em>{c.best['label']}</em>. It orders the queue, it "
+                 "does not close frames, and it is recomputed whenever Pl@ntNet updates.",
+                 _wait_rule(c) + _rules_compared(c) + _confidence_evidence(c),
+                 anchor="which-frames-can-wait")

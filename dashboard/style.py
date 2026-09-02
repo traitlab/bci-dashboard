@@ -155,6 +155,12 @@ section.grp>h2{
 .subtitle{color:#6d6d6d}
 /* A sub-heading inside a panel body, count table apart from photo table. */
 h3.sub{font-size:0.95rem;font-weight:700;color:#37474f;margin:22px 0 8px}
+/* A command meant to be copied whole, so it wraps rather than running off the
+   right edge on a phone. */
+pre.cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.76rem;
+  color:#37474f;background:#f5f5f5;padding:10px 12px;border-radius:4px;
+  border-left:3px solid #b0bec5;white-space:pre-wrap;margin:8px 0}
+
 /* A photo key is long and only ever copied, never read as prose. */
 code.key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.72rem;
   color:#37474f;word-break:break-all}
