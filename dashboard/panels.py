@@ -299,7 +299,16 @@ def p_send(c):
              'on which species was guessed, whatever the confidence. Inside a queue the '
              'weakest guesses come first, because those are the frames our labels cover '
              'worst. A guess near the bottom of the scale means Pl@ntNet recognised '
-             'almost nothing, which is itself the reason to look.</p>')
+             'almost nothing, which is itself the reason to look.</p>'
+             # The wait rule below is graded against a held-out set and prints its
+             # error rate. This one is not graded at all, and a page that shows one
+             # and not the other reads as if both had been checked.
+             '<p class="note"><b>This order has not been graded.</b> The wait rule '
+             'further down is measured against frames held back for that purpose, and '
+             'prints how often it is wrong. Nothing here measures whether sending these '
+             'photos first fills gaps faster than sending photos at random. Treat the '
+             'order as a reasonable guess about where our labels are thin, not as a '
+             'tested rule.</p>')
     top_lt = sorted(c.lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
     body += ('<p class="note"><b>Most-named species in the first queue.</b> '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
@@ -799,7 +808,7 @@ def p_terms(c):
     """
     return panel(
         'What the words mean: frame, label, crown, centre crop',
-        "<b>Open this first if any of those four words is new.</b> Which part of a "
+        "<b>Four words do all the work on this page.</b> Which part of a "
         "photo was scored, and against which label, is the whole of the difference "
         "between the two numbers above.",
         f'<p>{hero_terms(c.n_cand)}</p>')
@@ -891,7 +900,10 @@ PANELS = {
 INTERNAL_PANELS = ("todo", "send", "wait", "rules", "conf")
 # Order inside a section is the order these ids are listed in. A reader arrives to
 # look up a species, so the lookup comes before the averaging argument.
-EXTERNAL_PANELS = ("confirmatory", "caveats", "terms", "species", "review",
+# "terms" leads: frame, crown, label and centre crop are load-bearing from the
+# first card down, and a reader who met them third had already been through two
+# sections that used them.
+EXTERNAL_PANELS = ("terms", "confirmatory", "caveats", "species", "review",
                    "weighting", "labels", "candidates", "ceiling", "method")
 
 if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
