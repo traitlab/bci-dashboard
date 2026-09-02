@@ -10,6 +10,7 @@ from __future__ import annotations
 import html
 import math
 import re
+from typing import NamedTuple
 
 from style import COUNT_ID, INPUT_ID, SELECT_ID, TABLE_ID, THIN_ID
 
@@ -84,6 +85,22 @@ def hero(cards):
     return "".join(out)
 
 
+class Cell(NamedTuple):
+    """Cell text plus the attributes its own ``<td>`` should carry.
+
+    A cell that needs an attribute used to wrap its text in a span to hold it.
+    The span was 12 characters per cell and the table was already building a
+    ``<td>`` around it, so the attribute goes on the ``<td>`` instead. Rows are
+    still written as plain strings wherever a cell needs no attribute.
+    """
+
+    html: str
+    attrs: str = ""
+
+    def __str__(self) -> str:
+        return self.html
+
+
 def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
     """headers = [(text, is_numeric)]; rows = [[cell_html, ...]]."""
     # A table with an id can say "these columns are numbers" once, as a rule of
@@ -110,7 +127,7 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
         out.append(f"<tr{row_attrs[j] if row_attrs else ''}>")
         for i, cell in enumerate(r):
             c = ' class="num"' if headers[i][1] and not by_column else ""
-            out.append(f"<td{c}>{cell}</td>")
+            out.append(f"<td{c}{getattr(cell, 'attrs', '')}>{cell}</td>")
         out.append("</tr>")
     out.append("</tbody></table>")
     # Scrolls inside its own box. Otherwise the 7-column table sets the page
@@ -199,7 +216,7 @@ def num_cell(value, shown: str) -> str:
         redundant = "," not in shown and float(shown) == float(v)
     except ValueError:
         redundant = False
-    return shown if redundant else f'<span data-sort="{v}">{shown}</span>'
+    return Cell(shown) if redundant else Cell(shown, f' data-sort="{v}"')
 
 
 def status_tag(cls: str, label: str) -> str:

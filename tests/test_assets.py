@@ -235,16 +235,21 @@ def test_an_anonymous_table_still_marks_its_numeric_cells(assets):
 def test_num_cell_omits_the_sort_attribute_when_the_cell_text_already_sorts(assets):
     """The sort falls back to the cell's own text, so an integer needs no
     attribute. Shipping one anyway cost 5KB across the 186-row species table."""
-    assert assets.num_cell(392, "392") == "392"
+    assert assets.num_cell(392, "392") == ("392", "")
 
 
 def test_num_cell_keeps_the_sort_attribute_wherever_the_text_would_mislead(assets):
     """Three cases the fallback gets wrong: a rounded percentage hides the
     figure it was rounded from, a rounded decimal hides its tie-breaks, and
     JavaScript reads "1,204" as 1."""
-    assert assets.num_cell("0.928571", "92.9%") == '<span data-sort="0.928571">92.9%</span>'
-    assert assets.num_cell("0.859354", "0.86") == '<span data-sort="0.859354">0.86</span>'
-    assert assets.num_cell(1204, "1,204") == '<span data-sort="1204">1,204</span>'
+    assert assets.num_cell("0.928571", "92.9%") == ("92.9%", ' data-sort="0.928571"')
+    assert assets.num_cell("0.859354", "0.86") == ("0.86", ' data-sort="0.859354"')
+    assert assets.num_cell(1204, "1,204") == ("1,204", ' data-sort="1204"')
+
+    # The attribute lands on the cell's own <td>, not on a span inside it.
+    headers = [("Species", False), ("First guess right", True)]
+    out = assets.table(headers, [["a", assets.num_cell("0.928571", "92.9%")]])
+    assert '<td class="num" data-sort="0.928571">92.9%</td>' in out
 
 
 def test_sort_key_carries_the_whole_number_and_nothing_idle(assets):

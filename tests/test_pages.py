@@ -493,3 +493,21 @@ def test_no_sort_key_ships_a_digit_the_sort_cannot_use(page):
     assert not padded, (
         f"{len(padded)} sort keys end in a zero that changes nothing, "
         f"such as {padded[:3]}. Build them with assets.sort_key.")
+
+
+def test_every_rounded_species_cell_still_sorts_on_the_figure_behind_it(page):
+    """A cell showing 92.9% sorts on 0.928571, carried in `data-sort` on the
+    cell itself. Drop the attribute and the table still renders and still
+    sorts, on the text "92.9%", so two species rounding alike swap places and
+    nothing anywhere says so."""
+    html, _, carries = page
+    rounded = [row for row in species_rows(html) if "%" in row]
+    if "species" not in carries:
+        assert not rounded
+        return
+    assert rounded, "the species table shows no percentage at all"
+    for row in rounded:
+        for cell in re.findall(r"<td[^>]*>[^<]*%</td>", row):
+            assert "data-sort=" in cell, (
+                f"{cell} shows a rounded percentage and sorts on the text of "
+                f"it, so species that round alike sort arbitrarily")

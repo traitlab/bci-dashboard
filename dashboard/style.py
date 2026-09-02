@@ -238,13 +238,12 @@ JS = Template("""\
                            :'No species matches that filter.';
   }
 
+  // A cell sorts on its own data-sort where it has one, and on what it shows
+  // where it does not: "392" already sorts as 392. There is no third case; the
+  // attribute used to sit on a span inside the cell and this looked there too.
   function key(cell){
     var v=cell.getAttribute('data-sort');
-    if(v===null){
-      var inner=cell.querySelector('[data-sort]');
-      v=inner?inner.getAttribute('data-sort'):cell.textContent.trim();
-    }
-    return v;
+    return v===null?cell.textContent.trim():v;
   }
 
   var heads=Array.prototype.slice.call(table.tHead.rows[0].cells);
