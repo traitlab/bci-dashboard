@@ -25,9 +25,10 @@ CONFIDENCE_IS_SHARED = ("Pl@ntNet spreads 100% of its confidence across every "
 # One colour and name per labelled-frame band, both bars of the weighting chart.
 # All 4.5:1 against white so the in-bar number is readable.
 #
-# Known limitation: the ramp does not order by lightness (luminance 0.110, 0.180,
-# 0.168, 0.175, 0.083; the two ends are the closest pair at 1.20:1), so without
-# hue it carries no order. Fixing that is a new palette, not a contrast tweak.
+# Known limitation: the ramp does not order by lightness (luminance 0.110, 0.179,
+# 0.168, 0.175, 0.083; the two ends sit at 1.20:1 and the closest pair of all,
+# 2-4 against 10-24, at 1.02:1), so without hue it carries no order. Fixing that
+# is a new palette, not a contrast tweak.
 BAND_COLOR = {"1": "#b71c1c", "2-4": "#d44215", "5-9": "#8d6e00",
               "10-24": "#4f812c", "25+": "#1b5e20"}
 def _band_words():

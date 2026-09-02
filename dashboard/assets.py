@@ -341,7 +341,8 @@ def svg_hbar(rows, *, title=""):
     for t in (0, 25, 50, 75, 100):
         x = label_w + bar_w * t / 100.0
         # The tick carries nothing (every value is printed at its bar end), so it
-        # stays faint at 1.72:1. The number under it is read, so 4.5:1 and 11px.
+        # stays faint at 1.88:1 on the white panel. The number under it is read,
+        # so it clears 4.5:1 and is set at 11px.
         out.append(f'<line x1="{x:.1f}" y1="{axis_y}" x2="{x:.1f}" y2="{axis_y + 4}" '
                    f'stroke="#bdbdbd"/>'
                    f'<text x="{x:.1f}" y="{axis_y + 17}" font-size="11" fill="#6d6d6d" '

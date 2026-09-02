@@ -395,3 +395,74 @@ def test_css_for_leaves_every_class_the_page_renders_styled(assets, pagemod):
     styled = set(re.findall(r"\.([A-Za-z][\w-]*)", kept))
     for rendered in ("hero", "tag", "reliable"):
         assert rendered in styled, f"the page renders .{rendered} and lost its rule"
+
+
+def _relative_luminance(hex_color):
+    """WCAG 2.1 relative luminance of an #rrggbb colour."""
+    h = hex_color.lstrip("#")
+    channels = []
+    for i in (0, 2, 4):
+        c = int(h[i:i + 2], 16) / 255
+        channels.append(c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4)
+    r, g, b = channels
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contrast(a, b):
+    la, lb = _relative_luminance(a), _relative_luminance(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+# Each row is a contrast ratio a comment states in prose, with the two colours
+# it was measured between. The comment is the only record of why a colour was
+# chosen, so a colour edit that does not move the comment leaves the reason
+# describing a shade that is no longer there.
+CONTRAST_CLAIMS = [
+    ("dashboard/assets.py", "stays faint at {r}:1 on the white panel", "#bdbdbd", "#ffffff"),
+    ("dashboard/style.py", "{r}:1 here against", "#6d6d6d", "#f5f5f5"),
+    ("dashboard/style.py", "against {r}:1 before", "#bdbdbd", "#f5f5f5"),
+]
+
+
+@pytest.mark.parametrize("where,phrase,fg,bg", CONTRAST_CLAIMS,
+                         ids=[f"{w.split('/')[1]}-{fg}" for w, _p, fg, _b in CONTRAST_CLAIMS])
+def test_a_stated_contrast_ratio_is_the_one_the_two_colours_have(where, phrase, fg, bg):
+    from conftest import REPO
+    text = (REPO / where).read_text(encoding="utf-8")
+    ratio = f"{_contrast(fg, bg):.2f}"
+    assert phrase.format(r=ratio) in text, (
+        f"{where} states a contrast for {fg} on {bg} that is not {ratio}:1, which "
+        f"is what those two colours measure.")
+
+
+def test_the_band_palette_is_as_readable_and_as_unordered_as_its_comment_says(explain):
+    """Both halves of the BAND_COLOR comment are measurements, not choices.
+
+    It promises every band clears 4.5:1 against white, which is what makes the
+    number inside the bar readable, and it admits the ramp carries no order by
+    listing the luminances and the closest pair. Swap one hex and the promise
+    can break while the admission keeps quoting the old palette.
+    """
+    import pathlib
+    import re
+
+    colors = list(explain.BAND_COLOR.values())
+    worst = min(_contrast(c, "#ffffff") for c in colors)
+    assert worst >= 4.5, (
+        f"the comment promises all {len(colors)} bands clear 4.5:1 against white; "
+        f"the weakest is {worst:.2f}:1.")
+
+    src = pathlib.Path(explain.__file__).read_text(encoding="utf-8")
+    said = re.search(r"luminance ([\d., \n#]+?);", src)
+    assert said, "explain.py no longer lists the band luminances"
+    listed = [x for x in re.findall(r"0\.\d+", said.group(1))]
+    assert listed == [f"{_relative_luminance(c):.3f}" for c in colors], (
+        f"the comment lists luminances {listed}, the palette measures "
+        f"{[f'{_relative_luminance(c):.3f}' for c in colors]}.")
+
+    ends = f"{_contrast(colors[0], colors[-1]):.2f}"
+    closest = min(_contrast(a, b) for i, a in enumerate(colors) for b in colors[i + 1:])
+    assert f"the two ends sit at {ends}:1" in src, (
+        f"the comment misstates the end-to-end contrast, which is {ends}:1.")
+    assert f"at {closest:.2f}:1" in src, (
+        f"the comment misstates the closest pair, which is {closest:.2f}:1.")
