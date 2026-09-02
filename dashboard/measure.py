@@ -3,7 +3,7 @@
 Pl@ntNet-on-BCI model health, computed entirely offline from cached API responses.
 
 Run:  python3 dashboard/measure.py
-Writes the files named in OUTPUTS below to --out-dir (default: this directory),
+Writes the files named in OUTPUTS below to --out-dir (default: build/tables),
 and prints headline numbers to stdout.
 
 Stdlib only (no pandas/numpy). Deterministic. No network calls.
@@ -33,7 +33,11 @@ from queues import (
     chunk_send_batches, send_first_rows,
 )
 
-OUT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Generated tables go where the repo's other generated files go. Writing them
+# beside the source left 700 KB of stale CSV in the module folder and needed
+# two ignore rules of its own to keep it out of git.
+OUT_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "build", "tables")
 
 # Every file a run produces, in the order it reports them. Named once, so
 # nothing else can drift out of sync.
