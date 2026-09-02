@@ -222,8 +222,11 @@ def headline_counts(h):
         gg1=sum(1 for r in gen if genus_of(top1(r)) == r["gt"]),
         gg5=sum(1 for r in gen if r["gt"]
                 in [genus_of(b) for b, _ in r["ranked"][:N_CANDIDATES]]),
-        macro1=sum(d["top1_accuracy"] for d in per_species) / n_sp,
-        macro5=sum(d["top5_accuracy"] for d in per_species) / n_sp)
+        # A corpus can hold genus-only labels and no species-level ones, in
+        # which case there is no species to average over. The genus rates above
+        # are still measured, so this reports absent rather than aborting.
+        macro1=ratio(sum(d["top1_accuracy"] for d in per_species), n_sp),
+        macro5=ratio(sum(d["top5_accuracy"] for d in per_species), n_sp))
 
 
 def bci_list_filter(h):
