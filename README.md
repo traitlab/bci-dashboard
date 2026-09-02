@@ -36,26 +36,25 @@ it prints and aborts if the snapshot CSVs disagree.
 
 ## What a number means
 
-Every published number carries its population and its support count, and is
-defined in the sibling `bci-dashboard-docs/metrics.md`. Three things the pages
-say out loud, because a reader who misses them reads the numbers wrong:
+Every number carries its population and support count and is defined in the
+sibling `bci-dashboard-docs/metrics.md`. Three things the pages say out loud,
+because missing them means reading the numbers wrong:
 
-- **The headline is measured crown by crown**, one call per labelled crown
+- **The headline is measured crown by crown**: one call per labelled crown,
   pooled to the frame by box area, on 300 frames frozen before the numbers
   existed (`bci-dashboard-docs/hypothesis.md` fixed the design in advance). It
   is the cost of naming trees already found, not of finding them.
 - **Every other rate comes from a fixed 1280x1280 centre crop**, 13.7% of the
-  frame, while a botanist draws crowns anywhere in it. `MIN_CROP_COVERAGE` (0.50)
-  asks whether the species covering most of the *crop* covers half of it, a
-  different question. Here it only reports, in `coverage_gate.csv`; the pages
-  score ungated. `labelling/next_batch.py` is what filters on it.
+  frame, while a botanist draws crowns anywhere in it. The pages score ungated.
+  `MIN_CROP_COVERAGE` (0.50) asks a different question -- does the species
+  covering most of the *crop* cover half of it -- and here only reports, in
+  `coverage_gate.csv`. `labelling/next_batch.py` is what filters on it.
 - A miss counts only inside a known population. A species missing from a cached
   list of five names is unproven either way.
 
 Crop and box geometry comes from what the fetch recorded, never a constant.
-Three analyses write output the pages never read: crown-level scores
-(`predict/crown_accuracy.py`), the embedding-ranked queue
-(`labelling/rank_unsent.py`), and the crop-coverage gate.
+Three analyses write output the pages never read: `predict/crown_accuracy.py`,
+`labelling/rank_unsent.py`, and the crop-coverage gate.
 
 ## Layout
 
