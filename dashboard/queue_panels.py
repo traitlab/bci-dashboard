@@ -5,6 +5,7 @@ panel on both pages.
 from __future__ import annotations
 
 import core as hc
+import queues
 from assets import cap, esc, panel, pctf, svg_hbar, table
 from explain import BAND_SHORT, CONF_BAND_WORDS
 from figures import RARE_MAX_SUPPORT, RECOMMENDED_CONF, WAIT_SUPPORT_MIN
@@ -15,7 +16,7 @@ from status_words import STATUS, SKIP_STATUSES, uncap
 SEND_PREVIEW = 25
 
 # Queue name -> (what it is, why it is worth sending). Shown in the order
-# hc.QUEUE_ORDER gives, which is the order the CSV is sorted in.
+# queues.QUEUE_ORDER gives, which is the order the CSV is sorted in.
 QL = {"long_tail": ("Species we barely have, or barely get right",
                     f"The guess points at a species with fewer than "
                     f"{hc.WELL_SAMPLED_MIN_N} labelled frames, or one the model gets "
@@ -83,7 +84,7 @@ def p_send(c):
                    else esc(QL[q][0]),
                    f'{c.queue_counts.get(q, 0):,}',
                    pctf(c.queue_counts.get(q, 0) / c.n_unlab if c.n_unlab else None)]
-                  for q in hc.QUEUE_ORDER])
+                  for q in queues.QUEUE_ORDER])
     # The list itself, not a pointer to it: the counts above say how much work
     # there is, and the CSV in the snapshot folder said which photo.
     head = c.queue_rows[:SEND_PREVIEW]

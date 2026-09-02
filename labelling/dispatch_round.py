@@ -29,7 +29,7 @@ import labelbox as lb
 import settings
 
 # How many metadata rows go up in one bulk_upsert call. Not the botanist-session
-# batch size: `core.BATCH_SIZE` is that one, and it is a different number for a
+# batch size: `queues.BATCH_SIZE` is that one, and it is a different number for a
 # different reason, so the two do not share a name.
 UPSERT_CHUNK = 500
 EXPORT_TIMEOUT_SEC = 300

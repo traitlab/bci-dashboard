@@ -59,6 +59,15 @@ def core():
 
 
 @pytest.fixture(scope="session")
+def queues():
+    """The send-first queue policy. Imported with `dashboard/` on the path,
+    since it reads its thresholds from core as a sibling."""
+    with _on_path(REPO / "dashboard"):
+        import queues
+        yield queues
+
+
+@pytest.fixture(scope="session")
 def health():
     """`health`, the load-and-join layer. On the path rather than loaded by
     path like `core`, because it imports core as a sibling."""

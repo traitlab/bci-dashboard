@@ -119,7 +119,7 @@ def queue_rows_for(counts=QUEUE_COUNTS):
 
 def batch_rows_for(queue_rows, batch_id=0):
     """A trivial single-batch repartition of queue_rows: valid, but not
-    necessarily what core.chunk_send_batches would produce (see the test
+    necessarily what queues.chunk_send_batches would produce (see the test
     documenting that gap below)."""
     return [{"batch_id": batch_id, "species_group": r["predicted_species"],
              "global_key": r["global_key"], "queue": r["queue"]} for r in queue_rows]

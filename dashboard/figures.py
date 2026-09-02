@@ -13,6 +13,7 @@ from collections import Counter, defaultdict
 from types import SimpleNamespace
 
 import core as hc
+import queues
 from history import model_tag_of, snapshot_date_of
 
 # A species is "rarely labelled" below this many frames, and a frame can be
@@ -157,7 +158,7 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     joined_stems = {stem for _, stem, _ in h.joined}
     # The same call measure.py makes, so the page and send_first_queue.csv are
     # one list read twice rather than two lists that have to be reconciled.
-    queue_rows, n_no_answer = hc.send_first_rows(h.predictions, joined_stems,
+    queue_rows, n_no_answer = queues.send_first_rows(h.predictions, joined_stems,
                                                  h.canon, support, acc_of)
     queue_counts = Counter(q for q, _, _, _ in queue_rows)
     lt_species = Counter(pred for q, _, pred, _ in queue_rows if q == "long_tail")

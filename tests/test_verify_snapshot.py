@@ -266,7 +266,7 @@ def test_queue_present_in_csv_but_not_in_queue_counts_aborts(history, tmp_path):
 
 
 def test_batch_exceeding_batch_size_aborts(history, tmp_path):
-    over = history.hc.BATCH_SIZE + 1
+    over = history.queues.BATCH_SIZE + 1
     counts = {"long_tail": over}
     qrows = queue_rows_for(counts)
     brows = batch_rows_for(qrows)  # a single batch holding all `over` rows
@@ -310,11 +310,11 @@ def test_batch_ids_need_not_match_chunk_send_batches_current_output(history, tmp
     """Documents an open gap, not an endorsement of it: verify_snapshot checks
     that send_batches.csv is *a* valid repartition of send_first_queue.csv
     (capped size, contiguous species groups, same rows), but never checks
-    that the batch_id assignment is the one core.chunk_send_batches would
+    that the batch_id assignment is the one queues.chunk_send_batches would
     actually produce from those same rows. Splitting the two queues into two
     batches here is still structurally valid and still passes, even though
     chunk_send_batches, given the same 5 rows, would pack them into a single
-    batch (see core.BATCH_SIZE=100)."""
+    batch (see queues.BATCH_SIZE=100)."""
     qrows = queue_rows_for()
     long_tail = [r for r in qrows if r["queue"] == "long_tail"]
     normal = [r for r in qrows if r["queue"] == "normal"]

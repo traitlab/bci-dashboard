@@ -6,6 +6,7 @@ prints. Deterministic, no network, and nothing here reads a file it was not
 handed a path to.
 
 Reading those files and joining them into one ``Health`` is ``health.py``.
+Deciding what to send a botanist next is ``queues.py``.
 """
 
 from __future__ import annotations
@@ -34,19 +35,15 @@ SPLITS_CSV = os.path.join(BASE, "splits.csv")
 CACHE_DIR = os.path.join(BASE, "predictions", "cache")
 
 # global_key -> (data_row_id, project_id), accumulated by
-# labelling/gt_from_export.py from the exports the GT was merged from. The one
-# offline source for a Labelbox deep link: a data row opens only inside a
-# project it belongs to, and the export states both halves. Absent, or missing
-# a frame labelled in a project that has not been exported since, the page
-# reports the gap rather than guessing a URL.
+# labelling/gt_from_export.py. The one offline source for a Labelbox deep link:
+# a data row opens only inside a project it belongs to, and the export states
+# both halves. Where it is silent the page reports the gap, never guesses.
 DATA_ROW_IDS_CSV = os.path.join(BASE, "data_row_ids.csv")
 LABELBOX_URL = "https://app.labelbox.com/projects/{project_id}/data-rows/{data_row_id}"
 
-# Botanist verdicts on frames the review queue raised. A confident disagreement
-# is either a label error or a model error, and offline nothing can tell which;
-# once a botanist has ruled, the frame must stop reappearing, because the
-# prediction never changes and the queue would otherwise raise it forever.
-# Tracked in git: an untracked verdict is lost on the next clone.
+# Botanist verdicts on frames the review queue raised. The prediction never
+# changes, so without a recorded ruling the queue raises the same frame
+# forever. Tracked in git: an untracked verdict is lost on the next clone.
 ADJUDICATIONS_CSV = os.path.join(BASE, "adjudications.csv")
 # The one verdict that suppresses a frame. A label ruled wrong is fixed in
 # Labelbox instead, where the next export carries the correction, so it needs
@@ -96,8 +93,8 @@ SUPPORT_BUCKETS = [(1, 1, "1"), (2, 4, "2-4"), (5, 9, "5-9"),
 BUCKET_ORDER = [lab for _, _, lab in SUPPORT_BUCKETS]
 WELL_SAMPLED_MIN_N = 10
 
-# Send-first queue thresholds. Labelling buys most on the long tail and on weak
-# guesses at usually-right species. Below LOW_CONF the calibration table puts
+# Send-first queue thresholds, applied in ``queues.py``. Labelling buys most on
+# the long tail and on weak guesses at usually-right species. Below LOW_CONF the calibration table puts
 # the first guess right only ~38% of the time.
 LOW_CONF = 0.5
 WAIT_CONF = 0.8
@@ -173,10 +170,8 @@ def is_species_level(n: str) -> bool:
 def summarise(doc: str) -> str:
     """The first paragraph of a module docstring, as a terminal should read it.
 
-    The rest of the docstring is written for someone with the file open: it
-    names sibling modules in ``double backticks``, which argparse prints
-    literally, and repeats the usage line argparse prints for itself. Passing
-    the whole thing gave --help a nine-line wall before the first flag.
+    The rest is written for someone with the file open: ``double backticks``,
+    which argparse prints literally, and the usage line it prints for itself.
     """
     return " ".join(doc.strip().split("\n\n")[0].replace("``", "").split())
 
@@ -279,10 +274,9 @@ def load_wcvp_crosswalk(path):
     """The WCVP name crosswalk, as ``(renames, every_entry)``.
 
     ``renames`` maps a normalized input name to its normalized accepted
-    binomial, and holds only the names WCVP actually moves: an entry accepted
-    under its own name would map to itself. ``every_entry`` is the cache as
-    read, unfiltered, because the page reports how many names were looked up
-    as well as how many changed.
+    binomial, and holds only the names WCVP moves. ``every_entry`` is the cache
+    unfiltered: the page reports how many were looked up, not only how many
+    changed.
     """
     if not path or not os.path.exists(path):
         return {}, {}
@@ -319,81 +313,6 @@ def bucket_label(n: int) -> str:
     return "?"
 
 
-# Queue names, in the order a botanist should work through them.
-QUEUE_ORDER = ["long_tail", "low_conf_known", "normal", "can_wait"]
-
-# send_first_queue.csv's columns, in order. `measure.py` writes this as the
-# header and `chunk_send_batches` below reads rows by position, so the order is
-# a fact two modules share. Named here, indexed from here, written from here.
-SEND_FIRST_COLUMNS = ["queue", "global_key", "split", "predicted_species", "confidence",
-                      "species_labelled_crowns", "species_top1_accuracy"]
-# send_batches.csv's columns, likewise: `chunk_send_batches` returns rows in
-# this order and `measure.py` writes the header.
-SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue"]
-
-# Labelbox send batches: no more than this many crowns per batch, so a single
-# send stays inside what one botanist session can review.
-BATCH_SIZE = 100
-
-
-def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
-    """Species-grouped, priority-first batches over an already-ordered
-    ``queue_rows`` (send_first_queue.csv order). Each species is visited
-    once, at its highest-priority row; its rows travel together, packed
-    whole until the next would overflow ``batch_size``, then split.
-    """
-    if batch_size < 1:
-        raise ValueError(f"batch_size must be at least 1, got {batch_size}")
-    order: list[str] = []
-    seen: set[str] = set()
-    by_species: dict[str, list] = defaultdict(list)
-    queue_at = SEND_FIRST_COLUMNS.index("queue")
-    key_at = SEND_FIRST_COLUMNS.index("global_key")
-    species_at = SEND_FIRST_COLUMNS.index("predicted_species")
-    for row in queue_rows:
-        sp = row[species_at]
-        by_species[sp].append(row)
-        if sp not in seen:
-            seen.add(sp)
-            order.append(sp)
-
-    # One group per species, split first so an oversized species cannot
-    # straddle a batch boundary; the trailing part packs like any other group.
-    groups = [(sp, by_species[sp][i:i + batch_size])
-              for sp in order
-              for i in range(0, len(by_species[sp]), batch_size)]
-
-    batches = []
-    batch_id = 0
-    held = batch_size  # rows already in the open batch; forces the first one open
-    for sp, rows in groups:
-        if held + len(rows) > batch_size:
-            batch_id += 1
-            held = 0
-        held += len(rows)
-        for row in rows:
-            batches.append([batch_id, sp, row[key_at], row[queue_at]])
-    return batches
-
-
-def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> str:
-    """Which queue an unlabelled crown lands in, from its first guess alone.
-
-    ``support``: labelled-crown count per species. ``top1``: measured
-    accuracy per species. Absent from both means never labelled. First
-    rule wins, so a weak guess on a rare species stays in the long tail.
-    """
-    n = support.get(pred, 0)
-    a = top1.get(pred)
-    if n < WELL_SAMPLED_MIN_N or (a is not None and a < HARD_MAX_TOP1):
-        return "long_tail"
-    if a is not None and a >= RELIABLE_MIN_TOP1 and conf < LOW_CONF:
-        return "low_conf_known"
-    if conf >= WAIT_CONF and n >= WELL_SAMPLED_MIN_N:
-        return "can_wait"
-    return "normal"
-
-
 def canonicaliser(crosswalk: dict):
     """Normalize a name and apply the WCVP crosswalk, as one callable.
 
@@ -407,33 +326,6 @@ def canonicaliser(crosswalk: dict):
         return crosswalk.get(nn, nn)
 
     return canon
-
-
-def send_first_rows(predictions, joined_stems, canon, support, top1) -> tuple:
-    """Every unlabelled frame's queue, in the order send_first_queue.csv writes.
-
-    Returns ``([(queue, stem, species, confidence), ...], n_no_answer)``.
-    ``measure.py`` writes the CSV from this and ``figures.py`` counts the page
-    from it: both used to walk the cache themselves, and `verify_snapshot` then
-    compared the two lists row for row to catch the drift. One walk means there
-    is no drift to catch.
-
-    Order is queue first, then least confident inside a queue, then the stem:
-    the most uncertain frame of a group is the one most worth an expert look.
-    A frame the model answered nothing for is counted, not queued.
-    """
-    rows, n_no_answer = [], 0
-    for stem in sorted(predictions):
-        if stem in joined_stems:
-            continue
-        ranked = [(canon(name), score) for name, score in predictions[stem]]
-        if not ranked:
-            n_no_answer += 1
-            continue
-        pred, conf = ranked[0]
-        rows.append((queue_of_prediction(pred, conf, support, top1), stem, pred, conf))
-    rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), r[3], r[1]))
-    return rows, n_no_answer
 
 
 def diagnose(row: dict) -> str:
@@ -455,12 +347,11 @@ def diagnose(row: dict) -> str:
     return "hard" if a1 < HARD_MAX_TOP1 else "adequate"
 
 
-# The order above, as data, because the pages have to say it. A reader who takes
-# "fewer than 10 labelled frames" as a threshold and sorts on the status column
-# meets one-frame species tagged as cheap confirmation work, and nothing on the
-# page explains why. The last two statuses are decided by accuracy alone, so the
-# tuple stops where the ordering stops mattering. A test walks ``diagnose`` to
-# check this stays true.
+# The order above, as data, because the pages have to say it: a reader sorting
+# on the status column otherwise meets one-frame species tagged as cheap work
+# with nothing explaining why. The last two statuses are decided by accuracy
+# alone, so the tuple stops where the ordering stops mattering. A test walks
+# ``diagnose`` to check that.
 STATUS_PRECEDENCE = ("unreachable", "reliable", "ranking", "unmeasured")
 
 
@@ -468,9 +359,9 @@ STATUS_PRECEDENCE = ("unreachable", "reliable", "ranking", "unmeasured")
 def strip_collection_codes(name: str) -> str:
     """Drop every trailing BCI collection code, then normalize.
 
-    Box labels carry two codes; the second can be shorter than what
-    normalize() recognizes ('-ANAE'). Strip first: codes are upper case,
-    so a lowered one cannot be told from a hyphenated epithet.
+    Box labels carry two, and the second can be shorter than normalize()
+    recognizes ('-ANAE'). Strip first: codes are upper case, and a lowered one
+    cannot be told from a hyphenated epithet.
     """
     s, prev = (name or "").strip(), None
     while s != prev:
@@ -482,8 +373,8 @@ def strip_collection_codes(name: str) -> str:
 def coverage_split(recs, min_coverage=MIN_CROP_COVERAGE):
     """(admitted, rejected) over records carrying a ``crop_coverage`` field.
 
-    A frame with no measured geometry carries None and is rejected: the
-    gate admits only measured coverage, never assumed.
+    No measured geometry means None, which is rejected: the gate admits
+    measured coverage only, never assumed.
     """
     admitted, rejected = [], []
     for r in recs:

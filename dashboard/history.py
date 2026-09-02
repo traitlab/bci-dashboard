@@ -17,6 +17,7 @@ import re
 from collections import Counter
 
 import core as hc
+import queues
 
 SNAPSHOT_DIR = re.compile(r"model-health-(\d{4}-\d{2}-\d{2})$")
 SNAPSHOT_GLOB = "model-health-*"
@@ -163,9 +164,9 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
         for r in brows:
             by_batch.setdefault(r["batch_id"], []).append(r)
         for bid, rows in by_batch.items():
-            if len(rows) > hc.BATCH_SIZE:
+            if len(rows) > queues.BATCH_SIZE:
                 fail(f"send_batches.csv batch {bid}: {len(rows)} rows exceeds "
-                     f"BATCH_SIZE={hc.BATCH_SIZE}")
+                     f"BATCH_SIZE={queues.BATCH_SIZE}")
             runs = [r["species_group"] for i, r in enumerate(rows)
                     if i == 0 or r["species_group"] != rows[i - 1]["species_group"]]
             if len(runs) != len(set(runs)):
@@ -177,7 +178,7 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
                                                  for r in hc.read_csv_rows(path)}:
             fail(f"send_batches.csv: global_key set does not match {path}")
         checks.append(f"send_batches.csv: {len(brows):,} rows in {len(by_batch)} batches, "
-                      f"contiguous species groups and at most {hc.BATCH_SIZE} rows each")
+                      f"contiguous species groups and at most {queues.BATCH_SIZE} rows each")
 
     if review_counts is not None:
         path = os.path.join(directory, "label_review_queue.csv")

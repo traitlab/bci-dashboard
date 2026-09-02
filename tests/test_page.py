@@ -115,13 +115,11 @@ def test_status_and_status_reason_entries_are_non_empty(status_words):
         assert reason.strip(), f"STATUS_REASON[{key!r}] is empty"
 
 
-def test_ql_covers_every_queue_hc_diagnoses(core, queue_panels):
-    # QL is read in QUEUE_ORDER, hc.QUEUE_ORDER's own order (p_send). Derived
-    # from core.py rather than a copied literal list, so this fails the moment
-    # a queue is added or renamed on either side without the other.
-    import core as hc  # already on sys.path via the `panels` fixture
-
-    assert set(queue_panels.QL) == set(hc.QUEUE_ORDER)
+def test_ql_covers_every_queue_the_send_first_policy_can_return(queues, queue_panels):
+    # QL is read in QUEUE_ORDER, queues.py's own order (p_send). Derived from
+    # there rather than a copied literal list, so this fails the moment a queue
+    # is added or renamed on either side without the other.
+    assert set(queue_panels.QL) == set(queues.QUEUE_ORDER)
 
 
 def test_ql_entries_are_non_empty(queue_panels):

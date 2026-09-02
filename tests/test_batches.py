@@ -41,64 +41,64 @@ def groups_of(batches, batch_id):
     return [sp for i, sp in enumerate(seen) if i == 0 or sp != seen[i - 1]]
 
 
-def test_small_species_share_a_batch(core):
-    batches = core.chunk_send_batches(rows(40, 30, 20), batch_size=100)
+def test_small_species_share_a_batch(queues):
+    batches = queues.chunk_send_batches(rows(40, 30, 20), batch_size=100)
     assert sizes(batches) == [90]
     assert groups_of(batches, 1) == ["species 0", "species 1", "species 2"]
 
 
-def test_a_group_that_would_overflow_opens_the_next_batch(core):
+def test_a_group_that_would_overflow_opens_the_next_batch(queues):
     # 60 + 50 is 110, so the second species starts a batch rather than straddle.
-    batches = core.chunk_send_batches(rows(60, 50), batch_size=100)
+    batches = queues.chunk_send_batches(rows(60, 50), batch_size=100)
     assert sizes(batches) == [60, 50]
 
 
-def test_a_species_larger_than_a_batch_splits_into_its_own(core):
-    batches = core.chunk_send_batches(rows(250), batch_size=100)
+def test_a_species_larger_than_a_batch_splits_into_its_own(queues):
+    batches = queues.chunk_send_batches(rows(250), batch_size=100)
     assert sizes(batches) == [100, 100, 50]
     assert groups_of(batches, 3) == ["species 0"]
 
 
-def test_the_remainder_of_a_split_species_packs_with_the_next(core):
+def test_the_remainder_of_a_split_species_packs_with_the_next(queues):
     # 250 leaves 50 trailing, which has room for the following 30.
-    batches = core.chunk_send_batches(rows(250, 30), batch_size=100)
+    batches = queues.chunk_send_batches(rows(250, 30), batch_size=100)
     assert sizes(batches) == [100, 100, 80]
     assert groups_of(batches, 3) == ["species 0", "species 1"]
 
 
-def test_every_batch_holds_contiguous_species_groups(core):
-    batches = core.chunk_send_batches(rows(7, 1, 1, 120, 3, 1), batch_size=100)
+def test_every_batch_holds_contiguous_species_groups(queues):
+    batches = queues.chunk_send_batches(rows(7, 1, 1, 120, 3, 1), batch_size=100)
     for bid in {b[0] for b in batches}:
         seen = groups_of(batches, bid)
         assert len(seen) == len(set(seen)), f"batch {bid} interleaves species"
 
 
-def test_no_batch_exceeds_the_cap(core):
-    batches = core.chunk_send_batches(rows(7, 1, 1, 120, 3, 1, 99), batch_size=100)
+def test_no_batch_exceeds_the_cap(queues):
+    batches = queues.chunk_send_batches(rows(7, 1, 1, 120, 3, 1, 99), batch_size=100)
     assert max(sizes(batches)) <= 100
 
 
-def test_the_batches_are_a_repartition_of_the_queue(core):
+def test_the_batches_are_a_repartition_of_the_queue(queues):
     queue = rows(7, 1, 1, 120, 3, 1, 99)
-    batches = core.chunk_send_batches(queue, batch_size=100)
+    batches = queues.chunk_send_batches(queue, batch_size=100)
     keys = [b[2] for b in batches]
     assert len(keys) == len(queue)
     assert keys == [r[1] for r in queue], "priority order or a row was lost"
 
 
-def test_a_species_keeps_the_place_its_first_row_earned(core):
+def test_a_species_keeps_the_place_its_first_row_earned(queues):
     # Species 1 reappears after species 2. It must not open a third group: the
     # queue's priority order is between species, and a species is visited once.
     queue = rows(2, 2) + [["normal", "late.JPG", "train", "species 0", 0.9, 0, 0.0]]
-    batches = core.chunk_send_batches(queue, batch_size=100)
+    batches = queues.chunk_send_batches(queue, batch_size=100)
     assert groups_of(batches, 1) == ["species 0", "species 1"]
     assert [b[2] for b in batches][:3] == ["s0_0.JPG", "s0_1.JPG", "late.JPG"]
 
 
-def test_an_empty_queue_makes_no_batches(core):
-    assert core.chunk_send_batches([], batch_size=100) == []
+def test_an_empty_queue_makes_no_batches(queues):
+    assert queues.chunk_send_batches([], batch_size=100) == []
 
 
-def test_a_batch_size_below_one_is_refused(core):
+def test_a_batch_size_below_one_is_refused(queues):
     with pytest.raises(ValueError):
-        core.chunk_send_batches(rows(3), batch_size=0)
+        queues.chunk_send_batches(rows(3), batch_size=0)

@@ -18,19 +18,18 @@ import os
 from collections import Counter
 
 from core import (
-    BATCH_SIZE,
     BUCKET_ORDER,
     CONF_BINS,
     CONF_THRESHOLDS,
     GT_KEY_PREFIX,
     MIN_CROP_COVERAGE,
     N_CANDIDATES,
-    QUEUE_ORDER,
     REVIEW_CONF,
     WELL_SAMPLED_MIN_N,
     coverage_split,
     pct,
 )
+from queues import BATCH_SIZE, QUEUE_ORDER
 
 
 def log_cache(_log, s):

@@ -21,7 +21,7 @@ import pytest
 # queue_of_prediction: four queues, first rule wins
 # ---------------------------------------------------------------------------
 
-def _q(core, *, pred="Sp x", conf=0.9, n=None, acc=None):
+def _q(queues, *, pred="Sp x", conf=0.9, n=None, acc=None):
     """One call, with support and accuracy given only when the case needs them.
 
     `n=None` means the species is absent from `support`, which is what a
@@ -30,75 +30,75 @@ def _q(core, *, pred="Sp x", conf=0.9, n=None, acc=None):
     """
     support = {} if n is None else {pred: n}
     top1 = {} if acc is None else {pred: acc}
-    return core.queue_of_prediction(pred, conf, support, top1)
+    return queues.queue_of_prediction(pred, conf, support, top1)
 
 
-def test_a_species_nobody_has_labelled_goes_to_the_long_tail(core):
+def test_a_species_nobody_has_labelled_goes_to_the_long_tail(queues):
     """Absent from support reads as zero, not as unknown, which is the whole
     point of the queue: the photos worth sending are the ones about species we
     have nothing on."""
-    assert _q(core) == "long_tail"
+    assert _q(queues) == "long_tail"
 
 
-def test_the_support_boundary_is_inclusive_at_well_sampled_min_n(core):
+def test_the_support_boundary_is_inclusive_at_well_sampled_min_n(queues, core):
     n = core.WELL_SAMPLED_MIN_N
     # One short of the line is still the long tail; on the line is not.
-    assert _q(core, n=n - 1, acc=1.0) == "long_tail"
-    assert _q(core, n=n, acc=1.0) != "long_tail"
+    assert _q(queues, n=n - 1, acc=1.0) == "long_tail"
+    assert _q(queues, n=n, acc=1.0) != "long_tail"
 
 
-def test_a_species_we_get_wrong_stays_in_the_long_tail_however_many_labels(core):
+def test_a_species_we_get_wrong_stays_in_the_long_tail_however_many_labels(queues, core):
     """The second half of the rule. A species with 500 labels and a measured
     accuracy under the hard line is not solved, so more labels still buy the
     most."""
-    assert _q(core, n=500, acc=core.HARD_MAX_TOP1 - 0.01) == "long_tail"
-    assert _q(core, n=500, acc=core.HARD_MAX_TOP1) != "long_tail"
+    assert _q(queues, n=500, acc=core.HARD_MAX_TOP1 - 0.01) == "long_tail"
+    assert _q(queues, n=500, acc=core.HARD_MAX_TOP1) != "long_tail"
 
 
-def test_a_confident_guess_on_a_species_we_barely_have_is_still_long_tail(core):
+def test_a_confident_guess_on_a_species_we_barely_have_is_still_long_tail(queues):
     """First rule wins, as the docstring says. Confidence cannot buy a photo
     out of the long tail, which is the property the confidence panel's evidence
     is about."""
-    assert _q(core, conf=0.999, n=1, acc=1.0) == "long_tail"
+    assert _q(queues, conf=0.999, n=1, acc=1.0) == "long_tail"
 
 
-def test_an_unsure_guess_on_a_usually_right_species_is_worth_confirming(core):
+def test_an_unsure_guess_on_a_usually_right_species_is_worth_confirming(queues, core):
     n, acc = core.WELL_SAMPLED_MIN_N, core.RELIABLE_MIN_TOP1
-    assert _q(core, conf=core.LOW_CONF - 0.01, n=n, acc=acc) == "low_conf_known"
+    assert _q(queues, conf=core.LOW_CONF - 0.01, n=n, acc=acc) == "low_conf_known"
     # On the confidence line it is no longer low, so it falls through.
-    assert _q(core, conf=core.LOW_CONF, n=n, acc=acc) != "low_conf_known"
+    assert _q(queues, conf=core.LOW_CONF, n=n, acc=acc) != "low_conf_known"
 
 
-def test_reliable_is_inclusive_and_a_shade_below_it_is_not_low_conf_known(core):
+def test_reliable_is_inclusive_and_a_shade_below_it_is_not_low_conf_known(queues, core):
     """`low_conf_known` says "usually right species the model is unsure of
     here". A species just under the reliable line is not one of those, and the
     page would be claiming more than it measured if it said so."""
     n, conf = core.WELL_SAMPLED_MIN_N, core.LOW_CONF - 0.01
-    assert _q(core, conf=conf, n=n, acc=core.RELIABLE_MIN_TOP1) == "low_conf_known"
-    assert _q(core, conf=conf, n=n, acc=core.RELIABLE_MIN_TOP1 - 0.01) == "normal"
+    assert _q(queues, conf=conf, n=n, acc=core.RELIABLE_MIN_TOP1) == "low_conf_known"
+    assert _q(queues, conf=conf, n=n, acc=core.RELIABLE_MIN_TOP1 - 0.01) == "normal"
 
 
-def test_a_confident_guess_on_a_well_sampled_species_can_wait(core):
+def test_a_confident_guess_on_a_well_sampled_species_can_wait(queues, core):
     n = core.WELL_SAMPLED_MIN_N
-    assert _q(core, conf=core.WAIT_CONF, n=n, acc=0.8) == "can_wait"
-    assert _q(core, conf=core.WAIT_CONF - 0.01, n=n, acc=0.8) == "normal"
+    assert _q(queues, conf=core.WAIT_CONF, n=n, acc=0.8) == "can_wait"
+    assert _q(queues, conf=core.WAIT_CONF - 0.01, n=n, acc=0.8) == "normal"
 
 
-def test_a_measured_species_with_no_rule_matching_is_normal(core):
+def test_a_measured_species_with_no_rule_matching_is_normal(queues, core):
     """The residual queue exists, and nothing should silently land in it that
     another rule was meant to catch."""
-    assert _q(core, conf=0.6, n=core.WELL_SAMPLED_MIN_N, acc=0.8) == "normal"
+    assert _q(queues, conf=0.6, n=core.WELL_SAMPLED_MIN_N, acc=0.8) == "normal"
 
 
-def test_every_queue_the_function_can_return_is_one_the_pages_name(core):
+def test_every_queue_the_function_can_return_is_one_the_pages_name(queues, core):
     """QUEUE_ORDER is what the send panel prints and what QL is checked
     against. A fifth queue returned here would render as a missing row."""
     seen = set()
     for n in (None, 0, core.WELL_SAMPLED_MIN_N - 1, core.WELL_SAMPLED_MIN_N, 500):
         for acc in (None, 0.0, core.HARD_MAX_TOP1, core.RELIABLE_MIN_TOP1, 1.0):
             for conf in (0.0, core.LOW_CONF, core.WAIT_CONF, 1.0):
-                seen.add(_q(core, conf=conf, n=n, acc=acc))
-    assert seen <= set(core.QUEUE_ORDER)
+                seen.add(_q(queues, conf=conf, n=n, acc=acc))
+    assert seen <= set(queues.QUEUE_ORDER)
 
 
 # ---------------------------------------------------------------------------

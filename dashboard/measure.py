@@ -20,12 +20,16 @@ import run_log as rl
 from health import load_health
 from core import (
     add_input_flags, summarise,
-    ratio, fmt, genus_of, normalize, send_first_rows, chunk_send_batches,
+    ratio, fmt, genus_of, normalize,
     coverage_gate_stats, labelbox_urls, adjudicated_keys,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
-    REVIEW_CONF, BATCH_SIZE, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
-    GT_KEY_PREFIX, N_CANDIDATES, SEND_FIRST_COLUMNS, SEND_BATCH_COLUMNS,
+    REVIEW_CONF, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
+    GT_KEY_PREFIX, N_CANDIDATES,
+)
+from queues import (
+    BATCH_SIZE, SEND_BATCH_COLUMNS, SEND_FIRST_COLUMNS,
+    chunk_send_batches, send_first_rows,
 )
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
