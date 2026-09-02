@@ -120,15 +120,19 @@ def _post(url: str, field: str, jpeg_bytes: bytes, filename: str,
 
 
 def call_identify(jpeg_bytes: bytes, filename: str, api_key: str,
-                  api_url: str, nb_results: int, organs: str) -> dict:
-    """One identify call. Both request settings come from config.yaml.
+                  api_url: str, nb_results: int, organs: str,
+                  lang: str) -> dict:
+    """One identify call. Every request setting comes from config.yaml.
 
     `organs` used to be "auto" typed here, so `plantnet.identify_organs` moved
-    `predict/photo.py` and left this path asking the old way, silently.
+    `predict/photo.py` and left this path asking the old way, silently. `lang`
+    was missing outright, so this path took Pl@ntNet's default language for
+    common names while photo.py asked for the configured one.
     """
     return _post(api_url, "images", jpeg_bytes, filename,
                  params={"api-key": api_key, "nb-results": nb_results,
-                         "no-reject": "true", "include-related-images": "false"},
+                         "no-reject": "true", "include-related-images": "false",
+                         "lang": lang},
                  data={"organs": organs})
 
 
@@ -241,10 +245,11 @@ def process_photo(
         embeddings_url = config["plantnet"]["embeddings_api_url"]
         nb_results = config["plantnet"]["identify_nb_results"]
         organs = config["plantnet"]["identify_organs"]
+        lang = config["plantnet"]["identify_lang"]
 
         id_resp = _api_call_with_retry(
             call_identify, jpeg_bytes, filename, api_key, identify_url,
-            nb_results, organs
+            nb_results, organs, lang
         )
         time.sleep(delay)
         emb_resp = _api_call_with_retry(
@@ -285,10 +290,11 @@ def process_url(
         embeddings_url = config["plantnet"]["embeddings_api_url"]
         nb_results = config["plantnet"]["identify_nb_results"]
         organs = config["plantnet"]["identify_organs"]
+        lang = config["plantnet"]["identify_lang"]
 
         id_resp = _api_call_with_retry(
             call_identify, jpeg_bytes, filename, api_key, identify_url,
-            nb_results, organs
+            nb_results, organs, lang
         )
         time.sleep(delay)
         emb_resp = _api_call_with_retry(

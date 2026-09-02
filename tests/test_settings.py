@@ -158,3 +158,27 @@ def test_rank_unsent_reads_the_column_the_label_writers_write():
     assert default == written, (
         f"rank_unsent.py reads {default!r} and gt_from_export.py writes "
         f"{written!r}, so --species-csv on the merged labels stops the run.")
+
+
+def test_both_identify_paths_read_the_same_settings():
+    """Two scripts call identify, and each builds the request itself.
+
+    `predict/ingest_photos.py` had no `lang` in its parameters at all, so it
+    took Pl@ntNet's default language for common names while `predict/photo.py`
+    asked for the configured one. The same slip had already happened once with
+    `organs`, which is why photo.py carries a comment about it.
+    """
+    import re
+
+    def identify_settings(relative: str) -> set[str]:
+        src = _source(*relative.split("/"))
+        return {name for name in
+                re.findall(r'(?:pn_cfg|config\["plantnet"\])\["(\w+)"\]', src)
+                if name.startswith("identify_")}
+
+    photo = identify_settings("predict/photo.py")
+    ingest = identify_settings("predict/ingest_photos.py")
+    assert photo and photo == ingest, (
+        f"photo.py reads {sorted(photo)} and ingest_photos.py reads "
+        f"{sorted(ingest)}. Both send the same endpoint the same question, so "
+        f"a setting one of them skips is a setting that silently does nothing.")
