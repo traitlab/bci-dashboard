@@ -98,3 +98,36 @@ def test_the_layout_table_names_the_key_each_directory_reads(readme, core):
             assert "API_KEY" not in row, (
                 f"the README's {directory} row names a key nothing in it reads: "
                 f"{row.strip()}")
+
+
+# Paths the README names that a fresh checkout does not have. All three are
+# generated and gitignored, and the README says so in the same table it names
+# them in, so a checkout missing them is the normal state, not a broken link.
+README_GENERATED = ("data/", "snapshots/", "build/", ".env")
+
+
+def test_every_path_the_readme_points_at_is_there(readme, core):
+    """The front page is a map, and a map to a moved file is worse than none.
+
+    Six numbers in this file are held to the code. The paths were not: rename a
+    module or drop an ADR and the README keeps pointing at it, which the reader
+    finds out one failed `cat` later. The sibling `-docs` files count too, since
+    the README sends the reader to them for what every number means.
+    """
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    named = set(re.findall(r"`([\w./-]+/[\w./-]*|\.env[\w.]*|config\.yaml|"
+                           r"requirements[\w-]*\.txt)`", readme))
+    assert len(named) > 15, f"the README names only {len(named)} paths; the regex broke"
+    missing = []
+    for path in sorted(named):
+        if path in README_GENERATED:
+            continue
+        full = (os.path.join(os.path.dirname(root), path)
+                if path.startswith("bci-dashboard-docs/")
+                else os.path.join(root, path))
+        if not os.path.exists(full):
+            missing.append(path)
+    assert not missing, (
+        f"the README points at {missing}, which is not in the checkout. Either "
+        f"the file moved and the README did not, or it is generated and belongs "
+        f"in README_GENERATED with the reason.")
