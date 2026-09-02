@@ -533,7 +533,8 @@ def p_wait(c):
             f're-sorts. Any frame can come back to the top.</p>'
             f'<p class="note">{len(c.eligible)} species reach {WAIT_SUPPORT_MIN} labelled '
             f'frames inside the frames a rule is allowed to learn from, which is the second '
-            f'half of the rule. Counting every label instead would give a larger number. Do '
+            f'half of the rule. Counting every label instead would give a larger number.</p>'
+            f'<p class="note">Do '
             f'not read this against the rarely-labelled count elsewhere on this page, which '
             f'counts every label.'
             # Two unrelated counts on this page are 41 today, and a reader who meets
