@@ -60,7 +60,7 @@ _ID_ATTR = re.compile(r"""\bid=['"]([^'"]+)['"]""")
 _SCRIPT_BODY = re.compile(r"<script>(.*)</script>", re.S)
 _LEGEND = re.compile(r'<ul class="status-legend">.*?</ul>', re.S)
 _TAG_LABEL = re.compile(r'<span class="tag [^"]*"[^>]*>([^<]*)</span>')
-_ROW = re.compile(r"<tr data-species=.*?</tr>", re.S)
+_ROW = re.compile(r"<tr data-status=.*?</tr>", re.S)
 
 
 
@@ -268,7 +268,7 @@ def test_tags_balance(page):
 
 def test_one_species_row_per_scored_species(page, n_species):
     html, _, carries = page
-    rows = re.findall(r"<tr data-species=", html)
+    rows = re.findall(r"<tr data-status=", html)
     if "species_status" not in carries:
         assert not rows
     elif "snapshot" in carries:
@@ -561,16 +561,17 @@ def test_a_wide_table_scrolls_inside_its_own_box(page):
 
 
 def test_the_filter_can_reach_every_row(page):
-    """The filter reads data-species and data-status. A row missing either is
-    invisible to it, which reads as a table that loses rows when you type."""
+    """The filter reads the first cell for the name and data-status for the
+    status. A row missing either is invisible to it, which reads as a table
+    that loses rows when you type."""
     html, _, carries = page
-    tagged = [r for r in re.findall(r"<tr\b[^>]*>", html) if "data-species=" in r]
+    tagged = [r for r in re.findall(r"<tr\b[^>]*>", html) if "data-status=" in r]
     if "species_status" not in carries:
         assert not tagged, "page carries no species status wiring but renders filterable rows"
         return
     assert tagged, "no filterable rows"
-    for row in tagged:
-        assert "data-status=" in row, f"row filterable by name but not status: {row}"
+    for row in _ROW.findall(html):
+        assert '<td><span class="sp">' in row, f"row has no species name to match: {row}"
 
 
 def test_the_stylesheet_has_no_rule_no_page_uses(external_page, internal_page, assets):

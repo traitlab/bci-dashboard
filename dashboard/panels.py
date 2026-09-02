@@ -297,14 +297,14 @@ def p_species(c):
     for d in c.per_species:
         sp, st = d["species"], c.status[d["species"]]
         sp_rows.append([
-            f'<span class="sp" data-sort="{esc(sp)}">{esc(cap(sp))}</span>',
+            f'<span class="sp">{esc(cap(sp))}</span>',
             f'<span data-sort="{d["n_labelled_crowns"]}">{d["n_labelled_crowns"]:,}</span>',
             f'<span data-sort="{d["top1_accuracy"]:.6f}">{pctf(d["top1_accuracy"])}</span>',
             f'<span data-sort="{d["top5_accuracy"]:.6f}">{pctf(d["top5_accuracy"])}</span>',
             f'<span data-sort="{d["mean_top1_confidence"]:.6f}">'
             f'{d["mean_top1_confidence"]:.2f}</span>',
             status_tag(st, STATUS[st][0])])
-        attrs.append(f' data-species="{esc(sp)}" data-status="{st}"'
+        attrs.append(f' data-status="{st}"'
                      + (' data-thin="1"' if _starts_hidden(d, st) else ""))
     n_thin = sum(1 for d in c.per_species
                  if _starts_hidden(d, c.status[d["species"]]))

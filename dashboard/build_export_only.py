@@ -191,16 +191,14 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
         for d in per_species:
             st = hc.diagnose(d)
             rows.append([
-                (f'<span class="sp" data-sort="{esc(d["species"])}">'
-                 f'{esc(cap(d["species"]))}</span>'),
+                f'<span class="sp">{esc(cap(d["species"]))}</span>',
                 (f'<span data-sort="{d["n_labelled_crowns"]}">'
                  f'{d["n_labelled_crowns"]:,}</span>'),
                 (f'<span data-sort="{d["top1_accuracy"]:.6f}">'
                  f'{pctf(d["top1_accuracy"])}</span>'),
                 status_tag(st, pn.STATUS[st][0]),
             ])
-            attrs.append(f' data-species="{esc(d["species"])}"'
-                         f' data-status="{st}"')
+            attrs.append(f' data-status="{st}"')
         body = status_legend(
             [(st, pn.STATUS[st][0], pn.STATUS_REASON[st]) for st in pn.STATUS]
         ) + filterable_table(

@@ -218,11 +218,9 @@ JS = Template("""\
     var showThin=thin?thin.checked:true;
     var shown=0;
     rows.forEach(function(r){
-      // Fall back to the first cell when a caller ships no data-species: an
-      // absent attribute would otherwise make every needle a miss and blank the
-      // table on the first keystroke.
-      var hay=r.getAttribute('data-species');
-      if(hay===null) hay=(r.cells[0]?r.cells[0].textContent:'').toLowerCase();
+      // The needle is matched against the first cell, the species name as it
+      // is shown. A row attribute repeating it shipped ~7KB of duplicate text.
+      var hay=(r.cells[0]?r.cells[0].textContent:'').toLowerCase();
       var ok=(!needle||hay.indexOf(needle)>=0)&&
              (want==='all'||(r.getAttribute('data-status')||'')===want)&&
              (showThin||needle||want!=='all'||
@@ -469,15 +467,14 @@ def funnel_list(steps: list[tuple[int, str]]) -> str:
     return f'<ul class="todo">{rows}</ul>'
 
 
-def status_tag(cls: str, label: str, *, sort_key: str | None = None) -> str:
+def status_tag(cls: str, label: str) -> str:
     """Render a status tag. The explanation for each status is not repeated
     here: it used to be a per-row ``title=`` on a small hover icon,
     but that stamped one of only a handful of distinct sentences onto every
     row of a 186-row table -- ~40KB of duplicated markup per page. Callers
     render the distinct sentences once via ``status_legend`` instead, next to
     the table."""
-    sort = esc(sort_key if sort_key is not None else label)
-    return f'<span class="tag {esc(cls)}" data-sort="{sort}">{esc(label)}</span>'
+    return f'<span class="tag {esc(cls)}">{esc(label)}</span>'
 
 
 def strip_comments(text: str) -> str:

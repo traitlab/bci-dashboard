@@ -210,7 +210,7 @@ GENERATED = "2026-08-25-test"
 # such snapshot -- it is scoped to one Labelbox export -- so it carries none.
 #
 # `species_status` is narrower than `species`: it is the per-row
-# `data-species`/`data-status` attributes plus the status legend that
+# `data-status` attribute plus the status legend that
 # `panels.p_species` renders. All three pages carry it. `build_export_only.py`
 # used to build its own species table straight off `assets.filterable_table`
 # with no `row_attrs`, so a row said 40% and nothing said whether that was a

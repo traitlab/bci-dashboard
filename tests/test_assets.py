@@ -214,13 +214,7 @@ def test_funnel_list_escapes_the_label(assets):
 
 def test_status_tag_renders_class_and_label(assets):
     out = assets.status_tag("hard", "Hard")
-    assert out == '<span class="tag hard" data-sort="Hard">Hard</span>'
-
-
-def test_status_tag_sort_key_overrides_the_sort_attribute_only(assets):
-    out = assets.status_tag("hard", "Hard", sort_key="0-hard")
-    assert 'data-sort="0-hard"' in out
-    assert ">Hard<" in out
+    assert out == '<span class="tag hard">Hard</span>'
 
 
 def test_status_tag_escapes_class_and_label(assets):
