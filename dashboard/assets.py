@@ -451,13 +451,22 @@ def funnel_list(steps: list[tuple[int, str]]) -> str:
 
 
 def num_cell(value, shown: str) -> str:
-    """A table cell whose sort order is a number the reader never sees.
+    """A table cell, carrying the number to sort on only when it differs.
 
-    The JS sorts on ``data-sort``, so a formatted cell ("50.3%", "1,204") would
-    otherwise sort as text. Both species tables build their numeric cells here
-    rather than each repeating the attribute, which is how the two once drifted.
+    The sort reads ``data-sort`` and falls back to the cell's own text, so a
+    plain integer needs no attribute: "392" already sorts as 392. A rounded
+    percentage does ("92.9%" hides 0.928571), and so does any figure written
+    with thousands separators, since JavaScript reads "1,204" as 1.
+
+    Both species tables build their numeric cells here rather than each
+    repeating the attribute, which is how the two once drifted.
     """
-    return f'<span data-sort="{value}">{shown}</span>'
+    v = str(value)
+    try:
+        redundant = "," not in shown and float(shown) == float(v)
+    except ValueError:
+        redundant = False
+    return shown if redundant else f'<span data-sort="{v}">{shown}</span>'
 
 
 def status_tag(cls: str, label: str) -> str:

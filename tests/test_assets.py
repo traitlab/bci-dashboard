@@ -212,6 +212,21 @@ def test_funnel_list_escapes_the_label(assets):
     assert "<script>&" not in out
 
 
+def test_num_cell_omits_the_sort_attribute_when_the_cell_text_already_sorts(assets):
+    """The sort falls back to the cell's own text, so an integer needs no
+    attribute. Shipping one anyway cost 5KB across the 186-row species table."""
+    assert assets.num_cell(392, "392") == "392"
+
+
+def test_num_cell_keeps_the_sort_attribute_wherever_the_text_would_mislead(assets):
+    """Three cases the fallback gets wrong: a rounded percentage hides the
+    figure it was rounded from, a rounded decimal hides its tie-breaks, and
+    JavaScript reads "1,204" as 1."""
+    assert assets.num_cell("0.928571", "92.9%") == '<span data-sort="0.928571">92.9%</span>'
+    assert assets.num_cell("0.859354", "0.86") == '<span data-sort="0.859354">0.86</span>'
+    assert assets.num_cell(1204, "1,204") == '<span data-sort="1204">1,204</span>'
+
+
 def test_status_tag_renders_class_and_label(assets):
     out = assets.status_tag("hard", "Hard")
     assert out == '<span class="tag hard">Hard</span>'
