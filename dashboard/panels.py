@@ -351,10 +351,14 @@ def p_species(c):
     # "all 186" read as a promise the open table breaks: rows start hidden.
     # "any of" is what stays true, since a typed name reaches a hidden row. The
     # colon stays: slug() cuts there, so the anchor keeps its old value.
+    # Closed, unlike the two panels the queue page opens. Those are that page's
+    # deliverable; this one is a lookup tool, and open it is 40% of the page's
+    # words sitting fourth of nine, so the five panels below it were a long
+    # scroll away. Closed, every heading is readable at once.
     return panel(f"Look up one species: any of the {c.n_sp}, sortable and filterable",
                  "<b>Find a species you care about and read its status.</b> Click any "
                  "heading to sort, type to filter.",
-                 body, open_=True)
+                 body)
 
 
 def p_ceiling(c):

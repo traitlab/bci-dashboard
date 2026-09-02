@@ -263,6 +263,34 @@ def test_tags_balance(page):
 
 
 # ---------------------------------------------------------------------------
+# What a reader sees before clicking anything
+# ---------------------------------------------------------------------------
+
+def test_a_page_opens_only_the_panels_that_are_its_deliverable(page):
+    """A panel is open only where it is the thing the page exists to hand over.
+
+    The queue page opens the two a labeller works from. The export-only page is
+    a 19-species spot check and opens both of its own. The model-health page
+    opens none: its answer is the two hero cards, and the species table is a
+    lookup tool. Open, that table was 40% of the page's words sitting fourth of
+    nine, and the five panels below it were a scroll nobody made.
+    """
+    expected = {
+        "model_health": [],
+        "label_queue": ["Where to spend botanist time next",
+                        "What to send to the botanist first"],
+        "export_only": ["Where these numbers come from", "Look up one species"],
+    }
+    html, name, _ = page
+    want = next(v for k, v in expected.items() if k in name)
+    opened = [re.sub(r"<[^>]+>", "", o).strip() for o in re.findall(
+        r"<details[^>]*\bopen\b[^>]*>\s*<summary[^>]*>(.*?)</summary>", html, re.S)]
+    assert len(opened) == len(want), f"{name} opens {opened}, expected {want}"
+    for got, prefix in zip(opened, want):
+        assert got.startswith(prefix), f"{name}: {got!r} does not start {prefix!r}"
+
+
+# ---------------------------------------------------------------------------
 # Species table: one row per scored species, every status explained
 # ---------------------------------------------------------------------------
 
