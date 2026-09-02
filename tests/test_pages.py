@@ -286,6 +286,9 @@ def test_the_hidden_rows_are_the_ones_the_prose_says_they_are(page, panels, core
 
 
 def test_every_row_status_has_a_matching_legend_entry(page):
+    """A status tag on a row with no legend entry above it is a colour the
+    reader has to guess the meaning of, which is the whole thing a legend is
+    there to prevent."""
     html, _, carries = page
     legend = _LEGEND.search(html)
     if "species_status" not in carries:

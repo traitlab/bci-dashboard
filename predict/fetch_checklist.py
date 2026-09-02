@@ -71,6 +71,11 @@ def fetch_species(api: str, api_key: str, project: str, lang: str = "en") -> lis
 
 
 def main() -> int:
+    """Fetch the species checklist for one Pl@ntNet project and write it down.
+
+    The checklist is what separates a species the model could never name from
+    one it names badly, so the pages need it committed rather than fetched.
+    """
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--project", default=None,

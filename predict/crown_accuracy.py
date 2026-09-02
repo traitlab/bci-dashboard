@@ -65,6 +65,11 @@ def gt_species(lb_label: str) -> str:
 
 
 def load_crowns(cache_dir: Path) -> list[dict]:
+    """One row per cached crown that carries a botanist species name.
+
+    Crowns without one are dropped here rather than counted as misses: nothing
+    graded them, so they belong to no accuracy figure.
+    """
     rows = []
     for path in sorted(cache_dir.glob("*.json")):
         entry = json.loads(path.read_text(encoding="utf-8"))

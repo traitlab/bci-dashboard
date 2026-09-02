@@ -36,6 +36,9 @@ _SCRIPT_BODY = re.compile(r"<script>(.*)</script>", re.S)
 # ---------------------------------------------------------------------------
 
 def test_every_id_the_js_looks_up_exists_exactly_once(page):
+    """A getElementById that finds nothing fails silently in the browser and
+    looks like a page whose filter or toggle just does not work. Twice is worse:
+    the JS touches the first one and the reader clicks the second."""
     html, _, carries = page
     script = _SCRIPT_BODY.search(html)
     assert script, "no inline <script> block -- JS was not embedded"

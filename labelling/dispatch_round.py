@@ -60,6 +60,11 @@ def get_or_create_round_schema(mdo) -> str:
 
 
 def fetch_data_row_ids(client: lb.Client, dataset_name: str) -> dict[str, str]:
+    """Map every global key in the dataset to its Labelbox data row id.
+
+    The queue names photos by global key; Labelbox wants row ids. Exporting the
+    whole dataset once beats one lookup per photo in a batch of hundreds.
+    """
     dataset = next((d for d in client.get_datasets() if d.name == dataset_name), None)
     if dataset is None:
         sys.exit(f"ERROR: Dataset '{dataset_name}' not found.")
