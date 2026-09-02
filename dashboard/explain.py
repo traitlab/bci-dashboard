@@ -249,9 +249,13 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
 def method_panel(*, tag, n, n_sp, n_cand, checks):
     """Model, request settings, evaluated set, and the untestable assumption."""
     body = ('<ul class="prov">'
-            f'<li>Predictions: <code>identify/k-central-america</code>, model run '
-            f'<code>{esc(tag)}</code>. The Central America regional model, not the '
-            f'worldwide one, so a regional restriction is already in place.</li>'
+            # The tag is `<endpoint-slug>@<run-name>`, so it already carries the
+            # endpoint; printing `identify/k-central-america` beside it said the
+            # slug twice in one sentence, and the typed half could not follow a
+            # move to another regional endpoint.
+            f'<li>Predictions: model run <code>{esc(tag)}</code>, the Central '
+            f'America regional model and not the worldwide one, so a regional '
+            f'restriction is already in place.</li>'
             f'<li>Request settings: <code>nb-results={n_cand}</code>, '
             f'plus <code>no-reject=true</code>, organs detected '
             f'automatically, and <code>include-related-images=false</code>, on a '

@@ -138,11 +138,16 @@ def _api_call_with_retry(fn, *args, **kwargs):
 
 
 def call_identify(jpeg_bytes: bytes, filename: str, api_key: str,
-                  api_url: str, nb_results: int = 5) -> dict:
+                  api_url: str, nb_results: int, organs: str) -> dict:
+    """One identify call. Both request settings come from config.yaml.
+
+    `organs` used to be "auto" typed here, so `plantnet.identify_organs` moved
+    `predict/photo.py` and left this path asking the old way, silently.
+    """
     resp = requests.post(
         api_url,
         files=[("images", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
-        data={"organs": "auto"},
+        data={"organs": organs},
         params={"api-key": api_key, "nb-results": nb_results,
                 "no-reject": "true", "include-related-images": "false"},
         timeout=API_TIMEOUT,
@@ -276,10 +281,12 @@ def process_photo(
     else:
         identify_url = config["plantnet"]["identify_url"]
         embeddings_url = config["plantnet"]["embeddings_api_url"]
-        nb_results = config["plantnet"].get("identify_nb_results", 5)
+        nb_results = config["plantnet"]["identify_nb_results"]
+        organs = config["plantnet"]["identify_organs"]
 
         id_resp = _api_call_with_retry(
-            call_identify, jpeg_bytes, filename, api_key, identify_url, nb_results
+            call_identify, jpeg_bytes, filename, api_key, identify_url,
+            nb_results, organs
         )
         time.sleep(delay)
         emb_resp = _api_call_with_retry(
@@ -318,10 +325,12 @@ def process_url(
     else:
         identify_url = config["plantnet"]["identify_url"]
         embeddings_url = config["plantnet"]["embeddings_api_url"]
-        nb_results = config["plantnet"].get("identify_nb_results", 5)
+        nb_results = config["plantnet"]["identify_nb_results"]
+        organs = config["plantnet"]["identify_organs"]
 
         id_resp = _api_call_with_retry(
-            call_identify, jpeg_bytes, filename, api_key, identify_url, nb_results
+            call_identify, jpeg_bytes, filename, api_key, identify_url,
+            nb_results, organs
         )
         time.sleep(delay)
         emb_resp = _api_call_with_retry(

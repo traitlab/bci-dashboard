@@ -79,3 +79,19 @@ def test_the_run_log_provenance_block_matches_config_yaml(settings, core):
     assert plantnet["identify_nb_results"] == core.N_CANDIDATES, (
         "config.yaml asks Pl@ntNet for a different list length than "
         "core.N_CANDIDATES, which every page counts against.")
+
+
+def test_config_yaml_carries_every_request_setting_the_fetchers_index(settings):
+    """The fetch scripts index these rather than defaulting them.
+
+    A `.get("identify_organs", "auto")` reads as a safety net and is really a
+    second copy: it kept `predict/ingest_photos.py` asking the old way after
+    the setting moved. Indexing turns a missing key into a loud KeyError at the
+    top of a run, which is what this test makes sure config.yaml never causes.
+    """
+    plantnet = settings.load_config()["plantnet"]
+    for key in ("identify_url", "embeddings_api_url", "identify_nb_results",
+                "identify_organs", "identify_lang", "single_model_run_name"):
+        assert key in plantnet, (
+            f"config.yaml has no plantnet.{key}, and predict/ indexes it; a fetch "
+            f"run would stop with a KeyError before its first call.")

@@ -9,9 +9,10 @@ resume at any time.
 
 Config (config.yaml):
   plantnet.identify_url       — full API endpoint URL
-  plantnet.identify_nb_results — number of top results to request (default 5)
-  plantnet.identify_organs    — organ hint sent to API (default "auto")
-  plantnet.identify_lang      — language for common names (default "en")
+  plantnet.identify_nb_results — how many names to ask for per photo
+  plantnet.identify_organs    — organ hint sent to API
+  plantnet.identify_lang      — language for common names
+All three are required: the values live in config.yaml, not in a default here.
 
 Input:
   input/boxes/bci_images_for_plantnet.csv
@@ -228,9 +229,12 @@ def main():
 
     pn_cfg     = config["plantnet"]
     api_url    = pn_cfg["identify_url"]
-    nb_results = pn_cfg.get("identify_nb_results", 5)
-    organs     = pn_cfg.get("identify_organs", "auto")
-    lang       = pn_cfg.get("identify_lang", "en")
+    # Indexed, not `.get(..., "auto")`: config.yaml carries all three, and a
+    # default retyped here is a second copy of the setting that only shows up
+    # when somebody removes the key.
+    nb_results = pn_cfg["identify_nb_results"]
+    organs     = pn_cfg["identify_organs"]
+    lang       = pn_cfg["identify_lang"]
 
     images_csv  = (Path(args.input) if args.input else
                    Path(config["folders"]["export_for_plantnet"]) / "bci_images_for_plantnet.csv")

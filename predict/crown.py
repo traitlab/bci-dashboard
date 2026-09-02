@@ -453,9 +453,9 @@ def main(argv=None) -> int | None:
             jpeg, frame_w, frame_h = crop_box(frame_cache[1], box)
             resp = pn.call_identify_api(
                 jpeg, f"{cid}.jpg", api_url, api_key,
-                cfg.get("identify_nb_results", 5),
-                cfg.get("identify_organs", "auto"),
-                cfg.get("identify_lang", "en"),
+                cfg["identify_nb_results"],
+                cfg["identify_organs"],
+                cfg["identify_lang"],
             )
             entry = pn.parse_response(resp, cid, url, frame_w, frame_h, None)
             # The geometry 13a threw away. Without these fields the region the

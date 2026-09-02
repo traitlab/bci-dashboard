@@ -162,3 +162,32 @@ class TestTheAdjudicationSheetIsBlind:
         rows = [frame("same", "X", crown=["X"], photo=["X"])]
         assert score_confirmatory.write_adjudication(
             rows, tmp_path / "adj.csv") == 0
+
+
+def test_the_field_site_total_the_page_prints_matches_the_frame_list(
+        confirmatory_panels, core):
+    """"17 field sites" is typed into a panel, and nothing else knows it.
+
+    The panel warns that the frozen sample covers some of the sites, not all
+    of them, and the "all of them" half is a literal. `dashboard/` never reads
+    the frame list, so the number cannot be derived where it is printed. It
+    can be derived here: a mission is `<date>_<site>_<waypoints>_<camera>`,
+    and `input/boxes/` is tracked precisely because the frame list defines the
+    population. A survey that adds a site would leave the warning saying 17.
+    """
+    import os
+    import re
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    frames = os.path.join(root, "input", "boxes",
+                          "bci_images_for_plantnet_w_split.csv")
+    with open(frames, encoding="utf-8") as fh:
+        sites = {row["mission"].split("_")[1] for row in csv.DictReader(fh)}
+
+    src = open(confirmatory_panels.__file__, encoding="utf-8").read()
+    printed = re.search(r"the (\d+) field sites", src)
+    assert printed, "the panel no longer prints a field-site total; drop this test"
+    assert int(printed.group(1)) == len(sites), (
+        f"the panel says {printed.group(1)} field sites, and the frame list has "
+        f"{len(sites)}: {sorted(sites)}. The sample-versus-corpus warning is only "
+        f"a warning if the corpus half is right.")
