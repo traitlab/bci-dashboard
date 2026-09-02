@@ -119,8 +119,9 @@ class TestTheStoppingRuleHolds:
     def test_a_set_missing_an_aligned_arm_is_stamped_exploratory(
             self, score_confirmatory, capsys, tmp_path):
         rows = [frame("a", "X", crown=["X"], photo=["X"])]
+        stat = dict(score_confirmatory.result_rows(rows, False, draws=50))
         score_confirmatory.report(rows, {"crown": ["a"], "photo": []},
-                                  complete=False, draws=50)
+                                  complete=False, stat=stat, draws=50)
         assert "EXPLORATORY" in capsys.readouterr().out
 
     def test_the_adjudication_sheet_is_refused_before_the_set_is_complete(
