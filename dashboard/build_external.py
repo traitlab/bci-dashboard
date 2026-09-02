@@ -61,18 +61,6 @@ def build(h, *, generated, verify_dir, fallback_tag):
          f'before asking. Everything below them covers all {c.n:,} labelled frames, one '
          f'Pl@ntNet guess per frame. That is what lets the page say, species by species, '
          f'how often the guess is right. What to label next is a separate page, <code>label_queue_dashboard.html</code>.</p>',
-         # Three frame counts run through this page and a reader who meets them one
-         # at a time cannot tell whether they contradict each other. They do not, and
-         # this says so once, up front, in the order the page uses them.
-         f'<p class="note"><strong>Three frame counts appear below, and they fit '
-         f'together.</strong> {c.n:,} frames carry a label naming a species, and every '
-         f'accuracy rate on this page is measured on those. Add {c.gn:,} frames labelled '
-         f'only to a genus and {c.fam_n:,} labelled only to a family and you get the '
-         f'{c.n_pred:,} frames that have a cached Pl@ntNet answer. That is the set the '
-         f'list-length chart counts. {len(h.gt_rows):,} is every frame a botanist has '
-         f'labelled at all, the '
-         f'{len(h.gt_rows) - c.n_pred} with no cached answer included. Each number below '
-         f'says which of the three it is using.</p>',
          # The headline first, on the frozen sample, because it is the only number here
          # whose unit of prediction is the unit the label describes. The corpus-wide
          # grid follows it, inside a panel, not the other way round.
@@ -83,7 +71,20 @@ def build(h, *, generated, verify_dir, fallback_tag):
           f'below it.</strong> Outlining the trees first is worth '
           f'{100 * c.cf["crown_minus_photo"]:+.1f} points over sending the fixed centre '
           f'square. That gap was measured on frames set aside before either number '
-          f'existed, and a gap that size almost never happens by chance.</p>')]
+          f'existed, and a gap that size almost never happens by chance.</p>'),
+         # Three frame counts run through this page and a reader who meets them one
+         # at a time cannot tell whether they contradict each other. They do not. Said
+         # once, below the headline rather than above it: this is arithmetic a reader
+         # needs before the panels, not before the finding.
+         f'<p class="note"><strong>Three frame counts appear below, and they fit '
+         f'together.</strong> {c.n:,} frames carry a label naming a species, and every '
+         f'accuracy rate on this page is measured on those. Add {c.gn:,} frames labelled '
+         f'only to a genus and {c.fam_n:,} labelled only to a family and you get the '
+         f'{c.n_pred:,} frames that have a cached Pl@ntNet answer. That is the set the '
+         f'list-length chart counts. {len(h.gt_rows):,} is every frame a botanist has '
+         f'labelled at all, the '
+         f'{len(h.gt_rows) - c.n_pred} with no cached answer included. Each number below '
+         f'says which of the three it is using.</p>']
     P.append(pn.render(c, pn.EXTERNAL_PANELS))
 
     return pn.document(TITLE, "\n".join(P)), c.checks
