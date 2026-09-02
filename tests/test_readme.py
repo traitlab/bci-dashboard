@@ -69,3 +69,32 @@ def test_how_many_frames_were_frozen(readme, core):
     assert re.search(rf"\b{n} frames frozen before", readme), (
         f"{frozen} holds {n} frames and the README says another number. That "
         f"count is the sample size behind the headline.")
+
+
+def test_the_layout_table_names_the_key_each_directory_reads(readme, core):
+    """The README's layout table says which side needs which credential. It
+    once said `predict/` was "the only side needing a key" three lines above a
+    Configure section that asks for a Labelbox key too. Read the keys out of
+    the source instead."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    rows = {line.split("|")[1].strip(): line
+            for line in readme.splitlines() if line.startswith("| `")}
+    for directory in ("predict/", "labelling/", "dashboard/"):
+        read = set()
+        folder = os.path.join(root, directory)
+        for name in sorted(os.listdir(folder)):
+            if not name.endswith(".py"):
+                continue
+            with open(os.path.join(folder, name), encoding="utf-8") as fh:
+                read |= set(re.findall(r"environ(?:\.get\(|\[)\"([A-Z_]+_API_KEY)\"",
+                                       fh.read()))
+        row = rows.get(f"`{directory}`")
+        assert row, f"the README's layout table no longer has a {directory} row"
+        for key in read:
+            assert key in row, (
+                f"{directory} reads {key} and the README's row for it does not "
+                f"say so: {row.strip()}")
+        if not read:
+            assert "API_KEY" not in row, (
+                f"the README's {directory} row names a key nothing in it reads: "
+                f"{row.strip()}")
