@@ -104,29 +104,34 @@ def frame_coverage(boxes, rect):
     return {sp: min(a / rect_area, 1.0) for sp, a in per.items()}
 
 
-def build(path=BOXES_CSV, frame_w=FRAME_W, frame_h=FRAME_H,
-          crop_size=CROP_SIZE, export_path=EXPORT_BOXES_CSV):
+def build():
     """Per-frame view of what the model saw.
 
     Returns (frames, suspect_frames): frames maps base_image to
     {"dominant": top species (or None), "coverage": its fraction}.
     suspect_frames lists base_images whose boxes fall outside the frame
     size, so their rectangle cannot be trusted.
+
+    The two box files and the frame geometry are the module constants above.
+    They were once five parameters defaulting to those constants, which no
+    caller in the repo ever passed and no test could have overridden anyway:
+    a default is bound when the function is defined, so pointing the module
+    at another file would not have moved them.
     """
-    rect = crop_rect(frame_w, frame_h, crop_size)
+    rect = crop_rect()
     if rect is None:
         raise ValueError(
-            f"frame {frame_w}x{frame_h} is smaller than crop {crop_size}; "
+            f"frame {FRAME_W}x{FRAME_H} is smaller than crop {CROP_SIZE}; "
             "13a sends such frames uncropped, so there is no rectangle to score"
         )
     out, suspect = {}, []
-    for base, boxes in load_boxes(path, export_path).items():
-        if any(b[2] > frame_w + EDGE_TOLERANCE or b[3] > frame_h + EDGE_TOLERANCE
+    for base, boxes in load_boxes(BOXES_CSV, EXPORT_BOXES_CSV).items():
+        if any(b[2] > FRAME_W + EDGE_TOLERANCE or b[3] > FRAME_H + EDGE_TOLERANCE
                for b in boxes):
             suspect.append(base)
             continue
         boxes = [(max(0, b[0]), max(0, b[1]),
-                  min(b[2], frame_w), min(b[3], frame_h), b[4]) for b in boxes]
+                  min(b[2], FRAME_W), min(b[3], FRAME_H), b[4]) for b in boxes]
         per = frame_coverage(boxes, rect)
         dominant, cov = (None, 0.0)
         if per:
