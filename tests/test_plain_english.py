@@ -44,8 +44,10 @@ MAX_SENTENCE_WORDS = 31
 
 # The share of sentences allowed to run long. A hard per-sentence cap alone
 # lets the prose fill up with 25-word sentences, so this keeps the middle
-# short. Both pages are inside it today: 1% and 3%.
-MAX_LONG_SENTENCE_SHARE = 0.04
+# short. Both pages are inside it today: 0.0% and 1.1%, and the one sentence
+# left over the cap is a comma-list of ten species names, not a clause a
+# reader has to hold open.
+MAX_LONG_SENTENCE_SHARE = 0.02
 LONG_SENTENCE_WORDS = 25
 
 # Retired by CONTEXT.md, each with what a page says instead. The message is

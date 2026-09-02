@@ -202,10 +202,10 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           # here, asserting the cause before the page had shown it. The warning
           # block below gives the same claim with its reason attached, which is
           # where a reader can weigh it.
-          f'<p class="note">Misses differ at each end. The right name is still in the five '
-          f'for {pctf(thin_in5)} of misses on species with {THIN_MAX} frames or fewer '
-          f'({thin_n} misses), against {pctf(fat_in5)} of the {fat_n} misses at '
-          f'{FAT_MIN}+ frames. Misses on common '
+          f'<p class="note">Misses differ at each end. On species with {THIN_MAX} frames '
+          f'or fewer, the right name is still in the five for {pctf(thin_in5)} of '
+          f'{thin_n} misses. At {FAT_MIN}+ frames it is {pctf(fat_in5)} of {fat_n}. '
+          f'Misses on common '
           f'species are near '
           f'misses settled from the short list; on rare ones the model does not know the '
           f'plant.</p>'
@@ -245,18 +245,17 @@ def method_panel(*, tag, n, n_sp, n_cand, checks):
             f'frames only under an assumption that cannot be tested offline.</li>'
             f'<li>Where the labels came from, in the merge script\u2019s own words. '
             f'&ldquo;{esc(hc.gt_provenance())}&rdquo; The merge keeps the newer label, and '
-            f'that batch has had no review step on Labelbox yet. The line is read from the '
-            f'sidecar <code>labelling/gt_from_export.py</code> writes beside the label file, '
-            f'so it names the batch this page was built over rather than one fixed in the '
-            f'prose.</li>'
+            f'that batch has had no review step on Labelbox yet. '
+            f'<code>labelling/gt_from_export.py</code> writes that line beside the label '
+            f'file, so it always names the batch this page was built over.</li>'
             f'<li>Snapshot: this page reports one dated '
             f'<code>model-health-&lt;date&gt;/</code> folder, the latest state, with no trend '
             f'over earlier folders. Its model tag is read from its own '
             f'<code>run_log.txt</code>, which records the endpoint and the model run '
             f'name.</li>'
-            f'<li>Every number here is recomputed from the source data at build time and '
-            f'cross-checked against the {len(checks)} CSVs the measurement pass wrote into '
-            f'the snapshot folder. A mismatch aborts the build.</li>'
+            f'<li>Every number here is recomputed from the source data at build time. '
+            f'It is then checked against the {len(checks)} CSVs the measurement pass '
+            f'wrote into the snapshot folder. A mismatch aborts the build.</li>'
             # Build provenance is a maintainer's question, not a reader's, and it
             # lives in the README beside the source. One line stays so an archived
             # copy of this page still says where to look.

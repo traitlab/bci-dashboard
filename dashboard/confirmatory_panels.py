@@ -114,9 +114,9 @@ def p_confirmatory(c):
         raise SystemExit("p_confirmatory needs the frozen result; see confirmatory_hero")
     body = (
         f'<p class="note"><strong>What we did for the top number.</strong> Every crown a '
-        f'botanist had outlined, sent one at a time and combined into one name for the '
-        f'frame, each crown weighted by how much of the frame it covered. So the number '
-        f'says what naming '
+        f'botanist had outlined went to Pl@ntNet on its own. The answers were then '
+        f'combined into one name for the frame, each crown counting for as much of the '
+        f'frame as it covered. So the number says what naming '
         f'costs once someone has found the trees, not what a fully automatic pipeline '
         f'would score.</p>'
         f'<p class="note"><strong>What we did for the second number.</strong> We sent '

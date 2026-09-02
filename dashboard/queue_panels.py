@@ -65,7 +65,7 @@ def p_todo(c):
     return panel(f"Where to spend botanist time next: {c.counts['ranking']} cheap "
                  f"confirmations, {c.counts['unreachable']} not worth time yet",
                  "<b>Work top to bottom.</b> Rows are ordered cheapest useful work "
-                 "first, and three of them are work you can skip: "
+                 "first. Three of them you can skip: "
                  + ", ".join(f"&ldquo;{uncap(STATUS[k][0])}&rdquo;" for k in SKIP_STATUSES)
                  + ". They are not all at the bottom.",
                  "\n".join(body), open_=True)

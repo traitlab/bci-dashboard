@@ -60,8 +60,8 @@ def status_precedence_note():
     the order in ``diagnose`` cannot leave the page describing the old one.
     """
     names = [uncap(STATUS[k][0]) for k in hc.STATUS_PRECEDENCE]
-    return ("Each species gets one status. The rules are checked in this order: "
-            + ", then ".join(f"&ldquo;{n}&rdquo;" for n in names)
+    return ("Each species gets one status: the first rule that fits. Order: "
+            + ", ".join(f"&ldquo;{n}&rdquo;" for n in names)
             + f". So a few-frame species can still show as &ldquo;{names[2]}&rdquo;. "
             "That is the point: it is cheap work whatever its count. Read the "
             "labelled-frames column next to the status.")
