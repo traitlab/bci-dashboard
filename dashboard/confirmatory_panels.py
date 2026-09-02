@@ -15,21 +15,16 @@ from __future__ import annotations
 
 from assets import esc, hero, panel, pctf
 from figures import CONFIRMATORY_CSV
-from panels import CENTRE_CROP_IS
+from panels import CAMERA_IS, CENTRE_CROP_IS
 
 def cam_phrase(cameras):
-    """Name the camera the way the queue page names it, when there is one.
+    """Name the camera in the queue page's words, which are now the same words.
 
     The frozen sample is single-camera by design, but the field is read from the
     frame keys rather than assumed, so a future sample carrying both must not
     render as one camera with two names.
     """
-    # The file-name word contradicts the camera it names, so a reader who did
-    # not know that stops here assuming a typo. Said outright instead.
-    return ({"zoom": "the drone&rsquo;s wide-angle camera, which confusingly is named "
-                     "<code>zoom</code> in the file names",
-             "tele": "the drone&rsquo;s long-lens camera, named <code>tele</code> in the "
-                     "file names"}.get(cameras)
+    return (CAMERA_IS.get(cameras)
             or f"these cameras: <code>{esc(cameras)}</code>")
 
 def pfmt(p, draws):

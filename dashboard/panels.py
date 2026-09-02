@@ -27,6 +27,19 @@ REVIEW_PREVIEW = 15
 # A 2x2 grid: question asked (rows) by how it was averaged (columns), because
 # 50.3% / 79.5% side by side reads as one superseding the other.
 # (metric, question, averaged over, note).
+# What each drone camera is, as a noun phrase both pages can drop into their own
+# sentence. The file-name word contradicts the camera it names, so a reader who
+# did not know that stops on it assuming a typo. Said outright instead, and said
+# once: the queue page and the confirmatory panel had each written their own
+# version, and confirmatory_panels.cam_phrase claimed to name the camera "the
+# way the queue page names it" with nothing holding it to that.
+CAMERA_IS = {
+    "zoom": ("the drone&rsquo;s wide-angle camera, which confusingly is named "
+             "<code>zoom</code> in the file names"),
+    "tele": ("the drone&rsquo;s long-lens camera, named <code>tele</code> in the "
+             "file names"),
+}
+
 # The species table's lede. Both the internal pages and the export-only page
 # put one in front of the same table, and the two had drifted into being the
 # same sentence typed twice.
