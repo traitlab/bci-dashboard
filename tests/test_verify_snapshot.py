@@ -142,6 +142,7 @@ def _review_rows(review_counts=REVIEW_COUNTS):
 
 def write_snapshot(tmp_path, *, per_species_rows=None, bucket_rows=None, bin_rows=None,
                     log_lines=None, queue_rows=None, batch_rows=None, review_rows=None,
+                    queue_keys=None,
                     with_queue_counts=True, with_no_answer=True, with_review_counts=True):
     """Write a consistent, passing snapshot directory under tmp_path and
     return the matching verify_snapshot kwargs.
@@ -188,6 +189,8 @@ def write_snapshot(tmp_path, *, per_species_rows=None, bucket_rows=None, bin_row
                    ["batch_id", "species_group", "global_key", "queue"])
         files["queue"], files["batches"] = qrows, brows
         kwargs["queue_counts"] = dict(QUEUE_COUNTS)
+        if queue_keys is not None:
+            kwargs["queue_keys"] = queue_keys
 
     if with_review_counts:
         rrows = review_rows if review_rows is not None else _review_rows()
@@ -239,6 +242,26 @@ def test_with_all_three_optional_arguments_omitted_only_the_four_unconditional_c
     checks = run(history, tmp_path, kwargs)
     assert len(checks) == 4
     assert not any("queue" in c or "batch" in c or "review" in c for c in checks)
+
+
+def test_the_send_first_order_is_checked_row_for_row_not_only_counted(history, tmp_path):
+    """measure.py and figures.py sort the same rows separately. A changed
+    tie-break moves rows without moving any count, and the page prints the head
+    of the file, so the two orders have to be one order."""
+    kwargs, files = write_snapshot(tmp_path)
+    keys = [r["global_key"] for r in files["queue"]]
+    kwargs["queue_keys"] = keys
+    assert any("same order as the page" in c for c in run(history, tmp_path, kwargs))
+
+    kwargs["queue_keys"] = keys[:1] + [keys[2], keys[1]] + keys[3:]
+    msg = assert_aborts(history, tmp_path, kwargs)
+    assert "order diverges at row 2" in msg
+
+
+def test_a_send_first_queue_missing_rows_is_an_order_failure_not_a_crash(history, tmp_path):
+    kwargs, files = write_snapshot(tmp_path)
+    kwargs["queue_keys"] = [r["global_key"] for r in files["queue"]][:-1]
+    assert "order diverges" in assert_aborts(history, tmp_path, kwargs)
 
 
 def test_queue_counts_alone_adds_the_two_queue_csv_checks(history, tmp_path):

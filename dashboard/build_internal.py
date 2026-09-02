@@ -39,7 +39,8 @@ def build(h, *, generated, verify_dir, fallback_tag):
     c.checks = verify_snapshot(
         verify_dir, per_species=c.per_species, buckets=c.buckets, bins_all=c.bins_all,
         never_all=c.never_all, unscoreable=c.unscoreable, strict_hits=c.strict1,
-        queue_counts=c.queue_counts, n_no_answer=c.n_no_answer)
+        queue_counts=c.queue_counts, n_no_answer=c.n_no_answer,
+        queue_keys=c.queue_keys)
 
     # Two counts and one line. The page is a check on the order, so the reasoning
     # behind the order lives in the panels that state it, not above them.

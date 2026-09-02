@@ -43,13 +43,14 @@ def snapshot_date_of(snap_dir: str) -> str:
 
 def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
                     unscoreable, strict_hits,
-                    queue_counts=None, n_no_answer=None, review_counts=None):
+                    queue_counts=None, n_no_answer=None, review_counts=None,
+                    queue_keys=None):
     """Abort the build if the page disagrees with measure.py's snapshot.
 
     ``queue_counts`` maps queue to frame count, ``n_no_answer`` counts
     unlabelled frames with an empty candidate list, ``review_counts`` is
-    (frames, distinct confusion pairs). All three, when given, are checked
-    against the queue CSVs.
+    (frames, distinct confusion pairs), ``queue_keys`` is the page's send-first
+    order. All four, when given, are checked against the queue CSVs.
     """
     def fail(msg):
         raise SystemExit(f"VERIFY FAIL: {msg}")
@@ -135,6 +136,22 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
         n_unlab = sum(ref.values())
         checks.append(f"send_first_queue.csv: {n_unlab:,} unlabelled photos across "
                       f"{len(ref)} queues match")
+
+        # The page prints the head of this file and tells the reader to open the
+        # rest, so the two orders have to be one order. Counts alone would not
+        # notice: measure.py and figures.py sort the same rows separately, and a
+        # changed tie-break moves rows without moving any count.
+        if queue_keys is not None:
+            csv_keys = [r["global_key"] for r in hc.read_csv_rows(path)]
+            want = list(queue_keys)
+            if csv_keys != want:
+                i = next(i for i, (a, b) in enumerate(zip(csv_keys + [None],
+                                                          want + [None])) if a != b)
+                fail(f"send-first order diverges at row {i + 1}: {path} has "
+                     f"{csv_keys[i] if i < len(csv_keys) else 'nothing'}, the page "
+                     f"has {want[i] if i < len(want) else 'nothing'}")
+            checks.append(f"send_first_queue.csv: all {len(want):,} rows in the same "
+                          f"order as the page")
 
         # send_batches.csv must be a capped-size repartition of the exact same
         # rows: same total, every batch at most BATCH_SIZE rows with its
