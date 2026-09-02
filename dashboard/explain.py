@@ -192,10 +192,10 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
         "<b>Quote the number at the top of the page, not these four.</b> These cover "
         "every labelled frame instead of the frozen sample, so they answer a different "
         "question. If you cite one of them anyway, cite the per-species rate, never the "
-        "per-frame one. Both rates here are right, and they answer "
-        "different questions. Per species asks how many kinds of tree the model can "
-        "name, which is what a labelling programme moves. Per frame asks how often it "
-        "is right on a photo picked at random, which the commonest species decide.",
+        # What the two rates each ask used to be spelled out here and again in
+        # HERO_READING, directly under the four cards. Said once, next to the
+        # cards, where a reader is looking at the numbers it explains.
+        "per-frame one.",
         # No note restating the two rates: the summary names both, the headline cards
         # state the distinction, and the chart labels its own bars with it.
         corpus_block

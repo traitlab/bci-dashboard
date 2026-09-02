@@ -116,10 +116,13 @@ HEADLINES = [
 # Sits directly under the grid. Without it the two columns read as a
 # contradiction rather than as two questions.
 HERO_READING = (
-    "Read down a column, not across. <b>Per species</b> is the number to quote for "
-    "a species picked off the checklist; <b>per frame</b> is the number to quote for "
-    "a photo picked off the drive. Per frame is the higher of the two because the "
-    "species with many frames are the ones Pl@ntNet already knows."
+    "Read down a column, not across. Both rates are right, and they answer different "
+    "questions. <b>Per species</b> asks how many kinds of tree the model can name, "
+    "which is what a labelling programme moves. Quote it for a species picked off the "
+    "checklist. <b>Per frame</b> asks how often it is right on a photo picked at "
+    "random, which the commonest species decide. Quote it for a photo picked off the "
+    "drive. Per frame is the higher of the two "
+    "because the species with many frames are the ones Pl@ntNet already knows."
 )
 
 # The centre crop as a share of the frame. Derived, and formatted once, because the
