@@ -1,7 +1,7 @@
 """
 Pl@ntNet embeddings, one 768-dim vector per photo.
 
-Calls the Pl@ntNet /v2/embeddings endpoint. This is a *different* endpoint from
+Calls the embeddings endpoint config.yaml names. This is a *different* endpoint from
 /v2/identify and it does not draw on the daily identify credits, so the whole
 unsent pool can be embedded without competing with the prediction runs.
 
@@ -42,11 +42,11 @@ from photo import (
     cache_name,
     center_crop_jpeg,
     download_image,
+    load_config,
     load_image_list,
     save_cache,
 )
 
-API_URL       = "https://my-api.plantnet.org/v2/embeddings"
 EMBEDDING_DIMS = 768
 DEFAULT_DELAY = 0.5
 DEFAULT_INPUT = "data/next_batch/unsent_for_plantnet.csv"
@@ -56,11 +56,15 @@ API_TIMEOUT   = 60
 BACKOFF       = [1, 5, 10]
 
 
-def call_embeddings_api(jpeg_bytes: bytes, filename: str, api_key: str) -> dict:
+def call_embeddings_api(jpeg_bytes: bytes, filename: str, api_key: str,
+                        api_url: str) -> dict:
+    """Post one crop to the embeddings endpoint. ``api_url`` comes from
+    config.yaml, the same place ingest_photos.py reads it: an endpoint typed
+    here as well would keep posting to the old one after a Pl@ntNet move."""
     last = None
     for attempt in range(MAX_RETRIES):
         resp = requests.post(
-            API_URL,
+            api_url,
             files=[("image", (filename, jpeg_bytes, "image/jpeg"))],
             params={"api-key": api_key},
             timeout=API_TIMEOUT,
@@ -111,6 +115,8 @@ def main(argv=None) -> int:
         print("MISSING PLANTNET_API_KEY", file=sys.stderr)
         return 2
 
+    api_url = load_config()["plantnet"]["embeddings_api_url"]
+
     out_dir   = Path(args.out_dir)
     cache_dir = out_dir / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -127,7 +133,7 @@ def main(argv=None) -> int:
         gk = row["global_key"]
         try:
             jpeg, w, h, crop_s = center_crop_jpeg(download_image(row["image_url"]))
-            response = call_embeddings_api(jpeg, f"{gk}.jpg", api_key)
+            response = call_embeddings_api(jpeg, f"{gk}.jpg", api_key, api_url)
             entry = {
                 "global_key":    gk,
                 "image_url":     row["image_url"],

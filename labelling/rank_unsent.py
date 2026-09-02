@@ -95,7 +95,9 @@ def parse_args(argv=None):
     p.add_argument("--species-csv", type=Path, default=None,
                    help="held-out species, for the coverage curve and --backtest")
     p.add_argument("--species-key-col", default="global_key")
-    p.add_argument("--species-col", default="lb_label")
+    # The column the GT writers write (labelling/gt_from_export.py and
+    # close_round.py), so the command in the docstring above runs as printed.
+    p.add_argument("--species-col", default="wcvp_canonical_name")
     p.add_argument("--backtest", action="store_true",
                    help="report directed-vs-random species coverage and exit")
     p.add_argument("--top", type=int, default=0,

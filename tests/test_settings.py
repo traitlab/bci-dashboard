@@ -9,7 +9,11 @@ then ask Labelbox for None.
     .venv/bin/pytest tests/test_settings.py
 """
 
+from pathlib import Path
+
 import pytest
+
+REPO = Path(__file__).resolve().parents[1]
 
 CONFIG = {"labelbox": {"dataset_id": "from_config"}}
 
@@ -95,3 +99,62 @@ def test_config_yaml_carries_every_request_setting_the_fetchers_index(settings):
         assert key in plantnet, (
             f"config.yaml has no plantnet.{key}, and predict/ indexes it; a fetch "
             f"run would stop with a KeyError before its first call.")
+
+
+def _source(*parts: str) -> str:
+    return (REPO.joinpath(*parts)).read_text(encoding="utf-8")
+
+
+def test_no_fetcher_types_a_plantnet_endpoint_of_its_own(settings):
+    """config.yaml is the only place an endpoint is written down.
+
+    `predict/embed.py` used to carry the embeddings URL as a constant while
+    `predict/ingest_photos.py` read the same URL from config, so a Pl@ntNet
+    version move would have left one of the two posting to the old endpoint
+    and mixing vectors from two model versions in one file.
+    """
+    urls = {k: v for k, v in settings.load_config()["plantnet"].items()
+            if str(v).startswith("http")}
+    assert urls, "config.yaml names no Pl@ntNet endpoint"
+    for source in sorted(REPO.glob("predict/*.py")) + sorted(REPO.glob("labelling/*.py")):
+        text = source.read_text(encoding="utf-8")
+        for key, url in urls.items():
+            assert url not in text, (
+                f"{source.name} types plantnet.{key}, which config.yaml already "
+                f"carries. Read it from there, the way embed.py does.")
+
+
+def test_photo_documents_exactly_the_settings_it_indexes():
+    """photo.py's header lists the config it needs, and that list is a copy.
+
+    It had already drifted: the list held four settings under a sentence
+    saying three. A reader trimming config.yaml to the documented set would
+    have stopped the run with a KeyError.
+    """
+    import re
+
+    src = _source("predict", "photo.py")
+    indexed = set(re.findall(r'pn_cfg\["(\w+)"\]', src))
+    documented = set(re.findall(r"^  plantnet\.(\w+)", src, re.M))
+    assert indexed and indexed == documented, (
+        f"predict/photo.py indexes {sorted(indexed)} and its header lists "
+        f"{sorted(documented)}. The header is the contract for why nothing "
+        f"here may carry a default, so it has to name the same settings.")
+
+
+def test_rank_unsent_reads_the_column_the_label_writers_write():
+    """The command in rank_unsent.py's own header has to run as printed.
+
+    Its default named `lb_label`, which is an export column, not a column of
+    the labels file the header points it at, so the documented backtest exited
+    on a missing column.
+    """
+    import re
+
+    default = re.search(r'"--species-col", default="(\w+)"',
+                        _source("labelling", "rank_unsent.py")).group(1)
+    written = re.search(r'writerow\(\["global_key", "(\w+)"\]\)',
+                        _source("labelling", "gt_from_export.py")).group(1)
+    assert default == written, (
+        f"rank_unsent.py reads {default!r} and gt_from_export.py writes "
+        f"{written!r}, so --species-csv on the merged labels stops the run.")

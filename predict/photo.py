@@ -12,7 +12,7 @@ Config (config.yaml):
   plantnet.identify_nb_results — how many names to ask for per photo
   plantnet.identify_organs    — organ hint sent to API
   plantnet.identify_lang      — language for common names
-All three are required: the values live in config.yaml, not in a default here.
+Every one is required: the values live in config.yaml, not in a default here.
 
 Input:
   input/boxes/bci_images_for_plantnet.csv
@@ -229,7 +229,7 @@ def main():
 
     pn_cfg     = config["plantnet"]
     api_url    = pn_cfg["identify_url"]
-    # Indexed, not `.get(..., "auto")`: config.yaml carries all three, and a
+    # Indexed, not `.get(..., "auto")`: config.yaml carries every one, and a
     # default retyped here is a second copy of the setting that only shows up
     # when somebody removes the key.
     nb_results = pn_cfg["identify_nb_results"]
