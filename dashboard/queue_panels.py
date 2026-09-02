@@ -37,18 +37,17 @@ QL = {"long_tail": ("Species we barely have, or barely get right",
 # Above the 25 filenames, not below them: a reader who meets the list first has
 # already accepted it as instructions by the time the caveat arrives.
 UNGRADED_NOTE = (
-    '<p class="note"><b>This order has not been graded.</b> The wait rule further down '
-    'is measured on held-out frames and prints how often it is wrong. Nothing measures '
-    'whether sending these photos first fills gaps faster than sending photos at random. '
-    'Treat the order as a reasonable guess about where our labels are thin.</p>')
+    '<p class="note"><b>This order has not been graded.</b> Nothing measures whether it '
+    'fills gaps faster than sending photos at random. It is a reasonable guess about '
+    'where our labels are thin. The wait rule further down <em>is</em> measured.</p>')
 
 
 def p_todo(c):
     # This is the open panel, so it is the first thing a reader lands in either
     # way -- the orientation belongs here, not above the panels.
-    body = ['<p class="note">Every unlabelled photo already has a Pl@ntNet guess, and every '
-            'species already has a measured record. Together those two put the pool in an '
-            'order: the frames that buy the most per label first.</p>',
+    body = ['<p class="note">Every unlabelled photo has a Pl@ntNet guess and every species '
+            'has a measured record. Those two put the pool in an order: the frames that buy '
+            'the most per label first.</p>',
             '<ul class="todo">']
     body += [f'<li><span class="n">{c.counts[k]}</span> species '
              f'<span class="tag {k}">{esc(lab)}</span> {esc(act)}</li>'
@@ -61,10 +60,9 @@ def p_todo(c):
                 f'<code>model_health_dashboard.html</code>.</p>'
                 f'<p class="note"><strong>Cheaper still, and in no row above: {c.gen_one:,} '
                 f'frames whose botanist label stops at the genus.</strong> Their five '
-                f'candidates hold exactly one species from that genus, so the question is '
-                f'yes or no, not which of {c.n_sp}. No botanist named a species on them, so '
-                f'they sit outside the {c.n_sp} scored here. The model-health page says '
-                f'more.</p>')
+                f'candidates hold exactly one species from that genus, so the question is yes '
+                f'or no, not which of {c.n_sp}. No species was named on them, so they sit '
+                f'outside the {c.n_sp} scored here.</p>')
     return panel(f"Where to spend botanist time next: {c.counts['ranking']} cheap "
                  f"confirmations, {c.counts['unreachable']} not worth time yet",
                  "<b>Work top to bottom.</b> Rows are ordered cheapest useful work "
@@ -77,8 +75,9 @@ def p_todo(c):
 def p_send(c):
     # What "the pool" is, above the table whose third column is a share of it.
     body = (f'<p class="note">The pool is {c.n_unlab:,} of {len(c.h.split_rows):,} photos: '
-            f'the ones with a cached Pl@ntNet answer and no botanist label. Every share '
-            f'below is out of that {c.n_unlab:,}.</p>')
+            f'the ones with a cached Pl@ntNet answer and no botanist label. The other '
+            f'{len(c.h.split_rows) - c.n_unlab:,} are already labelled or have no answer to '
+            f'rank. Every share below is out of that {c.n_unlab:,}.</p>')
     body += table([("queue", False), ("unlabelled frames", True),
                   ("share of the pool", True)],
                  [[f'<strong>{esc(QL[q][0])}</strong>' if q in ("long_tail", "low_conf_known")
@@ -95,11 +94,9 @@ def p_send(c):
     body += ('<h3 class="sub">The next ' + f'{len(head)}' + ' photos, in order</h3>'
              + UNGRADED_NOTE
              + '<p class="note"><b>Read the confidence column as how little the model '
-               'knows, not as how likely the named species is.</b> A frame lands in a '
-               'queue on which species was guessed, whatever the confidence. Inside a '
-               'queue the weakest guesses come first. A number near the bottom of the '
-               'scale means Pl@ntNet recognised almost nothing, which is the reason to '
-               'look.</p>'
+               'knows.</b> Inside a queue the weakest guesses come first, so a number near '
+               'the bottom of the scale means Pl@ntNet recognised almost nothing. That is '
+               'the reason to look, not a reason to doubt the name.</p>'
              + table([("#", True), ("photo", False), ("Pl@ntNet's guess", False),
                       ("confidence", True), ("frames that species has", True)],
                      [[f"{i}", f'<code class="key">{esc(stem)}</code>',
@@ -112,30 +109,25 @@ def p_send(c):
              + '. '
              # Several of these have well over ten labels, and a reader who checks
              # them against the species table finds the queue name contradicted.
-             f'Some of these already have more than {WAIT_SUPPORT_MIN} labelled frames. '
-             f'They are here on the other half of the rule: the model still gets them '
-             f'right less than {pctf(hc.HARD_MAX_TOP1)} of the time.</p>'
+             f'Some already have more than {WAIT_SUPPORT_MIN} labelled frames; they are here '
+             f'on the other half of the rule, right less than {pctf(hc.HARD_MAX_TOP1)} of '
+             f'the time.</p>'
              # Two CSVs sit in the snapshot folder and the page named both as the
              # thing to work, 200 lines apart. This says which is which.
              f'<p class="note"><code>send_first_queue.csv</code> in the snapshot folder '
              f'holds this same order, one row per frame.</p>'
              f'<p class="note"><strong>{c.n_no_answer} unlabelled photos got no answer at '
-             f'all</strong>: the candidate list came back empty. Those are the likeliest to '
-             f'be junk or to show no plant (leaves in the water, bare trunks). No automatic '
-             f'rule for junk is reliable, so check that handful by eye.</p>'
-             f'<p class="note"><b>The drone carries two cameras.</b> Every frame scored on '
-             f'this page came from the wide-angle one, called <i>zoom</i> in the file '
-             f'names: all {c.scored_cams["zoom"]:,} of them. The long-lens camera '
-             f'(<i>tele</i>) has no botanist label yet, so how well the model reads it is '
-             f'not known from here. Tele is {c.queue_cams["tele"]:,} of the '
-             f'{sum(c.queue_cams.values()):,} photos in this queue '
-             f'({pctf(c.queue_cams["tele"] / sum(c.queue_cams.values()))}), and sending '
-             f'them is how it becomes known.</p>'
-             # The pool is now defined above the share table. What is left here is
-             # the accounting for the rest of the corpus and the model-change note.
-             f'<p class="note">The other {len(c.h.split_rows) - c.n_unlab:,} of the '
-             f'{len(c.h.split_rows):,} photos are already labelled, or have no cached answer '
-             f'to rank.</p>')
+             f'all</strong>: the candidate list came back empty. Likeliest to be junk or to '
+             f'show no plant, and no automatic rule for junk is reliable, so check that '
+             f'handful by eye.</p>'
+             # Kept because it names an unscored population, not because it is a fact
+             # about the drone: nothing on this page grades the long lens.
+             f'<p class="note"><b>The long lens is ungraded.</b> Every frame scored here came '
+             f'from the wide-angle camera (<i>zoom</i>), all {c.scored_cams["zoom"]:,}. No '
+             f'botanist has labelled a <i>tele</i> frame, so this page says nothing about '
+             f'them. Tele is {c.queue_cams["tele"]:,} of the queue '
+             f'({pctf(c.queue_cams["tele"] / sum(c.queue_cams.values()))}); sending them is '
+             f'how it becomes known.</p>')
     # The same two queues the hero counts, added the same way, so this number and
     # the hero's agree.
     send_now = (c.queue_counts.get("long_tail", 0)
@@ -167,9 +159,9 @@ def p_wait(c):
             # of it, so a reader who cannot picture the set cannot audit the table.
             f'<p class="note"><strong>What those {len(c.test_recs):,} frames are.</strong> '
             f'The labelled frames marked <code>test</code> in <code>splits.csv</code>, an '
-            f'input to this page rather than something it computes. The rule was chosen on '
-            f'the other frames, so nothing here is graded on the frames that picked it. '
-            f'Every count below is out of those {len(c.test_recs):,}.</p>'
+            f'input to this page. The rule was chosen on the other frames, so nothing here is '
+            f'graded on the frames that picked it. Every count below is out of those '
+            f'{len(c.test_recs):,}.</p>'
             # Two hold-outs, described in almost the same words on two pages that
             # link to each other. A reader assumes one is a subset of the other.
             f'<p class="note">Not the set behind the model-health page\'s two headline '
@@ -185,8 +177,8 @@ def p_wait(c):
             f'top.</p>'
             f'<p class="note">{len(c.eligible)} species reach {WAIT_SUPPORT_MIN} labelled '
             f'frames inside the frames a rule may learn from, which is the second half of '
-            f'the rule. Counting every label gives a larger number, so this will not match '
-            f'the rarely-labelled count elsewhere on this page.'
+            f'the rule. Counting every label gives a larger number, so it will not match the '
+            f'rarely-labelled count elsewhere here.'
             # Two unrelated counts on this page are 41 today, and a reader who meets
             # the second one takes it for a back-reference to the heading.
             + (f' It is also a different set from the {c.counts["ranking"]} species in the '
