@@ -1,11 +1,17 @@
 """The crop-coverage gate: what it admits, and what it refuses to assume.
 
 `MIN_CROP_COVERAGE` asks a question none of the published rates ask -- does the
-species covering most of the centre crop cover at least half of it -- and the
-pages only report its effect, in `coverage_gate.csv`. `labelling/next_batch.py`
-is what actually filters on it.
+frame's own label fill at least half of the centre crop the model was sent --
+and the pages only report its effect, in `coverage_gate.csv`.
+`labelling/next_batch.py` is what actually filters on it.
 
-Two properties matter and neither had a test. A frame with no measured geometry
+Three properties matter. A frame whose crop is filled by some other species is
+rejected however full that crop is: the coverage measured there belongs to a
+tree the frame is not labelled with, so it answers a different question. That
+is the same pair of tests `next_batch.crop_verdict` sends on, and the two have
+to stay in step because they share the constant.
+
+Two more properties had no test either. A frame with no measured geometry
 is rejected, never assumed to pass: README says crop geometry comes from what
 the fetch recorded, never a constant, and a gate that admitted unmeasured
 frames would quietly break that. And the gated macro average is over a species
@@ -18,9 +24,14 @@ travel with it.
 from __future__ import annotations
 
 
-def _rec(gt, guess, coverage):
-    """One scored frame, in the shape `coverage_gate_stats` reads."""
-    return {"gt": gt, "ranked": [(guess, 1.0)], "crop_coverage": coverage}
+def _rec(gt, guess, coverage, dominant=None):
+    """One scored frame, in the shape `coverage_gate_stats` reads.
+
+    `dominant` left None is the case `crop_overlap` records when no box touches
+    the crop at all; such a frame carries 0.0 coverage and fails on that.
+    """
+    return {"gt": gt, "ranked": [(guess, 1.0)], "crop_coverage": coverage,
+            "crop_dominant": dominant}
 
 
 # ---------------------------------------------------------------------------
@@ -48,6 +59,29 @@ def test_zero_coverage_is_rejected_and_is_not_confused_with_no_measurement(core)
     case as None, which is the absence of a measurement."""
     admitted, rejected = core.coverage_split([_rec("a", "a", 0.0)])
     assert admitted == [] and len(rejected) == 1
+
+
+def test_a_crop_filled_by_another_species_is_rejected_however_full(core):
+    """The coverage measured on such a frame is that other tree's share, not
+    the label's. Admitting it would put a frame in the gated population on
+    evidence about a species the frame is not labelled with."""
+    other = _rec("a", "a", 0.9, dominant="b")
+    own = _rec("a", "a", 0.9, dominant="a")
+    admitted, rejected = core.coverage_split([other, own])
+    assert admitted == [own] and rejected == [other]
+
+
+def test_the_gate_asks_what_next_batch_sends_on(core):
+    """`next_batch.crop_verdict` sends only rows whose crop dominant is the
+    label and whose coverage clears the same constant. The two paths share the
+    constant, so they have to share the question as well."""
+    recs = [_rec("a", "a", 0.9, dominant="a"),    # send
+            _rec("a", "a", 0.9, dominant="b"),    # other_crown
+            _rec("a", "a", 0.1, dominant="a"),    # low_coverage
+            _rec("a", "a", None, dominant=None)]  # unknown_geometry
+    admitted, rejected = core.coverage_split(recs)
+    assert [r["crop_dominant"] for r in admitted] == ["a"]
+    assert len(rejected) == 3
 
 
 def test_every_record_lands_on_exactly_one_side(core):

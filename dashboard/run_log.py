@@ -24,7 +24,6 @@ from core import (
     RELIABLE_MIN_TOP1,
     REVIEW_CONF,
     WELL_SAMPLED_MIN_N,
-    coverage_split,
     pct,
 )
 from crop_overlap import CROP_SIZE
@@ -167,8 +166,9 @@ def log_crop_gate(_log, records, sp_recs, crop_frames, crop_suspect,
     """Run-log block on the crop-coverage gate, a sweep and never a filter."""
     _log("--- CROP COVERAGE GATE ---")
     _log("  Predictions were made from a fixed centre crop of each frame; ground truth")
-    _log("  boxes are drawn anywhere in the frame. A frame is admitted only when its")
-    _log("  dominant labelled species covers at least the threshold share of that crop.")
+    _log("  boxes are drawn anywhere in the frame. A frame is admitted only when the")
+    _log("  species it is labelled with is the one filling the crop, and fills at least")
+    _log("  the threshold share of it.")
     _log(f"  box geometry available for          : {len(crop_frames)} base frames "
          f"({len(crop_suspect)} frames not trusted and excluded)")
     _log(f"  joined to a GT record               : {n_crop_joined} / {len(records)} "
@@ -225,8 +225,8 @@ def log_gate_comparison(_log, sp_recs, sweep, gate, n, n_sp, c1, macro1):
     """Gated and ungated side by side, then the sweep behind the threshold."""
     _log("--- CROP-COVERAGE GATE: GATED AND UNGATED, SIDE BY SIDE ---")
     _log("  Ungated scores every evaluated frame. Gated scores only the frames whose")
-    _log("  dominant labelled species covers at least the threshold share of the centre")
-    _log("  crop the model was actually sent, so the label was inside the model's view.")
+    _log("  own label fills at least the threshold share of the centre crop the model was")
+    _log("  actually sent, so the label was inside the model's view.")
     _log("  The two are different populations. Neither replaces the other.")
     _log(f"  {'quantity':<34} {'ungated':>12} {'gated':>12}")
     _log(f"  {'frames (N)':<34} {n:>12} {gate['n_admitted']:>12}")
@@ -247,19 +247,21 @@ def log_gate_comparison(_log, sp_recs, sweep, gate, n, n_sp, c1, macro1):
     n_unknown = sum(1 for r in sp_recs if r["crop_coverage"] is None)
     _log(f"  frames with no box geometry, rejected at every threshold : {n_unknown} "
         f"({pct(n_unknown, n)})")
-    # Two unrelated reasons shrink the gated N and only one is the gate working,
-    # so a missing-geometry count cannot read as evidence about crop coverage.
-    n_low = n - n_unknown - gate["n_admitted"]
+    # Three unrelated reasons shrink the gated N and only one is the gate
+    # measuring the label, so neither of the other two can read as evidence
+    # about how much of the crop the labelled species fills.
+    n_other = sum(1 for r in sp_recs
+                  if r["crop_coverage"] is not None
+                  and r["crop_dominant"] is not None
+                  and r["crop_dominant"] != r["gt"])
+    n_low = n - n_unknown - n_other - gate["n_admitted"]
     _log(f"  so the {n - gate['n_admitted']} frames not admitted are {n_unknown} with no box "
-        f"geometry to measure")
-    _log(f"  and {n_low} measured below the {MIN_CROP_COVERAGE:.2f} threshold.")
-    admitted, _ = coverage_split(sp_recs, MIN_CROP_COVERAGE)
-    mism = sum(1 for r in admitted if r["crop_dominant"] != r["gt"])
-    _log(f"  admitted frames whose crop-dominant species differs from the GT label : "
-        f"{mism}")
-    _log("  A difference there means the crop is filled by a species other than the one")
-    _log("  the frame is labelled with, so admission alone does not make the label the")
-    _log("  right answer for what the model saw.")
+        f"geometry to measure,")
+    _log(f"  {n_other} whose crop is filled by a species other than the frame's label,")
+    _log(f"  and {n_low} where the label fills the crop but stays below the "
+        f"{MIN_CROP_COVERAGE:.2f} threshold.")
+    _log("  The middle group is measured, but what was measured is another tree, so it")
+    _log("  says nothing about whether the label was inside what the model saw.")
     _log("")
 
 

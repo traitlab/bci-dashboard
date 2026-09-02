@@ -373,8 +373,8 @@ def main() -> None:
     scopes, good, good_recs = calibration_scopes(h)
     write_confidence_calibration(out_dir, scopes, top1)
 
-    # How the headline moves once only frames whose dominant labelled species
-    # fills the crop are scored. Both rates are kept, so neither replaces the other.
+    # How the headline moves once only frames whose own label fills the crop are
+    # scored. Both rates are kept, so neither replaces the other.
     sweep = [coverage_gate_stats(h.sp_recs, t) for t in CROP_COVERAGE_SWEEP]
     write_coverage_gate(out_dir, sweep)
 

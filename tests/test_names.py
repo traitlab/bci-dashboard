@@ -62,9 +62,10 @@ class TestCropDominantIsComparable:
 
     It is not enough for the stripper to be correct: crop_overlap has to call it
     instead of normalize(), because normalize() lowers the string and a lowered
-    collection code cannot be stripped afterwards. That regression is silent. The
-    gate still admits the same frames, and only the 'crop-dominant differs from
-    the GT label' diagnostic moves, from about 10% to about 99%.
+    collection code cannot be stripped afterwards. That regression is silent in
+    the names themselves, and it moves every gated number: `coverage_split`
+    rejects a frame whose crop dominant does not equal the label, so a dominant
+    that no longer compares would reject about 99% of frames instead of 10%.
     """
 
     def test_dominant_names_carry_no_collection_code(self, frames):
