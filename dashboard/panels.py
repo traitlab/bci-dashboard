@@ -329,25 +329,25 @@ def p_send(c):
     # The list itself, not a pointer to it: the counts above say how much work
     # there is, and the CSV in the snapshot folder said which photo.
     head = c.queue_rows[:SEND_PREVIEW]
+    # Both notes sit above the table, not below it. The queue is ordered weakest
+    # first, so the first screen is full of 0.001s, and a reader who meets those
+    # before the gloss sees expert time being spent on coin flips.
     body += ('<h3 class="sub">The next ' + f'{len(head)}' + ' photos, in order</h3>'
              + UNGRADED_NOTE
+             + '<p class="note"><b>Read the confidence column as how little the model '
+               'knows, not as how likely the named species is.</b> A frame lands in a '
+               'queue on which species was guessed, whatever the confidence. Inside a '
+               'queue the weakest guesses come first, because those are the frames our '
+               'labels cover worst. A guess near the bottom of the scale means Pl@ntNet '
+               'recognised almost nothing, which is itself the reason to look. A first '
+               'guess this low means the model had no candidate it liked, not that the '
+               'named species is unlikely.</p>'
              + table([("#", True), ("photo", False), ("Pl@ntNet's guess", False),
                       ("confidence", True), ("frames that species has", True)],
                      [[f"{i}", f'<code class="key">{esc(stem)}</code>',
                        f'<span class="sp">{esc(cap(pred))}</span>', f"{cf:.3f}",
                        f"{c.support.get(pred, 0):,}"]
                       for i, (_, stem, pred, cf) in enumerate(head, 1)]))
-    # How to read the confidence column, next to the column. The queue is ordered
-    # weakest first, so the first screen of it is full of 0.001s, and a reader who
-    # takes those as predictions sees expert time being spent on coin flips.
-    body += ('<p class="note"><b>Read the confidence column as how little the model '
-             'knows, not as how likely the named species is.</b> A frame lands in a queue '
-             'on which species was guessed, whatever the confidence. Inside a queue the '
-             'weakest guesses come first, because those are the frames our labels cover '
-             'worst. A guess near the bottom of the scale means Pl@ntNet recognised '
-             'almost nothing, which is itself the reason to look. A first guess this low '
-             'means the model had no candidate it liked, not that the named species is '
-             'unlikely.</p>')
     top_lt = sorted(c.lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
     body += ('<p class="note"><b>Most-named species in the first queue.</b> '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
