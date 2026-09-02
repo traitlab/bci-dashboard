@@ -20,6 +20,8 @@ import inspect
 
 import pytest
 
+import queues
+
 
 PER_SPECIES = [
     {"species": "Hura crepitans", "n_labelled_crowns": 10,
@@ -115,12 +117,21 @@ def queue_rows_for(counts=QUEUE_COUNTS):
     return rows
 
 
-def batch_rows_for(queue_rows, batch_id=0):
-    """A trivial single-batch repartition of queue_rows: valid, but not
-    necessarily what queues.chunk_send_batches would produce (see the test
-    documenting that gap below)."""
-    return [{"batch_id": batch_id, "species_group": r["predicted_species"],
-             "global_key": r["global_key"], "queue": r["queue"]} for r in queue_rows]
+def batch_rows_for(queue_rows, batch_id=None):
+    """The repartition queues.chunk_send_batches makes from queue_rows.
+
+    verify_snapshot requires that exact assignment, so a fixture that invents
+    its own batch_id is a fixture the check rejects. Pass ``batch_id`` to force
+    a flat single-batch repartition instead: structurally valid, and the
+    wrong assignment, which is what the test for that abort needs.
+    """
+    if batch_id is not None:
+        return [{"batch_id": batch_id, "species_group": r["predicted_species"],
+                 "global_key": r["global_key"], "queue": r["queue"]}
+                for r in queue_rows]
+    rows = [[r[c] for c in queues.SEND_FIRST_COLUMNS] for r in queue_rows]
+    return [dict(zip(queues.SEND_BATCH_COLUMNS, b))
+            for b in queues.chunk_send_batches(rows)]
 
 
 def review_rows_for(review_counts=REVIEW_COUNTS):

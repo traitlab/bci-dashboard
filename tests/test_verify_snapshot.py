@@ -269,7 +269,7 @@ def test_batch_exceeding_batch_size_aborts(history, tmp_path):
     over = history.queues.BATCH_SIZE + 1
     counts = {"long_tail": over}
     qrows = queue_rows_for(counts)
-    brows = batch_rows_for(qrows)  # a single batch holding all `over` rows
+    brows = batch_rows_for(qrows, batch_id=0)  # one batch holding all `over` rows
     kwargs, _ = write_snapshot(tmp_path, queue_rows=qrows, batch_rows=brows)
     kwargs["queue_counts"] = counts
     msg = assert_aborts(history, tmp_path, kwargs)
@@ -306,22 +306,23 @@ def test_send_batches_global_key_set_disagreeing_aborts(history, tmp_path):
     assert "global_key set does not match" in msg
 
 
-def test_batch_ids_need_not_match_chunk_send_batches_current_output(history, tmp_path):
-    """Documents an open gap, not an endorsement of it: verify_snapshot checks
-    that send_batches.csv is *a* valid repartition of send_first_queue.csv
-    (capped size, contiguous species groups, same rows), but never checks
-    that the batch_id assignment is the one queues.chunk_send_batches would
-    actually produce from those same rows. Splitting the two queues into two
-    batches here is still structurally valid and still passes, even though
-    chunk_send_batches, given the same 5 rows, would pack them into a single
-    batch (see queues.BATCH_SIZE=100)."""
+def test_batch_ids_not_the_current_assignment_abort(history, tmp_path):
+    """A structurally valid repartition is not enough: the batch_id assignment
+    has to be the one queues.chunk_send_batches makes from those same rows.
+
+    Splitting the two queues into two batches here is capped, contiguous and
+    holds every row, so every other check passes. chunk_send_batches, given
+    the same 5 rows, packs them into one batch (queues.BATCH_SIZE=100). That
+    difference is what a change to the packing rule looks like on disk, and
+    without this check the build stays quiet about it.
+    """
     qrows = queue_rows_for()
     long_tail = [r for r in qrows if r["queue"] == "long_tail"]
     normal = [r for r in qrows if r["queue"] == "normal"]
     brows = batch_rows_for(long_tail, batch_id=0) + batch_rows_for(normal, batch_id=1)
     kwargs, _ = write_snapshot(tmp_path, queue_rows=qrows, batch_rows=brows)
-    checks = run(history, tmp_path, kwargs)
-    assert any("send_batches.csv" in c for c in checks)
+    msg = assert_aborts(history, tmp_path, kwargs)
+    assert "not the one queues.chunk_send_batches makes" in msg
 
 
 # ---------------- label_review_queue.csv ----------------

@@ -60,7 +60,9 @@ Crop and box geometry comes from what the fetch recorded, never a constant.
 Three of the nine CSVs are evidence a person opens rather than page input:
 `filter_gain.csv`, `name_reconciliation.csv` and `coverage_gate.csv`.
 `measure.NOT_READ_BACK_BY_A_BUILD` names them. Every other number a page prints
-is recomputed and compared against `build/tables` on every build.
+is recomputed and compared against `build/tables` on every build. So is the
+batch assignment in `send_batches.csv`, not just its shape: a change to the
+packing rule has to move the file, or the build stops.
 
 ## Layout
 
