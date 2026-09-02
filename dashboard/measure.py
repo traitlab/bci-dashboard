@@ -185,9 +185,9 @@ def main() -> None:
     # surface only after the whole load_health pass had run.
     os.makedirs(out_dir, exist_ok=True)
 
-    log("=" * 84)
+    log(rl.RULE)
     log("Pl@ntNet on BCI -- offline per-species model health")
-    log("=" * 84)
+    log(rl.RULE)
 
     h = load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
                     wcvp_cache=args.wcvp_cache, log=log)

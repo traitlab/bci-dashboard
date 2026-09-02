@@ -169,7 +169,10 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
 
     # How many scored frames the centre crop mostly misses. Read under the species
     # table and again under the four corpus rates, so it is computed here once.
-    crop_half = sum(1 for r in sp_recs if (r.get("crop_coverage") or 0) < 0.5)
+    # The line is core.MIN_CROP_COVERAGE, the same split the coverage gate makes,
+    # not a 0.5 typed here: the sentence on the page says "less than half the
+    # crop" and has to mean the threshold the rest of the page reports on.
+    crop_half = len(hc.coverage_split(sp_recs)[1])
     crop_none = sum(1 for r in sp_recs if (r.get("crop_coverage") or 0) == 0)
 
     scored_cams = Counter(camera_of(r["global_key"]) for r in sp_recs)

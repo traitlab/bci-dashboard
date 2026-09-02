@@ -464,3 +464,19 @@ def test_only_the_internal_page_renders_the_queue(page):
     assert bool(keys) == ("queue_keys" in carries), (
         f"page renders {len(keys)} queue keys but carries the list: "
         f"{'queue_keys' in carries}")
+
+
+def test_the_crop_mismatch_note_says_half_only_while_the_gate_means_half(
+        external_page, core):
+    """The note counts frames on the wrong side of `core.MIN_CROP_COVERAGE` and
+    calls that "less than half the crop". The count follows the constant; the
+    word does not, so moving the gate off 0.50 has to move the wording too.
+
+    The model-health page is the one that prints it, twice: under the species
+    table and again under the four corpus rates."""
+    html, _ = external_page
+    assert html.count("covers less than half the crop") == 2, (
+        "the note is gone or reworded")
+    assert core.MIN_CROP_COVERAGE == 0.50, (
+        f"MIN_CROP_COVERAGE is {core.MIN_CROP_COVERAGE}, so the page's "
+        f"'less than half the crop' names a line the gate no longer draws")

@@ -33,6 +33,11 @@ from core import (
 from crop_overlap import CROP_SIZE
 from queues import BATCH_SIZE, QUEUE_ORDER
 
+# The rule that opens and closes a block of run_log.txt. measure.py writes
+# the file's own banner and this module writes the rest, so both need the
+# same width or the log comes out ragged.
+RULE = "=" * 84
+
 
 def log_cache(_log, s):
     """Run-log block on the cache. Text only; every number is in ``s``."""
@@ -200,9 +205,9 @@ def log_evaluable_sets(_log, h):
 def log_headline(_log, n, n_sp, c1, c5, macro1, macro5, g1, g5, reachable, r1, r5, s1, s5, gn, gg1, gg5):
     """The headline block: every rate, each with the frames it was measured on."""
     # ---------------- 11. report ----------------
-    _log("=" * 84)
+    _log(RULE)
     _log(f"HEADLINE  (species-level GT, joined, >=1 cached prediction: n={n} frames, {n_sp} species)")
-    _log("=" * 84)
+    _log(RULE)
     _log(f"  top-1 accuracy                      : {pct(c1, n)}   ({c1}/{n})")
     _log(f"  top-{N_CANDIDATES} accuracy  (= full list)       : {pct(c5, n)}   ({c5}/{n})")
     _log(f"  macro-avg per-species recall @1     : {macro1 * 100:.2f}%   (unweighted over {n_sp} species)")
