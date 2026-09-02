@@ -29,6 +29,7 @@ import importlib.util
 import os
 import sys
 import tempfile
+from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -106,21 +107,107 @@ def export_only_health(
 TITLE = "Pl@ntNet on BCI: this export only"
 
 
-def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str:
+def export_counts(h, n_rows):
+    """Where every row of the export ended up, and the rates over what is left.
+
+    The six counts sum to the rows in the file, which is the point: a reader
+    seeing an accuracy over 31 photos should be able to see the other rows go
+    somewhere rather than wonder where they went.
+    """
     sp_recs, per_species = h.sp_recs, h.per_species
     n, n_sp = len(sp_recs), len(per_species)
-    n_labelled = len(h.gt_rows)  # rows export_dominants found a botanist name for
-    n_no_cache = len(h.missing_cache)
     n_genus = len(h.genus_recs)  # labelled, cached, but the name stops at the genus
-    n_joined = n + n_genus
-
     c1 = sum(1 for r in sp_recs if r["ranked"][0][0] == r["gt"])
     c5 = sum(1 for r in sp_recs
              if r["gt"] in [b for b, _ in r["ranked"][:figures.N_CANDIDATES]])
-    macro1 = (sum(d["top1_accuracy"] for d in per_species) / n_sp) if n_sp else None
-    micro1 = (c1 / n) if n else None
-    macro5 = (sum(d["top5_accuracy"] for d in per_species) / n_sp) if n_sp else None
+    return SimpleNamespace(
+        n_rows=n_rows, n=n, n_sp=n_sp, n_genus=n_genus,
+        n_labelled=len(h.gt_rows),  # rows export_dominants found a botanist name for
+        n_no_cache=len(h.missing_cache),
+        n_joined=n + n_genus, c1=c1, c5=c5,
+        macro1=(sum(d["top1_accuracy"] for d in per_species) / n_sp) if n_sp else None,
+        macro5=(sum(d["top5_accuracy"] for d in per_species) / n_sp) if n_sp else None,
+        micro1=(c1 / n) if n else None)
 
+
+def funnel_panel(k):
+    """Every row of the export ends in exactly one of these steps, so the counts
+    sum to the rows in the file."""
+    body = funnel_list([
+        (k.n_rows, "rows in this NDJSON export"),
+        (k.n_labelled,
+         "of those rows carry a botanist name in the Planta/Taxon field, "
+         "and the rest have no annotation in this export"),
+        (k.n_joined, "of the labelled photos also have a cached Pl@ntNet answer"),
+        (k.n, "of those name a species rather than stopping at the genus, and "
+              "every accuracy figure below is measured on this set"),
+        (k.n_genus, "stop at the genus, which this page does not score"),
+        (k.n_no_cache,
+         "labelled photos have no cached prediction, so cannot be scored"),
+    ])
+    return panel("Where these numbers come from",
+                 f"<b>Why {k.n_rows - k.n:,} of the {k.n_rows:,} rows are not in the "
+                 f"accuracy rate above.</b>",
+                 body, open_=True)
+
+
+def headline_panels(k):
+    """The one big number, and the same question averaged the other way.
+
+    Both the wording and the markup come from ``assets.hero`` and HEADLINES,
+    which is what the model-health page renders: two pages calling one number
+    two things is a reader's problem before it is a maintenance one.
+    """
+    _, question, averaged, _ = HEADLINES[0]
+    out = [hero([(averaged, pctf(k.macro1),
+                  question.format(k=figures.N_CANDIDATES),
+                  f"this export\u2019s {k.n_sp} species, each counted once")])]
+    if k.n:
+        out.append(
+            f'<p class="note">Averaged across frames instead of species: '
+            f"{pctf(k.micro1)} right ({k.c1:,} of {k.n:,}). The right name is somewhere "
+            f"in the {figures.N_CANDIDATES} names Pl@ntNet returned for "
+            f"{pctf(k.macro5)} of species, and {pctf(k.c5 / k.n)} of frames. Those "
+            f"names were ranked by Pl@ntNet before this export existed. "
+            f"They are looked up per photo, so the botanist\u2019s label in this "
+            f"export can be checked against them.</p>")
+    else:
+        out.append(
+            '<p class="note">No photo in this export both carries a species label '
+            "and has a cached Pl@ntNet prediction, so no accuracy rate can be "
+            "computed.</p>")
+    return out
+
+
+def species_panel(per_species):
+    """The same table the model-health page renders, status column included.
+
+    Without the status a row says 40% and nothing says whether that is a species
+    the model gets wrong or one with too few labels to judge, which is the first
+    thing a reader of a single export wants to know.
+    """
+    rows = []
+    for d in per_species:
+        st = hc.diagnose(d)
+        rows.append([
+            esc(cap(d["species"])),
+            num_cell(d["n_labelled_crowns"], f'{d["n_labelled_crowns"]:,}'),
+            num_cell(d["top1_accuracy"], pctf(d["top1_accuracy"])),
+            status_tag(st, STATUS[st][0]),
+        ])
+    body = status_legend(legend_entries()) + filterable_table(
+        [("Species", False), ("Labelled frames", True),
+         ("First guess right", True), ("Status", False)],
+        rows, options=filter_options())
+    return panel(f"Look up one species: all {len(per_species)} in this export",
+                 SPECIES_LOOKUP_LEDE + " " + status_precedence_note(),
+                 body, open_=True)
+
+
+def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str:
+    """The page, top to bottom: what this export is, how it scored, and why the
+    rows that are not in that score are not in it."""
+    k = export_counts(h, n_rows)
     P = [
         f"<h1>{esc(TITLE)}</h1>",
         f'<div class="subtitle">built {esc(generated)} &middot; '
@@ -129,97 +216,10 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
          "how well Pl@ntNet named the trees this batch labelled, and nothing else. "
          "The running total across every past batch is on the model-health page, <code>model_health_dashboard.html</code>.</p>"),
     ]
-
-    # Every row of the export ends in exactly one of these steps, so the counts
-    # below sum to n_rows.
-    funnel_body = funnel_list(
-        [
-            (n_rows, "rows in this NDJSON export"),
-            (
-                n_labelled,
-                "of those rows carry a botanist name in the Planta/Taxon field, "
-                "and the rest have no annotation in this export",
-            ),
-            (
-                n_joined,
-                "of the labelled photos also have a cached Pl@ntNet answer",
-            ),
-            (
-                n,
-                "of those name a species rather than stopping at the genus, and "
-                "every accuracy figure below is measured on this set",
-            ),
-            (
-                n_genus,
-                "stop at the genus, which this page does not score",
-            ),
-            (
-                n_no_cache,
-                "labelled photos have no cached prediction, so cannot be scored",
-            ),
-        ]
-    )
-    # `assets.hero` and the model-health page's own wording, rather than the
-    # markup and a second phrasing typed here. Two pages calling one number two
-    # things is a reader's problem before it is a maintenance one.
-    _, question, averaged, _ = HEADLINES[0]
-    P.append(hero([(averaged, pctf(macro1), question.format(k=figures.N_CANDIDATES),
-                    f"this export\u2019s {n_sp} species, each counted once")]))
-    if n:
-        P.append(
-            f'<p class="note">Averaged across frames instead of species: '
-            f"{pctf(micro1)} right ({c1:,} of {n:,}). The right name is somewhere "
-            f"in the {figures.N_CANDIDATES} names Pl@ntNet returned for "
-            f"{pctf(macro5)} of species, and {pctf(c5 / n)} of frames. Those "
-            f"names were ranked by Pl@ntNet before this export existed. "
-            f"They are looked up per photo, so the botanist\u2019s label in this "
-            f"export can be checked against them.</p>"
-        )
-    else:
-        P.append(
-            '<p class="note">No photo in this export both carries a species label '
-            "and has a cached Pl@ntNet prediction, so no accuracy rate can be "
-            "computed.</p>"
-        )
-    P.append(
-        panel(
-            "Where these numbers come from",
-            f"<b>Why {n_rows - n:,} of the {n_rows:,} rows are not in the "
-            f"accuracy rate above.</b>",
-            funnel_body,
-            open_=True,
-        )
-    )
-
-    if per_species:
-        # The same table the model-health page renders, status column included.
-        # Without it a row says 40% and nothing says whether that is a species
-        # the model gets wrong or one with too few labels to judge, which is the
-        # first thing a reader of a single export wants to know.
-        rows = []
-        for d in per_species:
-            st = hc.diagnose(d)
-            rows.append([
-                esc(cap(d["species"])),
-                num_cell(d["n_labelled_crowns"], f'{d["n_labelled_crowns"]:,}'),
-                num_cell(d["top1_accuracy"], pctf(d["top1_accuracy"])),
-                status_tag(st, STATUS[st][0]),
-            ])
-        body = status_legend(legend_entries()) + filterable_table(
-            [
-                ("Species", False),
-                ("Labelled frames", True),
-                ("First guess right", True),
-                ("Status", False),
-            ],
-            rows,
-            options=filter_options(),
-        )
-        P.append(panel(
-            f"Look up one species: all {len(per_species)} in this export",
-            SPECIES_LOOKUP_LEDE + " " + status_precedence_note(),
-            body, open_=True))
-
+    P += headline_panels(k)
+    P.append(funnel_panel(k))
+    if h.per_species:
+        P.append(species_panel(h.per_species))
     return pg.document(TITLE, "\n".join(P))
 
 
