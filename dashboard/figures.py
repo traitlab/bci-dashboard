@@ -83,12 +83,10 @@ def load_confirmatory(path=CONFIRMATORY_CSV):
     return out
 
 
-# How many names we ask Pl@ntNet for per photo (config.yaml identify_nb_results).
-# A request setting, not a property of the model, and the number "the right name is
-# in the list" is measured at. Written once here because both pages state it in
-# prose, and prose that disagrees with the metric is the defect this file exists to
-# prevent. prepare() checks the cached predictions against it.
-N_CANDIDATES = 5
+# Both pages state the list length in prose, and prose that disagrees with the
+# metric is the defect this file exists to prevent. Aliased from core rather than
+# restated, like RARE_MAX_SUPPORT above. prepare() checks the cache against it.
+N_CANDIDATES = hc.N_CANDIDATES
 
 
 def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
@@ -102,7 +100,7 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
         raise SystemExit(
             f"cached predictions carry up to {longest} names per photo, but every rate\n"
             f"and every sentence on both pages is written for {N_CANDIDATES}. Re-ingest\n"
-            f"changed the request setting: update N_CANDIDATES in dashboard/figures.py.")
+            f"changed the request setting: update N_CANDIDATES in dashboard/core.py.")
     n, n_sp = len(sp_recs), len(per_species)
 
     c1 = sum(1 for r in sp_recs if top1(r) == r["gt"])

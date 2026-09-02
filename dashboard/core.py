@@ -82,6 +82,15 @@ def gt_provenance(gt_csv: str = GT_CSV) -> str:
     mtime = _dt.date.fromtimestamp(os.path.getmtime(gt_csv)).isoformat()
     return f"Ground truth: {os.path.basename(gt_csv)}, dated {mtime}."
 
+# How many names we ask Pl@ntNet for per photo (config.yaml
+# identify_nb_results). A request setting, not a property of the model, and the
+# number "the right name is in the list" is measured at. Here rather than in
+# figures.py because health.aggregate_per_species measures top5_accuracy and
+# figures.prepare guards the cache against it, and the two were the literal 5
+# and this constant respectively: raise it in one place and the species table's
+# "Right name in the list" would still have counted five.
+N_CANDIDATES = 5
+
 CONF_BINS = [(0.0, 0.5), (0.5, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.01)]
 CONF_THRESHOLDS = [0.7, 0.8, 0.9]
 SUPPORT_BUCKETS = [(1, 1, "1"), (2, 4, "2-4"), (5, 9, "5-9"),

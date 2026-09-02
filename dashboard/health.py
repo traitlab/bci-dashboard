@@ -23,6 +23,7 @@ from core import (
     GT_CSV,
     GT_KEY_PREFIX,
     MIN_CROP_COVERAGE,
+    N_CANDIDATES,
     SPLITS_CSV,
     WCVP_CACHE_JSON,
     bucket_label,
@@ -143,8 +144,8 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon):
     """One row per species: labelled frame count, first-guess and top-5
     accuracy, mean confidence.
 
-    ``figures.N_CANDIDATES`` states the five-name list for the pages and
-    aborts a build whose cache carries more.
+    ``top5_accuracy`` counts ``core.N_CANDIDATES`` names, the same constant
+    ``figures.prepare`` aborts a build against when the cache carries more.
     """
     def top1(r):
         return r["ranked"][0][0]
@@ -157,7 +158,7 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon):
     for sp, rs in by_sp.items():
         m = len(rs)
         k1 = sum(1 for r in rs if top1(r) == sp)
-        k5 = sum(1 for r in rs if sp in [b for b, _ in r["ranked"][:5]])
+        k5 = sum(1 for r in rs if sp in [b for b, _ in r["ranked"][:N_CANDIDATES]])
         confs_ok = [r["ranked"][0][1] for r in rs if top1(r) == sp]
         per_species.append({
             "species": sp,
