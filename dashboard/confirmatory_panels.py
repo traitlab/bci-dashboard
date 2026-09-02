@@ -84,13 +84,20 @@ A2_GLOSS = (
     "way of asking. <b>Tiles</b> is a third way of asking, cut partway through. A "
     "<b>quadrat</b> is a marked-out ground plot.</p>")
 
+# The plan's own figure for the crown arm. It is quoted inside amendment A2
+# and named again in the sentence that glosses A2, so the gloss cannot end up
+# explaining a number the quote no longer carries. The quote itself is held to
+# hypothesis.md word for word by tests/test_pages.py.
+A2_CROWN_TOP1 = "85.4%"
+
 A2_PRIOR_EXPOSURE = (
     "<p>What that does and does not undermine:</p><ul>"
     "<li><strong>The tiles arm is blind.</strong> Condition 4 excludes every frame with a "
     "quadrat result, so no frame in this sample has ever been scored in that arm.</li>"
     "<li><strong>The frame-level aggregation is new.</strong> The area-weighted crown vote "
     "defined above has never been computed on any sample. What was reported earlier was a "
-    "per-crown top-1 accuracy of 85.4% over the whole corpus, on a different unit and a "
+    f"per-crown top-1 accuracy of {A2_CROWN_TOP1} over the whole corpus, on a different "
+    "unit and a "
     "different population.</li>"
     "<li><strong>The sample is new.</strong> These 300 frames were not chosen by looking at "
     "crown results.</li>"
@@ -203,8 +210,8 @@ def p_caveats(c):
         # The plan's own "top-1" is left unglossed on purpose: the sentence below
         # says what its 85.4% counts, and repeating the term would put it in this
         # page's prose, which says "first guess" everywhere.
-        f'<p>The 85.4% it names counts only a first guess, per crown, over every '
-        f'labelled photo. '
+        f'<p>The {A2_CROWN_TOP1} it names counts only a first guess, per crown, over '
+        f'every labelled photo. '
         f'Do not read it against the {pctf(cf["crown_top1"])} at the top, which scores a '
         f'whole frame on this fixed sample.</p>'
         f'{A2_PRIOR_EXPOSURE}</div>'
