@@ -283,10 +283,10 @@ def p_species(c):
     # The counts behind this are in the head panel, which says them once. Repeating
     # the whole sentence here made a reader who had read the top of the page read
     # it again; what they need at the table is what it means for a row.
-    body = (f'<p class="note"><b>Every rate here is scored on the fixed centre square, '
-            f'not on outlined crowns.</b> So a low rate can mean the crop missed the tree '
-            f'rather than that the model missed the name. Read a row as a flag for a '
-            f'second look, not as that species&rsquo; identification accuracy.</p>'
+    body = ('<p class="note"><b>Every rate here is scored on the fixed centre square, '
+            'not on outlined crowns.</b> So a low rate can mean the crop missed the tree '
+            'rather than that the model missed the name. Read a row as a flag for a '
+            'second look, not as that species&rsquo; identification accuracy.</p>'
             + status_legend(legend_entries())
             + f'<p class="note">{status_precedence_note()}</p>'
             + f'<p class="note"><b>{n_thin} of these {c.n_sp} species start hidden.</b> '
