@@ -258,7 +258,11 @@ def p_todo(c):
              f'<span class="tag {k}">{esc(lab)}</span> {esc(act)}</li>'
              for k, (lab, act) in STATUS.items()]
     body.append(f'</ul><p class="note">Each of the {c.n_sp} species sits in exactly one row. '
-                f'The numbers behind each status are in the species table below.</p>'
+                # There is no species table on this page. The sortable one is on the
+                # model-health page, and "below" sent the reader looking for it here.
+                f'The frame counts and accuracy behind each status are in the species '
+                f'table on the model-health page, '
+                f'<code>model_health_dashboard.html</code>.</p>'
                 f'<p class="note"><strong>Cheaper still, and not counted in any row above: '
                 f'{c.gen_one:,} frames whose botanist label stops at the genus.</strong> Their five '
                 f'candidates contain exactly one species from that genus. The question '
