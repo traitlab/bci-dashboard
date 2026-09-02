@@ -389,6 +389,15 @@ def diagnose(row: dict) -> str:
     return "hard" if a1 < HARD_MAX_TOP1 else "adequate"
 
 
+# The order above, as data, because the pages have to say it. A reader who takes
+# "fewer than 10 labelled frames" as a threshold and sorts on the status column
+# meets one-frame species tagged as cheap confirmation work, and nothing on the
+# page explains why. The last two statuses are decided by accuracy alone, so the
+# tuple stops where the ordering stops mattering. A test walks ``diagnose`` to
+# check this stays true.
+STATUS_PRECEDENCE = ("unreachable", "reliable", "ranking", "unmeasured")
+
+
 # --- Crop coverage gate ---
 def strip_collection_codes(name: str) -> str:
     """Drop every trailing BCI collection code, then normalize.

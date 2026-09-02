@@ -104,7 +104,8 @@ def candidates_panel(*, recs, n_scored, gen_n, gen_none):
     return panel(
         f"Why only {top} guesses per photo, and what that hides",
         f"<b>Two different limits cut that list, one at each end.</b> We asked for the best "
-        f"{top}, and Pl@ntNet drops anything it scores below {floor:.1%} whether we asked for "
+        f"{top}, and Pl@ntNet drops anything it scores below {floor:.3f} whether we asked "
+        f"for "
         f"it or not. Both put a ceiling on the numbers above.",
         # Explicit: the summary states the list length, which is a fetch setting
         # rather than a fixed fact, so it must not decide the anchor.
@@ -123,10 +124,15 @@ def candidates_panel(*, recs, n_scored, gen_n, gen_none):
         + svg_hbar(rows, title=f"how long the returned list actually was, {len(recs):,} frames")
         + f'<p class="note">{full:,} of {len(recs):,} photos came back with a full {top} '
           f'({pctf(full / len(recs))}) and none came back with more. The shorter lists are the '
-          f'other cut: <b>Pl@ntNet never returns a species it scores below {floor:.1%}</b>. '
-          f'Of the {len(scores):,} guesses on this page, {just_above:,} score between '
-          f'{floor:.3f} and {2 * floor:.3f} and {at_floor} sit on exactly {floor:.3f}, and '
-          f'none goes lower. A model that simply had no smaller numbers would not stop dead '
+          # One notation for one number: the floor was printed as a percentage and
+          # then as a decimal one sentence later, and the reader had to spot that
+          # 0.1% and 0.001 were the same cutoff before the argument made sense.
+          f'other cut: <b>Pl@ntNet never returns a species it scores below '
+          f'{floor:.3f}</b>. '
+          f'Of the {len(scores):,} guesses on this page, {at_floor} sit exactly on '
+          f'{floor:.3f}, and {just_above:,} more sit just above it, under '
+          f'{2 * floor:.3f}. '
+          f'Nothing goes lower. A model that simply had no smaller numbers would not stop dead '
           f'on a round one. So a short list means fewer than {top} species cleared that '
           f'bar.</p>'
           f'<p class="note">Pl@ntNet spreads 100% of its confidence across every species it '

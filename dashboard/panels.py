@@ -66,6 +66,20 @@ STATUS_REASON = {
                    "recover it. Whether Pl@ntNet carries the species at all is not known from here.",
 }
 
+def status_precedence_note():
+    """One sentence saying a species gets the first status that fits it.
+
+    Built from ``hc.STATUS_PRECEDENCE`` rather than written out, so a change to
+    the order in ``diagnose`` cannot leave the page describing the old one.
+    """
+    names = [STATUS[k][0].lower() for k in hc.STATUS_PRECEDENCE]
+    return ("Each species gets one status. The rules are checked in this order: "
+            + ", then ".join(f"&ldquo;{n}&rdquo;" for n in names)
+            + f". So a few-frame species can still show as &ldquo;{names[2]}&rdquo;. "
+            "That is the point: it is cheap work whatever its count. Read the "
+            "labelled-frames column next to the status.")
+
+
 # A 2x2 grid: question asked (rows) by how it was averaged (columns), because
 # 50.3% / 79.5% side by side reads as one superseding the other.
 # (metric, question, averaged over, note).
@@ -501,7 +515,8 @@ def p_species(c):
     ))
     return panel(f"Look up one species: all {c.n_sp}, sortable and filterable",
                  "<b>Find a species you care about and read its status.</b> Click any "
-                 "heading to sort, type to filter.", body, open_=True)
+                 "heading to sort, type to filter. " + status_precedence_note(),
+                 body, open_=True)
 
 
 def p_ceiling(c):
@@ -509,9 +524,10 @@ def p_ceiling(c):
     body = (f'<p class="note"><strong>{len(c.never)} species ({c.never_crowns} of the {n:,} '
             f'evaluated frames) never appear in any answer the model gave us.</strong> '
             f'Leaving them out raises the per-frame rate from {pctf(c.c1 / n)} to '
-            f'{pctf(c.reach1)} on {len(c.reach):,} centre crops. Across all '
-            f'{len(c.h.gt_rows):,} labelled frames the same condition covers '
-            f'{c.never_all} frames.</p>'
+            f'{pctf(c.reach1)} on {len(c.reach):,} centre crops. A wider population: every '
+            f'one of the {len(c.h.gt_rows):,} frames carrying a botanist label, genus-only '
+            f'frames and the few with no cached answer included. The same condition covers '
+            f'{c.never_all} of those.</p>'
             f'<div class="warn"><strong>This is a limit of the question we asked, not proof '
             f'the model has never heard of these species.</strong> The only test we can run '
             f'offline is whether a species name turns up somewhere in the cached answers, and '

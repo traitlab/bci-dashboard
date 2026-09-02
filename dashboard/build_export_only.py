@@ -221,7 +221,7 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
         P.append(panel(
             f"Look up one species: all {len(per_species)} in this export",
             "<b>Find a species you care about and read its status.</b> Click any "
-            "heading to sort, type to filter.",
+            "heading to sort, type to filter. " + pn.status_precedence_note(),
             body, open_=True))
 
     return pn.document("Pl@ntNet on BCI - this export only", "\n".join(P))
