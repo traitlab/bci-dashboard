@@ -412,14 +412,24 @@ def p_review(c):
     pair_rows = sorted(c.review_pairs.items(), key=lambda kv: -len(kv[1]))[:10]
     # What each table is, before it rather than after it. The heading promises 51
     # frames and the first table showed ten rows summing to a fraction of that,
-    # with nothing saying it was a grouping rather than the list.
-    body = (f'<p class="note">The {c.review_counts[0]} frames fall into '
+    # with nothing saying it was a grouping rather than the list. What a row on
+    # either table means comes first of all: it used to sit below both of them,
+    # so a reader met the confusion pairs with nothing saying what put them here.
+    body = (f'<p class="note">Each row on both tables is a labelled frame where the '
+            f'model is at least {hc.REVIEW_CONF:.1f} confident in a <em>different</em> '
+            f'species. A first guess this confident is right {pctf(c.confident_ok)} of '
+            f'the time in bulk ({c.confident_hits:,} of {len(c.confident):,}). So each '
+            f'row is either a rare confident mistake by the model, or a wrong label. A '
+            f'wrong label found this way is the cheapest label fix available. Offline '
+            f'there is no way to tell which of the two it is; that is the botanist\'s '
+            f'minute.</p>'
+            f'<p class="note">The {c.review_counts[0]} frames fall into '
             f'{len(c.review_pairs)} label-and-guess pairs. The '
             f'{len(pair_rows)} commonest pairs are first, then the '
             f'{REVIEW_PREVIEW} individual frames the model is surest about, some of '
             f'which are also single-frame pairs above. All '
             f'{c.review_counts[0]} are in <code>label_review_queue.csv</code> in the '
-            f'snapshot folder.</p>'
+            f'snapshot folder, most confident first.</p>'
             + table([("botanist label", False), ("Pl@ntNet's first guess", False),
                    ("frames", True), ("mean confidence", True)],
                   [[f'<span class="sp">{esc(cap(gt))}</span>',
@@ -433,6 +443,11 @@ def p_review(c):
     urls = hc.labelbox_urls()
     top_review = sorted(c.review, key=lambda r: -conf(r))[:REVIEW_PREVIEW]
     linked = sum(1 for r in c.review if r["global_key"] in urls)
+    body += (f'<h3 class="sub">The {len(top_review)} most confident disagreements</h3>'
+             f'<p class="note">A frame name links straight to its row in Labelbox where '
+             f'we know the link: {linked} of {len(c.review)} frames here. We know it only '
+             f'for frames that came in on an export these labels were merged from. The '
+             f'rest are listed without a link, rather than sent to a guessed address.</p>')
     body += table([("frame", False), ("botanist label", False),
                    ("Pl@ntNet's first guess", False), ("confidence", True)],
                   [[(f'<a href="{esc(urls[r["global_key"]])}" target="_blank" '
@@ -442,23 +457,9 @@ def p_review(c):
                     f'<span class="sp">{esc(cap(top1(r)))}</span>',
                     f"{conf(r):.2f}"]
                    for r in top_review])
-    body += (f'<p class="note">The {len(top_review)} most confident disagreements. '
-             f'A frame name links straight to its row in Labelbox where we know the link: '
-             f'{linked} of {len(c.review)} frames here. We know it only for frames that came '
-             f'in on an export these labels were merged from. The rest are listed without a '
-             f'link, rather than sent to a guessed address.</p>')
-    body += (f'<p class="note">Each row is a labelled frame where the model is at least '
-             f'{hc.REVIEW_CONF:.1f} confident in a <em>different</em> species. A first guess '
-             f'this confident is right {pctf(c.confident_ok)} of the time in bulk '
-             f'({c.confident_hits:,} of {len(c.confident):,}). So each row here is either a '
-             f'rare confident mistake by the model, or a wrong label. A wrong label found '
-             f'this way is the cheapest label fix available. Offline there is no way to tell '
-             f'which of the two it is; that is the botanist\'s minute. '
-             f'Every frame is in <code>label_review_queue.csv</code> in the snapshot folder, '
-             f'most confident first.</p>'
-             f'<p class="note">Not urgent: work this list after the send-first queues. A '
-             f'confusion pair that keeps recurring is a signal about the species, not just '
-             f'the photo.</p>')
+    body += ('<p class="note">Not urgent: work this list after the send-first queues. A '
+             'confusion pair that keeps recurring is a signal about the species, not just '
+             'the photo.</p>')
     if c.n_adjudicated:
         body += (f'<p class="note">{c.n_adjudicated} further frame'
                  f'{"" if c.n_adjudicated == 1 else "s"} disagree at this confidence and '
