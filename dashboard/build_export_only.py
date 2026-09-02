@@ -48,7 +48,7 @@ from assets import (
     status_legend,
     status_tag,
 )
-from panels import HEADLINES
+from panels import HEADLINES, SPECIES_LOOKUP_LEDE
 from status_words import (STATUS, filter_options, legend_entries,
                           status_precedence_note)
 
@@ -215,8 +215,7 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
         )
         P.append(panel(
             f"Look up one species: all {len(per_species)} in this export",
-            "<b>Find a species you care about and read its status.</b> Click any "
-            "heading to sort, type to filter. " + status_precedence_note(),
+            SPECIES_LOOKUP_LEDE + " " + status_precedence_note(),
             body, open_=True))
 
     return pg.document("Pl@ntNet on BCI - this export only", "\n".join(P))

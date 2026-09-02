@@ -27,6 +27,12 @@ REVIEW_PREVIEW = 15
 # A 2x2 grid: question asked (rows) by how it was averaged (columns), because
 # 50.3% / 79.5% side by side reads as one superseding the other.
 # (metric, question, averaged over, note).
+# The species table's lede. Both the internal pages and the export-only page
+# put one in front of the same table, and the two had drifted into being the
+# same sentence typed twice.
+SPECIES_LOOKUP_LEDE = ("<b>Find a species you care about and read its status.</b> "
+                       "Click any heading to sort, type to filter.")
+
 HEADLINES = [
     ("macro_top1", "First guess is right", "per species",
      "each of the {n_sp} species counts once, however few frames it has"),
@@ -294,9 +300,7 @@ def p_species(c):
     # words sitting fourth of nine, so the five panels below it were a long
     # scroll away. Closed, every heading is readable at once.
     return panel(f"Look up one species: any of the {c.n_sp}, sortable and filterable",
-                 "<b>Find a species you care about and read its status.</b> Click any "
-                 "heading to sort, type to filter.",
-                 body)
+                 SPECIES_LOOKUP_LEDE, body)
 
 
 def p_ceiling(c):
