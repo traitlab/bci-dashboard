@@ -231,7 +231,20 @@ def score_confirmatory():
 # subprocess and session-scoped, so it happens once per run either way.
 # ---------------------------------------------------------------------------
 
-SNAPSHOT_DIR = REPO / "snapshots" / "model-health-2026-08-24"
+# The gate is the newest snapshot, and `history.latest_snapshot_dir` is what
+# decides that for the builders themselves, so the suite asks it rather than
+# naming a date. A pinned date silently ages: this sat on 2026-08-24 while
+# the builders had moved on to 2026-08-27, so three snapshots' worth of
+# numbers were never checked by a test.
+# SystemExit here would abort collection instead of skipping, and a fresh
+# clone has no snapshots at all; `require_buildable` is what turns that into
+# a skip, so this only has to name a path it can print.
+with _on_path(REPO / "dashboard"):
+    import history as _history
+    try:
+        SNAPSHOT_DIR = pathlib.Path(_history.latest_snapshot_dir())
+    except SystemExit:
+        SNAPSHOT_DIR = REPO / "snapshots"
 SPLITS_CSV = REPO / "data" / "splits.csv"
 CACHE_DIR = REPO / "data" / "predictions" / "cache"
 
@@ -246,7 +259,7 @@ GENERATED = "2026-08-25-test"
 # inline JS binds to. The send queue splits in two: `queue_counts` is the
 # how-many-per-queue breakdown and `queue_keys` is the frame-by-frame
 # send-first list with the camera note beside it. `snapshot` marks a page that
-# reconciles against `snapshots/model-health-2026-08-24` at build time and so
+# reconciles against the newest snapshot at build time and so
 # must print a `verified` line for every check it ran; the export page has no
 # such snapshot -- it is scoped to one Labelbox export -- so it carries none.
 #
@@ -287,7 +300,7 @@ def require_buildable():
         if not path.exists():
             pytest.skip(f"{label} not present (fresh clone)")
     if not SNAPSHOT_DIR.exists():
-        pytest.skip("snapshots/model-health-2026-08-24 not present (fresh clone)")
+        pytest.skip(f"{SNAPSHOT_DIR} not present (fresh clone)")
 
 
 def build_page(tmp_path_factory, script: str, out_name: str, *,

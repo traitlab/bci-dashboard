@@ -4,7 +4,6 @@ Nothing exercised `build_external.py` or `build_internal.py` before this file,
 so every cleanup pass over them had to be verified by hand-diffing 185KB of
 HTML. `assets.py` is exercised by `test_assets.py` instead of here, and
 `build_export_only.py` is exercised here alongside the other two builders.
-`explain.py` is still not exercised anywhere.
 Golden-file comparison would just move that problem into the test (any
 legitimate number change breaks it), so this asserts structure instead: the
 build's own snapshot cross-check passed, the page is one self-contained file,
@@ -20,8 +19,8 @@ the panel: it flips to the opposite claim, that the page carries *none* of that
 panel's machinery. A page holding half of it -- a filter input with no table,
 say -- fails both ways, which is the failure this file exists to catch.
 
-Every builder runs as a subprocess against `--verify-against
-snapshots/model-health-2026-08-24`, the same gate `bin/refresh.sh` runs, so a
+Every builder runs as a subprocess against `--verify-against` the newest
+snapshot, the same gate `bin/refresh.sh` runs and picked the same way, so a
 non-zero exit here means the page actually disagreed with the measurement, not
 just that this test's assumptions are stale.
 
