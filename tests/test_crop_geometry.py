@@ -85,8 +85,9 @@ def test_the_two_remaining_copies_of_the_crop_size_agree(ingest, photo, crop_ove
 
     `predict/photo.py` cuts the square for both fetch paths, and
     `dashboard/crop_overlap.py` reconstructs it to decide how much of the crop
-    a labelled crown covers. `crop_overlap.py:23` says "Must match CROP_SIZE in
-    predict/photo.py", which is the copy that filled the cache the pages score.
+    a labelled crown covers. The comment over `crop_overlap.CROP_SIZE` says it
+    must match the one in predict/photo.py, which is the copy that filled the
+    cache the pages score.
     `predict/` needs PIL and a key, so it cannot import from `dashboard/`; this
     compares them instead.
     """

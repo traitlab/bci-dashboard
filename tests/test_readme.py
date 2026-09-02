@@ -191,11 +191,13 @@ def test_the_headline_rates_metrics_md_quotes_are_the_ones_the_snapshot_holds(co
 def test_metrics_md_cites_symbols_that_exist_and_no_line_numbers(core):
     """A line number in prose is a citation with a shelf life.
 
-    `metrics.md` pointed at `dashboard/crop_overlap.py:136-138` for the
-    definition of `coverage` and at `labelling/next_batch.py:394-399` for the
-    one place the gate filters. Both had drifted: 394-399 is now the middle of
-    an output-table list. A symbol name survives an edit above it, so the rule
-    is that the file cites `module.symbol`, and this checks each one is real.
+    `metrics.md` pointed at crop_overlap.py lines 136 to 138 for the definition
+    of `coverage` and at next_batch.py lines 394 to 399 for the one place the
+    gate filters. Both had drifted: the second is now the middle of an
+    output-table list. A symbol name survives an edit above it, so the rule is
+    that the file cites `module.symbol`, and this checks each one is real. The
+    same rule is applied to the two front-page documents, which is why the
+    line-number check reads a list of files rather than one.
     """
     root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
     doc = os.path.join(os.path.dirname(root), "bci-dashboard-docs", "metrics.md")
@@ -204,9 +206,13 @@ def test_metrics_md_cites_symbols_that_exist_and_no_line_numbers(core):
     with open(doc, encoding="utf-8") as fh:
         text = fh.read()
 
-    numbered = re.findall(r"`([\w./]+\.py:[\d-]+)`", text)
+    numbered = []
+    for path in (doc, os.path.join(root, "README.md"),
+                 os.path.join(root, "CONTEXT.md")):
+        with open(path, encoding="utf-8") as fh:
+            numbered += re.findall(r"`([\w./]+\.py:[\d-]+)`", fh.read())
     assert not numbered, (
-        f"metrics.md cites {numbered} by line number, which goes stale on the "
+        f"the docs cite {numbered} by line number, which goes stale on the "
         f"next edit above it. Cite `module.symbol` instead.")
 
     modules = {}
