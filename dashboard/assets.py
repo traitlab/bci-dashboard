@@ -448,8 +448,13 @@ def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None)
         f'aria-label="filter species">'
         f"{select}{toggle}<span class=\"count\" id=\"{_COUNT_ID}\"></span></div>"
     )
-    return controls + table(headers, rows, tid=_TABLE_ID, sortable_from=0,
-                            row_attrs=row_attrs)
+    # Every caller puts the species name in the first column, and the filter
+    # reads that column as the name it matches. So the italics are a fact about
+    # the column, said once here, rather than a <span class="sp"> repeated on
+    # all 187 rows.
+    return (f'<style>#{_TABLE_ID} td:nth-child(1){{font-style:italic}}</style>'
+            + controls + table(headers, rows, tid=_TABLE_ID, sortable_from=0,
+                               row_attrs=row_attrs))
 
 
 def funnel_list(steps: list[tuple[int, str]]) -> str:

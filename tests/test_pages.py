@@ -575,7 +575,9 @@ def test_the_filter_can_reach_every_row(page):
         return
     assert tagged, "no filterable rows"
     for row in _ROW.findall(html):
-        assert '<td><span class="sp">' in row, f"row has no species name to match: {row}"
+        first = re.match(r"<tr\b[^>]*>\s*<td[^>]*>(.*?)</td>", row, re.S)
+        assert first and re.sub(r"<[^>]+>", "", first.group(1)).strip(), (
+            f"row has no species name to match: {row}")
 
 
 def test_the_stylesheet_has_no_rule_no_page_uses(external_page, internal_page, assets):

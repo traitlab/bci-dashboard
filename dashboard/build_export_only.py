@@ -192,7 +192,7 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
         for d in per_species:
             st = hc.diagnose(d)
             rows.append([
-                f'<span class="sp">{esc(cap(d["species"]))}</span>',
+                esc(cap(d["species"])),
                 num_cell(d["n_labelled_crowns"], f'{d["n_labelled_crowns"]:,}'),
                 num_cell(f'{d["top1_accuracy"]:.6f}', pctf(d["top1_accuracy"])),
                 status_tag(st, pn.STATUS[st][0]),

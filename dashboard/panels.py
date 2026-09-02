@@ -298,7 +298,7 @@ def p_species(c):
     for d in c.per_species:
         sp, st = d["species"], c.status[d["species"]]
         sp_rows.append([
-            f'<span class="sp">{esc(cap(sp))}</span>',
+            esc(cap(sp)),
             num_cell(d["n_labelled_crowns"], f'{d["n_labelled_crowns"]:,}'),
             num_cell(f'{d["top1_accuracy"]:.6f}', pctf(d["top1_accuracy"])),
             num_cell(f'{d["top5_accuracy"]:.6f}', pctf(d["top5_accuracy"])),
