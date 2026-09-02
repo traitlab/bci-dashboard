@@ -253,10 +253,10 @@ def p_review(c):
     top_review = sorted(c.review, key=lambda r: -conf(r))[:REVIEW_PREVIEW]
     linked = sum(1 for r in c.review if r["global_key"] in urls)
     body += (f'<h3 class="sub">The {len(top_review)} most confident disagreements</h3>'
-             f'<p class="note">A frame name links straight to its row in Labelbox where '
-             f'we know the link: {linked} of {len(c.review)} frames here. We know it only '
-             f'for frames that came in on an export these labels were merged from. The '
-             f'rest are listed without a link, rather than sent to a guessed address.</p>')
+             f'<p class="note">A frame name links to its row in Labelbox where we know the '
+             f'link: {linked} of {len(c.review)} frames here. We know it for the ones that '
+             f'came in on an export these labels were merged from. The rest are listed '
+             f'without a link rather than sent to a guessed address.</p>')
     body += table([("frame", False), ("botanist label", False),
                    ("Pl@ntNet's first guess", False), ("confidence", True)],
                   [[(f'<a href="{esc(urls[r["global_key"]])}" target="_blank" '
@@ -273,11 +273,10 @@ def p_review(c):
              'not just the photo.</p>')
     if c.n_adjudicated:
         body += (f'<p class="note">{c.n_adjudicated} further frame'
-                 f'{"" if c.n_adjudicated == 1 else "s"} disagree at this confidence and '
-                 f'are not listed: a botanist has already confirmed the label, so the model '
-                 f'is simply wrong there and the frame would otherwise return to this list '
-                 f'on every build. They still count against the '
-                 f'{pctf(c.confident_ok)} above.</p>')
+                 f'{"" if c.n_adjudicated == 1 else "s"} disagree at this confidence and are '
+                 f'not listed: a botanist has confirmed the label, so the model is simply '
+                 f'wrong there and the frame would return here on every build. They still '
+                 f'count against the {pctf(c.confident_ok)} above.</p>')
     return panel(f"Labels worth a second look: {c.review_counts[0]} frames where Pl@ntNet "
                  f"confidently disagrees",
                  # No cross-page pointer here: this panel is on the model-health
@@ -465,12 +464,11 @@ def p_confirmatory(c):
         raise SystemExit("p_confirmatory needs the frozen result; see confirmatory_hero")
     body = (
         f'<p class="note"><strong>What we did for the top number.</strong> We sent '
-        f'Pl@ntNet every tree crown a botanist had outlined, one at a time. Then we '
-        f'combined the answers into a single name for the frame. Each crown got a say in '
-        f'proportion to how much of the frame it covered.</p>'
-        f'<p class="note">So the number says what naming '
-        f'costs once someone has already found the trees. It is not what a fully automatic '
-        f'pipeline would score.</p>'
+        f'Pl@ntNet every tree crown a botanist had outlined, one at a time, then combined '
+        f'the answers into a single name for the frame. Each crown got a say in proportion '
+        f'to how much of the frame it covered. So the number says what naming '
+        f'costs once someone has found the trees, not what a fully automatic pipeline '
+        f'would score.</p>'
         f'<p class="note"><strong>What we did for the second number.</strong> We sent one '
         f'fixed square from the middle of the frame, {CROP_SIZE} px across, which is '
         f'{CROP_SHARE} of the frame&rsquo;s area. Nothing chose that square; it lands where '
