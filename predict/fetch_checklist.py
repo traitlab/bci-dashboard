@@ -16,7 +16,7 @@ Writes data/checklist_<project>.json: the raw species array plus the
 speciesCount the project listing reports, so a later run can tell a truncated
 download from a real change in the model.
 
-    python3 predict/fetch_checklist.py [--project k-central-america]
+    python3 predict/fetch_checklist.py [--project <id>]
 
 Needs PLANTNET_API_KEY in .env. /v2/projects is documented as unlimited; the
 species route's quota category is not documented, so this asks once and caches.
@@ -32,23 +32,38 @@ from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
+from photo import load_config
 
 REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "data"
 
-API = "https://my-api.plantnet.org/v2"
-DEFAULT_PROJECT = "k-central-america"
 TIMEOUT = 300  # the unpaginated list is documented as a long response
 
 
-def project_species_count(api_key: str, project: str):
+def api_and_project():
+    """The API root and the project id, both read off config.yaml.
+
+    The checklist only answers "can Pl@ntNet name this species" for the project
+    the cached predictions came from. Typed here, the id was a second copy of
+    the tail of ``identify_url``, and a project change would have left the
+    dashboard calling a species absent against the wrong label set.
+    """
+    url = load_config()["plantnet"]["identify_url"].rstrip("/")
+    if "/identify/" not in url:
+        sys.exit(f"config.yaml plantnet.identify_url is not "
+                 f".../identify/<project>: {url}")
+    base, project = url.rsplit("/identify/", 1)
+    return base, project
+
+
+def project_species_count(api: str, api_key: str, project: str):
     """speciesCount for `project`, or None if the listing does not carry it.
 
     Read separately from the species array so a short download is detectable:
     the array itself has no envelope and no total, so its own length cannot
     confirm that it is complete.
     """
-    r = requests.get(f"{API}/projects", params={"api-key": api_key}, timeout=60)
+    r = requests.get(f"{api}/projects", params={"api-key": api_key}, timeout=60)
     r.raise_for_status()
     for p in r.json():
         if p.get("id") == project:
@@ -56,14 +71,14 @@ def project_species_count(api_key: str, project: str):
     return None
 
 
-def fetch_species(api_key: str, project: str, lang: str = "en") -> list:
+def fetch_species(api: str, api_key: str, project: str, lang: str = "en") -> list:
     """The whole label set in one call.
 
     pageSize and page are sent empty on purpose: the API paginates at 100 by
     default, and an empty value is the documented way to switch that off.
     """
     r = requests.get(
-        f"{API}/projects/{project}/species",
+        f"{api}/projects/{project}/species",
         params={"api-key": api_key, "lang": lang, "pageSize": "", "page": ""},
         timeout=TIMEOUT,
     )
@@ -74,10 +89,14 @@ def fetch_species(api_key: str, project: str, lang: str = "en") -> list:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--project", default=DEFAULT_PROJECT)
+    ap.add_argument("--project", default=None,
+                    help="default: the project config.yaml's identify_url points at")
     ap.add_argument("--lang", default="en")
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args()
+
+    api, configured = api_and_project()
+    project = args.project or configured
 
     load_dotenv(REPO / ".env")
     api_key = os.environ.get("PLANTNET_API_KEY")
@@ -85,24 +104,24 @@ def main() -> int:
         print("PLANTNET_API_KEY is not set (put it in .env)", file=sys.stderr)
         return 2
 
-    declared = project_species_count(api_key, args.project)
-    species = fetch_species(api_key, args.project, args.lang)
+    declared = project_species_count(api, api_key, project)
+    species = fetch_species(api, api_key, project, args.lang)
     if not isinstance(species, list) or not species:
-        print(f"no species returned for {args.project}", file=sys.stderr)
+        print(f"no species returned for {project}", file=sys.stderr)
         return 1
 
     if declared is not None and len(species) != declared:
         print(f"WARNING: got {len(species)} species, project listing declares "
               f"{declared}. Treat the list as incomplete.", file=sys.stderr)
 
-    out = args.out or OUT / f"checklist_{args.project}.json"
+    out = args.out or OUT / f"checklist_{project}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w", encoding="utf-8") as fh:
-        json.dump({"project": args.project, "lang": args.lang,
+        json.dump({"project": project, "lang": args.lang,
                    "declared_species_count": declared,
                    "n_returned": len(species), "species": species}, fh)
 
-    print(f"{args.project}: {len(species)} species "
+    print(f"{project}: {len(species)} species "
           f"(listing declares {declared}) -> {out}")
     return 0
 

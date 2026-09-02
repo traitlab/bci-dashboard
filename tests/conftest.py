@@ -121,6 +121,14 @@ def embed():
 
 
 @pytest.fixture(scope="session")
+def checklist():
+    """Imported with photo.py as a sibling: the project id comes from config."""
+    _require("requests", "yaml", "dotenv", "PIL")
+    with _on_path(REPO / "predict"):
+        yield load("_checklist_under_test", REPO / "predict" / "fetch_checklist.py")
+
+
+@pytest.fixture(scope="session")
 def photo():
     _require("PIL", "requests", "yaml", "dotenv")
     return load("_photo_under_test", REPO / "predict" / "photo.py")

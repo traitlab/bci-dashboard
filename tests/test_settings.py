@@ -182,3 +182,26 @@ def test_both_identify_paths_read_the_same_settings():
         f"photo.py reads {sorted(photo)} and ingest_photos.py reads "
         f"{sorted(ingest)}. Both send the same endpoint the same question, so "
         f"a setting one of them skips is a setting that silently does nothing.")
+
+
+def test_the_checklist_is_fetched_for_the_project_the_predictions_came_from(
+        checklist, settings):
+    """The checklist is what turns "never in the five guesses" from a guess
+    into a membership test, and it only does that for the project the cached
+    answers came from. The project id used to be typed into the script, a
+    second copy of the tail of config.yaml's identify_url."""
+    api, project = checklist.api_and_project()
+    identify = settings.load_config()["plantnet"]["identify_url"]
+    assert identify == f"{api}/identify/{project}", (
+        f"fetch_checklist reads {api} and {project} out of {identify}, and the "
+        f"two no longer rebuild it.")
+
+
+def test_a_config_that_names_no_project_stops_the_run(checklist, monkeypatch):
+    """Rather than fetching some other project's species list and writing it
+    to the file the dashboard reads."""
+    monkeypatch.setattr(checklist, "load_config",
+                        lambda: {"plantnet": {"identify_url": "https://example/v2/survey"}})
+    with pytest.raises(SystemExit) as stop:
+        checklist.api_and_project()
+    assert "identify" in str(stop.value)
