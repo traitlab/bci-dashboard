@@ -33,7 +33,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import core
-from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
+from crop_overlap import FRAME_H, FRAME_W
 
 # The frame is a fixed size across the corpus, and crop_overlap is where that
 # is written down and checked. Typed here as 4000 * 3000 it was a second copy
