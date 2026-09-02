@@ -224,6 +224,7 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
 
 
 def main() -> None:
+    """Read one export, score it, write the page. No snapshot, no corpus total."""
     ap = argparse.ArgumentParser(description=hc.summarise(__doc__))
     ap.add_argument("--export", required=True, help="Labelbox project export NDJSON")
     hc.add_input_flags(

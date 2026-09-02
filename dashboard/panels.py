@@ -170,6 +170,7 @@ def hero_region(c):
 
 
 def p_review(c):
+    """Labelled frames worth a second look, by species and by confusable pair."""
     pair_rows = sorted(c.review_pairs.items(), key=lambda kv: -len(kv[1]))[:10]
     # What a row on either table means comes first, before the tables themselves,
     # so a reader is not left guessing what put a frame here.
@@ -260,6 +261,8 @@ def _starts_hidden(d, status):
 
 
 def p_species(c):
+    """One row per species, so a reader can look up the tree they care about
+    instead of taking the corpus average on trust."""
     sp_rows, attrs = [], []
     for d in c.per_species:
         sp, st = d["species"], c.status[d["species"]]
@@ -323,6 +326,8 @@ def p_species(c):
 
 
 def p_ceiling(c):
+    """What the headline rate cannot reach: frames whose species never appeared
+    in any answer the model gave us, counted three ways over three populations."""
     n, gn = c.n, c.gn
     body = (f'<p class="note"><strong>Those {c.never_crowns} frames are '
             f'{pctf(c.never_crowns / n)} of the {n:,} evaluated, and no answer the model '

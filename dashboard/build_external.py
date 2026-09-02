@@ -33,6 +33,13 @@ TITLE = "How well does Pl@ntNet name BCI trees?"
 
 
 def build(h, *, generated, verify_dir, fallback_tag):
+    """The model-health page: how well Pl@ntNet names the trees, and what that
+    number does not cover.
+
+    Every figure is recomputed here and checked against the snapshot CSVs before
+    a single line of HTML is written, so a page that builds is a page whose
+    numbers still match what was committed.
+    """
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
 
     # This page reports no send queue, so it does not gate on one. It still gates

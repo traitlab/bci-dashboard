@@ -436,6 +436,7 @@ def write_adjudication(rows, path, seed=SEED):
 
 
 def main(argv=None):
+    """Score the frozen confirmatory set and write the numbers it publishes."""
     ap = argparse.ArgumentParser(description=core.summarise(__doc__))
     ap.add_argument("--frozen", type=pathlib.Path, default=FROZEN,
                     help="the list of frames frozen before the numbers existed")

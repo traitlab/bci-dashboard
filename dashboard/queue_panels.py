@@ -45,6 +45,7 @@ UNGRADED_NOTE = (
 
 
 def p_todo(c):
+    """The species statuses as a to-do list, cheapest useful work first."""
     # The panel opened on a sentence about how the pool is ordered, which is not
     # what this list is: these are species statuses, and the pool is the next
     # panel's subject. The hero card already says the page puts the pool in an
@@ -77,7 +78,8 @@ def p_todo(c):
                  "\n".join(body), open_=True)
 
 
-def p_send(c):
+def send_pool_table(c):
+    """Each queue and how big it is, out of the pool whose shares it splits."""
     # What "the pool" is, above the table whose third column is a share of it.
     body = (f'<p class="note">The pool is {c.n_unlab:,} of {len(c.h.split_rows):,} photos: '
             f'the ones with a cached Pl@ntNet answer and no botanist label. The other '
@@ -90,6 +92,15 @@ def p_send(c):
                    f'{c.queue_counts.get(q, 0):,}',
                    pctf(c.queue_counts.get(q, 0) / c.n_unlab if c.n_unlab else None)]
                   for q in queues.QUEUE_ORDER])
+    return body
+
+
+def send_preview_table(c):
+    """The head of the queue itself, not a pointer to the CSV that holds it.
+
+    The table above says how much work there is. This says which photo.
+    """
+    body = ""
     # The list itself, not a pointer to it: the counts above say how much work
     # there is, and the CSV in the snapshot folder said which photo.
     head = c.queue_rows[:SEND_PREVIEW]
@@ -108,6 +119,15 @@ def p_send(c):
                        f'<span class="sp">{esc(cap(pred))}</span>', f"{cf:.3f}",
                        f"{c.support.get(pred, 0):,}"]
                       for i, (_, stem, pred, cf) in enumerate(head, 1)]))
+    return body
+
+
+def send_notes(c):
+    """Four questions a reader of the table above asks in this order: which
+    species fill the first queue, where the full list lives, what to do with
+    the photos that got no answer at all, and which camera none of this covers.
+    """
+    body = ""
     top_lt = sorted(c.lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
     body += ('<p class="note"><b>Most-named species in the first queue.</b> '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
@@ -135,6 +155,13 @@ def p_send(c):
              f'{c.queue_cams["tele"]:,} of the queue '
              f'({pctf(c.queue_cams["tele"] / sum(c.queue_cams.values()))}); sending them is '
              f'how it becomes known.</p>')
+    return body
+
+
+def p_send(c):
+    """The page's answer to "what do I label next": queue sizes, the head of
+    the queue, then the caveats that qualify both."""
+    body = send_pool_table(c) + send_preview_table(c) + send_notes(c)
     # The same two queues the hero counts, added the same way, so this number and
     # the hero's agree.
     send_now = (c.queue_counts.get("long_tail", 0)
@@ -155,6 +182,7 @@ def p_send(c):
 
 
 def p_wait(c):
+    """The rule for leaving a frame alone, and the numbers behind the thresholds."""
     best = c.best
     body = (f'<div class="rec"><strong>Suggested rule: leave a frame for later when '
             f'Pl@ntNet is at least {RECOMMENDED_CONF} confident and its species already has '
@@ -203,6 +231,8 @@ def p_wait(c):
 
 
 def p_rules(c):
+    """Every confidence threshold side by side, so the recommended one is a choice
+    a reader can check rather than a number to accept."""
     body = table([("how sure the model has to be", False), ("frames that can wait", True),
                   ("share of the queue", True), ("of those, first guess wrong", True),
                   ("rarely-labelled frames it pushed down", True),
@@ -227,6 +257,8 @@ def p_rules(c):
 
 
 def p_conf(c):
+    """How often the first guess is right at each confidence band, over all frames
+    at once. This is the evidence that ordering the queue by confidence works."""
     # Same blue as the next panel's chart: same measure, so a colour change would
     # read as meaning something. Green is spoken for by the status tags.
     flat = c.flat

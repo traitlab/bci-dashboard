@@ -33,6 +33,11 @@ TITLE = "BCI labelling: what to label next"
 
 
 def build(h, *, generated, verify_dir, fallback_tag):
+    """The queue page: which photos to label next, and why that order.
+
+    Gated on both queue CSVs in the snapshot, since the order is this page's
+    whole subject. The review queue belongs to the model-health page.
+    """
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
 
     # The send queue is this page's whole subject, so it gates on both queue
