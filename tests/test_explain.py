@@ -1,6 +1,6 @@
 """Direct tests for the prose panels in dashboard/explain.py.
 
-`candidates_panel`, `weighting_panel` and `method_panel` are pure functions of
+`weighting_panel` and `method_panel` are pure functions of
 their arguments, so every test here calls them with hand-built records rather
 than building a page or reading a snapshot.
 
@@ -72,30 +72,6 @@ def test_near_miss_ignores_a_correct_first_guess(explain):
 
 def test_near_miss_of_the_empty_list_is_zero_and_zero(explain):
     assert explain._near_miss([]) == (0, 0.0)
-
-
-# --- candidates_panel ---------------------------------------------------------
-
-def _candidates_recs():
-    return [
-        {"ranked": [("sp1", 0.6)]},
-        {"ranked": [("sp2", 0.3), ("sp3", 0.2)]},
-    ]
-
-
-def test_candidates_panel_returns_a_balanced_string_with_the_given_numbers(explain):
-    out = explain.candidates_panel(recs=_candidates_recs(), n_scored=4, gen_n=7, gen_none=3)
-    assert isinstance(out, str)
-    assert _balanced(out)
-    assert "7" in out
-    assert "3" in out
-
-
-def test_candidates_panel_names_the_longest_list_length_returned(explain):
-    # top = max list length across recs, so a 1-guess and a 2-guess record
-    # must report 2 as the cap, not the number of records.
-    out = explain.candidates_panel(recs=_candidates_recs(), n_scored=4, gen_n=0, gen_none=0)
-    assert "2 guesses" in out
 
 
 # --- weighting_panel -----------------------------------------------------------

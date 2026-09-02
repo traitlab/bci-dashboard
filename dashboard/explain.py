@@ -6,17 +6,9 @@ and the untestable assumption. Every figure is verified from ``core`` or
 recomputed from the same records, so no rate is hardcoded here.
 """
 
-from collections import Counter
-from statistics import median
-
 import core as hc
-from assets import esc, panel, pctf, svg_hbar, svg_weight_pair
+from assets import esc, panel, pctf, svg_weight_pair
 from crop_overlap import CROP_SIZE
-
-# Said in two panels a reader can open independently, the species table and the
-# candidates panel. Written once so the two cannot say it in two voices.
-CONFIDENCE_IS_SHARED = ("Pl@ntNet spreads 100% of its confidence across every "
-                        "species it knows.")
 
 # One colour and name per labelled-frame band, both bars of the weighting chart.
 # All 4.5:1 against white so the in-bar number is readable.
@@ -75,88 +67,6 @@ def _near_miss(recs):
               [b for b, _ in r["ranked"][:hc.N_CANDIDATES]])
     return len(wrong), got / len(wrong) if wrong else 0.0
 
-
-def candidates_panel(*, recs, n_scored, gen_n, gen_none):
-    """Where the five-candidate limit comes from, and what it hides. ``recs``
-    is every frame with a prediction, species-level or not: a slightly
-    larger set than ``n_scored``, the frames accuracy is measured on.
-    """
-    lens = Counter(len(r["ranked"]) for r in recs)
-    top = max(lens)
-    full = lens[top]
-    rows = [(f"{k} guess{'' if k == 1 else 'es'}", lens[k] / len(recs),
-             f"{lens[k]:,} frames", "#1b5e20" if k == top else "#78909c")
-            for k in range(1, top + 1) if lens[k]]
-    # Two cuts, one from each end: our nb-results and Pl@ntNet's own floor.
-    scores = [s for r in recs for _, s in r["ranked"]]
-    floor = min(scores)
-    # What makes it a floor rather than a coincidence: dense right above, stopping
-    # dead on a round number. "Nothing is below the minimum" is true of any list.
-    at_floor = sum(1 for s in scores if s == floor)
-    just_above = sum(1 for s in scores if floor < s < 2 * floor)
-    hidden = {n: median([1.0 - sum(s for _, s in r["ranked"])
-                         for r in recs if len(r["ranked"]) == n])
-              for n in lens if lens[n]}
-    half = sum(1 for r in recs
-               if len(r["ranked"]) == top and sum(s for _, s in r["ranked"]) < 0.5)
-    # Read off the list lengths this corpus returned. Naming 1 and 4 outright
-    # crashed on a corpus without them, and the point is the trend, not those two.
-    shortest = min(hidden)
-    middles = [k for k in sorted(hidden) if shortest < k < top]
-    mid = middles[len(middles) // 2] if middles else None
-    mid_clause = (f", and {pctf(1 - hidden[mid])} when it returns {mid}" if mid else "")
-    return panel(
-        f"Why only {top} guesses per photo, and what that hides",
-        f"<b>Two different limits cut that list, one at each end.</b> We asked for the best "
-        f"{top}, and Pl@ntNet drops anything it scores below {floor:.3f} whether we asked "
-        f"for "
-        f"it or not. Both put a ceiling on the numbers above.",
-        # Explicit: the summary states the list length, which is a fetch setting
-        # rather than a fixed fact, so it must not decide the anchor.
-        f'<p class="note">Every request carried <code>nb-results={top}</code>: reply with '
-        f'your {top} best guesses, best first. Pl@ntNet publishes no maximum and no default '
-        f'for it, so a longer list would be capped only by how many candidates the model '
-        f'has. We chose the {top}. It is a setting in our own <code>config.yaml</code> '
-        f'(<code>identify_nb_results</code>), nobody wrote down why, and we can change it. '
-        f'It is not a limit of the model.</p>'
-        + f'<p class="note">The chart below counts the {len(recs):,} labelled frames that '
-          f'have a cached Pl@ntNet answer. That is more than the {n_scored:,} frames the '
-          f'accuracy rates are measured on. A list length can be read off a frame whose '
-          f'label stops at the genus, but an accuracy cannot.</p>'
-        + svg_hbar(rows, title=f"how long the returned list actually was, {len(recs):,} frames")
-        + f'<p class="note">{full:,} of {len(recs):,} photos came back with a full {top} '
-          f'({pctf(full / len(recs))}) and none came back with more. The shorter lists are '
-          # One notation only for the floor, not a percentage and a decimal.
-          f'the other cut: <b>Pl@ntNet never returns a species it scores below '
-          f'{floor:.3f}</b>. Of the {len(scores):,} guesses here, {at_floor} sit exactly on '
-          f'{floor:.3f} and {just_above:,} more just above it, under {2 * floor:.3f}. '
-          f'Nothing goes lower. A model that simply ran out of guesses would not stop dead '
-          f'on a round number, so {floor:.3f} is a cut-off Pl@ntNet applies. A short list '
-          f'means fewer than {top} '
-          f'species cleared it.</p>'
-          f'<p class="note">{CONFIDENCE_IS_SHARED} When it returns only {shortest}, '
-          f'that species holds '
-          f'{pctf(1 - hidden[shortest])} of the whole{mid_clause}. <b>When it returns a full '
-          f'{top}, those {top} hold only {pctf(1 - hidden[top])} between them</b>, so a '
-          f'typical {pctf(hidden[top])} sits on species we never received. On {half:,} of '
-          f'the {full:,} full lists ({pctf(half / full)}) more than half the confidence '
-          f'sits outside the {top}.</p>'
-          f'<p class="note"><b>What the cap hides is a right answer in position {top + 1}</b>, '
-          f'indistinguishable here from Pl@ntNet never having heard of the plant. Both look '
-          f'like a miss.</p>'
-          f'<p class="note">The clearest symptom is among the {gen_n:,} frames whose botanist '
-          f'label stops at the genus. On {gen_none:,} of them no species from that genus '
-          f'appears anywhere in the {top}. For a genus the model plainly knows, some of those '
-          f'right answers are sitting in the confidence we never got to see.</p>'
-          f'<p class="note">Raising it is not free. These answers are cached, so rebuilding '
-          f'this page costs nothing. But a longer list means asking Pl@ntNet again for every '
-          f'photo in the collection, at one paid call each.</p>'
-          f'<p class="note"><b>If that call is made, ask for more than a longer list.</b> '
-          f'The same endpoint takes <code>detailed=true</code>, which also returns results '
-          f'per genus and per family. A genus label is scored here by chopping the genus off '
-          f'a predicted species name, and a family label cannot be scored offline at '
-          f'all.</p>',
-        anchor="why-only-five-guesses-per-photo")
 
 
 def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,

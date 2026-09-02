@@ -23,7 +23,7 @@ from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
 from history import latest_snapshot_dir
 from confirmatory_panels import p_caveats, p_confirmatory
 from panels import (
-    p_candidates, p_ceiling, p_counts, p_method, p_review, p_species, p_terms,
+    p_ceiling, p_counts, p_method, p_review, p_species, p_terms,
     p_weighting)
 from queue_panels import p_conf, p_rules, p_send, p_todo, p_wait
 
@@ -62,7 +62,6 @@ PANELS = {
     "weighting": ("model-health", p_weighting),
     "species": ("model-health", p_species),
     "review": ("model-health", p_review),
-    "candidates": ("limits", p_candidates),
     "ceiling": ("limits", p_ceiling),
     "method": ("limits", p_method),
 }
@@ -75,7 +74,7 @@ INTERNAL_PANELS = ("todo", "send", "wait", "rules", "conf")
 # because frame, crown, label and centre crop are load-bearing from the first
 # card down; the species lookup comes before the averaging argument.
 EXTERNAL_PANELS = ("terms", "counts", "confirmatory", "caveats", "species", "review",
-                   "weighting", "candidates", "ceiling", "method")
+                   "weighting", "ceiling", "method")
 
 if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
     raise SystemExit(f"every panel belongs to a page: "
