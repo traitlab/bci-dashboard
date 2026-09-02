@@ -34,8 +34,17 @@ def latest_snapshot_dir() -> str:
 
 
 def snapshot_date_of(snap_dir: str) -> str:
+    """The date the page prints: when the botanist's labels were merged.
+
+    A model-health-<date>/ folder carries it in its name. build/tables does
+    not, so fall back to the merge date in the ground-truth sidecar, which is
+    the same event the folder name records.
+    """
     m = SNAPSHOT_DIR.search(snap_dir.rstrip("/"))
-    return m.group(1) if m else "unknown"
+    if m:
+        return m.group(1)
+    on = re.search(r"on (\d{4}-\d{2}-\d{2})", hc.gt_provenance())
+    return on.group(1) if on else "unknown"
 
 
 def fail(msg):
