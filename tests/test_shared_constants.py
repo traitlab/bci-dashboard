@@ -271,6 +271,14 @@ def test_the_tile_window_is_the_one_the_survey_call_documents():
         f"crown.py counts crowns under {px}px and ingest_photos.py documents a "
         f"different window. One of the two moved.")
 
+    # The same docstring writes the width down a second time, in the line
+    # recording what the API actually reported on a real frame.
+    run = re.search(r"tile_size (\d+) / tile_stride \d+", survey)
+    assert run, "ingest_photos.py no longer records the measured tile run"
+    assert run.group(1) == px, (
+        f"the survey docstring says a {px}px window and then reports "
+        f"tile_size {run.group(1)} from the run that measured it")
+
 
 # Every tracked script, by the folders that hold them.
 SCRIPTS = [path
@@ -343,3 +351,35 @@ def test_the_note_over_edge_tolerance_still_counts_the_boxes_it_claims():
         value_of("EDGE_TOLERANCE", "dashboard/crop_overlap.py")), (
         "a box now hangs further outside the frame than EDGE_TOLERANCE "
         "forgives, so the overhang is no longer a rounding artifact")
+
+
+def test_the_low_confidence_note_states_what_the_calibration_table_measured():
+    """`core.LOW_CONF` carries a comment saying the model's first guess is
+    right only about 38% of the time below it. That is not a rule anyone chose,
+    it is a measurement off the calibration table, and the table is rebuilt
+    every run. Nothing was comparing the two, so the day the number moved the
+    comment would keep telling the next reader the old figure while the queue
+    it justifies changed underneath it.
+    """
+    from conftest import SNAPSHOT_DIR
+
+    core = (REPO / "dashboard" / "core.py").read_text(encoding="utf-8")
+    said = re.search(r"right only ~(\d+)% of the time", core)
+    assert said, "core.py no longer states a rate under LOW_CONF in words"
+
+    low = float(value_of("LOW_CONF", "dashboard/core.py"))
+    band = f"[0.0,{low})"
+    table = SNAPSHOT_DIR / "confidence_calibration.csv"
+    if not table.exists():
+        pytest.skip(f"{table} not present (fresh clone)")
+    rows = [r for r in csv.DictReader(table.read_text(encoding="utf-8").splitlines())
+            if r["row_type"] == "bin" and r["scope"] == "all_species_level_gt"
+            and r["band"] == band]
+    assert len(rows) == 1, (
+        f"expected one {band} bin over every species-level label, got {len(rows)}. "
+        f"Either LOW_CONF moved and the bin edges did not follow it, or the "
+        f"scope was renamed.")
+    measured = round(100 * float(rows[0]["top1_accuracy"]))
+    assert int(said.group(1)) == measured, (
+        f"core.py says ~{said.group(1)}% under LOW_CONF={low} and the latest "
+        f"calibration table measured {measured}% over {rows[0]['n_crowns']} crowns")
