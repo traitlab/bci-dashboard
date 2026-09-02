@@ -67,11 +67,14 @@ def _near_miss(recs):
     return len(wrong), got / len(wrong) if wrong else 0.0
 
 
-def candidates_panel(*, recs, gen_n, gen_none):
+def candidates_panel(*, recs, n_scored, gen_n, gen_none):
     """Where the five-candidate limit comes from, and what it hides.
 
     ``recs`` is every frame that got a prediction, species-level or not, so the
-    list-length picture covers the same photos the rest of the page scores.
+    list-length picture covers a slightly larger set than ``n_scored``, the frames
+    the accuracy rates are measured on. That difference is stated on the page:
+    the count first appeared as a bare chart label, leaving a reader to guess why
+    the page had two totals.
     """
     lens = Counter(len(r["ranked"]) for r in recs)
     top = max(lens)
@@ -113,6 +116,10 @@ def candidates_panel(*, recs, gen_n, gen_none):
         f'<code>config.yaml</code> value (<code>identify_nb_results: {top}</code>) with no '
         f'recorded reason behind it. It is a setting to revisit, not a property of the '
         f'model.</p>'
+        + f'<p class="note">The chart below counts the {len(recs):,} labelled frames that '
+          f'have a cached Pl@ntNet answer. That is more than the {n_scored:,} frames the '
+          f'accuracy rates are measured on. A list length can be read off a frame whose '
+          f'label stops at the genus, but an accuracy cannot.</p>'
         + svg_hbar(rows, title=f"how long the returned list actually was, {len(recs):,} frames")
         + f'<p class="note">{full:,} of {len(recs):,} photos came back with a full {top} '
           f'({pctf(full / len(recs))}) and none came back with more. The shorter lists are the '
@@ -175,7 +182,9 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
     return panel(
         f"Every labelled frame, scored on the centre crop: four rates, and why "
         f"{pctf(now['micro_top1'])} and {pctf(now['macro_top1'])} disagree",
-        "<b>Quote the per-species number.</b> Both rates are right, and they answer "
+        "<b>Of the four rates in this panel, quote the per-species one.</b> The page\u2019s "
+        "own headline is still the number at the top; these four cover every labelled "
+        "frame instead of the frozen sample. Both rates here are right, and they answer "
         "different questions. Per species asks how many kinds of tree the model can "
         "name, which is what a labelling programme moves. Per frame asks how often it "
         "is right on a photo picked at random, which the commonest species decide.",

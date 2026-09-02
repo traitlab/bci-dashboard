@@ -84,7 +84,7 @@ def _candidates_recs():
 
 
 def test_candidates_panel_returns_a_balanced_string_with_the_given_numbers(explain):
-    out = explain.candidates_panel(recs=_candidates_recs(), gen_n=7, gen_none=3)
+    out = explain.candidates_panel(recs=_candidates_recs(), n_scored=4, gen_n=7, gen_none=3)
     assert isinstance(out, str)
     assert _balanced(out)
     assert "7" in out
@@ -94,7 +94,7 @@ def test_candidates_panel_returns_a_balanced_string_with_the_given_numbers(expla
 def test_candidates_panel_names_the_longest_list_length_returned(explain):
     # top = max list length across recs, so a 1-guess and a 2-guess record
     # must report 2 as the cap, not the number of records.
-    out = explain.candidates_panel(recs=_candidates_recs(), gen_n=0, gen_none=0)
+    out = explain.candidates_panel(recs=_candidates_recs(), n_scored=4, gen_n=0, gen_none=0)
     assert "2 guesses" in out
 
 

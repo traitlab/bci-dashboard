@@ -652,7 +652,10 @@ def p_caveats(c):
         f'that lopsided almost never happens by chance, so we are confident it is real.</p>'
         f'<p class="note">For the record, the two tests the plan named. The site-aware '
         f'resampling test, the one described above, gives '
-        f'p {pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}. An exact McNemar test '
+        f'p {pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}. A <b>p</b> is the '
+        f'chance of seeing a gap at least this big if outlining made no difference at all. '
+        f'A smaller p means a result less easily explained by luck. The other test named '
+        f'in the plan, an exact McNemar test, '
         f'gives p = {cf["p_mcnemar_exact"]:.5f}. McNemar assumes every frame is independent '
         f'of every other, and frames from one site are not. So the plan named the resampling '
         f'test as the answer where the two disagree. The narrower kind of range every other '
@@ -718,7 +721,8 @@ def p_terms(c):
 
 
 def p_candidates(c):
-    return candidates_panel(recs=c.sp_recs + c.h.genus_recs, gen_n=c.gn, gen_none=c.gen_none)
+    return candidates_panel(recs=c.sp_recs + c.h.genus_recs, n_scored=c.n,
+                            gen_n=c.gn, gen_none=c.gen_none)
 
 
 def p_weighting(c):
