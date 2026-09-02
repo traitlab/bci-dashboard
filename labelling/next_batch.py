@@ -1,49 +1,35 @@
 """What to send to the Labelbox project next, and why.
 
-Answers the standing question -- "the goal is to know which picture in the
-dataset to send to the project" -- from the two things a read-only key can
-actually reach: the dataset inventory (``labelling/fetch_dataset.py``) and a
-project export dropped on disk.
+Answers the standing question, "which picture in the dataset do we send to the
+project", from the two things a read-only key can reach: the dataset inventory
+(``labelling/fetch_dataset.py``) and a project export dropped on disk.
 
-What comes out, and how far each part can be trusted:
+Three files come out, and they are not equally trustworthy.
 
 ``queue_contradictions.csv``  (ready to dispatch)
-    Crowns where the field label and the Pl@ntNet top-1 disagree at high
-    confidence -- the review the field team asked for -- resolved onto global
-    keys that exist in the current dataset. Every row is backed by a cached
-    prediction and a botanist label, so the ranking is a measurement.
+    Crowns where the field label and Pl@ntNet's first guess disagree at high
+    confidence, the review the field team asked for. Every row is backed by a
+    cached prediction and a botanist label, so the ranking is a measurement.
 
 ``queue_missions.csv``  (ready to dispatch, coarse)
-    The flights whose photos are in the dataset but not yet in the project,
-    largest first. Mission is the unit the team already batches in: the single
-    non-legacy batch in the export is one whole mission. Nothing here ranks
+    Flights whose photos are in the dataset but not in the project, largest
+    first. Mission is the unit the team already batches in. Nothing ranks
     *within* a mission, because nothing available can.
 
-``queue_photos.csv``  (provisional -- read the caveat)
-    Every unsent photo, ordered by mission then by a file-size proxy. This is a
-    dispatch convenience, not a priority signal.
+``queue_photos.csv``  (a dispatch list, not a priority signal)
+    Every unsent photo, ordered by mission then by file size.
 
-The caveat, stated once, plainly. Ranking the unsent photos by what they
-would teach the model needs one of three things, and this script has none of
-them:
+Why the third is only a list: ranking unsent photos by what they would teach
+the model needs a prediction or an embedding per photo, and this script has
+neither. The cache covers the legacy corpus only, and Labelbox holds the
+embeddings behind an export task a read-only key cannot create.
+``predict/embed.py`` computes an embedding from the pixels instead, and
+``labelling/rank_unsent.py`` ranks the pool over those vectors. That is the
+order to dispatch in.
 
-  * a Pl@ntNet prediction per photo -- none of the unsent photos has one
-    cached, the local cache covers only the legacy corpus;
-  * an embedding per photo -- present in Labelbox, but reachable only through
-    an export task, which a read-only key cannot create (verified: dataset
-    export fails with AuthorizationError, same as project export);
-  * a crown identity, to tell a new tree from one photographed before.
-
-The first two have since been answered elsewhere: ``predict/embed.py``
-computes an embedding per photo from the image pixels, which needs no export
-task, and ``labelling/rank_unsent.py`` ranks the unsent pool over those
-vectors. That ranking replaces the ``queue_photos.csv`` order below, which
-stays only as the dispatch list it always was.
-
-The third was tested and does not exist in the metadata. See
-``labelling/polygon_identity.py`` -- both candidate proxies were checked
-against ground truth and both failed. Any queue claiming to deduplicate
-crowns from this metadata would be making it up.
+Telling a new tree from one photographed before would be better still, and the
+metadata cannot do it: ``labelling/polygon_identity.py`` checked both proxies
+against the labels and both failed.
 
 Read-only. Nothing is written back to Labelbox.
 
@@ -51,9 +37,9 @@ Usage:
     python3 labelling/next_batch.py \\
         --export "/path/to/Export  project - 2024_bci - 8_6_2026.ndjson"
 
-Which project block is read out of the export comes from
-``LABELBOX_PROJECT_ID`` if the environment or ``.env`` carries it, and from
-``config.yaml`` otherwise. ``--project-id`` beats both.
+Which project block is read comes from ``LABELBOX_PROJECT_ID`` if the
+environment or ``.env`` carries it, and from ``config.yaml`` otherwise.
+``--project-id`` beats both.
 """
 from __future__ import annotations
 
