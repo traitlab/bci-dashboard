@@ -389,7 +389,9 @@ def test_the_low_confidence_note_states_what_the_calibration_table_measured():
 # computed. `predict/draw_confirmatory.N` is the one definition; each of these
 # is a sentence a reader believes.
 FROZEN_SIZE_IN_WORDS = [
-    ("dashboard/confirmatory_panels.py", "These {n} frames were not chosen"),
+    # confirmatory_panels.py had a copy inside the A2 quote. That quote moved to
+    # bci-dashboard-docs/metrics.md on 2026-09-02; the panel now renders every
+    # count from the frozen result file, so there is no sentence left to drift.
     ("dashboard/score_confirmatory.py", "Score the frozen {n}"),
     ("dashboard/score_confirmatory.py", "a rate over {n} frames"),
     # CONTEXT.md says it too, and DOC_NUMBERS above already holds that copy.

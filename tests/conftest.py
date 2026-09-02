@@ -364,7 +364,7 @@ def species_rows(html: str) -> list[str]:
 PAGES = {
     "external_page": ("build_external.py", "model_health_dashboard.html",
                       {"species", "species_status", "species_thin",
-                       "confirmatory", "snapshot"}),
+                       "floor", "snapshot"}),
     "internal_page": ("build_internal.py", "label_queue_dashboard.html",
                       {"queue_counts", "queue_keys", "snapshot"}),
     "export_only_page": ("build_export_only.py", "export_only_dashboard.html",

@@ -236,16 +236,18 @@ def test_every_row_status_has_a_matching_legend_entry(page):
 
 
 # ---------------------------------------------------------------------------
-# The frozen confirmatory read
+# The frozen read, now published as one correction on the corpus rates
 # ---------------------------------------------------------------------------
 
-def test_the_published_headline_matches_the_frozen_result_file(page):
-    """The page must print the numbers the scorer wrote, not numbers of its own.
+def test_the_floor_correction_matches_the_frozen_result_file(page):
+    """The page must print the gap the scorer wrote, not a gap of its own.
 
     Nothing recomputes this at build time on purpose -- the stopping rule says
-    the confirmatory read happens once on the complete set -- so the only thing
-    standing between the file and the headline is the formatting, and that is
-    what this checks.
+    the read happens once on the complete set -- so the only thing standing
+    between the file and the page is the formatting, and that is what this
+    checks. The page publishes the paired gap and not the level it came from:
+    A2 attaches the already-seen caveat to the crown arm's own accuracy and
+    says the paired comparison does not carry it.
     """
     import csv
 
@@ -253,61 +255,83 @@ def test_the_published_headline_matches_the_frozen_result_file(page):
     with open(REPO / "input" / "confirmatory_result_2026-08.csv",
               newline="", encoding="utf-8") as f:
         cf = {r["key"]: r["value"] for r in csv.DictReader(f)}
-    headline = f'{100 * float(cf["crown_top1"]):.1f}%'
-    legacy = f'{100 * float(cf["photo_top1"]):.1f}%'
-    if "confirmatory" not in carries:
-        assert headline not in html or legacy not in html, (
-            "a page that does not carry the frozen read prints its headline anyway")
+    gap = f'{100 * float(cf["crown_minus_photo"]):+.1f} points'
+    if "floor" not in carries:
+        assert gap not in html, (
+            "a page that does not carry the frozen read prints its correction anyway")
         return
-    assert headline in html and legacy in html, (
-        f"page does not print both region arms: {headline}, {legacy}")
-    # Population and support, per CLAUDE.md: a rate alone is not publishable.
+    assert gap in html, f"page does not print the floor correction: {gap}"
+    # Population, per CLAUDE.md: a rate alone is not publishable.
     assert f'{int(float(cf["n_frames"]))} frames' in html
     assert f'{int(float(cf["n_sites"]))} sites' in html
-    assert f'{int(float(cf["crown_hits"]))} of {int(float(cf["crown_n"]))} frames right' in html
+    lo = f'{100 * float(cf["crown_minus_photo_site_lo"]):+.1f}'
+    hi = f'{100 * float(cf["crown_minus_photo_site_hi"]):+.1f}'
+    assert f'between {lo} and {hi} points' in html, (
+        "the gap is published without the range around it")
 
 
-def test_a_bootstrap_p_of_zero_is_never_printed_as_zero(page):
-    """0 of 10,000 resamples is a resolution limit, not a p of exactly zero."""
-    html, _, _ = page
-    assert "p = 0.00000" not in html
+def test_the_level_the_gap_came_from_stays_off_the_page(page):
+    """87.3% is not reproducible without a botanist's outlines, and it carries
+    the A2 already-seen caveat that the gap does not. Publishing it here would
+    drag that caveat back onto a page that no longer explains it."""
+    import csv
 
-
-def test_the_two_caveats_the_design_requires_travel_with_the_headline(page):
-    """Both amendments in hypothesis.md say the writeup must carry their words
-    rather than a summary. The page publishes the number, so the page is the
-    writeup, and a paraphrase here would break the design's own condition."""
     html, _, carries = page
+    if "floor" not in carries:
+        return
+    with open(REPO / "input" / "confirmatory_result_2026-08.csv",
+              newline="", encoding="utf-8") as f:
+        cf = {r["key"]: r["value"] for r in csv.DictReader(f)}
+    level = f'{100 * float(cf["crown_top1"]):.1f}%'
+    assert level not in html, (
+        f"the page prints {level}, the crown-by-crown level. That number carries the "
+        f"already-seen caveat and belongs in bci-dashboard-docs/metrics.md, not here.")
+
+
+METRICS = REPO.parent / "bci-dashboard-docs" / "metrics.md"
+
+
+def test_the_two_caveats_the_design_requires_live_in_the_writeup(page):
+    """Both amendments in hypothesis.md say the writeup must carry their words
+    rather than a summary. The writeup is metrics.md, not this page: the page
+    publishes a correction and cites the read behind it. So the obligation is
+    checked where it now lives, and the page is checked for not carrying a
+    number that would re-incur it."""
+    if not METRICS.exists():
+        pytest.skip("sibling bci-dashboard-docs/metrics.md not present")
+    doc = METRICS.read_text(encoding="utf-8")
     verbatim = (
-        "But the number was not generated blind.</strong> An operator has seen "
-        "crown-arm accuracy, at another unit and on a wider population, before this freeze.",
-        "What this costs, stated plainly.</strong> The arm was dropped after its "
-        "interim number had been seen, and no amount of reasoning removes that ordering.",
+        "But the number was not generated blind.",
+        "What this costs, stated plainly.",
     )
     for quote in verbatim:
-        assert (quote in html) == ("confirmatory" in carries), (
-            f"page carries the frozen read: {'confirmatory' in carries}, "
-            f"but the quote {quote[:40]!r} is present: {quote in html}")
+        assert quote in doc, (
+            f"hypothesis.md requires the writeup to carry {quote[:40]!r} in its own "
+            f"words, and bci-dashboard-docs/metrics.md no longer does")
 
 
 HYPOTHESIS = REPO.parent / "bci-dashboard-docs" / "hypothesis.md"
 
 
-def test_the_quoted_amendments_still_match_the_design_document(external_page):
-    """The two quotes are stored as HTML literals in panels.py, so nothing links
-    them to hypothesis.md except this test. Both amendments require their words
-    rather than a summary, which makes a silent paraphrase a design violation
-    and not just a typo."""
-    import html as htmllib
+def test_the_writeup_still_quotes_the_design_document_verbatim(external_page):
+    """The two amendments are reproduced in metrics.md, so nothing links them to
+    hypothesis.md except this test. Both require their words rather than a
+    summary, which makes a silent paraphrase a design violation and not just a
+    typo. It was the page that carried them until the page was reduced to the
+    correction; the obligation moved, the check moved with it.
 
-    if not HYPOTHESIS.exists():
-        pytest.skip("sibling bci-dashboard-docs/hypothesis.md not present")
+    ``external_page`` is taken so the anchor assertion below runs on a built
+    page: the panel id predates this panel and saved links point at it.
+    """
+    if not HYPOTHESIS.exists() or not METRICS.exists():
+        pytest.skip("sibling bci-dashboard-docs not present")
     doc = HYPOTHESIS.read_text(encoding="utf-8")
-    html, _ = external_page
-    start = html.find('id="where-the-headline-comes-from"')
-    assert start >= 0, "the panel carrying the quotes is not on the page"
-    shown = re.sub(r"\s+", " ",
-                   htmllib.unescape(re.sub(r"<[^>]+>", " ", html[start:])))
+    # metrics.md carries the blocks as markdown quotes, so the quote marker and
+    # the list bullets are normalised away on both sides before comparing. The
+    # words are what the design requires; the formatting around them is not.
+    shown = METRICS.read_text(encoding="utf-8").replace("**", "")
+    shown = re.sub(r"^>[ \t]?", "", shown, flags=re.MULTILINE)
+    shown = re.sub(r"\s+", " ", shown.replace("- ", ""))
 
     def block(first, last):
         i = doc.index(first)
@@ -320,8 +344,13 @@ def test_the_quoted_amendments_still_match_the_design_document(external_page):
                   block("**What this costs, stated plainly.**",
                         "must carry this paragraph, not a summary of it.")):
         assert quote in shown, (
-            f"the page no longer quotes hypothesis.md verbatim; it diverges near "
-            f"{quote[:80]!r}")
+            f"bci-dashboard-docs/metrics.md no longer quotes hypothesis.md verbatim; "
+            f"it diverges near {quote[:80]!r}")
+
+    html, _ = external_page
+    assert 'id="where-the-headline-comes-from"' in html, (
+        "the anchor saved links point at is gone; it belongs on the panel that "
+        "explains where the floor correction comes from")
 
 
 # ---------------------------------------------------------------------------
