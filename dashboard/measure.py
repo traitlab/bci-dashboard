@@ -14,7 +14,6 @@ from __future__ import annotations
 import argparse
 import csv
 import os
-import sys
 from collections import Counter, defaultdict
 
 from core import (
@@ -185,11 +184,8 @@ def main() -> None:
     log("Pl@ntNet on BCI -- offline per-species model health")
     log("=" * 84)
 
-    try:
-        h = load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
-                         wcvp_cache=args.wcvp_cache, log=log)
-    except FileNotFoundError as e:
-        sys.exit(str(e))
+    h = load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
+                    wcvp_cache=args.wcvp_cache, log=log)
 
     write_name_reconciliation(out_dir, h)
 
