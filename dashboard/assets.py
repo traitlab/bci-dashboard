@@ -240,16 +240,13 @@ def strip_comments(text: str) -> str:
 def css_for(css: str, page: str) -> str:
     """The stylesheet minus the rules for classes this page never renders.
 
-    One stylesheet covers every page, and the pages stopped being alike: the
-    queue page carried the sortable-header arrows, the filter strip, the status
-    legend and the four caveat boxes, none of which it has, at 1.3KB of a 29KB
-    file. A rule survives unless every one of its selectors names a class the
-    page never uses, so anything selecting an element, an id or a state stays
-    untouched.
+    One stylesheet covers pages that are no longer alike. A rule survives
+    unless every one of its selectors names a class the page never uses, so
+    anything selecting an element, an id or a state stays untouched.
 
     ``page`` is the built HTML, script included: the script writes classes of
-    its own (``hidden``, ``asc``, ``desc``) that appear in no markup, and every
-    quoted word in it counts as one rather than listing them here.
+    its own (``hidden``, ``asc``, ``desc``) that appear in no markup, so every
+    quoted word in it counts as a class.
     """
     used = set()
     for group in re.findall(r'class="([^"]+)"', page):

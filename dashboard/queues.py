@@ -105,9 +105,7 @@ def send_first_rows(predictions, joined_stems, canon, support, top1) -> tuple:
 
     Returns ``([(queue, stem, species, confidence), ...], n_no_answer)``.
     ``measure.py`` writes the CSV from this and ``figures.py`` counts the page
-    from it: both used to walk the cache themselves, and `verify_snapshot` then
-    compared the two lists row for row to catch the drift. One walk means there
-    is no drift to catch.
+    from it, so there is one walk of the cache and no drift to catch.
 
     Order is queue first, then least confident inside a queue, then the stem:
     the most uncertain frame of a group is the one most worth an expert look.

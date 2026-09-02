@@ -112,10 +112,8 @@ def build():
     suspect_frames lists base_images whose boxes fall outside the frame
     size, so their rectangle cannot be trusted.
 
-    The two box files and the frame geometry are the module constants above.
-    They were once five parameters defaulting to those constants, which no
-    caller in the repo ever passed and no test could have overridden anyway:
-    a default is bound when the function is defined, so pointing the module
+    The two box files and the frame geometry are the module constants above,
+    not parameters: a default is bound at definition, so pointing the module
     at another file would not have moved them.
     """
     rect = crop_rect()
