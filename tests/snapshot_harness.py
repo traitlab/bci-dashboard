@@ -17,7 +17,6 @@ from __future__ import annotations
 import copy
 import csv
 import inspect
-import re
 
 import pytest
 
@@ -49,13 +48,12 @@ REVIEW_COUNTS = (2, 2)
 
 
 def tolerance(history):
-    """close()'s own default tolerance, read out of verify_snapshot's source
-    rather than restated as a literal here, so a change to the constant
-    changes this test too."""
-    src = inspect.getsource(history.verify_snapshot)
-    m = re.search(r"def close\(a, b, tol=([0-9.eE+-]+)\)", src)
-    assert m, "close()'s signature changed shape; update tolerance()"
-    return float(m.group(1))
+    """``close``'s own default tolerance, taken off the function rather than
+    restated as a literal here, so a change to it changes this test too."""
+    default = inspect.signature(history.close).parameters["tol"].default
+    assert isinstance(default, float), (
+        f"close()'s tol is no longer a plain float default: {default!r}")
+    return default
 
 
 def write_csv(path, rows, fieldnames):
