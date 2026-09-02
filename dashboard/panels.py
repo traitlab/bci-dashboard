@@ -39,11 +39,9 @@ HEADLINES = [
 ]
 
 # Sits directly under the grid. Without it the two columns read as a
-# contradiction rather than as two questions.
-HERO_READING = (
-    "Read down a column, not across. Both rates are right, and they answer different "
-    "questions."
-)
+# contradiction. It used to add "and they answer different questions", which was
+# only an announcement of the paragraph below, where the two questions are named.
+HERO_READING = "Read down a column, not across. Both rates are right."
 
 # The two questions, one paragraph of their own: the sentence above says how to
 # read the grid, and these say which rate answers which question. Which one to
