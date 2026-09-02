@@ -115,7 +115,7 @@ def basename(global_key: str) -> str:
     project use ``migrated/NAME``, and rows uploaded by the current ingest use
     ``<flight_folder>/NAME``. The bare file name is the only id the three share.
     """
-    return global_key.rsplit("/", 1)[-1].removeprefix("comb_")
+    return global_key.rsplit("/", 1)[-1].removeprefix(hc.GT_KEY_PREFIX)
 
 
 def sensor_of(mission: str) -> str:

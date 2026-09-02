@@ -29,7 +29,7 @@ Output:
 
 Usage:
   python predict/crown.py
-  python predict/crown.py --run --max-calls 9500
+  python predict/crown.py --run
   python predict/crown.py --run --sample 500          # size-spanning pilot
   python predict/crown.py --run --frame-paired 700    # paired crown-vs-crop pilot
 """
