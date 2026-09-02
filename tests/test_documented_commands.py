@@ -91,3 +91,26 @@ def test_a_documented_command_names_a_script_that_takes_those_flags(
     assert not unknown, (
         f"{where} runs `{script} {' '.join(flags)}` and it does not take "
         f"{unknown}. Either the flag was renamed or the command was never run.")
+
+
+def test_the_refresh_script_writes_the_names_the_builders_default_to():
+    """`bin/refresh.sh` passes `--out` rather than taking the default.
+
+    That is deliberate: it writes into `build/` from whatever directory
+    launchd or a person started it in. But it means the page filenames are
+    written down twice, once as each builder's `OUT_NAME` and once in the
+    script, with nothing comparing them. Rename a page and the daily refresh
+    quietly keeps publishing the old filename while every other path in the
+    repo moves.
+    """
+    script = (REPO / "bin" / "refresh.sh").read_text(encoding="utf-8")
+    written = set(re.findall(r'--out "\$REPO/build/([\w.]+)"', script))
+    assert written, "no --out lines found in bin/refresh.sh"
+    for module in ("build_external.py", "build_internal.py"):
+        src = (REPO / "dashboard" / module).read_text(encoding="utf-8")
+        found = re.search(r'OUT_NAME = "([\w.]+)"', src)
+        assert found, f"dashboard/{module} no longer defines OUT_NAME"
+        assert found.group(1) in written, (
+            f"dashboard/{module} writes {found.group(1)} by default and "
+            f"bin/refresh.sh asks for {sorted(written)}. The daily refresh "
+            f"would publish under the old name.")
