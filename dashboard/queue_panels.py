@@ -153,7 +153,8 @@ def send_notes(c):
              f'all {c.scored_cams["zoom"]:,} of them. No botanist has labelled a frame from '
              f'{CAMERA_IS["tele"]}, so this page says nothing about those. They are '
              f'{c.queue_cams["tele"]:,} of the queue '
-             f'({pctf(c.queue_cams["tele"] / sum(c.queue_cams.values()))}); sending them is '
+             f'({pctf(hc.ratio(c.queue_cams["tele"], sum(c.queue_cams.values())))}); '
+             f'sending them is '
              f'how it becomes known.</p>')
     return body
 

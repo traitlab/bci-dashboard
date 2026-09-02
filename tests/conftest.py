@@ -202,6 +202,25 @@ def measure():
 
 
 @pytest.fixture(scope="session")
+def run_log():
+    """The prose `measure.py` writes to run_log.txt. Pure formatting over the
+    numbers it is handed, so it needs no measurement inputs of its own."""
+    with _on_path(REPO / "dashboard"):
+        import run_log
+        yield run_log
+
+
+@pytest.fixture(scope="session")
+def figures():
+    """The prepared context both pages render from. Its private helpers are
+    pure functions of the records passed in, so they are reachable without a
+    snapshot even though `prepare` is not."""
+    with _on_path(REPO / "dashboard"):
+        import figures
+        yield figures
+
+
+@pytest.fixture(scope="session")
 def status_words():
     """The status vocabulary all three pages share. Module constants only, so
     no snapshot is needed to read it."""
