@@ -10,7 +10,7 @@ order can be argued with first. Accuracy reporting is ``build_external.py``.
 Every number is recomputed from source, then cross-checked against the snapshot
 CSVs; a mismatch aborts the build. It gates on the two send-queue CSVs.
 
-No network, no key, no third-party package: one file that opens from file://.
+One file that opens from file://.
 """
 
 from __future__ import annotations

@@ -2,8 +2,7 @@
 
 Two self-contained HTML pages, built offline from files already on disk: a
 Labelbox export of botanist labels, plus cached Pl@ntNet responses. Each page is
-one file you can open, email, or drop on a share. No network call, no
-credential, no CDN.
+one file you can open, email, or drop on a share.
 
 | page | for | build it | it writes |
 |---|---|---|---|
@@ -72,7 +71,7 @@ Crop and box geometry comes from what the fetch recorded, never a constant.
 
 ```
    fetch side                          build side
-   needs API keys                      needs only disk + stdlib
+   needs API keys                      reads the files on disk
 
    predict/    ─┐
    labelling/   ├─>  files  ─> measure.py ─> nine CSVs  ─> build_*.py ─> HTML page
@@ -93,7 +92,7 @@ records a day the labels moved; no build reads one back.
 
 | | |
 |---|---|
-| `dashboard/` | measure, score, build the pages. Stdlib only |
+| `dashboard/` | measure, score, build the pages |
 | `predict/` | Pl@ntNet calls: per photo, per crown box, embeddings, checklist. Needs `PLANTNET_API_KEY` |
 | `labelling/` | Labelbox side: fold an export in, rank and send batches, fold results back. Needs `LABELBOX_API_KEY` |
 | `bin/refresh.sh` | the full chain, above |

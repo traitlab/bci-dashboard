@@ -1,6 +1,6 @@
 """Loading and joining: labels, splits and cached predictions into one ``Health``.
 
-Deterministic, no network. Reads the three inputs, reconciles every label name
+Deterministic. Reads the three inputs, reconciles every label name
 against the prediction vocabulary (optionally through a WCVP crosswalk), and
 builds the per-frame records and per-species aggregates every page counts from.
 

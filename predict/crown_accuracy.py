@@ -23,7 +23,7 @@ Confidence is reported per camera on purpose. A score threshold calibrated on
 zoom does not carry over, and several downstream cuts (the contradiction queue,
 any auto-accept rule) are exactly such a threshold.
 
-Stdlib only. Deterministic. No network calls.
+Deterministic.
 
 Run:  python3 predict/crown_accuracy.py
       python3 predict/crown_accuracy.py --cache-dir data/crowns/cache

@@ -6,7 +6,7 @@ Run:  python3 dashboard/measure.py
 Writes the files named in OUTPUTS below to --out-dir (default: build/tables),
 and prints headline numbers to stdout.
 
-Stdlib only (no pandas/numpy). Deterministic. No network calls.
+Deterministic.
 """
 
 from __future__ import annotations
