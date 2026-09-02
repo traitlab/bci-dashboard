@@ -433,12 +433,15 @@ def write_adjudication(rows, path, seed=SEED):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=core.summarise(__doc__))
-    ap.add_argument("--frozen", type=pathlib.Path, default=FROZEN)
+    ap.add_argument("--frozen", type=pathlib.Path, default=FROZEN,
+                    help="the list of frames frozen before the numbers existed")
     ap.add_argument("--adjudication", type=pathlib.Path,
                     help="write the blind adjudication sheet here")
     ap.add_argument("--out", type=pathlib.Path,
                     help="write the published numbers here as key,value rows")
-    ap.add_argument("--draws", type=int, default=BOOTSTRAP_DRAWS)
+    ap.add_argument("--draws", type=int, default=BOOTSTRAP_DRAWS,
+                    help=f"how many times to re-run the count for the range "
+                         f"(default: {BOOTSTRAP_DRAWS:,})")
     args = ap.parse_args(argv)
 
     frozen = load_frozen(args.frozen)

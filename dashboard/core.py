@@ -174,6 +174,26 @@ def summarise(doc: str) -> str:
     return " ".join(doc.strip().split("\n\n")[0].replace("``", "").split())
 
 
+# The four flags naming where the measurement inputs live. Every command that
+# reads them offers the same four, so the names, defaults and help live here and
+# each command asks for the ones it uses.
+INPUT_FLAGS = {
+    "--gt": (GT_CSV, "botanist labels, one row per frame"),
+    "--splits": (SPLITS_CSV, "which frames are held back for grading"),
+    "--cache-dir": (CACHE_DIR, "folder of cached Pl@ntNet answers, one file per photo"),
+    "--wcvp-cache": (WCVP_CACHE_JSON, "cached name crosswalk, used to match synonyms"),
+}
+
+
+def add_input_flags(p, *names: str, **help_overrides: str) -> None:
+    """Add the shared input-path flags to a parser, worded the same every time."""
+    for name in names or INPUT_FLAGS:
+        default, help_ = INPUT_FLAGS[name]
+        p.add_argument(name, default=default,
+                       help=help_overrides.get(name.lstrip("-").replace("-", "_"), help_)
+                            + f" (default: {os.path.relpath(default, REPO)})")
+
+
 def read_csv_rows(path: str) -> list[dict]:
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))

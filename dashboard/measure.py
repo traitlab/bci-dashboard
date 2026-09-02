@@ -18,13 +18,13 @@ import sys
 from collections import Counter, defaultdict
 
 from core import (
-    load_health, summarise,
+    add_input_flags, load_health, summarise,
     pct, ratio, fmt, genus_of, normalize, queue_of_prediction, chunk_send_batches,
     coverage_gate_stats, coverage_split, labelbox_urls, adjudicated_keys,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
     QUEUE_ORDER, REVIEW_CONF, BATCH_SIZE, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
-    GT_KEY_PREFIX, GT_CSV, SPLITS_CSV, CACHE_DIR, WCVP_CACHE_JSON,
+    GT_KEY_PREFIX,
 )
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -46,10 +46,7 @@ def log(msg: str = "") -> None:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=summarise(__doc__))
-    p.add_argument("--gt", default=GT_CSV, help="path to gt_dominant_taxon.csv")
-    p.add_argument("--splits", default=SPLITS_CSV, help="path to splits.csv")
-    p.add_argument("--cache-dir", default=CACHE_DIR, help="path to the Pl@ntNet response cache dir")
-    p.add_argument("--wcvp-cache", default=WCVP_CACHE_JSON, help="path to the local WCVP crosswalk cache")
+    add_input_flags(p)
     p.add_argument("--out-dir", default=OUT_DIR,
                    help=f"directory to write the {len(OUTPUTS)} output files to")
     return p.parse_args()

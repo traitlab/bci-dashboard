@@ -711,17 +711,15 @@ def parse_args(doc: str, default_out: str):
     import argparse
 
     ap = argparse.ArgumentParser(description=hc.summarise(doc))
-    ap.add_argument("--gt", default=hc.GT_CSV)
-    ap.add_argument("--splits", default=hc.SPLITS_CSV)
-    ap.add_argument("--cache-dir", default=hc.CACHE_DIR)
-    ap.add_argument("--wcvp-cache", default=hc.WCVP_CACHE_JSON)
+    hc.add_input_flags(ap)
     ap.add_argument("--verify-against", default=None,
                     help="directory holding the committed measurement CSVs to cross-check; "
                          "defaults to the newest model-health-<date>/ folder")
     ap.add_argument("--model-tag", default="unknown",
                     help="Pl@ntNet model iteration to record for a snapshot whose "
                          "run_log.txt does not name one")
-    ap.add_argument("--out", default=os.path.join(hc.REPO, "build", default_out))
+    ap.add_argument("--out", default=os.path.join(hc.REPO, "build", default_out),
+                    help=f"write the page here (default: build/{default_out})")
     ap.add_argument("--generated", default=None,
                     help="build date string; defaults to today (pass a fixed value for "
                          "byte-reproducible output)")

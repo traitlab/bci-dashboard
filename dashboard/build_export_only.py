@@ -223,19 +223,15 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
 def main() -> None:
     ap = argparse.ArgumentParser(description=hc.summarise(__doc__))
     ap.add_argument("--export", required=True, help="Labelbox project export NDJSON")
-    ap.add_argument(
-        "--splits",
-        default=hc.SPLITS_CSV,
-        help="splits.csv; used only to resolve a stem to a cache file, "
-        "never rendered as a corpus total on this page",
+    hc.add_input_flags(
+        ap, "--splits", "--cache-dir", "--wcvp-cache",
+        splits="read only to find each photo's cached answer; this page prints "
+               "no corpus total",
     )
-    ap.add_argument("--cache-dir", default=hc.CACHE_DIR)
-    ap.add_argument("--wcvp-cache", default=hc.WCVP_CACHE_JSON)
     ap.add_argument(
         "--out",
-        default=os.path.join(
-            hc.REPO, "build", "export_only_dashboard.html"
-        ),
+        default=os.path.join(hc.REPO, "build", "export_only_dashboard.html"),
+        help="write the page here (default: build/export_only_dashboard.html)",
     )
     ap.add_argument(
         "--generated", default=None, help="build date string; defaults to today"
