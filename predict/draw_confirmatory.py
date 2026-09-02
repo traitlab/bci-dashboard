@@ -2,35 +2,34 @@
 
 Every published accuracy number before this drew its frames the same way it
 drew its conclusions: after the fact. This script draws them first, from a
-seed, and writes the list to a file that is committed before a single API call
-is made. Re-running it reproduces the list byte for byte, which is the only
-thing that makes the later comparison confirmatory rather than exploratory.
+seed, and commits the list before a single API call is made. Re-running it
+reproduces the list byte for byte, which is what makes the later comparison
+confirmatory rather than exploratory.
 
 Eligibility. A frame earns a place only if both arms can score it against the
 same label:
 
   1. a species-level ground truth for the frame,
   2. a frame URL, so the pixels can be fetched,
-  3. an existing centre-crop prediction, so the legacy arm stays reportable
-     alongside the two region-aligned ones,
-  4. NO tiles cache entry, because the 146 frames already fetched were scored
+  3. an existing centre-crop prediction, so the legacy arm stays reportable,
+  4. no tiles cache entry, because the 146 frames already fetched were scored
      in an earlier session and their result has been seen,
-  5. at least one labelled crown at least 128 px on both sides IN THE SAME BOX
-     EXPORT THE GROUND TRUTH IS COMPUTED FROM, `data/export_boxes.csv`. The
-     tracked 2024 file carries three times as many boxes, but the July 2026
-     botanist revision is what defines the label, and a crown arm cut from a
-     different revision is not aligned with the label it is scored against.
+  5. a labelled crown at least MIN_BOX_SIDE px on both sides, in the same box
+     export the ground truth comes from, `data/export_boxes.csv`. The tracked
+     2024 file carries three times as many boxes, but the July 2026 botanist
+     revision defines the label, and a crown cut from a different revision is
+     not aligned with the label it is scored against.
 
-The pool is written to its own committed manifest. Eligibility reads live
-caches, and the fetch this draw authorises fills one of them, so a --verify that
-re-derived the pool would start failing the moment Phase 2 began. The manifest
-freezes the pool, and --verify redraws from the manifest.
+The pool gets its own committed manifest. Eligibility reads live caches, and
+the fetch this draw authorises fills one of them, so a --verify that re-derived
+the pool would fail the moment fetching began. The manifest freezes the pool
+and --verify redraws from it.
 
 Stratification. Frames are not independent draws: 47 flight days and 12 sites
 carry them, and one site holds a third of the pool. The draw is proportional to
 site, with any one site capped at CAP of the sample so a single plot cannot
-carry the headline. The excess a capped site sheds is redistributed over the
-uncapped ones, to a fixed point, then rounded by largest remainder.
+carry the headline. What a capped site sheds is spread over the uncapped ones,
+to a fixed point, then rounded by largest remainder.
 
     python predict/draw_confirmatory.py --rebuild-pool   # derive the pool, report
     python predict/draw_confirmatory.py --rebuild-pool --write
