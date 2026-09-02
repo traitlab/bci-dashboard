@@ -430,10 +430,11 @@ def p_counts(c):
 
     Was always-visible prose under the hero cards, and at 89 words it was a
     fifth of everything a reader saw before clicking. It answers a question
-    nobody has yet on landing: it is what you want when you have met 3,277 in
-    one panel and 3,749 in another and cannot tell whether the page contradicts
-    itself. Closed, with the three numbers in the summary, it is there the
-    moment that happens and costs nothing until then.
+    nobody has yet on landing: it is what you want when you have met one count
+    in one panel and a larger one in another and cannot tell whether the page
+    contradicts itself. Closed, with the three numbers in the summary, it is
+    there the moment that happens and costs nothing until then. The counts
+    themselves are not named here, only rendered: they move with the corpus.
     """
     return panel(
         f"Why three different frame counts: {c.n:,}, {c.n_pred:,} and {c.n_gt:,}",

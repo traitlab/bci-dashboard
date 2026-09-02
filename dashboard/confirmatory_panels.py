@@ -30,8 +30,8 @@ def cam_phrase(cameras):
 def pfmt(p, draws):
     """A bootstrap p that came back zero is a resolution limit, not a zero.
 
-    Printing 0.00000 claims a precision 10,000 resamples cannot buy, so a p
-    below one draw is reported as the bound the draw count supports.
+    Printing 0.00000 claims a precision the resamples cannot buy, so a p below
+    one draw is reported as the bound ``draws`` supports.
     """
     floor = 1.0 / draws
     return f"&lt; {floor:.4f}" if p < floor else f"= {p:.5f}"

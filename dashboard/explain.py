@@ -1,9 +1,11 @@
 """The model-health panels that are mostly explanation, not measurement.
 
-``weighting_panel`` answers how one model scores 81% and 56% at once;
-``method_panel`` names the model, settings, and the untestable assumption.
-Every figure is verified from ``core`` or recomputed from the same
-records; nothing is hardcoded.
+``weighting_panel`` answers how one model scores two rates far apart at
+once, counting species or counting frames; ``method_panel`` names the
+model, settings, and the untestable assumption. Every figure is verified
+from ``core`` or recomputed from the same records; nothing is hardcoded,
+which is why the two rates are not named here either. They were, and they
+went stale.
 """
 
 from collections import Counter
