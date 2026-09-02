@@ -110,3 +110,39 @@ def test_the_writer_and_the_reader_spell_the_crown_cache_name_alike():
         f"{writer} names the crown cache files and {reader} looks them up. "
         f"They no longer build the name the same way.")
 
+
+
+# What the README states as a number, and where the code keeps it. The README
+# is the first thing anyone reads and the last thing anyone reruns: every one
+# of these was typed out once and then left alone. Each entry is (the phrase
+# as the README writes it, a function that builds that phrase from source).
+def _crop_size():
+    return value_of("CROP_SIZE", "dashboard/crop_overlap.py")
+
+
+def _crop_share():
+    size = int(_crop_size())
+    frame = (int(value_of("FRAME_W", "dashboard/crop_overlap.py"))
+             * int(value_of("FRAME_H", "dashboard/crop_overlap.py")))
+    return f"{100 * size * size / frame:.1f}%"
+
+
+README_NUMBERS = [
+    ("the crop", lambda: f"{_crop_size()}x{_crop_size()}"),
+    ("the crop's share of the frame", _crop_share),
+    ("the coverage gate", lambda: f"`MIN_CROP_COVERAGE` ({value_of('MIN_CROP_COVERAGE', 'dashboard/core.py')})"),
+    ("the frozen sample", lambda: f"{value_of('N', 'predict/draw_confirmatory.py')} frames"),
+]
+
+
+@pytest.mark.parametrize("what,build", README_NUMBERS, ids=[r[0] for r in README_NUMBERS])
+def test_the_readme_still_states_the_numbers_the_code_holds(what, build):
+    """A reader who never opens the code takes the README's word for it. A
+    constant moved in the code and left standing here is a claim nothing
+    checks and nobody notices."""
+    phrase = build()
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
+    assert phrase in readme, (
+        f"README.md no longer states {what} as {phrase!r}. Either the code "
+        f"moved and the README did not, or the sentence was reworded and this "
+        f"check has to follow it.")

@@ -47,8 +47,8 @@ numbers wrong:
 - **Every other rate comes from a fixed 1280x1280 centre crop**, 13.7% of the
   frame, while a botanist draws crowns anywhere in it. The pages score every
   frame, with no coverage condition applied. `MIN_CROP_COVERAGE` (0.50) asks a
-  different question -- does the species covering most of the *crop* cover half
-  of it -- and here only reports, in `coverage_gate.csv`.
+  different question: does the species covering most of the *crop* cover half of
+  it. Here it only reports, in `coverage_gate.csv`.
   `labelling/next_batch.py` is what filters on it.
 - A miss counts only inside a known population. A species missing from a cached
   list of five names is unproven either way.
