@@ -176,8 +176,9 @@ def p_wait(c):
             f'top.</p>'
             f'<p class="note">{len(c.eligible)} species reach {WAIT_SUPPORT_MIN} labelled '
             f'frames inside the frames a rule may learn from, which is the second half of '
-            f'the rule. Counting every label gives a larger number, so it will not match the '
-            f'rarely-labelled count elsewhere here.'
+            f'the rule. Counting every label instead, not just those, gives a larger '
+            f'number. So this count will not match the &ldquo;too few labels to judge&rdquo; '
+            f'count in the list above.'
             # Two unrelated counts on this page are 41 today, and a reader who meets
             # the second one takes it for a back-reference to the heading.
             + (f' It is also a different set from the {c.counts["ranking"]} species in the '
