@@ -3,6 +3,12 @@
 - Status: accepted
 - Date: 2026-09-01
 
+The line counts and line numbers below are the ones this was argued from. Today
+`explain.py` is 293 lines and `panels.py` is 427, since the queue page's panels
+moved to `queue_panels.py`. The argument does not turn on the exact figures:
+absorbing one into the other still puts a single module past the 500-line
+convention.
+
 ## Context
 
 `dashboard/explain.py` is 230 lines and nothing imports it except

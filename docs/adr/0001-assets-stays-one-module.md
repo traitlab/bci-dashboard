@@ -8,6 +8,10 @@ condition that `tests/test_style.py` checks the coupling this ADR said
 nobody could. The rest of it stands: the renderers are not split by kind
 of output.
 
+The line counts below are the ones this was argued from. `assets.py` is 331
+lines now, since the 204 lines of CSS and JS are what left. Read them as the
+shape of the module at the time, not as its size today.
+
 ## Context
 
 `dashboard/assets.py` is 648 lines. It looks like a grab bag, and an architecture
@@ -61,9 +65,10 @@ is working.
 
 ## What this ADR does not cover
 
-`weight_pair_ok` at `assets.py:635` is not a rendering primitive. It answers a
-question about the data, and `history.verify_snapshot` calls it. It does not
-belong in this module and moving it out is not the split this ADR declines.
+`weight_pair_ok` was not a rendering primitive: it answered a question about the
+data and `history.verify_snapshot` called it. It is gone. The check it made now
+lives inside `svg_weight_pair`, which raises when a column of shares does not
+sum to 1, so the answer is next to the drawing that would otherwise be wrong.
 
 Nothing here argues against `assets.py` growing tests. It had none when this was
 written, and the absence was a reason architecture reviews kept reaching for the

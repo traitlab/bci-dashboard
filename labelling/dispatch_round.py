@@ -28,7 +28,10 @@ from pathlib import Path
 import labelbox as lb
 import settings
 
-BATCH_SIZE = 500
+# How many metadata rows go up in one bulk_upsert call. Not the botanist-session
+# batch size: `core.BATCH_SIZE` is that one, and it is a different number for a
+# different reason, so the two do not share a name.
+UPSERT_CHUNK = 500
 EXPORT_TIMEOUT_SEC = 300
 METADATA_SCHEMA_NAME = "selection_round"
 
@@ -142,10 +145,10 @@ def main() -> None:
             )],
         ))
 
-    for i in range(0, len(updates), BATCH_SIZE):
-        batch = updates[i:i + BATCH_SIZE]
+    for i in range(0, len(updates), UPSERT_CHUNK):
+        batch = updates[i:i + UPSERT_CHUNK]
         mdo.bulk_upsert(batch)
-        print(f"  Batch {i // BATCH_SIZE + 1}: {len(batch)} rows tagged")
+        print(f"  Batch {i // UPSERT_CHUNK + 1}: {len(batch)} rows tagged")
 
     print(f"\nStep 4 - Creating labelling batch in Project B...")
     project = next(
