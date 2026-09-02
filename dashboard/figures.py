@@ -161,9 +161,25 @@ def _queue(h, support, per_species):
     rows, n_no_answer = queues.send_first_rows(h.predictions, joined_stems,
                                                h.canon, support, acc_of)
     counts = Counter(q for q, _, _, _ in rows)
+    # The batch count the note quotes, from the same call measure.py makes, so
+    # the number on the page is the number of batches in send_batches.csv.
+    # chunk_send_batches reads send_first_queue.csv rows by position, and these
+    # rows are the decision before measure.py gives them their columns, so the
+    # three fields it reads are placed by name and the rest left empty.
+    at = {c: queues.SEND_FIRST_COLUMNS.index(c)
+          for c in ("queue", "global_key", "predicted_species")}
+    packable = []
+    for q, stem, pred, _conf in rows:
+        row = [""] * len(queues.SEND_FIRST_COLUMNS)
+        row[at["queue"]] = q
+        row[at["global_key"]] = hc.GT_KEY_PREFIX + stem
+        row[at["predicted_species"]] = pred
+        packable.append(row)
+    batch_rows = queues.chunk_send_batches(packable)
     return {
         "queue_rows": rows, "queue_counts": counts, "n_no_answer": n_no_answer,
         "n_unlab": sum(counts.values()),
+        "n_batches": batch_rows[-1][0] if batch_rows else 0,
         "lt_species": Counter(pred for q, _, pred, _ in rows if q == "long_tail"),
         "queue_cams": Counter(camera_of(stem) for _, stem, _, _ in rows),
         # In the form send_first_queue.csv writes them, for verify_snapshot.

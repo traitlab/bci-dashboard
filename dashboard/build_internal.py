@@ -54,12 +54,17 @@ def build(h, *, generated, verify_dir, fallback_tag):
                 "usually-right species the model is unsure of here."),
                ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
                 "The whole pool this page puts in an order.")]),
-         ('<p class="note"><strong>The page is not the deliverable. Work '
-          '<code>build/tables/send_batches.csv</code>.</strong> '
-          f'It carries the same order in batches of at most {BATCH_SIZE}, with each species '
-          'group kept together. Read this page to check the order and the rule behind '
-          'it, then work the CSV. How Pl@ntNet scores against the labels is a separate '
-          'page, <code>model_health_dashboard.html</code>.</p>'),
+         ('<p class="note"><strong>The prioritised batches are in '
+          '<code>build/tables/send_batches.csv</code>.</strong> Send from that file. '
+          'This page shows the order and the reason behind each photo\'s place in it. '
+          f'The file holds {c.n_batches} batches of at most {BATCH_SIZE} photos, each '
+          'species group kept together. One batch there is one Labelbox batch, and '
+          '<code>global_key</code> is the column Labelbox is given. To send batch 1: '
+          '<code>python labelling/dispatch_round.py --round 1 --csv '
+          'build/tables/send_batches.csv --batch 1 --test</code> sends the first five '
+          'photos only, then the same command with no <code>--test</code> sends the '
+          'rest. How Pl@ntNet scores against the labels is a separate page, '
+          '<code>model_health_dashboard.html</code>.</p>'),
          pg.render(c, pg.INTERNAL_PANELS)]
 
     return pg.document(TITLE, "\n".join(P)), c.checks

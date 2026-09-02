@@ -7,8 +7,8 @@ look deliberate. Nobody noticed, because a command in a docstring is read far
 more often than it is typed.
 
 So the commands are collected from the README, the shell scripts in `bin/`,
-the ADRs and every module docstring, and each one is put to the script it
-names: the file has to exist, and every flag has to be one that script's
+the ADRs and every module docstring, plus the ones a built page prints for the
+labelling team to type, and each one is put to the script it names: the file has to exist, and every flag has to be one that script's
 parser accepts. Values are not checked. `path/to/export.ndjson` is a
 placeholder and should stay one.
 
@@ -78,6 +78,21 @@ def accepts(script: str, flag: str) -> bool:
 
 
 COMMANDS = sorted(documented().items())
+
+
+def test_a_command_printed_on_a_page_runs(internal_page):
+    """The queue page prints the dispatch command, and the labelling team reads
+    that page rather than a docstring. A page can go stale exactly the way a
+    docstring can, so it gets the same check: the script exists, and every flag
+    the note types is one the parser takes."""
+    html, _ = internal_page
+    text = html.replace("<code>", " ").replace("</code>", " ")
+    found = COMMAND.findall(text)
+    assert found, "the queue page prints no command; the note lost it"
+    for script, rest in found:
+        assert (REPO / script).exists(), f"the queue page runs {script}, which is gone"
+        unknown = [flag for flag in FLAG.findall(rest) if not accepts(script, flag)]
+        assert not unknown, f"the queue page runs {script} with {unknown}"
 
 
 def test_the_docs_print_commands_at_all():
