@@ -25,7 +25,7 @@ from core import (
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
     REVIEW_CONF, BATCH_SIZE, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
-    GT_KEY_PREFIX, N_CANDIDATES,
+    GT_KEY_PREFIX, N_CANDIDATES, SEND_FIRST_COLUMNS, SEND_BATCH_COLUMNS,
 )
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -153,8 +153,7 @@ def write_send_first_queue(out_dir, queue_rows):
     """The unlabelled pool in send order; send_batches must match it."""
     with _csv(out_dir, "send_first_queue.csv") as f:
         w = csv.writer(f)
-        w.writerow(["queue", "global_key", "split", "predicted_species", "confidence",
-                    "species_labelled_crowns", "species_top1_accuracy"])
+        w.writerow(SEND_FIRST_COLUMNS)
         w.writerows(queue_rows)
 
 
@@ -162,7 +161,7 @@ def write_send_batches(out_dir, batch_rows):
     """The send-first queue, batched to one botanist sitting."""
     with _csv(out_dir, "send_batches.csv") as f:
         w = csv.writer(f)
-        w.writerow(["batch_id", "species_group", "global_key", "queue"])
+        w.writerow(SEND_BATCH_COLUMNS)
         w.writerows(batch_rows)
 
 

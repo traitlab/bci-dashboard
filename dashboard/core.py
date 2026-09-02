@@ -85,10 +85,8 @@ def gt_provenance(gt_csv: str = GT_CSV) -> str:
 # How many names we ask Pl@ntNet for per photo (config.yaml
 # identify_nb_results). A request setting, not a property of the model, and the
 # number "the right name is in the list" is measured at. Here rather than in
-# figures.py because health.aggregate_per_species measures top5_accuracy and
-# figures.prepare guards the cache against it, and the two were the literal 5
-# and this constant respectively: raise it in one place and the species table's
-# "Right name in the list" would still have counted five.
+# figures.py so the measurement, the cache guard and the page wording all read
+# one value.
 N_CANDIDATES = 5
 
 CONF_BINS = [(0.0, 0.5), (0.5, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.01)]
@@ -324,6 +322,15 @@ def bucket_label(n: int) -> str:
 # Queue names, in the order a botanist should work through them.
 QUEUE_ORDER = ["long_tail", "low_conf_known", "normal", "can_wait"]
 
+# send_first_queue.csv's columns, in order. `measure.py` writes this as the
+# header and `chunk_send_batches` below reads rows by position, so the order is
+# a fact two modules share. Named here, indexed from here, written from here.
+SEND_FIRST_COLUMNS = ["queue", "global_key", "split", "predicted_species", "confidence",
+                      "species_labelled_crowns", "species_top1_accuracy"]
+# send_batches.csv's columns, likewise: `chunk_send_batches` returns rows in
+# this order and `measure.py` writes the header.
+SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue"]
+
 # Labelbox send batches: no more than this many crowns per batch, so a single
 # send stays inside what one botanist session can review.
 BATCH_SIZE = 100
@@ -340,8 +347,11 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
     order: list[str] = []
     seen: set[str] = set()
     by_species: dict[str, list] = defaultdict(list)
+    queue_at = SEND_FIRST_COLUMNS.index("queue")
+    key_at = SEND_FIRST_COLUMNS.index("global_key")
+    species_at = SEND_FIRST_COLUMNS.index("predicted_species")
     for row in queue_rows:
-        sp = row[3]  # predicted_species
+        sp = row[species_at]
         by_species[sp].append(row)
         if sp not in seen:
             seen.add(sp)
@@ -362,7 +372,7 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
             held = 0
         held += len(rows)
         for row in rows:
-            batches.append([batch_id, sp, row[1], row[0]])
+            batches.append([batch_id, sp, row[key_at], row[queue_at]])
     return batches
 
 
