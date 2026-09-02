@@ -135,7 +135,9 @@ def send_notes(c):
              # Several of these have well over ten labels, and a reader who checks
              # them against the species table finds the queue name contradicted.
              f'Some already have more than {WAIT_SUPPORT_MIN} labelled frames; they are here '
-             f'on the other half of the rule, right less than {pctf(hc.HARD_MAX_TOP1)} of '
+             # nd=0: a rule someone chose, not a rate anyone measured. "70.0%"
+             # reads as a measurement to one decimal place.
+             f'on the other half of the rule, right less than {pctf(hc.HARD_MAX_TOP1, 0)} of '
              f'the time.</p>'
              # Two CSVs sit in the snapshot folder and the page named both as the
              # thing to work, 200 lines apart. This says which is which.
