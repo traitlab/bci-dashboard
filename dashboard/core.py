@@ -30,6 +30,35 @@ GT_CSV = os.path.join(BASE, "gt_dominant_taxon.csv")
 SPLITS_CSV = os.path.join(BASE, "splits.csv")
 CACHE_DIR = os.path.join(BASE, "predictions", "cache")
 
+# global_key -> how unlike the labelled frames a photo looks, from
+# labelling/rank_queue.py. Orders the send-first queue inside each queue.
+# Optional: absent, every frame ties and the order falls back to confidence.
+QUEUE_NOVELTY_CSV = os.path.join(BASE, "next_batch", "queue_novelty.csv")
+
+# The two curves the queue page draws, both written by labelling/rank_queue.py
+# and both optional: absent, the panel says the ordering has not been scored
+# rather than drawing an empty pair of axes.
+# How fast a directed order covers distinct species against a random one, scored
+# on the labelled frames. Thinned to about 120 points, because the page is 620
+# pixels wide and the curve never falls.
+DISCOVERY_CURVE_CSV = os.path.join(BASE, "next_batch", "discovery_curve.csv")
+# How unlike the labelled frames a photo looks, against its place in the queue,
+# averaged over bins. Where it flattens, the ordering has stopped separating.
+NOVELTY_CURVE_CSV = os.path.join(BASE, "next_batch", "novelty_curve.csv")
+
+# The share of the ordered queue the page and labelling/rank_queue.py both call
+# "the head". Written once, or the page could report a camera mix over a
+# different slice than the run that produced the ordering.
+QUEUE_HEAD_SHARE = 0.10
+
+# Small centre crops of the frames at the head of each queue, from
+# labelling/fetch_thumbs.py. They go into the page as data: URIs, so the page
+# stays one file that fetches nothing. Optional in the same way.
+THUMB_PX = 112
+THUMB_DIR = os.path.join(BASE, "thumbs", str(THUMB_PX))
+# How many frames from the head of each queue the page shows.
+THUMBS_PER_QUEUE = 12
+
 # global_key -> (data_row_id, project_id), from labelling/gt_from_export.py: the
 # one offline source for a Labelbox deep link. Silent means the page says so.
 DATA_ROW_IDS_CSV = os.path.join(BASE, "data_row_ids.csv")

@@ -348,7 +348,7 @@ def log_calibration(_log, scopes, top1, n, good, good_recs):
         _log("")
 
 
-def log_send_queue(_log, q_counts, batch_rows, n_no_answer):
+def log_send_queue(_log, q_counts, batch_rows, n_no_answer, n_ranked=0):
     """The unlabelled pool, by queue, and how it was batched."""
     n_unlab = sum(q_counts.values())
     n_batches = batch_rows[-1][0] if batch_rows else 0
@@ -356,6 +356,10 @@ def log_send_queue(_log, q_counts, batch_rows, n_no_answer):
     _log(f"  unlabelled frames with a prediction : {n_unlab}")
     for q in QUEUE_ORDER:
         _log(f"    {q:<16}: {q_counts[q]}")
+    # Printed even at zero: the ordering inside a queue falls back to confidence
+    # for every frame this number does not cover, and a reader has to know how
+    # much of the queue that is.
+    _log(f"  frames ordered by how they look     : {n_ranked} of {n_unlab}")
     _log(f"  send_batches.csv                    : {len(batch_rows)} rows in {n_batches} "
         f"batches, max {BATCH_SIZE}/batch, species groups packed whole")
     _log(f"  unlabelled frames with NO answer    : {n_no_answer}  (empty candidate list;")

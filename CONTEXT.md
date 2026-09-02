@@ -62,6 +62,9 @@ asking, never "arm": that word belongs in `hypothesis.md`.
 | **pushed down the queue** | What the wait rule does to a frame. It is an ordering, never a label, and it is undone at the next model change. Never "deprioritised", never "revocable". |
 | **the labelled-frames condition** | The second half of the wait rule: the species must already have enough labelled frames. Spelled out rather than called a gate. |
 | **queue** | One of four groups the unlabelled pool is sorted into, worked top to bottom. |
+| **how a photo looks** | The 768 numbers Pl@ntNet makes from a centre crop. Two photos with close numbers look alike to the model. A page says "how the photo looks to the model", never "embedding" and never a score. |
+| **least like everything already labelled** | The order inside a queue. The first photo is the one furthest from every labelled photo, and confidence only breaks a tie. Never "farthest-first". `coverage` stays a crop word, as in `coverage_gate.csv`. |
+| **the labelled photos it is compared against** | The 1,719 frames a botanist has already named, all from the wide-angle camera. A page names the count and the camera, because a long-lens photo can look new for the lens rather than for the species. |
 | **held back for grading** | The frames a rule is scored on, kept out of the frames it is allowed to learn from. A page spells the split out rather than naming it. The one exception is citing the source: a page may say which value of the `split` column in `splits.csv` holds them, so a reader can find the same frames. |
 | **confidence band** | A range of Pl@ntNet confidence, written "0.7 to 0.8" and "0.9 and up". The CSVs keep the interval notation `[0.7,0.8)`; a page never shows it. |
 

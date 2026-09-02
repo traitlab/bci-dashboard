@@ -113,7 +113,8 @@ def queue_rows_for(counts=QUEUE_COUNTS):
         for i in range(n):
             rows.append({"queue": q, "global_key": f"{q}_{i}.JPG", "split": "unlabelled",
                          "predicted_species": f"species_{q}", "confidence": "0.500000",
-                         "species_labelled_crowns": "0", "species_top1_accuracy": ""})
+                         "species_labelled_crowns": "0", "species_top1_accuracy": "",
+                         "novelty_rank": ""})
     return rows
 
 
@@ -189,7 +190,7 @@ def write_snapshot(tmp_path, *, per_species_rows=None, bucket_rows=None, bin_row
         brows = batch_rows if batch_rows is not None else batch_rows_for(qrows)
         write_csv(d / "send_first_queue.csv", qrows,
                    ["queue", "global_key", "split", "predicted_species", "confidence",
-                    "species_labelled_crowns", "species_top1_accuracy"])
+                    "species_labelled_crowns", "species_top1_accuracy", "novelty_rank"])
         write_csv(d / "send_batches.csv", brows,
                    ["batch_id", "species_group", "global_key", "queue"])
         files["queue"], files["batches"] = qrows, brows

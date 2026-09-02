@@ -3,7 +3,9 @@
 One decision procedure on top of `core.py`'s shared vocabulary: the four
 send-first queues, their order, and how the queue is packed into batches one
 sitting can review. `measure.py` and `figures.py` both go through
-`send_first_rows`, so the file and the page cannot disagree.
+`send_first_rows`, so the file and the page cannot disagree. They must also go
+through `load_novelty` for the same reason: two readings of the ordering file
+would put the page and the CSV in a different order, which aborts the build.
 
 Not in `core.py`, which holds "the vocabulary every other module works in",
 because this is a decision procedure rather than vocabulary and has its own
@@ -15,6 +17,8 @@ indexes them by position, which is how they last drifted apart.
 
 from __future__ import annotations
 
+import csv
+import os
 from collections import defaultdict
 
 from core import (
@@ -32,12 +36,41 @@ QUEUE_ORDER = ["long_tail", "low_conf_known", "normal", "can_wait"]
 # send_first_queue.csv's columns, in order. `measure.py` writes the header and
 # `chunk_send_batches` below reads rows by position, so the order is named once.
 SEND_FIRST_COLUMNS = ["queue", "global_key", "split", "predicted_species", "confidence",
-                      "species_labelled_crowns", "species_top1_accuracy"]
+                      "species_labelled_crowns", "species_top1_accuracy", "novelty_rank"]
 # send_batches.csv's columns, likewise: returned in this order, written as that header.
 SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue"]
 
 # No more than this many crowns per Labelbox batch, one botanist session's worth.
 BATCH_SIZE = 100
+
+# The place in the order a frame with no vector takes: after every ranked frame
+# of its queue, where the frames behind it keep today's confidence order. Bigger
+# than any rank the ranker can assign, since the pool is four figures.
+NO_NOVELTY = 10 ** 9
+
+
+def load_novelty(path: str) -> dict:
+    """``global_key`` -> how unlike the labelled frames a photo looks, 1 first.
+
+    Written by ``labelling/rank_queue.py``, which needs numpy and so cannot run
+    here. An absent file is the normal state of a fresh clone and of any
+    checkout before the embeddings are fetched: it returns ``{}``, every frame
+    ties, and the order falls back to what it was before this file existed.
+    A row whose rank is not a whole number is dropped rather than guessed at.
+    """
+    if not os.path.exists(path):
+        return {}
+    out = {}
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            key, rank = row.get("global_key"), row.get("novelty_rank")
+            if not key or rank is None:
+                continue
+            try:
+                out[key] = int(rank)
+            except ValueError:
+                continue
+    return out
 
 
 def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
@@ -97,14 +130,23 @@ def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> st
     return "normal"
 
 
-def send_first_rows(predictions, joined_stems, canon, support, top1) -> tuple:
+def send_first_rows(predictions, joined_stems, canon, support, top1,
+                    novelty=None, key_prefix="") -> tuple:
     """Every unlabelled frame's queue, in the order send_first_queue.csv writes.
 
-    Returns ``([(queue, stem, species, confidence), ...], n_no_answer)``.
-    Order is queue first, then least confident inside a queue, then the stem:
-    the most uncertain frame of a group is the one most worth an expert look.
-    A frame the model answered nothing for is counted, not queued.
+    Returns ``([(queue, stem, species, confidence, novelty_rank), ...],
+    n_no_answer)``. Order is queue first, then least like the frames already
+    labelled, then least confident, then the stem. Confidence says nothing about
+    a species with almost no labels, and on the long-lens camera it is not
+    trustworthy at all, so what a photo looks like leads and confidence breaks
+    the tie. A frame the model answered nothing for is counted, not queued.
+
+    ``novelty`` is the map ``load_novelty`` returns, keyed the way the CSV
+    writes a photo, hence ``key_prefix``. Empty, or missing a frame, and that
+    frame sorts to the back of its queue in confidence order: the behaviour
+    before there were any vectors, and the way to undo this ordering.
     """
+    novelty = novelty or {}
     rows, n_no_answer = [], 0
     for stem in sorted(predictions):
         if stem in joined_stems:
@@ -114,6 +156,7 @@ def send_first_rows(predictions, joined_stems, canon, support, top1) -> tuple:
             n_no_answer += 1
             continue
         pred, conf = ranked[0]
-        rows.append((queue_of_prediction(pred, conf, support, top1), stem, pred, conf))
-    rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), r[3], r[1]))
+        rows.append((queue_of_prediction(pred, conf, support, top1), stem, pred, conf,
+                     novelty.get(key_prefix + stem, NO_NOVELTY)))
+    rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), r[4], r[3], r[1]))
     return rows, n_no_answer

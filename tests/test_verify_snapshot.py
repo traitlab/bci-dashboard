@@ -78,6 +78,20 @@ def test_a_send_first_queue_missing_rows_is_an_order_failure_not_a_crash(history
     assert "order diverges" in assert_aborts(history, tmp_path, kwargs)
 
 
+def test_a_queue_ordered_by_one_file_and_a_page_ordered_by_another_aborts(history, tmp_path):
+    """The ordering file is read by measure.py and again by the page builder. If
+    one of them read it and the other did not, the counts still agree and only
+    the order moves, which is the case this gate exists for."""
+    kwargs, files = write_snapshot(tmp_path)
+    within_queue = [r["global_key"] for r in files["queue"] if r["queue"] == "long_tail"]
+    assert len(within_queue) > 1, "the fixture needs two rows in one queue to reorder"
+    reordered = [r["global_key"] for r in files["queue"]]
+    i, j = reordered.index(within_queue[0]), reordered.index(within_queue[1])
+    reordered[i], reordered[j] = reordered[j], reordered[i]
+    kwargs["queue_keys"] = reordered
+    assert "order diverges" in assert_aborts(history, tmp_path, kwargs)
+
+
 def test_queue_counts_alone_adds_the_two_queue_csv_checks(history, tmp_path):
     kwargs, _ = write_snapshot(
         tmp_path, with_queue_counts=True, with_no_answer=False, with_review_counts=False)

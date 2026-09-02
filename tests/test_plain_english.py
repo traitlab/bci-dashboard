@@ -78,6 +78,8 @@ RETIRED = {
     r"\bthresholds?\b": "the confidence line",
     r"\bhits?\b": "right, or a right first guess",
     r"\bsupport\b": "labelled frames",
+    r"\bembeddings?\b": "how the photo looks to the model",
+    r"\bfarthest-first\b": "least like everything already labelled",
     # The compound adjective is what CONTEXT.md itself uses ("the long-lens
     # one"), so only the bare noun is retired.
     r"(?<!-)\blens(es)?\b": "camera, or the long-lens camera",

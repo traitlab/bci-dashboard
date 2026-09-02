@@ -325,6 +325,63 @@ def test_svg_hbar_widens_to_fit_a_long_right_hand_label(assets):
     assert width(long) > width(short)
 
 
+def test_svg_curve_of_no_series_is_empty(assets):
+    assert assets.svg_curve([]) == ""
+    assert assets.svg_curve([("empty", [], "#111")]) == ""
+
+
+def test_svg_curve_draws_one_path_per_series(assets):
+    out = assets.svg_curve([("up", [(0, 0), (1, 1)], "#111"),
+                            ("flat", [(0, 1), (1, 1)], "#222")])
+    assert out.count("<path") == 2
+    assert "<svg" in out and out.strip().endswith("</svg>")
+
+
+def test_svg_curve_puts_a_bigger_y_higher_up_the_page(assets):
+    # The relationship, not a pixel count. SVG y grows downwards, so the taller
+    # value must carry the smaller number, and a sign flip here would draw every
+    # curve on this page upside down while every other check still passed.
+    out = assets.svg_curve([("s", [(0, 0), (1, 10)], "#111")])
+    d = re.search(r'<path d="M([\d.]+),([\d.]+) L([\d.]+),([\d.]+)"', out)
+    assert d, out
+    assert float(d.group(4)) < float(d.group(2))
+
+
+def test_svg_curve_scales_from_zero_not_from_the_lowest_point(assets):
+    # A curve on a cropped axis exaggerates the gap between two lines, which is
+    # the one thing this chart exists to report honestly.
+    out = assets.svg_curve([("s", [(0, 100), (1, 101)], "#111")])
+    d = re.search(r'<path d="M[\d.]+,([\d.]+) L[\d.]+,([\d.]+)"', out)
+    assert d, out
+    # 100 and 101 are a 1% difference. Zero-based, they land on almost the same
+    # line. An axis cropped to the data would spread them the full plot height.
+    assert abs(float(d.group(1)) - float(d.group(2))) < 5
+
+
+def test_svg_curve_escapes_every_label_it_is_handed(assets):
+    out = assets.svg_curve([(INJECT, [(0, 0), (1, 1)], "#111")],
+                           title=INJECT, x_title=INJECT, y_title=INJECT,
+                           rules=[(0.5, INJECT)], marks=[(0.5, INJECT)])
+    assert "<script>&" not in out
+
+
+def test_svg_curve_widens_its_right_margin_to_fit_a_long_series_label(assets):
+    # The series label sits at the end of its own line, outside the plot. A
+    # margin that did not grow would push it off the viewBox, and SVG clips.
+    plot = lambda svg: float(re.search(r'<line x1="[\d.]+" y1="[\d.]+" x2="([\d.]+)"',
+                                       svg).group(1))
+    short = assets.svg_curve([("A", [(0, 0), (1, 1)], "#111")])
+    long = assets.svg_curve([("A much longer series label", [(0, 0), (1, 1)], "#111")])
+    assert plot(long) < plot(short)
+
+
+def test_svg_curve_rule_lifts_the_axis_when_it_sits_above_every_point(assets):
+    # A rule drawn off the top of the plot is worse than no rule: it reads as if
+    # no line ever reached the level being compared against.
+    out = assets.svg_curve([("s", [(0, 0), (1, 1)], "#111")], rules=[(4, "high")])
+    assert '>4<' in out, "the rule's own value has to appear on the y axis"
+
+
 def test_svg_weight_pair_of_no_rows_is_empty(assets):
     assert assets.svg_weight_pair([], label_a="A", label_b="B") == ""
 

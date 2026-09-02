@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import core as hc
 import queues
-from assets import cap, esc, panel, pctf, svg_hbar, table
+from assets import cap, esc, panel, pctf, svg_curve, svg_hbar, table
 from explain import BAND_SHORT, CONF_BAND_WORDS
 from figures import RARE_MAX_SUPPORT, RECOMMENDED_CONF, WAIT_SUPPORT_MIN
 from panels import CAMERA_IS
@@ -116,16 +116,20 @@ def send_preview_table(c):
     # first screen is full of 0.001s and needs the gloss before it, not after.
     body += ('<h3 class="sub">The next ' + f'{len(head)}' + ' photos, in order</h3>'
              + UNGRADED_NOTE
+             + '<p class="note"><b>Inside a queue the photo least like everything already '
+               'labelled comes first.</b> Pl@ntNet turns each centre crop into a list of '
+               'numbers, and two photos with close numbers look alike to it. A photo far '
+               'from every labelled one is the photo we know least about.</p>'
              + '<p class="note"><b>Read the confidence column as how little the model '
-               'knows.</b> Inside a queue the weakest guesses come first, so a number near '
-               'the bottom of the scale means Pl@ntNet recognised almost nothing. That is '
-               'the reason to look, not a reason to doubt the name.</p>'
+               'knows.</b> It breaks the tie, so a number near the bottom of the scale '
+               'means Pl@ntNet recognised almost nothing. That is the reason to look, not '
+               'a reason to doubt the name.</p>'
              + table([("#", True), ("photo", False), ("Pl@ntNet's guess", False),
                       ("confidence", True), ("frames that species has", True)],
                      [[f"{i}", f'<code class="key">{esc(stem)}</code>',
                        f'<span class="sp">{esc(cap(pred))}</span>', f"{cf:.3f}",
                        f"{c.support.get(pred, 0):,}"]
-                      for i, (_, stem, pred, cf) in enumerate(head, 1)]))
+                      for i, (_, stem, pred, cf, _rank) in enumerate(head, 1)]))
     return body
 
 
@@ -173,7 +177,9 @@ def p_send(c):
                  f"barely have, or barely get right; "
                  f"{c.queue_counts.get('low_conf_known', 0):,} show a usually-right species "
                  f"the model is unsure of here. Both buy more per label than anything "
-                 f"below. "
+                 f"below. Inside each queue the photo least like everything already "
+                 f"labelled comes first, which reaches {c.n_ranked:,} of the "
+                 f"{c.n_unlab:,}; the rest keep their place by confidence. "
                  f'<a href="send_first_queue.csv">send_first_queue.csv</a> holds this same '
                  f"order, one row per frame.",
                  # Open: the answer to "what do I label next" is the queue
@@ -283,3 +289,117 @@ def p_evidence(c):
                  "does not close frames, and it is recomputed whenever Pl@ntNet updates.",
                  _wait_rule(c) + _rules_compared(c) + _confidence_evidence(c),
                  anchor="which-frames-can-wait")
+
+
+# Okabe-Ito, the palette the labelfirst reports use, so a reader who has seen
+# one recognises the other. Blue is the order this page ships; grey is the
+# order it replaced, and grey never competes for attention with a result.
+LOOK_BLUE, LOOK_GREY, LOOK_AMBER = "#0072B2", "#9e9e9e", "#b5670a"
+
+NO_CURVES = (
+    '<p class="note"><b>The ordering has not been scored on this checkout.</b> '
+    'The two files behind these charts are written by hand, by '
+    '<code>labelling/rank_queue.py</code>, and are not in the repository. Run it '
+    'to draw them.</p>')
+
+
+def discovery_chart(c) -> str:
+    """Does ordering by look find species faster than picking at random.
+
+    Drawn from ``discovery_curve.csv``. The population is on the chart, because
+    it is not the queue: this is measured on photos a botanist has already named,
+    which is the only place the answer is known.
+    """
+    if not c.discovery:
+        return ""
+    marks = [(x, f"{int(x):,}") for x in (c.discovery_half_directed,
+                                          c.discovery_half_random) if x]
+    return (svg_curve([("ordered by look", c.discovery, LOOK_BLUE),
+                       ("random order", c.discovery_random, LOOK_GREY)],
+                      title="Species found, over photos that already carry a name",
+                      x_title="photos named", y_title="distinct species",
+                      rules=[(c.discovery_half, "half the species")],
+                      marks=marks)
+            + f'<p class="note"><b>What this is measured on.</b> The '
+              f'{int(c.discovery_photos):,} photos a botanist has already named, carrying '
+              f'{int(c.discovery_species):,} species between them. Not the queue. It shows '
+              f'the method works where the answer is known.</p>'
+            + f'<p class="note">Half those species take '
+              f'{int(c.discovery_half_directed or 0):,} photos in this order and '
+              f'{int(c.discovery_half_random or 0):,} in a random one. Read it as evidence '
+              f'for the ordering, not as a promise about the queue: this run starts from '
+              f'nothing, and the queue starts from every photo already named.</p>')
+
+
+def novelty_chart(c) -> str:
+    """Where the ordering stops telling you anything.
+
+    The line falls fast and then flattens. Past the flat part every photo is
+    about as unlike the labelled set as the next, so the queue is back to
+    confidence order underneath and there is nothing left to gain by working on.
+    """
+    if not c.novelty_curve:
+        return ""
+    return (svg_curve([("distance", c.novelty_curve, LOOK_AMBER)],
+                      title="How unlike the named photos each one looks, by its place",
+                      x_title="place in the queue", y_title="distance")
+            + '<p class="note"><b>Where this flattens, the order stops helping.</b> Each '
+              'point averages a slice of the queue. Once the line is level the photos are '
+              'all about equally unlike what we have, and the order under them is the old '
+              'confidence order.</p>')
+
+
+def camera_note(c) -> str:
+    """The cost of this ordering, in the summary rather than a chart.
+
+    Every named photo comes from one camera, so a photo can read as new because
+    of the lens and not the species. Two numbers, so a sentence carries it and a
+    chart would only decorate it.
+    """
+    if not c.head_n:
+        return ""
+    return (f'<p class="note"><b>What this ordering costs.</b> Of the {c.head_n:,} photos '
+            f'it puts first, {pctf(c.head_tele_share)} come from the long-lens camera, '
+            f'against {pctf(c.queue_tele_share)} across the whole queue. Every named photo '
+            f'is from the other camera, so some of that gap is the lens and not the '
+            f'species.</p>')
+
+
+def contact_sheet(c) -> str:
+    """The head of each queue, as pictures.
+
+    Every other figure on this page is about frames the reader has never seen.
+    The picture is the centre crop, the same region the model scored, so what is
+    on screen is what the order was decided on.
+    """
+    if not c.thumbs:
+        return ""
+    out = []
+    for q in queues.QUEUE_ORDER:
+        shots = c.thumbs.get(q)
+        if not shots:
+            continue
+        cells = "".join(
+            f'<img src="{uri}" width="{hc.THUMB_PX}" height="{hc.THUMB_PX}" '
+            f'alt="{esc(stem)}, guessed {esc(pred) or "nothing"}" '
+            f'title="{esc(stem)} &#10; {esc(pred)}"/>'
+            for stem, pred, uri in shots)
+        out.append(f'<h3 class="sub">{esc(cap(QL[q][0]))}</h3>'
+                   f'<div class="sheet">{cells}</div>')
+    return ("".join(out)
+            + f'<p class="note"><b>What you are looking at.</b> The first '
+              f'{hc.THUMBS_PER_QUEUE} photos of each queue, in the order above, cut down '
+              f'to the middle of the frame. That is the region Pl@ntNet scored, so this is '
+              f'what the order was decided on.</p>')
+
+
+def p_look(c):
+    """The evidence that ordering by look does anything, and what it costs."""
+    charts = discovery_chart(c) + novelty_chart(c)
+    body = (charts or NO_CURVES) + camera_note(c) + contact_sheet(c)
+    return panel("Why the queue is in this order",
+                 "<b>Ordering by look finds species faster than working down a "
+                 "random list.</b> The charts below score that on photos already "
+                 "named, show where the ordering stops separating photos, and put "
+                 "the head of every queue on screen.",
+                 body, open_=False, anchor="why-this-order")

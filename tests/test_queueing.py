@@ -134,3 +134,78 @@ def test_bucket_order_is_the_bands_in_the_order_they_are_defined(core):
 @pytest.mark.parametrize("n", [1, 2, 4, 5, 9, 10, 24, 25, 1_000])
 def test_bucket_label_agrees_with_the_bands_at_every_named_edge(core, n):
     assert core.bucket_label(n) in core.BUCKET_ORDER
+
+
+# ---------------------------------------------------------------------------
+# send_first_rows: the order inside a queue, and the file that sets it
+# ---------------------------------------------------------------------------
+
+def _rows(queues, frames, novelty=None, prefix="comb_"):
+    """`frames` is `{stem: (species, confidence)}`. Every species is unlabelled,
+    so every frame lands in the long tail and the queue is held constant while
+    the order inside it is what varies."""
+    predictions = {stem: [(sp, conf)] for stem, (sp, conf) in frames.items()}
+    return queues.send_first_rows(predictions, set(), lambda n: n, {}, {},
+                                  novelty=novelty, key_prefix=prefix)[0]
+
+
+def test_a_photo_unlike_the_labelled_ones_is_sent_before_a_less_confident_one(queues):
+    """The change this ordering exists for. `b` is the least confident frame, so
+    it led before; `a` is the one least like everything already labelled, so it
+    leads now."""
+    frames = {"a": ("Sp x", 0.9), "b": ("Sp y", 0.1)}
+    novelty = {"comb_a": 1, "comb_b": 2}
+    assert [r[1] for r in _rows(queues, frames, novelty)] == ["a", "b"]
+
+
+def test_a_photo_with_no_vector_waits_behind_every_ranked_photo_of_its_queue(queues):
+    """A frame the fetch has not reached yet is not treated as new. It keeps its
+    place by confidence, at the back."""
+    frames = {"a": ("Sp x", 0.9), "b": ("Sp y", 0.1), "c": ("Sp z", 0.5)}
+    novelty = {"comb_a": 7}
+    order = [r[1] for r in _rows(queues, frames, novelty)]
+    assert order == ["a", "b", "c"]
+    assert [r[4] for r in _rows(queues, frames, novelty)][1:] == [queues.NO_NOVELTY] * 2
+
+
+def test_with_no_ordering_file_the_order_is_the_one_confidence_alone_gives(queues):
+    """The rollback, proved rather than asserted: delete the file and every rank
+    ties, so the queue is byte-for-byte what it was before the file existed."""
+    frames = {"a": ("Sp x", 0.9), "b": ("Sp y", 0.1), "c": ("Sp z", 0.5)}
+    baseline = [(r[1], r[3]) for r in _rows(queues, frames, None)]
+    assert baseline == [("b", 0.1), ("c", 0.5), ("a", 0.9)]
+    assert baseline == [(r[1], r[3]) for r in _rows(queues, frames, {})]
+
+
+def test_how_a_photo_looks_never_moves_it_into_another_queue(queues, core):
+    """Queue membership is decided by `queue_of_prediction`, which never sees a
+    rank. Ranking first would send a photo of a solved species ahead of the long
+    tail, which is the one thing this ordering must not do."""
+    predictions = {"a": [("Rare sp", 0.9)], "b": [("Known sp", 0.9)]}
+    support = {"Known sp": 500}
+    top1 = {"Known sp": 1.0}
+    rows, _ = queues.send_first_rows(predictions, set(), lambda n: n, support, top1,
+                                     novelty={"comb_b": 1}, key_prefix="comb_")
+    assert [(r[0], r[1]) for r in rows] == [("long_tail", "a"), ("can_wait", "b")]
+
+
+def test_a_frame_with_no_answer_is_counted_and_not_ranked(queues):
+    predictions = {"a": [], "b": [("Sp y", 0.4)]}
+    rows, n_no_answer = queues.send_first_rows(predictions, set(), lambda n: n, {}, {},
+                                               novelty={"comb_a": 1}, key_prefix="comb_")
+    assert n_no_answer == 1
+    assert [r[1] for r in rows] == ["b"]
+
+
+def test_load_novelty_reads_the_file_and_survives_it_being_absent(queues, tmp_path):
+    """A missing file is the normal state of a fresh clone, not an error. A rank
+    that is not a whole number is dropped, since the alternative is inventing a
+    place in the queue for it."""
+    assert queues.load_novelty(str(tmp_path / "nothing.csv")) == {}
+    path = tmp_path / "queue_novelty.csv"
+    path.write_text("global_key,novelty_rank,distance_to_nearest_labelled,camera\n"
+                    "comb_a,1,0.42,zoom\n"
+                    "comb_b,,0.10,tele\n"
+                    "comb_c,not a number,0.10,tele\n"
+                    ",4,0.10,tele\n", encoding="utf-8")
+    assert queues.load_novelty(str(path)) == {"comb_a": 1}

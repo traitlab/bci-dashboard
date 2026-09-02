@@ -162,6 +162,11 @@ section.grp>h2{
 .subtitle{color:#6d6d6d}
 /* A sub-heading inside a panel body, count table apart from photo table. */
 h3.sub{font-size:0.95rem;font-weight:700;color:#37474f;margin:22px 0 8px}
+/* The contact sheet: the head of a queue as pictures. Wraps rather than
+   scrolls, because a row that runs off the side hides the frames a reader most
+   needs to see, and the count per queue is fixed and small. */
+.sheet{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.sheet img{display:block;border-radius:3px;border:1px solid #e0e0e0}
 /* A command meant to be copied whole, so it wraps rather than running off the
    right edge on a phone. */
 pre.cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.76rem;

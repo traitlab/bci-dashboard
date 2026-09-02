@@ -32,7 +32,10 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import numpy as np
+from embeddings_io import load_embeddings
 from speciesfirst import (
     CrownWeights,
     backtest_species_coverage,
@@ -44,29 +47,6 @@ REPO = Path(__file__).resolve().parents[1]
 DEFAULT_NPZ = REPO / "data" / "embeddings" / "embeddings.npz"
 DEFAULT_CACHE = REPO / "data" / "embeddings" / "cache"
 DEFAULT_OUT = REPO / "data" / "next_batch" / "queue_ranked.csv"
-
-
-def load_embeddings(npz: Path, cache_dir: Path) -> tuple[list[str], np.ndarray]:
-    """Read vectors from the packed npz, falling back to the per-photo cache.
-
-    ``predict/embed.py`` writes the npz only when it finishes, so ranking a run
-    that is still going, or one that stopped on quota, has to read the cache the
-    same way the fetcher does when it resumes.
-    """
-    if npz.exists():
-        with np.load(npz, allow_pickle=False) as z:
-            return [str(k) for k in z["keys"]], np.asarray(z["embeddings"], dtype=np.float64)
-    if not cache_dir.is_dir():
-        raise SystemExit(f"no embeddings: neither {npz} nor {cache_dir}")
-    keys, vectors = [], []
-    for p in sorted(cache_dir.glob("*.json")):
-        entry = json.loads(p.read_text(encoding="utf-8"))
-        if entry.get("embedding"):
-            keys.append(entry["global_key"])
-            vectors.append(entry["embedding"])
-    if not keys:
-        raise SystemExit(f"no cached embeddings under {cache_dir}")
-    return keys, np.asarray(vectors, dtype=np.float64)
 
 
 def load_species(path: Path, key_col: str, species_col: str) -> dict[str, str]:
