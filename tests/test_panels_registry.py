@@ -202,14 +202,18 @@ def test_parse_args_default_out_is_under_the_repo_build_dir(panels, monkeypatch)
 # document(): the page wrapper, a pure function of a title and a body
 # ---------------------------------------------------------------------------
 
-def test_document_embeds_css_and_js_inline_with_no_external_reference(panels):
+def test_document_embeds_css_and_js_inline_with_no_external_reference(panels, assets):
+    strip_comments = assets.strip_comments
     html = panels.document("A Title", "<p>body</p>")
     assert "<title>A Title</title>" in html
     assert "<p>body</p>" in html
-    # panels.py imports CSS and JS from assets and inlines them verbatim, so
-    # the module's own copies must show up whole in the wrapped page.
-    assert f"<style>{panels.CSS}</style>" in html
-    assert f"<script>{panels.JS}</script>" in html
+    # panels.py inlines CSS and JS with the maintainer comments stripped, so the
+    # module's own copies must show up whole apart from those.
+    assert f"<style>{strip_comments(panels.CSS)}</style>" in html
+    assert f"<script>{strip_comments(panels.JS)}</script>" in html
+    # Stripping is comments only: no rule and no statement may go with them.
+    assert "box-sizing:border-box" in html and "addEventListener" in html
+    assert "/*" not in html.split("</style>")[0]
     assert "<link" not in html
     assert "script src" not in html
 

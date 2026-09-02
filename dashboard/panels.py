@@ -14,7 +14,7 @@ import datetime as _dt
 import os
 
 import core as hc
-from assets import (CSS, JS, cap, esc, filterable_table, hero, panel,
+from assets import (CSS, JS, cap, esc, filterable_table, hero, panel, strip_comments,
                     pctf, section, status_legend, status_tag, table)
 from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
 from explain import (candidates_panel, method_panel,
@@ -737,8 +737,8 @@ def document(title: str, body: str) -> str:
             '<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             f"<title>{title}</title>"
-            f"<style>{CSS}</style></head><body>" + body
-            + f"<script>{JS}</script></body></html>")
+            f"<style>{strip_comments(CSS)}</style></head><body>" + body
+            + f"<script>{strip_comments(JS)}</script></body></html>")
 
 
 def write_page(page: str, checks, out: str) -> None:

@@ -480,6 +480,19 @@ def status_tag(cls: str, label: str, *, sort_key: str | None = None) -> str:
     return f'<span class="tag {esc(cls)}" data-sort="{sort}">{esc(label)}</span>'
 
 
+def strip_comments(text: str) -> str:
+    """CSS and JS with the maintainer comments taken out, for the built page.
+
+    Every comment in ``CSS`` and ``JS`` is a note to whoever edits this file,
+    and inlining them shipped 3.6 KB of them to every reader. The source keeps
+    them; the page does not. JS only drops a line that *starts* with ``//``, so
+    a ``//`` inside a string is untouched.
+    """
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    text = re.sub(r"^[ \t]*//.*$", "", text, flags=re.M)
+    return re.sub(r"\n{2,}", "\n", text).strip()
+
+
 def status_legend(entries: list[tuple[str, str, str]]) -> str:
     """The status explanations, once, instead of on every row. ``entries`` is
     ``[(css_class, label, reason), ...]`` -- one line per distinct situation
