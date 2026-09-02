@@ -40,6 +40,7 @@ from conftest import (
     build_page,
     corpus_keys_with_species_gt,
     require_buildable,
+    species_rows,
     write_export_ndjson,
 )
 
@@ -47,7 +48,6 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 
 _LEGEND = re.compile(r'<ul class="status-legend">.*?</ul>', re.S)
 _TAG_LABEL = re.compile(r'<span class="tag [^"]*"[^>]*>([^<]*)</span>')
-_ROW = re.compile(r"<tr data-status=.*?</tr>", re.S)
 
 
 
@@ -243,7 +243,7 @@ def test_a_page_opens_only_the_panels_that_are_its_deliverable(page):
 
 def test_one_species_row_per_scored_species(page, n_species):
     html, _, carries = page
-    rows = re.findall(r"<tr data-status=", html)
+    rows = species_rows(html)
     if "species_status" not in carries:
         assert not rows
     elif "snapshot" in carries:
@@ -287,7 +287,7 @@ def test_every_row_status_has_a_matching_legend_entry(page):
     legend = _LEGEND.search(html)
     if "species_status" not in carries:
         assert legend is None, "page carries no species status legend but renders it"
-        assert not _ROW.findall(html), "page carries no species status legend but renders its rows"
+        assert not species_rows(html), "page carries no species status legend but renders its rows"
         return
     assert legend, "no <ul class=\"status-legend\"> block -- legend was not rendered"
     legend_start = legend.start()
@@ -302,7 +302,7 @@ def test_every_row_status_has_a_matching_legend_entry(page):
     assert legend_labels, "legend block has no status labels in it"
 
     row_labels = set()
-    for row in _ROW.findall(html):
+    for row in species_rows(html):
         found = _TAG_LABEL.findall(row)
         assert found, "a species row has no status tag"
         row_labels.update(found)

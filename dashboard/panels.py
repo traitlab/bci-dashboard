@@ -269,8 +269,10 @@ def p_species(c):
             num_cell(f'{d["mean_top1_confidence"]:.6f}',
                      f'{d["mean_top1_confidence"]:.2f}'),
             status_tag(st, STATUS[st][0])])
-        attrs.append(f' data-status="{st}"'
-                     + (' data-thin="1"' if _starts_hidden(d, st) else ""))
+        # No data-status here: the row's own status tag already says it,
+        # and the filter reads it from there. The attribute repeated the
+        # status on all 186 rows, about 4KB of markup saying it twice.
+        attrs.append(' data-thin="1"' if _starts_hidden(d, st) else "")
     n_thin = sum(1 for d in c.per_species
                  if _starts_hidden(d, c.status[d["species"]]))
     # Three things a reader needs before the table, kept as separate paragraphs:

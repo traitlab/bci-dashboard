@@ -192,7 +192,7 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
         # Without it a row says 40% and nothing says whether that is a species
         # the model gets wrong or one with too few labels to judge, which is the
         # first thing a reader of a single export wants to know.
-        rows, attrs = [], []
+        rows = []
         for d in per_species:
             st = hc.diagnose(d)
             rows.append([
@@ -201,7 +201,6 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
                 num_cell(f'{d["top1_accuracy"]:.6f}', pctf(d["top1_accuracy"])),
                 status_tag(st, STATUS[st][0]),
             ])
-            attrs.append(f' data-status="{st}"')
         body = status_legend(legend_entries()) + filterable_table(
             [
                 ("Species", False),
@@ -211,7 +210,6 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
             ],
             rows,
             options=filter_options(),
-            row_attrs=attrs,
         )
         P.append(panel(
             f"Look up one species: all {len(per_species)} in this export",

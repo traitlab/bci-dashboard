@@ -208,6 +208,14 @@ JS = Template("""\
   // marked nothing, so everything shows; that is the older behaviour.
   var thin=document.getElementById('$thin_id');
 
+  // A row's status is the class on its own status tag. It used to be repeated
+  // in a data-status attribute on every row, which shipped the same word twice
+  // per row for no reader.
+  function statusOf(r){
+    var tag=r.querySelector('.tag');
+    return tag?tag.className.replace('tag','').trim():'';
+  }
+
   function apply(){
     var needle=(q.value||'').trim().toLowerCase();
     var want=sel?sel.value:'all';
@@ -218,7 +226,7 @@ JS = Template("""\
       // is shown. A row attribute repeating it shipped ~7KB of duplicate text.
       var hay=(r.cells[0]?r.cells[0].textContent:'').toLowerCase();
       var ok=(!needle||hay.indexOf(needle)>=0)&&
-             (want==='all'||(r.getAttribute('data-status')||'')===want)&&
+             (want==='all'||statusOf(r)===want)&&
              (showThin||needle||want!=='all'||
               r.getAttribute('data-thin')!=='1');
       r.classList.toggle('hidden',!ok);

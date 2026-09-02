@@ -18,6 +18,7 @@ import contextlib
 import importlib.util
 import io
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -333,7 +334,7 @@ GENERATED = "2026-08-25-test"
 # such snapshot -- it is scoped to one Labelbox export -- so it carries none.
 #
 # `species_status` is narrower than `species`: it is the per-row
-# `data-status` attribute plus the status legend that
+# status tag plus the status legend that
 # `panels.p_species` renders. All three pages carry it. `build_export_only.py`
 # used to build its own species table straight off `assets.filterable_table`
 # with no `row_attrs`, so a row said 40% and nothing said whether that was a
@@ -349,6 +350,17 @@ GENERATED = "2026-08-25-test"
 # between pages the way it did while a third page carried `species` and
 # `queue_counts` together. The flags stay because they say what a page is
 # expected to carry, which is the claim the assertions need.
+# A species row is a row carrying a status tag. The rows used to be found by a
+# `data-status` attribute that repeated on every row what the tag already says;
+# the page dropped it, so the tests look for the tag itself.
+_ANY_ROW = re.compile(r"<tr\b[^>]*>.*?</tr>", re.S)
+
+
+def species_rows(html: str) -> list[str]:
+    """Every row of the species table, tags and all."""
+    return [row for row in _ANY_ROW.findall(html) if '<span class="tag ' in row]
+
+
 PAGES = {
     "external_page": ("build_external.py", "model_health_dashboard.html",
                       {"species", "species_status", "species_thin",

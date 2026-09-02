@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import re
 
+from conftest import species_rows
+
 # The status dropdown is the only element the inline JS tolerates missing, so
 # the id-presence check below has to know which one it is.
 STATUS_SELECT_ID = "status-filter"
@@ -27,7 +29,6 @@ GUARDED_IDS = {STATUS_SELECT_ID: "species_status", "show-thin": "species_thin"}
 _GETELEMENTBYID = re.compile(r"getElementById\(\s*['\"]([^'\"]+)['\"]\s*\)")
 _ID_ATTR = re.compile(r"""\bid=['"]([^'"]+)['"]""")
 _SCRIPT_BODY = re.compile(r"<script>(.*)</script>", re.S)
-_ROW = re.compile(r"<tr data-status=.*?</tr>", re.S)
 
 
 # ---------------------------------------------------------------------------
@@ -137,16 +138,16 @@ def test_a_wide_table_scrolls_inside_its_own_box(page):
 
 
 def test_the_filter_can_reach_every_row(page):
-    """The filter reads the first cell for the name and data-status for the
-    status. A row missing either is invisible to it, which reads as a table
-    that loses rows when you type."""
+    """The filter reads the first cell for the name and the row's own status
+    tag for the status. A row missing either is invisible to it, which reads as
+    a table that loses rows when you type."""
     html, _, carries = page
-    tagged = [r for r in re.findall(r"<tr\b[^>]*>", html) if "data-status=" in r]
+    tagged = species_rows(html)
     if "species_status" not in carries:
         assert not tagged, "page carries no species status wiring but renders filterable rows"
         return
     assert tagged, "no filterable rows"
-    for row in _ROW.findall(html):
+    for row in tagged:
         first = re.match(r"<tr\b[^>]*>\s*<td[^>]*>(.*?)</td>", row, re.S)
         assert first and re.sub(r"<[^>]+>", "", first.group(1)).strip(), (
             f"row has no species name to match: {row}")
@@ -166,3 +167,22 @@ def test_the_stylesheet_has_no_rule_no_page_uses(external_page, internal_page, s
         used.update(group.split())
     dead = sorted(styled - used - JS_APPLIED)
     assert not dead, f"CSS rules nothing on either page carries: {dead}"
+
+
+def test_every_status_a_row_carries_is_one_the_dropdown_offers(page):
+    """The filter compares the dropdown's value against the class on a row's
+    status tag. They are two spellings of the same word, so a row spelling its
+    status any other way is a row the dropdown can never show.
+
+    Not the other direction: the dropdown offers every status the scoring can
+    produce, and a page built from one small export legitimately has rows for
+    only some of them."""
+    html, _, carries = page
+    if "species_status" not in carries:
+        return
+    offered = {v for v in re.findall(r'<option value="([^"]+)"', html) if v != "all"}
+    carried = {c for row in species_rows(html)
+               for c in re.findall(r'<span class="tag ([^"]+)"', row)}
+    assert carried and carried <= offered, (
+        f"rows carry {sorted(carried - offered)}, which the dropdown does not "
+        f"offer, so those rows vanish when a reader picks any status")
