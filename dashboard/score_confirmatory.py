@@ -378,7 +378,7 @@ def result_rows(rows, complete, draws=BOOTSTRAP_DRAWS):
                 (f"{a}_top1", accuracy(scorable, a)),
                 (f"{a}_top1_site_lo", s_lo), (f"{a}_top1_site_hi", s_hi),
                 (f"{a}_top1_wilson_lo", w_lo), (f"{a}_top1_wilson_hi", w_hi),
-                (f"{a}_top5", accuracy(scorable, a, 5))]
+                (f"{a}_top5", accuracy(scorable, a, core.N_CANDIDATES))]
 
     pairs, crown_only, photo_only = discordance(rows, "crown", "photo")
     p_boot, band = bootstrap_p(rows, "crown", "photo", "site", draws)

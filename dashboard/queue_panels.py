@@ -233,7 +233,7 @@ def p_conf(c):
               'so ordering on confidence alone would push exactly the species you care '
               'about to the bottom:</p>'
             + table([("labelled frames for that species", False),
-                     ("frames the model was 0.7 or more sure about", True),
+                     (f"frames the model was {c.flat_thr} or more sure about", True),
                      ("of those, first guess wrong", True)],
                     [[BAND_SHORT[lab], f"{flat[lab][0]:,}",
                       pctf(flat[lab][1] / flat[lab][0])]

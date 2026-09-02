@@ -206,10 +206,13 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
         review_pairs[(r["gt"], top1(r))].append(conf(r))
     review_counts = (len(review), len(review_pairs))
 
-    # --- why confidence alone is unsafe: error by labelled frames, at conf>=0.7 ---
+    # --- why confidence alone is unsafe: error by labelled frames, at the
+    # lowest band core.CONF_THRESHOLDS names. The queue page writes this number
+    # into its own column header, so it reads it from here rather than typing it.
+    flat_thr = hc.CONF_THRESHOLDS[0]
     flat = {}
     for r in sp_recs:
-        if conf(r) >= 0.7:
+        if conf(r) >= flat_thr:
             b = flat.setdefault(hc.bucket_label(support[r["gt"]]), [0, 0])
             b[0] += 1
             b[1] += top1(r) != r["gt"]
@@ -225,9 +228,10 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     rare = {s for s, k in support.items() if k < RARE_MAX_SUPPORT}
     n_rare_test = sum(1 for r in test_recs if r["gt"] in rare)
 
-    rules = [(f"{t} or more sure, any species", t, False) for t in (0.7, 0.8)]
+    rules = [(f"{t} or more sure, any species", t, False)
+             for t in hc.CONF_THRESHOLDS[:-1]]
     rules += [(f"{t} or more sure, and the species has at least {WAIT_SUPPORT_MIN} "
-               f"labelled frames", t, True) for t in (0.7, 0.8, 0.9)]
+               f"labelled frames", t, True) for t in hc.CONF_THRESHOLDS]
     ops = []
     for label, thr, gate in rules:
         wait = [r for r in test_recs if conf(r) >= thr and (not gate or r["gt"] in eligible)]
@@ -269,7 +273,7 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
         confident_ok=confident_ok, confident_hits=confident_hits,
         n_adjudicated=n_adjudicated,
         review_pairs=review_pairs, review_counts=review_counts,
-        flat=flat, eligible=eligible, test_recs=test_recs, rare=rare,
+        flat=flat, flat_thr=flat_thr, eligible=eligible, test_recs=test_recs, rare=rare,
         n_rare_test=n_rare_test, ops=ops, best=best, gn=gn, fam_n=fam_n, gg1=gg1,
         fam_names=fam_names, gen_any=gen_any, gen_one=gen_one, gen_none=gen_none,
         n_cand=N_CANDIDATES, cf=load_confirmatory(), checks=None,

@@ -41,11 +41,21 @@ def test_no_command_measures_a_list_of_five_by_a_literal(core):
     """
     import os
 
+    import glob
+
+    # Every module, not a hand-written list of two. A list of which files to
+    # check is itself a second copy of a fact, which is the defect this test
+    # exists to catch; `explain.py` and `score_confirmatory.py` were both
+    # outside the old list and both still held a literal.
     root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
-    for name in ("measure.py", "health.py"):
-        src = open(os.path.join(root, "dashboard", name), encoding="utf-8").read()
+    paths = sorted(glob.glob(os.path.join(root, "dashboard", "*.py")))
+    assert len(paths) > 10, "the module glob found almost nothing; check the path"
+    for path in paths:
+        name = os.path.basename(path)
+        src = open(path, encoding="utf-8").read()
         assert "[:5]" not in src, f"{name} slices a candidate list by a literal"
         assert ", 5)" not in src, f"{name} passes a list length as a literal"
+        assert "nb-results=5" not in src, f"{name} prints the list length as a literal"
 
 
 def test_the_run_log_text_lives_in_run_log_py(core):

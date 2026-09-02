@@ -28,12 +28,25 @@ CONFIDENCE_IS_SHARED = ("Pl@ntNet spreads 100% of its confidence across every "
 # hue it carries no order. Fixing that is a new palette, not a contrast tweak.
 BAND_COLOR = {"1": "#b71c1c", "2-4": "#d44215", "5-9": "#8d6e00",
               "10-24": "#4f812c", "25+": "#1b5e20"}
-BAND_WORD = {"1": "1 frame", "2-4": "2 to 4 frames", "5-9": "5 to 9 frames",
-             "10-24": "10 to 24 frames", "25+": "25 or more frames"}
-# The same bands, short enough for a chart row label. Built as f"{key} frames"
-# they read "1 frames" for the band holding 51 of the 186 species.
-BAND_SHORT = {"1": "1 frame", "2-4": "2-4 frames", "5-9": "5-9 frames",
-              "10-24": "10-24 frames", "25+": "25+ frames"}
+def _band_words():
+    """Each labelled-frame band in words, and short enough for a chart label.
+
+    Built from ``hc.SUPPORT_BUCKETS`` for the reason ``_conf_band_words``
+    below is: retyped, "2 to 4 frames" keeps saying 4 after the band moves.
+    The singular is the reason this is not ``f"{label} frames"`` throughout;
+    it would read "1 frames" for the band holding a third of the species.
+    """
+    long_, short = {}, {}
+    for lo, hi, lab in hc.SUPPORT_BUCKETS:
+        noun = "frame" if hi == 1 else "frames"
+        long_[lab] = (f"{lo} {noun}" if lo == hi
+                      else f"{lo} or more {noun}" if hi >= 10 ** 9
+                      else f"{lo} to {hi} {noun}")
+        short[lab] = f"{lab} {noun}"
+    return long_, short
+
+
+BAND_WORD, BAND_SHORT = _band_words()
 
 def _conf_band_words():
     """"0.7 to 0.8", not "[0.7,0.8)" (a botanist has no reason to know
@@ -52,15 +65,19 @@ def _conf_band_words():
 
 CONF_BAND_WORDS = _conf_band_words()
 
-# Frames at or below this many labels are "thin" in the near-miss comparison.
-THIN_MAX = 4
-FAT_MIN = 25
+# The two ends of the near-miss comparison, read off the bands rather than
+# retyped: 4 and 25 are the upper edge of the second band and the lower edge of
+# the last, and the prose below prints both. Typed here they would keep saying
+# "4 frames or fewer" after the bands moved.
+THIN_MAX = hc.SUPPORT_BUCKETS[1][1]
+FAT_MIN = hc.SUPPORT_BUCKETS[-1][0]
 
 
 def _near_miss(recs):
     """Wrong first guesses, and the share whose right answer is still listed."""
     wrong = [r for r in recs if r["ranked"][0][0] != r["gt"]]
-    got = sum(1 for r in wrong if r["gt"] in [b for b, _ in r["ranked"][:5]])
+    got = sum(1 for r in wrong if r["gt"] in
+              [b for b, _ in r["ranked"][:hc.N_CANDIDATES]])
     return len(wrong), got / len(wrong) if wrong else 0.0
 
 
@@ -130,7 +147,7 @@ def candidates_panel(*, recs, n_scored, gen_n, gen_none):
           f'{top}, those {top} hold only {pctf(1 - hidden[top])} between them</b>, so a '
           f'typical {pctf(hidden[top])} sits on species we never received. On {half:,} of '
           f'the {full:,} full lists ({pctf(half / full)}) more than half the confidence '
-          f'sits outside the five.</p>'
+          f'sits outside the {top}.</p>'
           f'<p class="note"><b>What the cap hides is a right answer in position {top + 1}</b>, '
           f'indistinguishable here from Pl@ntNet never having heard of the plant. Both look '
           f'like a miss.</p>'
