@@ -635,7 +635,8 @@ def p_species(c):
     body = (f'<p class="note"><b>Every rate here is scored on the fixed centre square, '
             f'not on outlined crowns.</b> On {half:,} of these {len(c.sp_recs):,} frames '
             f'the labelled species covers less than half that square, and on {none_:,} it '
-            f'covers none of it. So a low rate can mean the crop missed the tree rather '
+            f'covers none of it.</p>'
+            f'<p class="note">So a low rate can mean the crop missed the tree rather '
             f'than that the model missed the name. Read a row as a flag for a second look, '
             f'not as that species&rsquo; identification accuracy.</p>'
             + status_legend([(st, STATUS[st][0], STATUS_REASON[st]) for st in STATUS])
