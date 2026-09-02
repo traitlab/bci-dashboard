@@ -60,6 +60,17 @@ STATUS = {
                     "species at all"),
 }
 
+# The rows a botanist can pass over. Two of them are not last in STATUS order,
+# and the panel used to claim "the last two rows", which sent a reader past a
+# skippable row to reach two rows of live work.
+SKIP_STATUSES = ("hard", "reliable", "unreachable")
+
+
+def uncap(label):
+    """A status label mid-sentence. Only the first letter drops: ``.lower()``
+    turned "Never returned on any BCI photo" into "any bci photo"."""
+    return label[:1].lower() + label[1:]
+
 STATUS_REASON = {
     "ranking": "The right name is already in the five, so this is the cheapest confirmation work.",
     "unmeasured": f"Fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, so the score is "
@@ -79,7 +90,7 @@ def status_precedence_note():
     Built from ``hc.STATUS_PRECEDENCE`` rather than written out, so a change to
     the order in ``diagnose`` cannot leave the page describing the old one.
     """
-    names = [STATUS[k][0].lower() for k in hc.STATUS_PRECEDENCE]
+    names = [uncap(STATUS[k][0]) for k in hc.STATUS_PRECEDENCE]
     return ("Each species gets one status. The rules are checked in this order: "
             + ", then ".join(f"&ldquo;{n}&rdquo;" for n in names)
             + f". So a few-frame species can still show as &ldquo;{names[2]}&rdquo;. "
@@ -142,6 +153,14 @@ def hero_terms(k):
         "built from, which is why it is the fairer of the two numbers at the top."
     )
 
+def crop_mismatch(c):
+    """How many scored frames the centre crop mostly misses. Two counts, used
+    twice: once under the species table where a reader first meets a per-species
+    rate, and once under the four corpus rates."""
+    return (sum(1 for r in c.sp_recs if (r.get("crop_coverage") or 0) < 0.5),
+            sum(1 for r in c.sp_recs if (r.get("crop_coverage") or 0) == 0))
+
+
 # The two regions above are not the same region, and the numbers below compare
 # across them. Stated here rather than in a footnote because every figure on
 # this page inherits the mismatch.
@@ -152,8 +171,7 @@ def hero_region(c):
     stale and measured over the wrong population, which is the failure the rest
     of this file avoids by recomputing every figure at build time.
     """
-    half = sum(1 for r in c.sp_recs if (r.get("crop_coverage") or 0) < 0.5)
-    none_ = sum(1 for r in c.sp_recs if (r.get("crop_coverage") or 0) == 0)
+    half, none_ = crop_mismatch(c)
     return (
         "<strong>These four numbers judge a centre crop against a label for the whole "
         f"frame.</strong> The two are not always looking at the same tree. On {half:,} of "
@@ -185,6 +203,16 @@ QL = {"long_tail": ("Species we barely have, or barely get right",
                  "the first two"),
       "can_wait": ("Confident on a well-covered species",
                    "The two-part rule below says these can wait; look at them last")}
+
+
+# Above the 25 filenames, not below them: a reader who meets the list first has
+# already accepted it as instructions by the time the caveat arrives.
+UNGRADED_NOTE = (
+    '<p class="note"><b>This order has not been graded.</b> The wait rule further down '
+    'is measured against frames held back for that purpose, and prints how often it is '
+    'wrong. Nothing here measures whether sending these photos first fills gaps faster '
+    'than sending photos at random. Treat the order as a reasonable guess about where '
+    'our labels are thin, not as a tested rule.</p>')
 
 
 def cam_phrase(cameras):
@@ -279,13 +307,19 @@ def p_todo(c):
                 f'cannot show.</p>')
     return panel(f"Where to spend botanist time next: {c.counts['ranking']} species are a "
                  f"cheap confirmation, {c.counts['unreachable']} are not worth time yet",
-                 "<b>Work top to bottom.</b> Rows are ordered cheapest useful work first, "
-                 "and the last two rows are work you can skip.",
+                 "<b>Work top to bottom.</b> Rows are ordered cheapest useful work "
+                 "first, and three of them are work you can skip: "
+                 + ", ".join(f"&ldquo;{uncap(STATUS[k][0])}&rdquo;" for k in SKIP_STATUSES)
+                 + ". They are not all at the bottom.",
                  "\n".join(body), open_=True)
 
 
 def p_send(c):
-    body = table([("queue", False), ("unlabelled frames", True),
+    # What "the pool" is, above the table whose third column is a share of it.
+    body = (f'<p class="note">The pool is {c.n_unlab:,} of {len(c.h.split_rows):,} photos: '
+            f'the ones with a cached Pl@ntNet answer and no botanist label. Every share '
+            f'below is out of that {c.n_unlab:,}.</p>')
+    body += table([("queue", False), ("unlabelled frames", True),
                   ("share of the pool", True)],
                  [[f'<strong>{esc(QL[q][0])}</strong>' if q in ("long_tail", "low_conf_known")
                    else esc(QL[q][0]),
@@ -296,6 +330,7 @@ def p_send(c):
     # there is, and the CSV in the snapshot folder said which photo.
     head = c.queue_rows[:SEND_PREVIEW]
     body += ('<h3 class="sub">The next ' + f'{len(head)}' + ' photos, in order</h3>'
+             + UNGRADED_NOTE
              + table([("#", True), ("photo", False), ("Pl@ntNet's guess", False),
                       ("confidence", True), ("frames that species has", True)],
                      [[f"{i}", f'<code class="key">{esc(stem)}</code>',
@@ -310,16 +345,7 @@ def p_send(c):
              'on which species was guessed, whatever the confidence. Inside a queue the '
              'weakest guesses come first, because those are the frames our labels cover '
              'worst. A guess near the bottom of the scale means Pl@ntNet recognised '
-             'almost nothing, which is itself the reason to look.</p>'
-             # The wait rule below is graded against a held-out set and prints its
-             # error rate. This one is not graded at all, and a page that shows one
-             # and not the other reads as if both had been checked.
-             '<p class="note"><b>This order has not been graded.</b> The wait rule '
-             'further down is measured against frames held back for that purpose, and '
-             'prints how often it is wrong. Nothing here measures whether sending these '
-             'photos first fills gaps faster than sending photos at random. Treat the '
-             'order as a reasonable guess about where our labels are thin, not as a '
-             'tested rule.</p>')
+             'almost nothing, which is itself the reason to look.</p>')
     top_lt = sorted(c.lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
     body += ('<p class="note"><b>Most-named species in the first queue.</b> '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
@@ -353,9 +379,10 @@ def p_send(c):
              f'this queue ({pctf(c.queue_cams["tele"] / sum(c.queue_cams.values()))}). '
              f'How well the model reads that camera is not known from here. Sending them '
              f'is how it becomes known.</p>'
-             f'<p class="note">The pool is {c.n_unlab:,} of {len(c.h.split_rows):,} photos: '
-             f'the frames with a cached Pl@ntNet answer and no botanist label. The other '
-             f'{len(c.h.split_rows) - c.n_unlab:,} are already labelled, or have no cached '
+             # The pool is now defined above the share table. What is left here is
+             # the accounting for the rest of the corpus and the model-change note.
+             f'<p class="note">The other {len(c.h.split_rows) - c.n_unlab:,} of the '
+             f'{len(c.h.split_rows):,} photos are already labelled, or have no cached '
              f'answer to rank. The species '
              f'record behind each queue is the one measured above, so a model update '
              f're-sorts this queue exactly as it re-sorts the can-wait one.</p>')
@@ -600,9 +627,18 @@ def p_species(c):
         options=[(k, v[0]) for k, v in STATUS.items()],
         row_attrs=attrs,
     ))
+    half, none_ = crop_mismatch(c)
     return panel(f"Look up one species: all {c.n_sp}, sortable and filterable",
                  "<b>Find a species you care about and read its status.</b> Click any "
-                 "heading to sort, type to filter. " + status_precedence_note(),
+                 "heading to sort, type to filter. " + status_precedence_note()
+                 # The caveat that changes how a row reads used to sit 1,200 lines
+                 # below the table. A reader had already judged a species by then.
+                 + f' Every rate here is scored on the fixed centre square, not on '
+                   f'outlined crowns. On {half:,} of these {len(c.sp_recs):,} frames the '
+                   f'labelled species covers less than half that square, and on {none_:,} '
+                   f'it covers none of it. So a low rate can mean the crop missed the '
+                   f'tree rather than that the model missed the name. Read a row as a flag '
+                   f'for a second look, not as that species&rsquo; identification accuracy.',
                  body, open_=True)
 
 
