@@ -100,27 +100,32 @@ def test_the_layout_table_names_the_key_each_directory_reads(readme, core):
                 f"{row.strip()}")
 
 
-# Paths the README names that a fresh checkout does not have. All three are
-# generated and gitignored, and the README says so in the same table it names
-# them in, so a checkout missing them is the normal state, not a broken link.
-README_GENERATED = ("data/", "snapshots/", "build/", ".env")
+# Prefixes both files name that a fresh checkout does not have. Everything under
+# them is generated and gitignored, and both files say so where they name them,
+# so a checkout missing one is the normal state, not a broken link.
+GENERATED = ("data/", "snapshots/", "build/", ".env")
 
 
-def test_every_path_the_readme_points_at_is_there(readme, core):
+@pytest.mark.parametrize("doc,least", [("README.md", 15), ("CONTEXT.md", 4)])
+def test_every_path_the_docs_point_at_is_there(doc, least, core):
     """The front page is a map, and a map to a moved file is worse than none.
 
-    Six numbers in this file are held to the code. The paths were not: rename a
-    module or drop an ADR and the README keeps pointing at it, which the reader
-    finds out one failed `cat` later. The sibling `-docs` files count too, since
-    the README sends the reader to them for what every number means.
+    Six numbers in the README are held to the code. The paths were not: rename a
+    module or drop an ADR and the file keeps pointing at it, which the reader
+    finds out one failed `cat` later. CONTEXT.md is the same promise in glossary
+    form. The sibling `-docs` files count too, since both send the reader to
+    them for what every number means.
     """
     root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    with open(os.path.join(root, doc), encoding="utf-8") as fh:
+        text = fh.read()
     named = set(re.findall(r"`([\w./-]+/[\w./-]*|\.env[\w.]*|config\.yaml|"
-                           r"requirements[\w-]*\.txt)`", readme))
-    assert len(named) > 15, f"the README names only {len(named)} paths; the regex broke"
+                           r"requirements[\w-]*\.txt)`", text))
+    assert len(named) >= least, (
+        f"{doc} names only {len(named)} paths; the regex broke")
     missing = []
     for path in sorted(named):
-        if path in README_GENERATED:
+        if path.startswith(GENERATED):
             continue
         full = (os.path.join(os.path.dirname(root), path)
                 if path.startswith("bci-dashboard-docs/")
@@ -128,6 +133,6 @@ def test_every_path_the_readme_points_at_is_there(readme, core):
         if not os.path.exists(full):
             missing.append(path)
     assert not missing, (
-        f"the README points at {missing}, which is not in the checkout. Either "
-        f"the file moved and the README did not, or it is generated and belongs "
-        f"in README_GENERATED with the reason.")
+        f"{doc} points at {missing}, which is not in the checkout. Either the "
+        f"file moved and {doc} did not, or it is generated and belongs under one "
+        f"of the GENERATED prefixes with the reason.")

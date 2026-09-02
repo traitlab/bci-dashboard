@@ -144,3 +144,28 @@ def test_every_status_is_named_in_the_glossary(context, status_words):
         assert label.replace(",", "").lower() in flat, (
             f"status_words.STATUS[{key!r}] is called {label!r} and the glossary "
             f"lists another wording for it.")
+
+
+def test_the_glossary_names_the_files_the_builders_actually_write():
+    """Three rows of the glossary are a filename, and the reader opens it.
+
+    The names are not in the checkout to compare against: `build/` is generated
+    and gitignored, so the path check in tests/test_readme.py skips them and a
+    renamed page would leave the glossary pointing at a file nobody can open.
+    Each name lives in the builder that writes it, once as `OUT_NAME` and once
+    as an `--out` default, so it can be read from there instead.
+    """
+    import re
+
+    from conftest import REPO
+
+    context = (REPO / "CONTEXT.md").read_text(encoding="utf-8")
+    for module, pattern in (("build_external.py", r'OUT_NAME = "([\w.]+)"'),
+                            ("build_internal.py", r'OUT_NAME = "([\w.]+)"'),
+                            ("build_export_only.py", r'"build", "([\w.]+)"')):
+        source = (REPO / "dashboard" / module).read_text(encoding="utf-8")
+        found = re.search(pattern, source)
+        assert found, f"{module} no longer names the file it writes"
+        assert f"`build/{found.group(1)}`" in context, (
+            f"{module} writes build/{found.group(1)} and CONTEXT.md points the "
+            f"reader at a different file.")
