@@ -2,8 +2,9 @@
 
 Nothing exercised `build_external.py` or `build_internal.py` before this file,
 so every cleanup pass over them had to be verified by hand-diffing 185KB of
-HTML. `assets.py` is exercised by `test_assets.py` instead of here, and
-`build_export_only.py` is exercised here alongside the other two builders.
+HTML. `assets.py` is exercised by `test_assets.py` and the export-only page's own
+inputs by `test_export_only_page.py`; the page-shape invariants below run
+against all three pages, this one included.
 Golden-file comparison would just move that problem into the test (any
 legitimate number change breaks it), so this asserts structure instead: the
 build's own snapshot cross-check passed, the page is one self-contained file,
@@ -33,16 +34,7 @@ import pathlib
 import re
 
 import pytest
-from conftest import (
-    GT_KEY_PREFIX,
-    PAGES,
-    SNAPSHOT_DIR,
-    build_page,
-    corpus_keys_with_species_gt,
-    require_buildable,
-    species_rows,
-    write_export_ndjson,
-)
+from conftest import SNAPSHOT_DIR, species_rows
 # The frame list is the one file that says how many field sites there are, and
 # reading it lives with the other checks that hold a number to its source.
 from test_shared_constants import frame_list_sites
@@ -51,80 +43,6 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 
 _LEGEND = re.compile(r'<ul class="status-legend">.*?</ul>', re.S)
 _TAG_LABEL = re.compile(r'<span class="tag [^"]*"[^>]*>([^<]*)</span>')
-
-
-
-
-
-
-# ---------------------------------------------------------------------------
-# The export page: no NDJSON export is tracked in the repo, so one is built at
-# test time from the repo's own real inputs rather than being fixture data
-# that would make this page skip on every machine.
-# ---------------------------------------------------------------------------
-
-def _gt_from_export():
-    """Import labelling/gt_from_export.py by path, the same trick
-    build_export_only.py's own `_load_gt_from_export` uses: labelling/ is not
-    a package on the normal import path."""
-    import importlib.util
-    path = REPO / "labelling" / "gt_from_export.py"
-    spec = importlib.util.spec_from_file_location("_gt_from_export", str(path))
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-def test_the_generated_export_is_in_the_shape_export_dominants_parses(export_fixture):
-    """The hard part this suite exists to get right: nothing guarantees the
-    NDJSON shape invented above is the shape the real merge script accepts.
-    This calls `export_dominants` on the generated file directly and checks it
-    recovers exactly the species that were put in, rather than trusting the
-    shape by construction."""
-    path, keys, gt = export_fixture
-    dominants, _, _ = _gt_from_export().export_dominants(path)
-    assert dominants, "export_dominants returned nothing -- the NDJSON shape is wrong"
-    for gk in keys:
-        stem = gk[len(GT_KEY_PREFIX):]
-        assert dominants.get(stem) == gt[gk], (
-            f"export_dominants did not recover the species put in for {gk}")
-
-
-def test_build_renders_the_no_score_note_when_nothing_joins(tmp_path_factory):
-    """The branch nothing else here covers: every labelled key in the export
-    has no cached Pl@ntNet prediction, so nothing can be scored. Real keys
-    again -- the corpus's own GT rows with no file under
-    data/predictions/cache -- not a fabricated gap."""
-    require_buildable()
-    _, without_cache, gt = corpus_keys_with_species_gt()
-    assert without_cache, (
-        "no GT key on this machine lacks a cached prediction -- nothing to build this from")
-    path = tmp_path_factory.mktemp("export_nocache") / "export.ndjson"
-    write_export_ndjson(path, without_cache, gt)
-    html, _ = build_page(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
-    assert ("No photo in this export both carries a species label and has a "
-            "cached Pl@ntNet prediction") in html
-    assert not re.search(r"\d+\.\d%", html), "an accuracy percentage was printed anyway"
-
-
-def test_the_export_funnel_accounts_for_every_row(export_only_page):
-    """The funnel exists to say where the rows that are not in the accuracy
-    rate went. It once dropped the genus-only frames: the counts on screen did
-    not add up, and a reader who checked found rows missing. Steps, in order:
-    rows, labelled, joined to a cached answer, named a species, stopped at the
-    genus, no cached answer."""
-    html, _ = export_only_page
-    funnel = re.search(r'<ul class="todo">(.*?)</ul>', html, re.DOTALL)
-    assert funnel, "the export page rendered no funnel"
-    counts = [int(x.replace(",", ""))
-              for x in re.findall(r'<span class="n">([\d,]+)</span>', funnel.group(1))]
-    assert len(counts) == 6, f"expected six funnel steps, got {counts}"
-    rows, labelled, joined, species, genus, no_cache = counts
-    assert labelled <= rows
-    assert joined + no_cache == labelled, (
-        f"labelled {labelled} is not joined {joined} plus un-joined {no_cache}")
-    assert species + genus == joined, (
-        f"joined {joined} is not species {species} plus genus-only {genus}")
 
 
 def test_no_page_shows_interval_notation(page):
