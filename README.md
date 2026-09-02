@@ -1,31 +1,24 @@
 # BCI dashboard
 
-Two self-contained HTML pages, one per audience, built from the same
-measurement pass:
+Two self-contained HTML pages, built from the same measurement pass. Each is a
+single file you can open, email, or drop on a share, rebuilt offline from files
+already on disk: a Labelbox export of botanist labels, plus cached Pl@ntNet
+responses.
 
-1. **How well does Pl@ntNet name BCI trees?** `dashboard/build_external.py`
-   reports, per species, how often Pl@ntNet's first guess is right, with the
-   number of labelled frames behind it, how well its confidence tracks that
-   rate, and why the species carries the status it does. This is the page that
-   leaves the lab.
-2. **What to label next.** `dashboard/build_internal.py` reports a send-first
-   queue and species-grouped batches. The page is a way to check the order;
-   the deliverable is `send_batches.csv` beside it, which the labelling script
-   reads.
+1. **How well does Pl@ntNet name BCI trees?** `dashboard/build_external.py`:
+   per species, how often the first guess is right, on how many labelled frames,
+   how well confidence tracks that, and why the species carries its status. The
+   page that leaves the lab.
+2. **What to label next.** `dashboard/build_internal.py`: a send-first queue and
+   species-grouped batches. The page checks the order; the deliverable is
+   `send_batches.csv` beside it, which the labelling script reads.
 
-A third builder, `dashboard/build_export_only.py`, answers a narrower
-question: how did *this one* Labelbox export do. It reads one NDJSON file and
-scores only the frames that export labels, so it never mixes a new batch into
-the running total. It is a spot check on a delivery, not a page anyone
-publishes.
+`dashboard/build_export_only.py` scores one Labelbox export on its own, so a new
+batch never mixes into the running total. A spot check on a delivery, not a page
+anyone publishes.
 
-`CONTEXT.md` names every term the pages use, and the plain words a page says
-instead. Prose that reaches a page follows it, and
-`tests/test_plain_english.py` checks that it does.
-
-A page is a single file you can open, email, or drop on a share. It is rebuilt
-offline from files already on disk: a Labelbox export of botanist labels, plus
-cached Pl@ntNet responses.
+`CONTEXT.md` names every term the pages use and the plain words a page says
+instead. `tests/test_plain_english.py` checks that page prose follows it.
 
 ## How a page gets made
 
@@ -47,45 +40,40 @@ aborts on any number that disagrees.
 ## What a number on a page means
 
 - Every published number carries its population and its support count.
-- A photo prediction comes from a fixed 1280x1280 centre crop, 13.7% of a
-  4000x3000 frame, while a botanist draws crowns anywhere in the frame. The
-  crop-coverage gate (`MIN_CROP_COVERAGE`, 0.50) asks whether the species that
-  covers most of the *crop* covers at least half of it, which is not the same
-  question as whether the frame's labelled species does. On the dashboard path
-  it is a diagnostic reported as a sweep, not a filter behind a headline:
-  `coverage_gate.csv` reports gated beside ungated and the pages score the
-  ungated population. `labelling/next_batch.py` does use it as a filter when
-  choosing candidates.
-- The headline this repo publishes is not measured on that crop. It is measured
-  crown by crown: one identify call per labelled crown, pooled to the frame by
-  box area, on 300 frames frozen before the numbers existed.
-  `input/confirmatory_result_2026-08.csv` holds it and
-  `bci-dashboard-docs/hypothesis.md` fixed the design in advance. It is a
-  per-frame rate over 72 species, and the crowns come from the botanist, so it
-  is the cost of naming once the trees have been found, not what a pipeline
-  with no outlines would score. The page states all three limits beside the
-  number.
+- **The headline is measured crown by crown**, not on the centre crop: one
+  identify call per labelled crown, pooled to the frame by box area, over 300
+  frames frozen before the numbers existed
+  (`input/confirmatory_result_2026-08.csv`; `bci-dashboard-docs/hypothesis.md`
+  fixed the design in advance). Per frame, 72 species, crowns drawn by the
+  botanist, so it is the cost of naming trees already found. The page states all
+  three limits beside the number.
+- **A photo prediction comes from a fixed 1280x1280 centre crop**, 13.7% of a
+  4000x3000 frame, while a botanist draws crowns anywhere in it. The
+  crop-coverage gate (`MIN_CROP_COVERAGE`, 0.50) asks whether the species
+  covering most of the *crop* covers half of it, which is not the same question.
+  On the dashboard path it is a diagnostic, not a filter: `coverage_gate.csv`
+  reports gated beside ungated and the pages score ungated.
+  `labelling/next_batch.py` does filter on it.
 - Crop and box geometry is read from what the fetch recorded, so the numbers stay
   true if the crop ever changes.
-- A miss counts only within a known population. Out-of-scope species and
-  in-checklist misses are separate groups, and `predict/fetch_checklist.py`
-  decides which a species belongs to. A species missing from a cached list of
-  five names is unproven either way until it does.
+- A miss counts only within a known population. `predict/fetch_checklist.py`
+  decides whether a species is out of scope or in the checklist, and a species
+  missing from a cached list of five names is unproven either way.
 
-Definitions of every published number, the camera-gap decomposition, and the
-trend caveats live in the sibling `bci-dashboard-docs/metrics.md`.
+Every published number is defined in the sibling
+`bci-dashboard-docs/metrics.md`, with the camera-gap decomposition and the trend
+caveats.
 
 ## What the pages score today
 
-The pages score one row per photo, grouped by confidence and by how many
-labelled frames a species has. Three other
-analyses run and write their own output, which `dashboard/core.py` does not read:
+One row per photo, grouped by confidence and by how many labelled frames a
+species has. Three other analyses write output `dashboard/core.py` never reads:
 
-| Analysis | Writes | Status |
-|---|---|---|
-| Crown-level scores (`predict/crown_accuracy.py`) | scores cut from the crown boxes in `data/crowns_export/` | off-page |
-| Embedding-ranked queue (`labelling/rank_unsent.py`) | a CoreSet order in `data/next_batch/queue_ranked.csv` | off-page |
-| Crop-coverage gate (`dashboard/measure.py`) | gated vs ungated in `coverage_gate.csv` | off-page |
+| Analysis | Writes |
+|---|---|
+| Crown-level scores (`predict/crown_accuracy.py`) | scores cut from the crown boxes in `data/crowns_export/` |
+| Embedding-ranked queue (`labelling/rank_unsent.py`) | a CoreSet order in `data/next_batch/queue_ranked.csv` |
+| Crop-coverage gate (`dashboard/measure.py`) | gated vs ungated in `coverage_gate.csv` |
 
 ## Layout
 
@@ -125,15 +113,13 @@ python3 dashboard/build_export_only.py --export path/to/export.ndjson
 ## Configure
 
 Copy `.env.example`. `.env` is gitignored and is the only place a key belongs.
-The fetch scripts under `predict/` need `PLANTNET_API_KEY`; those under
-`labelling/` need `LABELBOX_API_KEY` too.
+`predict/` needs `PLANTNET_API_KEY`; `labelling/` needs `LABELBOX_API_KEY` too.
 
 Which Labelbox workspace those scripts point at is not secret, so it sits in
-`config.yaml` where a reader can see what a run will touch before it runs.
-`LABELBOX_DATASET_ID` and `LABELBOX_PROJECT_ID` override it.
-
-Paths default to the checkout: `BCI_DASHBOARD_REPO`, `BCI_DASHBOARD_DATA`,
-`BCI_DASHBOARD_SNAPSHOTS`, `BCI_WCVP_CACHE`.
+`config.yaml`, visible before a run touches anything. `LABELBOX_DATASET_ID` and
+`LABELBOX_PROJECT_ID` override it. Paths default to the checkout:
+`BCI_DASHBOARD_REPO`, `BCI_DASHBOARD_DATA`, `BCI_DASHBOARD_SNAPSHOTS`,
+`BCI_WCVP_CACHE`.
 
 ## Test
 
@@ -142,7 +128,7 @@ uv pip install -r requirements-dev.txt          # once, into .venv
 .venv/bin/pytest
 ```
 
-Name the interpreter. The tests covering `predict/` import `PIL`, `yaml` and
-`dotenv`, and skip themselves when those are absent, so a system interpreter
-runs about two thirds of the suite and still reports a pass. `-ra` is on by
-default, so every skip prints its reason.
+Name the interpreter. Tests covering `predict/` skip themselves when `PIL`,
+`yaml` or `dotenv` is absent, so a system interpreter runs about two thirds of
+the suite and still reports a pass. `-ra` is on, so every skip prints its
+reason.
