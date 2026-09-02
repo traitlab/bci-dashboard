@@ -66,8 +66,13 @@ def build(h, *, generated, verify_dir, fallback_tag):
          cp.confirmatory_hero(c.cf),
          # The gap is the finding, so it is prose rather than a hover tooltip nothing
          # on a phone would see.
-         (f'<p class="note"><strong>Quote the top number, and carry the two warnings '
-          f'below it.</strong> Outlining the trees first is worth '
+         # The two warnings are the fourth panel down, not the first: "terms"
+         # and "counts" lead, for the reasons above EXTERNAL_PANELS. So the
+         # instruction links rather than pointing, and the script's openHash
+         # expands the panel on arrival.
+         (f'<p class="note"><strong>Quote the top number, and carry the '
+          f'<a href="#two-warnings">two warnings</a> that go with it.</strong> '
+          f'Outlining the trees first is worth '
           f'{100 * c.cf["crown_minus_photo"]:+.1f} points over sending the fixed centre '
           f'square. That gap was measured on frames set aside before either number '
           f'existed.</p>'),

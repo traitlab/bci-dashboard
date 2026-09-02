@@ -140,8 +140,8 @@ def p_confirmatory(c):
         # whole story.
         "<b>The top number is real but it was not produced blind.</b> It was measured on "
         "frames that were fixed before anyone looked.", body,
-        # The id is linked to from the four-rate panel and pinned by a test, so it
-        # outlives the wording of the summary above it.
+        # An explicit id, pinned by a test, so a saved link outlives the wording
+        # of the summary above it. slug() would build one from that wording.
         anchor="where-the-headline-comes-from")
 
 def p_caveats(c):
