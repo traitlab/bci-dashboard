@@ -831,7 +831,10 @@ def p_caveats(c):
         f'Before these frames were set aside, someone on the team had already seen how well '
         f'the outline-first method scored, on a different set of photos. That does not make '
         f'the number wrong and it does not touch the gap above, but the number has to travel '
-        f'with this warning. The plan&rsquo;s own wording is below in full, from amendment '
+        f'with this warning.</p>'
+        # The warning, then the key to the quote. One block ran the two together,
+        # so the reader met three glosses before reaching the words they gloss.
+        f'<p>The plan&rsquo;s own wording is below in full, from amendment '
         f'A2 of <code>hypothesis.md</code>. '
         f'Two of its words are the plan&rsquo;s, not this page&rsquo;s: <b>tiles</b> is the '
         f'third way of asking, the one that was cut, and a <b>quadrat</b> is a marked-out '
