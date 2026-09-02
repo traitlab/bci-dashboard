@@ -819,7 +819,10 @@ def p_caveats(c):
         f'in the plan, an exact McNemar test, '
         f'gives p = {cf["p_mcnemar_exact"]:.5f}. McNemar assumes every frame is independent '
         f'of every other, and frames from one site are not. So the plan named the resampling '
-        f'test as the answer where the two disagree. For contrast, the ordinary textbook '
+        f'test as the answer where the two disagree.</p>'
+        # Its own paragraph: the range is a different claim from the two p-values,
+        # and running them together made this the second-longest block on the page.
+        f'<p class="note">For contrast, the ordinary textbook '
         f'range for the top number would read '
         f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])}. It '
         f'assumes every frame is independent, so it is narrower than the data supports. '
