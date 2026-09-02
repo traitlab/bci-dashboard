@@ -8,14 +8,17 @@ Safety: only CREATES new batches and upserts metadata. Never deletes,
 modifies, or moves existing resources. Follows the three-stage protocol
 (--test for 5 rows, then full).
 
+`send_batches.csv` holds every batch in one file, so --batch picks the one to
+send. One batch there is one Labelbox batch.
+
 Usage:
     # Stage 1, test with 5 rows:
     python labelling/dispatch_round.py \\
-        --round 1 --csv data/round_01_coreset_selection.csv --test
+        --round 1 --csv build/tables/send_batches.csv --batch 1 --test
 
     # Stage 2, full dispatch:
     python labelling/dispatch_round.py \\
-        --round 1 --csv data/round_01_coreset_selection.csv
+        --round 1 --csv build/tables/send_batches.csv --batch 1
 """
 from __future__ import annotations
 
@@ -36,13 +39,27 @@ EXPORT_TIMEOUT_SEC = 300
 METADATA_SCHEMA_NAME = "selection_round"
 
 
-def load_selection_csv(csv_path: Path) -> list[str]:
-    global_keys = []
+def load_selection_csv(csv_path: Path, batch_id: str | None = None) -> list[str]:
+    """The global keys to send, in file order.
+
+    `send_batches.csv` holds every batch in one file, and one batch is one
+    Labelbox batch, so `batch_id` picks the one to send. A file without that
+    column is sent whole: an older selection CSV is still a valid selection.
+    An id that is not in the file is a stop, never an empty send.
+    """
+    global_keys, seen = [], set()
     with open(csv_path, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
+            in_file = (row.get("batch_id") or "").strip()
+            seen.add(in_file)
+            if batch_id is not None and in_file != batch_id:
+                continue
             gk = row["global_key"].strip()
             if gk:
                 global_keys.append(gk)
+    if batch_id is not None and batch_id not in seen:
+        sys.exit(f"ERROR: batch {batch_id} is not in {csv_path}. "
+                 f"It holds {len(seen - {''})} batches.")
     return global_keys
 
 
@@ -104,6 +121,8 @@ def parse_args():
     )
     ap.add_argument("--round", type=int, required=True, help="round number (1, 2, ...)")
     ap.add_argument("--csv", type=Path, required=True, help="selection CSV from the send-first queue (dashboard/measure.py)")
+    ap.add_argument("--batch", help="send one batch_id out of the CSV (send_batches.csv "
+                    "holds all of them; one batch is one Labelbox batch)")
     ap.add_argument("--test", action="store_true", help="process first 5 rows only (Stage 1)")
     ap.add_argument("--priority", type=int, default=1, choices=[1, 2, 3, 4, 5],
                     help="labelling priority (1=highest, default 1)")
@@ -180,11 +199,14 @@ def main() -> None:
     combined_dataset_name = config["labelbox"]["combined_dataset_name"]
     project_b_name = config["labelbox"]["project_b_name"]
 
-    global_keys = load_selection_csv(args.csv)
+    global_keys = load_selection_csv(args.csv, args.batch)
+    if not global_keys:
+        sys.exit(f"ERROR: no global keys to send from {args.csv}.")
     if args.test:
         global_keys = global_keys[:5]
         print(f"TEST MODE: processing {len(global_keys)} rows only")
-    print(f"Step 1 - Loaded {len(global_keys)} global keys from {args.csv}")
+    where = f"{args.csv}" + (f" batch {args.batch}" if args.batch else "")
+    print(f"Step 1 - Loaded {len(global_keys)} global keys from {where}")
 
     client = lb.Client(api_key=settings.api_key())
 
