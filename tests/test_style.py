@@ -13,8 +13,11 @@ here rather than shipping as an unstyled element or dead bytes in every page.
 
 from __future__ import annotations
 
+import ast
+import io
 import os
 import re
+import tokenize
 
 DASHBOARD = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dashboard")
 
@@ -35,6 +38,26 @@ def _css_classes(style):
 def _sources():
     return {f: open(os.path.join(DASHBOARD, f), encoding="utf-8").read()
             for f in sorted(os.listdir(DASHBOARD)) if f.endswith(".py")}
+
+
+def _without_prose(src):
+    """``src`` with every comment and docstring blanked out.
+
+    A class name that survives this is one the code writes, not one a sentence
+    happens to mention. The dead-rule check below reads only this: a rule kept
+    alive by English in a docstring is a rule nothing wears.
+    """
+    drop = set()
+    for node in ast.walk(ast.parse(src)):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef,
+                             ast.ClassDef)) and ast.get_docstring(node) is not None:
+            doc = node.body[0]
+            drop.update(range(doc.lineno, doc.end_lineno + 1))
+    for tok in tokenize.generate_tokens(io.StringIO(src).readline):
+        if tok.type == tokenize.COMMENT:
+            drop.add(tok.start[0])
+    return "\n".join("" if i in drop else line
+                      for i, line in enumerate(src.splitlines(), 1))
 
 
 def test_every_class_a_builder_writes_has_a_rule_in_the_stylesheet(style):
@@ -59,8 +82,15 @@ def test_every_rule_in_the_stylesheet_matches_something(style):
     kind of drift, not an unlikely one. Classes the script adds at runtime
     (`asc`, `desc`, `hidden`, `sortable`) count: they appear in style.py's own
     JS, which is one of the sources read here.
+
+    Comments and docstrings are stripped first, and a trailing `{` counts as a
+    boundary. Without the strip, `.hero .metric` passed on the word "metric"
+    inside an English sentence while the line that emits it,
+    `f'<div class="metric{...}">'`, was invisible to the search: the rule was
+    live, the guard was reading prose, and condensing that sentence would have
+    reported a live rule dead.
     """
-    src = "".join(_sources().values())
+    src = "".join(_without_prose(s) for s in _sources().values())
     dead = [c for c in sorted(_css_classes(style))
-            if not re.search(r"[\"'\s>]" + re.escape(c) + r"[\"'\s<]", src)]
+            if not re.search(r"[\"'\s>]" + re.escape(c) + r"[\"'\s<{]", src)]
     assert not dead, f"stylesheet rules matching no markup and no script: {dead}"
