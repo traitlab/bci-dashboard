@@ -195,7 +195,9 @@ def read_pool(path=POOL):
     return sorted(rows, key=lambda r: r["base_image"])
 
 
-def main():
+def parse_args():
+    """Read the committed manifest by default. --rebuild-pool derives the pool
+    from the live caches instead, which is only correct before the freeze."""
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--rebuild-pool", action="store_true",
@@ -210,7 +212,50 @@ def main():
     ap.add_argument("--out", type=Path, default=OUT)
     ap.add_argument("-n", type=int, default=N)
     ap.add_argument("--seed", type=int, default=SEED)
-    args = ap.parse_args()
+    return ap.parse_args()
+
+
+def report_draw(pool, rows, quota, digest, seed) -> None:
+    """What was drawn, and how it spread across sites.
+
+    The sha256 is printed on every run, not only on --verify: it is how anyone
+    can tell at a glance whether the list in front of them is the frozen one.
+    """
+    print(f"eligible pool          : {len(pool)} frames")
+    print(f"sites                  : {len(quota)}")
+    print(f"drawn                  : {len(rows)} (seed {seed}, cap {CAP:.0%})")
+    print(f"crowns in the draw     : {sum(r['n_crowns'] for r in rows)}")
+    print(f"flight days in the draw: {len({r['flight_day'] for r in rows})}")
+    print(f"sha256                 : {digest}")
+    sizes = {}
+    for r in pool:
+        sizes[r["site"]] = sizes.get(r["site"], 0) + 1
+    print(f"\n{'site':18} {'pool':>6} {'drawn':>6} {'share':>7}")
+    for s in sorted(quota, key=lambda s: -quota[s]):
+        print(f"{s:18} {sizes[s]:6d} {quota[s]:6d} {quota[s] / len(rows):6.1%}")
+
+
+def verify_draw(args, text) -> None:
+    """Hold the committed list to what this seed draws, byte for byte.
+
+    Refuses to run against the live caches: a pool rebuilt after the freeze
+    would make the check pass by moving the thing it checks.
+    """
+    if args.rebuild_pool:
+        sys.exit("FAIL: --verify must read the committed manifest, not the "
+                 "live caches; drop --rebuild-pool")
+    if not args.out.exists():
+        sys.exit(f"FAIL: {args.out} does not exist")
+    if args.out.read_text() != text:
+        sys.exit("FAIL: the committed list is not what this seed draws")
+    print(f"\nVERIFY OK: {args.out} matches the draw byte for byte")
+
+
+def main():
+    """Draw the confirmatory sample, or check that the committed one is the
+    draw. The draw is a pure function of the pool and the seed, which is what
+    makes --verify meaningful."""
+    args = parse_args()
 
     if args.rebuild_pool:
         core = _load("_core", REPO / "dashboard" / "core.py")
@@ -222,29 +267,10 @@ def main():
     text = to_csv_text(rows)
     digest = hashlib.sha256(text.encode()).hexdigest()
 
-    print(f"eligible pool          : {len(pool)} frames")
-    print(f"sites                  : {len(quota)}")
-    print(f"drawn                  : {len(rows)} (seed {args.seed}, cap {CAP:.0%})")
-    print(f"crowns in the draw     : {sum(r['n_crowns'] for r in rows)}")
-    print(f"flight days in the draw: {len({r['flight_day'] for r in rows})}")
-    print(f"sha256                 : {digest}")
-    sizes = {}
-    for r in pool:
-        sizes[r["site"]] = sizes.get(r["site"], 0) + 1
-    print(f"\n{'site':18} {'pool':>6} {'drawn':>6} {'share':>7}")
-    for s in sorted(quota, key=lambda s: -quota[s]):
-        print(f"{s:18} {sizes[s]:6d} {quota[s]:6d} {quota[s] / len(rows):6.1%}")
+    report_draw(pool, rows, quota, digest, args.seed)
 
     if args.verify:
-        if args.rebuild_pool:
-            sys.exit("FAIL: --verify must read the committed manifest, not the "
-                     "live caches; drop --rebuild-pool")
-        if not args.out.exists():
-            sys.exit(f"FAIL: {args.out} does not exist")
-        on_disk = args.out.read_text()
-        if on_disk != text:
-            sys.exit("FAIL: the committed list is not what this seed draws")
-        print(f"\nVERIFY OK: {args.out} matches the draw byte for byte")
+        verify_draw(args, text)
     if args.write:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         if args.rebuild_pool:

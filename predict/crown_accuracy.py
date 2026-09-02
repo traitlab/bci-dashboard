@@ -210,20 +210,40 @@ def decomposition(rows: list[dict], reference: str, target: str) -> None:
               f"scoring {accuracy(thin):.1%}")
 
 
-def controls(rows: list[dict], cameras: list[str], export_boxes: dict) -> None:
-    shared = set.intersection(*({r["gt"] for r in rows if r["camera"] == c}
-                                for c in cameras))
+def shared_species(rows: list[dict], cameras: list[str]) -> set:
+    """The species every camera has labelled frames for.
+
+    Comparing cameras on all species compares two different species mixes as
+    much as two cameras. This is the set that lets the rest of the controls
+    hold the mix fixed.
+    """
+    return set.intersection(*({r["gt"] for r in rows if r["camera"] == c}
+                              for c in cameras))
+
+
+def control_same_species(rows, cameras, shared) -> None:
+    """Control 1: the same species on every camera, so the mix cannot explain a gap."""
     print(f"\ncontrol 1 - only the {len(shared)} species every camera shows")
     for cam in cameras:
         sel = [r for r in rows if r["camera"] == cam and r["gt"] in shared]
         print(f"  {cam:6} n={len(sel):5}  top-1={accuracy(sel):.1%}")
 
+
+def control_box_size(rows, cameras) -> None:
+    """Control 2: how big the crowns are on each camera.
+
+    A camera that only ever sees small crowns has a harder job, and this is
+    where that shows up before it is mistaken for a worse camera.
+    """
     print("\ncontrol 2 - crown box size, shortest side in px")
     for cam in cameras:
         sides = sorted(r["side"] for r in rows if r["camera"] == cam)
         print(f"  {cam:6} n={len(sides):5}  median={statistics.median(sides):.0f}  "
               f"p10={sides[len(sides) // 10]:.0f}  p90={sides[9 * len(sides) // 10]:.0f}")
 
+
+def control_size_matched(rows, cameras, shared) -> None:
+    """Control 3: same species and same crown size, the two controls together."""
     print("\ncontrol 3 - same species and same box size")
     for lo, hi in SIZE_BINS:
         parts = []
@@ -233,15 +253,29 @@ def controls(rows: list[dict], cameras: list[str], export_boxes: dict) -> None:
             parts.append(f"{cam}={accuracy(sel):.1%} (n={len(sel)})")
         print(f"  side {lo}-{hi}: " + "  ".join(parts))
 
-    if export_boxes:
-        print("\ncontrol 4 - do the boxes come from the current export geometry?")
-        for cam in cameras:
-            sel = [r for r in rows if r["camera"] == cam and r["box"]]
-            hit = sum(
-                (int(float(r["box"]["x_min"])), int(float(r["box"]["y_min"])))
-                in export_boxes.get(r["frame"], ()) for r in sel)
-            print(f"  {cam:6} {hit}/{len(sel)} crowns match a box in the export")
 
+def control_export_geometry(rows, cameras, export_boxes) -> None:
+    """Control 4: are these the boxes the current export drew?
+
+    A crown scored against geometry from an older export is scored against a
+    different crop of the photo, which is a silent way to be wrong.
+    """
+    print("\ncontrol 4 - do the boxes come from the current export geometry?")
+    for cam in cameras:
+        sel = [r for r in rows if r["camera"] == cam and r["box"]]
+        hit = sum(
+            (int(float(r["box"]["x_min"])), int(float(r["box"]["y_min"])))
+            in export_boxes.get(r["frame"], ()) for r in sel)
+        print(f"  {cam:6} {hit}/{len(sel)} crowns match a box in the export")
+
+
+def control_wrong_box(rows, cameras) -> None:
+    """Control 5: is the label attached to the wrong crown?
+
+    The tell is a wrong call that names another labelled crown in the same
+    frame. The model saw a tree that is there, just not the one the box was
+    drawn around, so this counts a labelling error rather than a model error.
+    """
     print("\ncontrol 5 - is the label on the wrong box?")
     print("  a wrong call that names another labelled crown in the same frame is the tell")
     by_frame = collections.defaultdict(list)
@@ -260,6 +294,18 @@ def controls(rows: list[dict], cameras: list[str], export_boxes: dict) -> None:
         if wrong:
             print(f"  {cam:6} {other}/{wrong} wrong calls name a different "
                   f"labelled crown ({other / wrong:.1%})")
+
+
+def controls(rows: list[dict], cameras: list[str], export_boxes: dict) -> None:
+    """Five ways a camera gap could be something other than the camera, checked
+    in the order they are worth ruling out."""
+    shared = shared_species(rows, cameras)
+    control_same_species(rows, cameras, shared)
+    control_box_size(rows, cameras)
+    control_size_matched(rows, cameras, shared)
+    if export_boxes:
+        control_export_geometry(rows, cameras, export_boxes)
+    control_wrong_box(rows, cameras)
 
 
 def magnification(rows: list[dict], cameras: list[str]) -> None:
