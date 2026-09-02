@@ -346,6 +346,19 @@ def p_terms(c):
         hero_terms(c.n_cand))
 
 
+def headline_hero(c):
+    """The page's two leading cards: the first-guess rate, both ways of averaging.
+
+    Built from ``HEADLINES`` rather than typed here, so the cards and the
+    four-rate grid in ``p_weighting`` cannot end up calling one number two
+    things. The right-name-in-the-list rates stay in the grid: they are a
+    ceiling on our own request, not a statement about the model.
+    """
+    return hero([(averaged, pctf(c.now[metric]), question.format(k=c.n_cand),
+                  note.format(n_sp=c.n_sp, k=c.n_cand))
+                 for metric, question, averaged, note in HEADLINES[:2]])
+
+
 def p_weighting(c):
     # The four corpus rates and their qualifiers, in the one panel that explains
     # them. The grid reuses the headline card markup, so no new CSS exists.

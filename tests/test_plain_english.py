@@ -165,18 +165,17 @@ def sentences(blocks: list[str]) -> list[str]:
 
 
 @pytest.fixture(scope="session")
-def quoted(confirmatory_panels, core, assets):
-    """Text the page reproduces rather than writes: the two blocks
-    `hypothesis.md` requires verbatim, the glossary that introduces them, and
-    the provenance line the merge script wrote to its sidecar. The glossary is
-    here because it is the page saying what the plan's words mean; the words
-    are retired from prose the page writes in its own voice, which is what the
-    retired-word checks below are about. Taken from the modules that render them
-    rather than retyped, because retyped they would drift and this file would
-    start excluding nothing.
+def quoted(core, assets):
+    """Text the page reproduces rather than writes.
+
+    Only the provenance line remains: `labelling/gt_from_export.py` writes it
+    to a sidecar at merge time and the page reproduces it, so it is a record of
+    which export the labels came from, not a sentence anyone on the page wrote.
+    The two blocks `hypothesis.md` requires verbatim left the page on
+    2026-09-02 for `bci-dashboard-docs/metrics.md`; every sentence the page
+    carries now is one the page wrote, so every sentence is checked.
     """
-    return (confirmatory_panels.A2_GLOSS, confirmatory_panels.A2_PRIOR_EXPOSURE,
-            confirmatory_panels.A4_WHAT_THIS_COSTS, assets.esc(core.gt_provenance()))
+    return (assets.esc(core.gt_provenance()),)
 
 
 @pytest.fixture(scope="session")

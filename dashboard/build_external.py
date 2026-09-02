@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import confirmatory_panels as cp
 import figures
+import panels
 import page as pg
 from assets import esc
 from history import verify_snapshot
@@ -51,27 +52,21 @@ def build(h, *, generated, verify_dir, fallback_tag):
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
          f'&middot; {c.n:,} labelled frames &middot; {c.n_sp} species</div>',
-         # The set-aside sample is not named here: both cards and the note below
-         # already say it. The intro's job is what the two numbers compare.
+         # The two cards are the corpus rates, so the intro says what they are
+         # measured on. What qualifies them is the note under them.
          f'<p class="intro">This page says how well Pl@ntNet names the trees a botanist '
-         f'labelled. The two numbers at the top show what difference it makes to outline '
-         f'the trees before asking.</p>'
-         f'<p class="intro">Everything below them covers all {c.n:,} labelled frames, one '
+         f'labelled. The two numbers at the top are the same rate averaged two ways, over '
+         f'all {c.n:,} labelled frames.</p>'
+         f'<p class="intro">Everything below them covers those {c.n:,} labelled frames, one '
          f'Pl@ntNet guess per frame. That is what lets the page say, species by species, '
          f'how often the guess is right. What to label next is a separate page, <code>label_queue_dashboard.html</code>.</p>',
-         # The headline first, on the frozen sample: the only number here whose
-         # unit of prediction is the unit the label describes. The corpus-wide
-         # grid follows it, inside a panel.
-         cp.confirmatory_hero(c.cf),
-         # The gap is the finding, so it is prose, not a tooltip no phone shows.
-         # The two warnings sit four panels down, so the instruction links to
-         # them and the script's openHash expands the panel on arrival.
-         (f'<p class="note"><strong>Quote the top number, and carry the '
-          f'<a href="#two-warnings">two warnings</a> that go with it.</strong> '
-          f'Outlining the trees first is worth '
-          f'{100 * c.cf["crown_minus_photo"]:+.1f} points over sending the fixed centre '
-          f'square. That gap was measured on frames set aside before either number '
-          f'existed.</p>'),
+         # The corpus rates lead: they are what this page measures every session
+         # and the only rates the deployable path can produce.
+         panels.headline_hero(c),
+         # They are measured against a label for a region they do not cover, so
+         # the correction travels with them rather than sitting in a panel. The
+         # script's openHash expands the panel behind the link on arrival.
+         cp.floor_note(cp.require(c.cf)),
          ]
     P.append(pg.render(c, pg.EXTERNAL_PANELS))
 

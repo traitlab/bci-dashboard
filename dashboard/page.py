@@ -21,7 +21,7 @@ import health as hl
 from assets import css_for, section, strip_comments
 from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
 from history import latest_snapshot_dir
-from confirmatory_panels import p_caveats, p_confirmatory
+from confirmatory_panels import p_floor
 from panels import (
     p_ceiling, p_counts, p_method, p_review, p_species, p_terms,
     p_weighting)
@@ -50,8 +50,7 @@ SECTIONS = {
 # panel id -> (section key, builder). A panel belongs to the goal it serves, so
 # the confidence evidence sits with the queue rule it justifies.
 PANELS = {
-    "confirmatory": ("headline", p_confirmatory),
-    "caveats": ("headline", p_caveats),
+    "floor": ("headline", p_floor),
     "terms": ("headline", p_terms),
     "counts": ("headline", p_counts),
     "todo": ("label-first", p_todo),
@@ -73,7 +72,7 @@ INTERNAL_PANELS = ("todo", "send", "wait", "rules", "conf")
 # Order inside a section is the order these ids are listed in. "terms" leads
 # because frame, crown, label and centre crop are load-bearing from the first
 # card down; the species lookup comes before the averaging argument.
-EXTERNAL_PANELS = ("terms", "counts", "confirmatory", "caveats", "species", "review",
+EXTERNAL_PANELS = ("terms", "counts", "floor", "species", "review",
                    "weighting", "ceiling", "method")
 
 if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
