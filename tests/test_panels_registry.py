@@ -223,3 +223,16 @@ def test_document_is_one_self_contained_html_document(panels):
     assert html.startswith("<!DOCTYPE html>")
     assert html.count("<html") == 1
     assert html.rstrip().endswith("</html>")
+
+
+def test_help_shows_one_sentence_not_the_whole_module_docstring(panels):
+    """--help was printing nine lines of design note, RST backticks and a usage
+    line argparse prints for itself, before the first flag."""
+    doc = """One line saying what this is.
+
+    ``sibling.py`` does the other thing.
+
+        python3 dashboard/thing.py [--out PATH]
+    """
+    assert panels.summarise(doc) == "One line saying what this is."
+    assert "``" not in panels.summarise(panels.__doc__ or "x")

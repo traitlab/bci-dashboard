@@ -706,11 +706,22 @@ def render(c, ids) -> str:
 # copy is a second place for the verify flags to drift.
 # ---------------------------------------------------------------------------
 
+def summarise(doc: str) -> str:
+    """The first paragraph of a module docstring, as a terminal should read it.
+
+    The rest of the docstring is written for someone with the file open: it
+    names sibling modules in ``double backticks``, which argparse prints
+    literally, and repeats the usage line argparse prints for itself. Passing
+    the whole thing gave --help a nine-line wall before the first flag.
+    """
+    return " ".join(doc.strip().split("\n\n")[0].replace("``", "").split())
+
+
 def parse_args(doc: str, default_out: str):
     """The builder command line. Same flags on both pages, different --out."""
     import argparse
 
-    ap = argparse.ArgumentParser(description=doc)
+    ap = argparse.ArgumentParser(description=summarise(doc))
     ap.add_argument("--gt", default=hc.GT_CSV)
     ap.add_argument("--splits", default=hc.SPLITS_CSV)
     ap.add_argument("--cache-dir", default=hc.CACHE_DIR)
