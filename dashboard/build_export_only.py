@@ -202,7 +202,7 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
             rows.append([
                 esc(cap(d["species"])),
                 num_cell(d["n_labelled_crowns"], f'{d["n_labelled_crowns"]:,}'),
-                num_cell(f'{d["top1_accuracy"]:.6f}', pctf(d["top1_accuracy"])),
+                num_cell(d["top1_accuracy"], pctf(d["top1_accuracy"])),
                 status_tag(st, STATUS[st][0]),
             ])
         body = status_legend(legend_entries()) + filterable_table(

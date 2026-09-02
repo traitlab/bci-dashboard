@@ -264,9 +264,9 @@ def p_species(c):
         sp_rows.append([
             esc(cap(sp)),
             num_cell(d["n_labelled_crowns"], f'{d["n_labelled_crowns"]:,}'),
-            num_cell(f'{d["top1_accuracy"]:.6f}', pctf(d["top1_accuracy"])),
-            num_cell(f'{d["top5_accuracy"]:.6f}', pctf(d["top5_accuracy"])),
-            num_cell(f'{d["mean_top1_confidence"]:.6f}',
+            num_cell(d["top1_accuracy"], pctf(d["top1_accuracy"])),
+            num_cell(d["top5_accuracy"], pctf(d["top5_accuracy"])),
+            num_cell(d["mean_top1_confidence"],
                      f'{d["mean_top1_confidence"]:.2f}'),
             status_tag(st, STATUS[st][0])])
         # No data-status here: the row's own status tag already says it,

@@ -168,6 +168,21 @@ def funnel_list(steps: list[tuple[int, str]]) -> str:
     return f'<ul class="todo">{rows}</ul>'
 
 
+def sort_key(value) -> str:
+    """The number as the sort reads it: full precision, no idle characters.
+
+    A rate is carried to six decimals, finer than any cell shows and enough
+    that two species never tie by rounding. Trailing zeros carry none of that:
+    "0.000000" and "0" sort alike and the longer one was costing 1.5KB of a
+    100KB page. The formatting lives here rather than at each call site, where
+    the same ``.6f`` was typed four times.
+    """
+    v = f"{value:.6f}" if isinstance(value, float) else str(value)
+    if "." in v:
+        v = v.rstrip("0").rstrip(".") or "0"
+    return v
+
+
 def num_cell(value, shown: str) -> str:
     """A table cell, carrying the number to sort on only when it differs.
 
@@ -179,7 +194,7 @@ def num_cell(value, shown: str) -> str:
     Both species tables build their numeric cells here rather than each
     repeating the attribute, which is how the two once drifted.
     """
-    v = str(value)
+    v = sort_key(value)
     try:
         redundant = "," not in shown and float(shown) == float(v)
     except ValueError:

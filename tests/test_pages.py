@@ -480,3 +480,16 @@ def test_the_crop_mismatch_note_says_half_only_while_the_gate_means_half(
     assert core.MIN_CROP_COVERAGE == 0.50, (
         f"MIN_CROP_COVERAGE is {core.MIN_CROP_COVERAGE}, so the page's "
         f"'less than half the crop' names a line the gate no longer draws")
+
+
+def test_no_sort_key_ships_a_digit_the_sort_cannot_use(page):
+    """`data-sort` exists only for JavaScript's `parseFloat`, which cannot tell
+    "0.000000" from "0". The zeros are readable by nobody and were 1.5KB of a
+    100KB page, so `assets.sort_key` trims them. This catches a caller that
+    formats its own key and puts them back."""
+    html, _, _ = page
+    padded = [v for v in re.findall(r'data-sort="([^"]*)"', html)
+              if "." in v and v.endswith(("0", "."))]
+    assert not padded, (
+        f"{len(padded)} sort keys end in a zero that changes nothing, "
+        f"such as {padded[:3]}. Build them with assets.sort_key.")

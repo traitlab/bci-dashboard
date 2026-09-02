@@ -247,6 +247,20 @@ def test_num_cell_keeps_the_sort_attribute_wherever_the_text_would_mislead(asset
     assert assets.num_cell(1204, "1,204") == '<span data-sort="1204">1,204</span>'
 
 
+def test_sort_key_carries_the_whole_number_and_nothing_idle(assets):
+    """Six decimals is the precision, so two species that round to the same
+    percentage still sort apart. Everything past the last non-zero digit is
+    dropped: the sort reads it with parseFloat, which cannot tell "0.5" from
+    "0.500000", and the page carries 558 of these."""
+    assert assets.sort_key(0.0) == "0"
+    assert assets.sort_key(0.5) == "0.5"
+    assert assets.sort_key(1.0) == "1"
+    assert assets.sort_key(0.9285714) == "0.928571"
+    assert assets.sort_key(0.9285716) == "0.928572"
+    assert assets.sort_key(1204) == "1204"
+    assert assets.sort_key("0.859354") == "0.859354"
+
+
 def test_status_tag_renders_class_and_label(assets):
     out = assets.status_tag("hard", "Hard")
     assert out == '<span class="tag hard">Hard</span>'
