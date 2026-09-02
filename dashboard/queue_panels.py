@@ -1,12 +1,8 @@
-"""The panels only the internal queue page carries.
+"""The panels only the queue page carries.
 
-The queue page answers "what do we label next"; its panels are here, and the
-model-health panels stay in ``panels.py``. The two pages share the status
-vocabulary (``status_words.py``) and the page primitives (``assets.py``), not
-each other\'s panels. ``panels.PANELS`` still names every panel on either page,
-so a builder asks for a panel by id exactly as before.
-
-Stdlib only, like the rest of ``dashboard/``.
+The two pages share the status vocabulary (``status_words.py``) and the page
+primitives (``assets.py``), not each other\'s panels. ``panels.PANELS`` still
+names every panel on either page, so a builder asks by id as before.
 """
 
 from __future__ import annotations

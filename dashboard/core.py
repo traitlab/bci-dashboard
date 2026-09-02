@@ -1,13 +1,9 @@
-"""
-Pl@ntNet-on-BCI model health -- data layer.
+"""Pl@ntNet-on-BCI model health -- the data layer every page reads.
 
-Stdlib only (no pandas/numpy). Deterministic. No network calls.
-
-Loads GT + splits + cached Pl@ntNet API responses, joins them, reconciles GT
-names against the corpus vocabulary (with an optional local WCVP synonym
-crosswalk), builds the evaluable per-crown records and aggregates them to
-per-species health. Extracted from compute_model_health.py so the report
-script and other consumers (e.g. a dashboard) can share one code path.
+Deterministic, no network. Loads the labels, the splits and the cached
+Pl@ntNet responses, joins them, reconciles label names against the corpus
+vocabulary (optionally through a local WCVP synonym crosswalk), builds the
+scoreable per-frame records and aggregates them per species.
 """
 
 from __future__ import annotations

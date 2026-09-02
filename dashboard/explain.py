@@ -1,15 +1,11 @@
-"""Prose panels for the model-health dashboard.
+"""The model-health panels that are mostly explanation rather than measurement.
 
-Two panels that are mostly explanation rather than measurement live here, so
-the page builders stay page assemblers:
+``weighting_panel`` answers the question the two headline numbers provoke: how
+one model scores 81% and 56% at once. ``method_panel`` names the model, the
+request settings, and the assumption that cannot be checked offline.
 
-- ``weighting_panel`` answers the question the two headline numbers always
-  provoke, namely how one model can score 81% and 56% at once.
-- ``method_panel`` names the model, the request settings, and the assumption
-  that cannot be checked offline.
-
-Every figure either arrives already verified from ``core`` or is
-recomputed here from the same records. Nothing is hardcoded.
+Every figure arrives verified from ``core`` or is recomputed from the same
+records. Nothing is hardcoded.
 """
 
 from collections import Counter

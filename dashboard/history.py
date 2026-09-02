@@ -5,12 +5,11 @@ computes and renders. ``latest_snapshot_dir`` picks the folder to check
 against and ``verify_snapshot`` aborts the build when the page disagrees with
 that folder's CSVs or run log.
 
-The page reports the latest state only. It carried a trend over the dated
-snapshot folders until 2026-08-27; that was dropped because the series was not
-what it claimed. Points were cut on the mtime of each cached Pl@ntNet
-response, and predictions were bulk-fetched in May while labelling ran on for
-months, so August labels were back-dated to May. Recover it from git history
-if a real label date ever exists to cut on. Stdlib only, no network.
+The pages report the latest state only. A trend over the dated folders was
+dropped on 2026-08-27: it cut points on each cached response's mtime, and
+predictions were bulk-fetched in May while labelling ran on for months, so
+August labels plotted as May. Recover it from git history if a real label
+date ever exists to cut on.
 """
 
 from __future__ import annotations

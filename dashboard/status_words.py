@@ -1,11 +1,8 @@
-"""The status vocabulary both pages share: what each status is called, why a
-species gets it, and which ones a botanist can pass over.
+"""The status vocabulary all three pages share: what each status is called,
+why a species gets it, and which ones a botanist can pass over.
 
-Kept out of ``panels.py`` because three modules read it -- both page builders
-and the export-only page -- and a word changed in one place has to change the
-legend, the table and the to-do list together.
-
-Stdlib only, like the rest of ``dashboard/``.
+One module because a word changed here has to change the legend, the species
+table and the to-do list together.
 """
 
 from __future__ import annotations

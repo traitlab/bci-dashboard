@@ -1,15 +1,9 @@
 """Every figure a page shows, computed once off one ``Health``.
 
-One entry point: ``prepare``. A panel builder reads what it returns and does
-no arithmetic of its own, because two builders recomputing the same figure is
-exactly the drift ``history.verify_snapshot`` exists to catch, and it would
-catch it only after both pages were already built.
-
-Split out of ``panels.py`` on 2026-09-01. The two were one file of a thousand
-lines with two unrelated jobs in it: working out what is true, and saying it.
-Reading either meant scrolling past the other.
-
-Stdlib only, like the rest of ``dashboard/``.
+One entry point: ``prepare``. Panels read what it returns and do no arithmetic
+of their own. Two of them recomputing the same figure is exactly the drift
+``history.verify_snapshot`` exists to catch, and it would catch it only after
+both pages had been built.
 """
 
 from __future__ import annotations

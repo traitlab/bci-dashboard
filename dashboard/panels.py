@@ -1,23 +1,11 @@
-"""Every panel the dashboard pages can carry, and the one context they share.
+"""The model-health page's panels, and the registry both pages ask through.
 
-The 2026-08-27 split gave the panels two audiences. The internal page answers
-"what do we label next" and belongs to the labelling team; its real deliverable
-is ``send_batches.csv``, so the page stays thin. The external page answers "how
-does Pl@ntNet do against the labels" and is the one that leaves the lab. A
-panel therefore names its audience once, here, instead of a page hand-keeping a
-list of what it happens to include. ``PANELS`` still names every panel on
-either page; the queue page's own panel functions live in ``queue_panels.py``
-and the status vocabulary both pages read lives in ``status_words.py``, so
-this module holds the model-health panels and the registry rather than all
-three.
-
-The arithmetic lives in ``figures.py``: ``figures.prepare`` computes every
-derived figure once and each builder here reads it, rather than each builder
-recomputing from ``Health``. Two panels recomputing the same figure is exactly
-the drift ``history.verify_snapshot`` exists to catch, and it would catch it
-only after both pages were already built.
-
-Stdlib only, like the rest of ``dashboard/``.
+``PANELS`` names every panel on either page and ``EXTERNAL_PANELS`` /
+``INTERNAL_PANELS`` say which page carries which, so a panel names its
+audience here once instead of each builder keeping a list. The queue page's
+own panels are in ``queue_panels.py``, the shared status vocabulary in
+``status_words.py``, and the arithmetic in ``figures.py`` -- a panel here
+reads a figure, it never computes one.
 """
 
 from __future__ import annotations
@@ -95,13 +83,10 @@ CROP_SHARE = f"{100 * CROP_SIZE ** 2 / (FRAME_W * FRAME_H):.1f}%"
 def hero_terms(k):
     """The four words, and the request setting, in the wording the page uses.
 
-    A list rather than one paragraph: six definitions run together made the
-    first panel on the page the densest block on it, and a reader looking up
-    one word had to read all six to find it. Wording is unchanged.
-
-    A function rather than a constant because the number of names we ask for is
-    a setting, and a setting written into a constant is a sentence that stops
-    being true without anything noticing.
+    A list, not a paragraph: six definitions run together made the first panel
+    the densest block on the page, and looking up one word meant reading all
+    six. A function, not a constant, because the number of names we ask for is
+    a setting, and a setting frozen into prose stops being true unnoticed.
     """
     items = [
         f"A <b>frame</b> is one {FRAME_W}&times;{FRAME_H} drone photo.",
@@ -476,14 +461,12 @@ A4_WHAT_THIS_COSTS = (
 def p_confirmatory(c):
     """The frozen read behind the headline: what was measured, and on what.
 
-    Separate from the method panel because nothing here comes from the snapshot:
-    it is a one-time read of frames fixed before the data existed, and a reader
-    who mixes it with the whole-corpus numbers will report a rate on a set of
-    frames that was never measured. Closed, like the two panels beside it: a
-    reader arrives to look something up, not to read a method, and an open
-    method panel put a paragraph about resampling between them and the page.
-    What the reader must not miss is the line above the band, which says to
-    carry the warnings, and the summary of the panel that holds them.
+    Separate from the method panel because nothing here comes from the
+    snapshot: it is a one-time read of frames fixed before the data existed,
+    and mixing it with the corpus numbers reports a rate on frames nobody
+    measured. Closed, like its neighbours -- a reader arrives to look something
+    up, not to read a method. What they must not miss is the line above the
+    band telling them to carry the warnings.
     """
     cf = c.cf
     if cf is None:
