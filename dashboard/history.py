@@ -47,10 +47,11 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
                     queue_keys=None):
     """Abort the build if the page disagrees with measure.py's snapshot.
 
-    ``queue_counts`` maps queue to frame count, ``n_no_answer`` counts
-    unlabelled frames with an empty candidate list, ``review_counts`` is
-    (frames, distinct confusion pairs), ``queue_keys`` is the page's send-first
-    order. All four, when given, are checked against the queue CSVs.
+    ``queue_counts`` maps queue to frame count, ``review_counts`` is
+    (frames, distinct confusion pairs) and ``queue_keys`` is the page’s
+    send-first order: those three are checked against the queue CSVs.
+    ``n_no_answer`` counts unlabelled frames with an empty candidate list, and
+    is the one figure no CSV carries, so it is read back out of run_log.txt.
     """
     def fail(msg):
         raise SystemExit(f"VERIFY FAIL: {msg}")

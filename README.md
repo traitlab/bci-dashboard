@@ -30,8 +30,7 @@ instead. `tests/test_plain_english.py` holds the pages to it.
                                  photo)
 ```
 
-Fetching needs a key and the network. Measuring and building need neither, so
-the same files always give the same page. Each builder recomputes every number
+The same files always give the same page. Each builder recomputes every number
 it prints and aborts if the snapshot CSVs disagree.
 
 ## What a number means

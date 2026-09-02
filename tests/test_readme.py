@@ -1,0 +1,71 @@
+"""The README quotes six numbers, and prose cannot import a constant.
+
+Every one of them is a setting or a count that lives somewhere in the tree:
+the crop size, the share of the frame it covers, the coverage gate, how many
+names we ask Pl@ntNet for, how many CSVs a measurement pass writes, and how
+many frames were frozen for the experiment. Written out in Markdown they are
+copies, and a copy that nobody compares is how a front page ends up
+describing the settings of a year ago.
+
+Each test names the one definition it checks against, so a failure says which
+file moved rather than only that the README is wrong.
+"""
+
+from __future__ import annotations
+
+import csv
+import os
+import re
+
+import pytest
+
+
+@pytest.fixture(scope="session")
+def readme(core):
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    with open(os.path.join(root, "README.md"), encoding="utf-8") as fh:
+        return fh.read()
+
+
+def test_the_crop_size_and_its_share_of_the_frame(readme, crop_overlap):
+    share = 100 * crop_overlap.CROP_SIZE ** 2 / (crop_overlap.FRAME_W
+                                                 * crop_overlap.FRAME_H)
+    assert f"{crop_overlap.CROP_SIZE}x{crop_overlap.CROP_SIZE} centre crop" in readme, (
+        f"crop_overlap.CROP_SIZE is {crop_overlap.CROP_SIZE}; the README names a "
+        f"different centre crop.")
+    assert f"{share:.1f}% of the" in readme, (
+        f"the crop is {share:.1f}% of the frame and the README says otherwise. "
+        f"`panels.CROP_SHARE` computes the same figure for the page.")
+
+
+def test_the_coverage_gate(readme, core):
+    assert f"`MIN_CROP_COVERAGE` ({core.MIN_CROP_COVERAGE:.2f})" in readme, (
+        f"core.MIN_CROP_COVERAGE is {core.MIN_CROP_COVERAGE}; the README quotes "
+        f"another value. labelling/next_batch.py filters on this one.")
+
+
+def test_the_candidate_list_length(readme, core):
+    words = {3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight",
+             9: "nine", 10: "ten"}
+    assert f"list of {words[core.N_CANDIDATES]} names" in readme, (
+        f"core.N_CANDIDATES is {core.N_CANDIDATES}; the README's closing "
+        f"argument about unproven misses names a list of another length.")
+
+
+def test_how_many_csvs_a_measurement_pass_writes(readme, measure):
+    csvs = [name for name in measure.OUTPUTS if name.endswith(".csv")]
+    words = {7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven",
+             12: "twelve"}
+    assert f"{words[len(csvs)]} CSVs" in readme, (
+        f"measure.OUTPUTS writes {len(csvs)} CSVs and the diagram in the README "
+        f"says a different number.")
+
+
+def test_how_many_frames_were_frozen(readme, core):
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    frozen = os.path.join(root, "input", "confirmatory_frames_2026-08.csv")
+    with open(frozen, encoding="utf-8") as fh:
+        n = sum(1 for _ in csv.DictReader(fh))
+    assert re.search(rf"\b{n} frames frozen before", readme), (
+        f"{frozen} holds {n} frames and the README says another number. That "
+        f"count is the sample size behind the headline.")

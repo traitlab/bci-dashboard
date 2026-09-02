@@ -147,6 +147,15 @@ def confirmatory_panels():
 
 
 @pytest.fixture(scope="session")
+def measure():
+    """The measurement pass, for its module constants. Imported with
+    `dashboard/` on the path, since it imports core and health as siblings."""
+    with _on_path(REPO / "dashboard"):
+        import measure
+        yield measure
+
+
+@pytest.fixture(scope="session")
 def status_words():
     """The status vocabulary all three pages share. Module constants only, so
     no snapshot is needed to read it."""

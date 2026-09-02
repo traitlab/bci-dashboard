@@ -278,8 +278,14 @@ def load_cache_entry(path: str):
 
 
 def load_wcvp_crosswalk(path):
-    """-> (mapping normalized_input -> normalized_accepted_binomial, raw_entries).
-    Only entries where the accepted binomial differs from the input are kept."""
+    """The WCVP name crosswalk, as ``(renames, every_entry)``.
+
+    ``renames`` maps a normalized input name to its normalized accepted
+    binomial, and holds only the names WCVP actually moves: an entry accepted
+    under its own name would map to itself. ``every_entry`` is the cache as
+    read, unfiltered, because the page reports how many names were looked up
+    as well as how many changed.
+    """
     if not path or not os.path.exists(path):
         return {}, {}
     with open(path, encoding="utf-8") as fh:

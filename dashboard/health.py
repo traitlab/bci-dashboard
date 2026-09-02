@@ -149,8 +149,12 @@ def reconcile_names(gt_rows, predictions, corpus_vocab, crosswalk):
 
 
 def aggregate_per_species(sp_recs, corpus_norm, corpus_canon):
-    """One row per species: labelled frame count, first-guess and top-5
-    accuracy, mean confidence.
+    """One row per species, commonest first. The keys are the dict below.
+
+    Two of them are not counts. ``in_corpus_vocabulary`` is true when the name
+    came back on any BCI photo, not only on this species’ own frames, so a
+    row can be 0.0% in the list column and still be in the vocabulary.
+    ``support_bucket`` is the labelled-frames band the species falls in.
 
     ``top5_accuracy`` counts ``core.N_CANDIDATES`` names, the same constant
     ``figures.prepare`` aborts a build against when the cache carries more.

@@ -3,7 +3,7 @@
 Two arms, one label:
 
     crown   one identify call per labelled crown, aggregated to the frame
-    photo   the 1280 px centre square, 13.7% of the frame, the legacy reference
+    photo   the centre square crop_overlap.CROP_SIZE names, the legacy reference
 
 The label names the species whose crowns hold the largest summed box area over
 the frame. The crown rule mirrors that criterion at its own unit and the photo
@@ -33,6 +33,12 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import core
+from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
+
+# The frame is a fixed size across the corpus, and crop_overlap is where that
+# is written down and checked. Typed here as 4000 * 3000 it was a second copy
+# in the one script whose numbers are frozen and never recomputed.
+FRAME_AREA = FRAME_W * FRAME_H
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 FROZEN = REPO / "input" / "confirmatory_frames_2026-08.csv"
@@ -143,10 +149,10 @@ def build_rows(frozen, boxes, canon):
         # How much of the frame the labelled crowns cover at all. Kept as a
         # descriptive column; the prediction that read it, P4, named tiles.
         row["labelled_area"] = min(
-            1.0, sum((b[2] - b[0]) * (b[3] - b[1]) for b in big) / (4000 * 3000))
+            1.0, sum((b[2] - b[0]) * (b[3] - b[1]) for b in big) / FRAME_AREA)
         row["gt_area"] = min(1.0, sum(
             (b[2] - b[0]) * (b[3] - b[1]) for b in big if canon(b[4]) == gt)
-            / (4000 * 3000))
+            / FRAME_AREA)
 
         for a in ARMS:
             if row[a] is None:
