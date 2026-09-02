@@ -1,11 +1,9 @@
-"""The model-health panels that are mostly explanation rather than measurement.
+"""The model-health panels that are mostly explanation, not measurement.
 
-``weighting_panel`` answers the question the two headline numbers provoke: how
-one model scores 81% and 56% at once. ``method_panel`` names the model, the
-request settings, and the assumption that cannot be checked offline.
-
-Every figure arrives verified from ``core`` or is recomputed from the same
-records. Nothing is hardcoded.
+``weighting_panel`` answers how one model scores 81% and 56% at once;
+``method_panel`` names the model, settings, and the untestable assumption.
+Every figure is verified from ``core`` or recomputed from the same
+records; nothing is hardcoded.
 """
 
 from collections import Counter
@@ -31,12 +29,8 @@ BAND_SHORT = {"1": "1 frame", "2-4": "2-4 frames", "5-9": "5-9 frames",
               "10-24": "10-24 frames", "25+": "25+ frames"}
 
 def _conf_band_words():
-    """"0.7 to 0.8", not "[0.7,0.8)".
-
-    Interval notation is a convention a botanist has no reason to know, and the
-    half-open bracket is the part that carries the meaning. The keys are the
-    band strings the CSVs and the run log use, and those stay: this maps them
-    for display only, and is built from ``hc.CONF_BINS`` so a changed band
+    """"0.7 to 0.8", not "[0.7,0.8)" (a botanist has no reason to know
+    interval notation). Built from ``hc.CONF_BINS`` so a changed band
     cannot leave a stale phrase behind.
     """
     words = {}
@@ -64,13 +58,9 @@ def _near_miss(recs):
 
 
 def candidates_panel(*, recs, n_scored, gen_n, gen_none):
-    """Where the five-candidate limit comes from, and what it hides.
-
-    ``recs`` is every frame that got a prediction, species-level or not, so the
-    list-length picture covers a slightly larger set than ``n_scored``, the frames
-    the accuracy rates are measured on. That difference is stated on the page:
-    the count first appeared as a bare chart label, leaving a reader to guess why
-    the page had two totals.
+    """Where the five-candidate limit comes from, and what it hides. ``recs``
+    is every frame with a prediction, species-level or not: a slightly
+    larger set than ``n_scored``, the frames accuracy is measured on.
     """
     lens = Counter(len(r["ranked"]) for r in recs)
     top = max(lens)
@@ -153,10 +143,9 @@ def candidates_panel(*, recs, n_scored, gen_n, gen_none):
 
 def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
                     corpus_block):
-    """The four corpus-wide rates, and why the per-species and per-frame ones differ.
-
-    ``corpus_block`` is page copy, built by the caller and passed in so the numbers
-    and the explanation of them stay in one place.
+    """The four corpus-wide rates, and why per-species and per-frame ones
+    differ. ``corpus_block`` is page copy, passed in by the caller so
+    numbers and explanation stay together.
     """
     rows = []
     for lab in hc.BUCKET_ORDER:

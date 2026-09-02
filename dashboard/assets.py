@@ -1,17 +1,13 @@
-"""Presentation layer for the model-health dashboard: CSS, JS, inline SVG, tables.
+"""Presentation layer: CSS, JS, inline SVG, tables. Stdlib only, no network,
+no CDN, no data reads.
 
-Nothing here reads data or computes a number. Stdlib only, no network, no CDN.
-
-``_BASE_CSS`` is vendored from labelfirst's report substrate
-(``labelfirst/src/labelfirst/eval/report/_html.py``, ``_CSS``) so the two
-reports look like one family, then extended by ``_EXTRA_CSS`` below. Vendored
-rather than imported because ``import labelfirst`` pulls numpy/scipy/pandas.
-
-It is a *strict subset*: every retained rule is byte-identical, and rules for
-elements this page has none of are dropped. An upstream ``_CSS`` change cannot
-be picked up by plain copy-paste; the prune has to be reapplied. ``_JS`` is not
-vendored at all, because this page needs client-side sort and filter over the
-per-species table rather than labelfirst's chart tooltips.
+``_BASE_CSS`` is vendored (not imported, to avoid pulling numpy/scipy/pandas)
+from labelfirst's report substrate
+(``labelfirst/src/labelfirst/eval/report/_html.py``, ``_CSS``), extended by
+``_EXTRA_CSS``. Strict subset: retained rules are byte-identical, unused ones
+dropped, so an upstream change needs manual reapply, not copy-paste. ``_JS``
+is not vendored: this page needs its own client-side sort/filter, not
+labelfirst's chart tooltips.
 """
 
 from __future__ import annotations
@@ -322,10 +318,8 @@ def esc(s: object) -> str:
 
 
 def cap(s: str) -> str:
-    """Capitalise a scientific name for display. The CSVs hold names lowercased
-    because that is the join key against the GBIF and WCVP backbones, but a
-    binomial is written with the genus capitalised, so every render site goes
-    through here rather than printing the key."""
+    """Capitalise a scientific name for display. CSV keys are lowercased for
+    the GBIF/WCVP join; a binomial displays with the genus capitalised."""
     return s[:1].upper() + s[1:]
 
 
@@ -335,14 +329,13 @@ def pctf(x, nd=1):
 
 # --- structure ---
 def slug(text: str) -> str:
-    """A stable id from display text: the part before the first colon, lowercased,
-    non-alphanumerics collapsed to hyphens, first eight words kept.
+    """A stable id from display text: text before the first colon, lowercased,
+    non-alphanumerics to hyphens, first eight words.
 
-    Derived rather than hand-written, so an anchor cannot drift from its own
-    heading. The colon split is what keeps it stable: a summary reads "What to
-    send first: 412 frames in the long tail" and the count moves every
-    snapshot. Live numbers before the colon leave nothing safe to slug, so
-    ``panel`` rejects a digit-bearing id and asks for an explicit ``anchor``.
+    Derived so an anchor cannot drift from its heading. Colon split matters:
+    summaries carry live numbers ("...: 412 frames") that change every
+    snapshot, so ``panel`` rejects a digit-bearing id and requires an
+    explicit ``anchor``.
     """
     head = re.sub(r"<[^>]+>", "", str(text)).split(":")[0]
     words = re.sub(r"[^a-z0-9]+", " ", head.lower()).split()
@@ -350,11 +343,9 @@ def slug(text: str) -> str:
 
 
 def panel(summary, ask, body, *, open_=False, anchor=None):
-    """A collapsible panel. ``summary`` must stand alone on a closed page and
-    ``ask`` is the one sentence saying what to do with what is inside.
-
-    ``anchor`` overrides the id derived from ``summary``, and is required when
-    the summary states a live number before its first colon.
+    """A collapsible panel. ``summary`` must stand alone closed; ``ask`` says
+    what to do with what's inside. ``anchor`` overrides the derived id,
+    required when ``summary`` carries a live number.
     """
     pid = anchor or slug(summary)
     if not anchor and any(c.isdigit() for c in pid):
@@ -367,22 +358,19 @@ def panel(summary, ask, body, *, open_=False, anchor=None):
 
 
 def section(title, lede, panels):
-    """A named group of panels: a heading band, one orienting line, then the panels.
-
-    ``panels`` is already-rendered panel HTML. The band carries the group's
-    question, not a label, because that is what makes a closed page scannable.
-    No jump list: the summaries below already are the contents.
+    """A named group of panels: heading band, one orienting line, panels.
+    ``panels`` is already-rendered HTML. The band carries the group's question,
+    not a label: that is what makes a closed page scannable. No jump list, the
+    summaries below are the contents.
     """
     return (f'<section class="grp" id="{slug(title)}"><h2>{title}</h2>'
             f'<p class="lede">{lede}</p>\n{panels}</section>')
 
 
 def hero(cards):
-    """The band of big numbers a page opens with.
-
-    ``cards`` is ``[(eyebrow, value, label, note), ...]``, leading card first. It is
-    one primitive rather than two inline copies because both pages open this way and
-    the ``.metric`` markup is what the grid CSS is written against.
+    """The band of big numbers a page opens with. ``cards`` is
+    ``[(eyebrow, value, label, note), ...]``, leading card first. Grid CSS is
+    written against the ``.metric`` markup.
     """
     out = ['<div class="hero">']
     for i, (eyebrow, value, label, note) in enumerate(cards):
@@ -418,11 +406,8 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
 
 
 def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None):
-    """A search/filter strip followed by a sortable table.
-
-    The page has exactly one, so nothing here is parameterised. The element
-    ids stay as the ``_TABLE_ID`` constants above rather than literals, so the
-    coupling to the JS is visible from both ends.
+    """A search/filter strip followed by a sortable table. The page has
+    exactly one; element ids use the ``_TABLE_ID`` constants, not literals.
     """
     # No options means no status to filter on, so no select: rendering one
     # holding nothing but "every status" offers the reader a control that
@@ -456,11 +441,9 @@ def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None)
 
 
 def funnel_list(steps: list[tuple[int, str]]) -> str:
-    """A count-then-label list, reusing the existing to-do-list markup
-    (``.todo``/``.n``) already styled for 16b's per-species counts, so a
-    photo-to-frame funnel gets no CSS of its own.
-
-    ``steps`` is ``[(count, label), ...]``, outermost first.
+    """A count-then-label list: ``steps`` is ``[(count, label), ...]``,
+    outermost first. Reuses the to-do-list markup (``.todo``/``.n``) so a
+    photo-to-frame funnel needs no CSS of its own.
     """
     rows = "".join(f'<li><span class="n">{count:,}</span> {esc(label)}</li>'
                    for count, label in steps)
@@ -468,22 +451,17 @@ def funnel_list(steps: list[tuple[int, str]]) -> str:
 
 
 def status_tag(cls: str, label: str) -> str:
-    """Render a status tag. The explanation for each status is not repeated
-    here: it used to be a per-row ``title=`` on a small hover icon,
-    but that stamped one of only a handful of distinct sentences onto every
-    row of a 186-row table -- ~40KB of duplicated markup per page. Callers
-    render the distinct sentences once via ``status_legend`` instead, next to
-    the table."""
+    """Render a status tag. The explanation is not repeated per row: a
+    former hover-icon ``title=`` duplicated ~40KB of markup across a
+    186-row table. Callers render each sentence once via ``status_legend``
+    instead."""
     return f'<span class="tag {esc(cls)}">{esc(label)}</span>'
 
 
 def strip_comments(text: str) -> str:
-    """CSS and JS with the maintainer comments taken out, for the built page.
-
-    Every comment in ``CSS`` and ``JS`` is a note to whoever edits this file,
-    and inlining them shipped 3.6 KB of them to every reader. The source keeps
-    them; the page does not. JS only drops a line that *starts* with ``//``, so
-    a ``//`` inside a string is untouched.
+    """CSS and JS with maintainer comments stripped, for the built page.
+    Inlining them uncut shipped 3.6 KB of notes to every reader. JS only
+    drops lines *starting* with ``//``, so ``//`` inside a string survives.
     """
     text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
     text = re.sub(r"^[ \t]*//.*$", "", text, flags=re.M)
@@ -491,9 +469,8 @@ def strip_comments(text: str) -> str:
 
 
 def status_legend(entries: list[tuple[str, str, str]]) -> str:
-    """The status explanations, once, instead of on every row. ``entries`` is
-    ``[(css_class, label, reason), ...]`` -- one line per distinct situation
-    a status tag can mean, in the same order the tags are meant to be read."""
+    """The status explanations, once, instead of per row. ``entries`` is
+    ``[(css_class, label, reason), ...]``, in read order."""
     items = "".join(
         f'<li><span class="tag {esc(cls)}">{esc(label)}</span> {esc(reason)}</li>'
         for cls, label, reason in entries
@@ -507,18 +484,15 @@ _WIDE = set("ABCDEFGHIJKLMNOPQRSTUVWXYZmw%@")
 
 
 def _text_w(text: str, font_px: float) -> float:
-    """Upper bound on the rendered width of ``text`` at ``font_px``.
+    """Upper bound on the rendered width of ``text`` at ``font_px``. No glyph
+    measurement is possible: one file, no library, ``system-ui`` varies by
+    machine. Three character classes plus 0.26em per string for side
+    bearings, times 1.06, calibrated against ``getComputedTextLength`` on 14
+    of this page's labels under SF NS (Segoe UI/Roboto run narrower).
 
-    Nothing here can measure a glyph: the page ships as one file with no
-    library, and ``system-ui`` is whatever the reader's machine has. Three
-    character classes plus 0.26em per string for side bearings, times 1.06,
-    calibrated against ``getComputedTextLength`` on 14 of this page's labels
-    under SF NS. Segoe UI and Roboto both run narrower, so they are covered.
-
-    The 1.06 is not measured headroom -- 14 labels were checked, not the 59
-    the page draws -- so it is not slack to spend. It leans high because
-    undershooting clips the label, and a clipped label ships: every numeric
-    check passed while five of them read "1,856 cr".
+    1.06 is not measured headroom, only 14 of 59 labels were checked. It
+    leans high: undershooting clips silently, and a clipped label ships
+    (five once read "1,856 cr" despite passing every numeric check).
     """
     em = 0.26 + sum(0.28 if c in _NARROW else 0.72 if c in _WIDE else 0.60 for c in text)
     return 1.06 * em * font_px
@@ -526,11 +500,8 @@ def _text_w(text: str, font_px: float) -> float:
 
 def svg_hbar(rows, *, title=""):
     """Horizontal bars. ``rows`` = [(label, frac, right_text, color)].
-
-    ``right_w`` is the room for the value label, and it grows to fit the
-    longest rather than truncating: the SVG viewport clips and no CSS reaches
-    inside to rescue it. The bars keep the length ``right_w`` asked for; only
-    the chart gets wider. Geometry is fixed below, not parameterised.
+    ``right_w`` grows to fit the longest value label rather than truncating
+    (SVG clips, no CSS can rescue it). Geometry is fixed, not parameterised.
     """
     if not rows:
         return ""
@@ -572,19 +543,15 @@ def svg_hbar(rows, *, title=""):
 
 
 def svg_weight_pair(rows, *, label_a, label_b):
-    """Two full-width bars over the same bands, each split by a different weight.
+    """Two full-width bars over the same bands, split by a different weight
+    each. ``rows`` = ``[(band, share_a, share_b, note, colour)]``, shares
+    summing to 1 per column, so the reader sees the weight move without
+    arithmetic.
 
-    ``rows`` = ``[(band, share_a, share_b, note, colour)]``, each set of shares
-    summing to 1. The point is the comparison: the same bands in the same
-    colours, so the reader sees the weight move from one bar to the other
-    without doing any arithmetic.
-
-    Each column is asserted to sum to 1: a wrong denominator draws a short bar
-    rather than a wrong number, which no recompute-and-compare check can see.
-
-    ``pad_l`` grows to fit the longer row label. They are right-anchored, so
-    one that does not fit runs off the left edge of the viewBox and silently
-    loses its first character. Geometry is fixed below, not parameterised.
+    Each column asserts sum to 1: a wrong denominator draws a short bar, not
+    a wrong number, which no recompute check would catch. ``pad_l`` fits the
+    longer row label; labels are right-anchored, so an overlong one silently
+    loses its first character off the viewBox.
     """
     if not rows:
         return ""

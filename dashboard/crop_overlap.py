@@ -1,20 +1,17 @@
 """What Pl@ntNet actually saw, and how much of the label it covered.
 
-The prediction scripts send a fixed CROP_SIZE square from the centre of the
-frame and discard the offsets, while the label comes from crown boxes drawn
-anywhere in it. This module recomputes the crop rectangle offline and measures
-how much of it each labelled species covers, so downstream code can admit a
-frame only when one species covers at least T of what the model saw.
+Predictions use a fixed CROP_SIZE square at the frame centre; labels are
+boxes anywhere in the frame. Recomputes the rectangle offline and scores
+each label's share of it, admitting a frame only past threshold T.
 
-No API call, no Labelbox. Crown geometry comes from two files, newer per frame
-wins: ``data/export_boxes.csv``, the July 2026 botanist revision, and
-``input/boxes/crop_bounding_boxes.csv``, kept only for frames the export misses.
-Where both describe a frame the old file holds twice as many boxes, 35% match a
-current crown at IoU 0.5, and a fifth of even those name a superseded species.
+No API, no Labelbox. ``export_boxes.csv`` (July 2026 revision) wins per
+frame over the older ``crop_bounding_boxes.csv``, which fills gaps; where
+both cover a frame, the old file has twice the boxes, only 35% matching a
+current crown at IoU 0.5, a fifth superseded.
 
-All 16 sampled base frames (2024-2026, both cameras) measured exactly
-FRAME_W x FRAME_H, so the crop rectangle is constant. A frame whose boxes
-contradict that goes to `suspect_frames` rather than being scored wrong.
+All 16 sampled frames measured exactly FRAME_W x FRAME_H, so the
+rectangle is constant; contradicting boxes go to `suspect_frames` instead
+of being scored wrong.
 """
 
 import collections
@@ -43,8 +40,8 @@ EDGE_TOLERANCE = 4
 def crop_rect(frame_w=FRAME_W, frame_h=FRAME_H, crop_size=CROP_SIZE):
     """The rectangle the prediction scripts sent, as (x0, y0, x1, y1).
 
-    Returns None when the frame is smaller than crop_size in either dimension,
-    which is the branch where center_crop_jpeg sends the whole image untouched.
+    None when the frame is smaller than crop_size in either dimension:
+    center_crop_jpeg then sends the whole image untouched.
     """
     if frame_w < crop_size or frame_h < crop_size:
         return None
@@ -62,7 +59,6 @@ def _intersect_area(box, rect):
 
 
 def _read_boxes(path):
-    """One geometry file -> base_image -> list of (x0, y0, x1, y1, species)."""
     frames = collections.defaultdict(list)
     with open(path, newline="") as fh:
         for r in csv.DictReader(fh):
@@ -77,19 +73,14 @@ def _read_boxes(path):
 def load_boxes(path=BOXES_CSV, export_path=EXPORT_BOXES_CSV):
     """base_image -> list of (x0, y0, x1, y1, normalized_species).
 
-    Export geometry wins per frame, whole. The two sources are not merged box by
-    box: a frame the botanists revised has a complete, current set of crowns, and
-    mixing superseded boxes back in would reintroduce exactly the crowns they
-    removed. Frames absent from the export keep their old boxes.
+    Export geometry wins whole per frame, not merged box by box: that
+    would reintroduce crowns the revision removed. Frames absent from the
+    export keep their old boxes. ``export_path=None`` reads the old file
+    alone, for regression tests.
 
-    Pass ``export_path=None`` to read the old file alone, which is what the
-    regression tests do.
-
-    lb_label carries trailing BCI collection codes ('Hura crepitans-HURACR-HURC').
-    They come off here rather than downstream, because they are recognised by
-    being upper case: once normalize() has lowered the string a code can no
-    longer be told from a hyphenated epithet, and the name would never compare
-    equal to a GT species again.
+    lb_label's trailing BCI collection codes are stripped here, since a
+    code is upper case and cannot be told from a hyphenated epithet once
+    normalize() lowers the string.
     """
     frames = _read_boxes(path)
     if export_path and os.path.exists(export_path):
@@ -100,7 +91,7 @@ def load_boxes(path=BOXES_CSV, export_path=EXPORT_BOXES_CSV):
 def frame_coverage(boxes, rect):
     """Fraction of `rect` each species in `boxes` covers.
 
-    A single species can exceed 1 where its own boxes overlap, hence the clamp.
+    A species can exceed 1 where its own boxes overlap, hence the clamp.
     """
     rect_area = (rect[2] - rect[0]) * (rect[3] - rect[1])
     per = collections.Counter()
@@ -115,15 +106,10 @@ def build(path=BOXES_CSV, frame_w=FRAME_W, frame_h=FRAME_H,
           crop_size=CROP_SIZE, export_path=EXPORT_BOXES_CSV):
     """Per-frame view of what the model saw.
 
-    Returns (frames, suspect_frames) where frames maps base_image to a dict:
-        dominant        species covering most of the crop, or None
-        coverage        that species' fraction of the crop
-        any_coverage    fraction covered by any labelled crown
-        n_species       distinct labelled species overlapping the crop
-        n_boxes         labelled boxes overlapping the crop
-        crop_rect       the rectangle used
-    suspect_frames lists base_images whose boxes fall outside the assumed frame
-    size, so their crop rectangle cannot be trusted.
+    Returns (frames, suspect_frames): frames maps base_image to
+    {"dominant": top species (or None), "coverage": its fraction}.
+    suspect_frames lists base_images whose boxes fall outside the frame
+    size, so their rectangle cannot be trusted.
     """
     rect = crop_rect(frame_w, frame_h, crop_size)
     if rect is None:

@@ -51,7 +51,7 @@ def _load_gt_from_export():
     """Import the merge script's ``export_dominants`` without duplicating its
     NDJSON parse.
 
-    Loaded by path, not by package import: labelling/ isn't a package on the
+    Loaded by path, not by package import: labelling/ is not a package on the
     normal path, and this is the one function this page needs from it
     (module-level only; ``main()`` is never called).
     """

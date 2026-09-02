@@ -1,9 +1,8 @@
 """Every figure a page shows, computed once off one ``Health``.
 
-One entry point: ``prepare``. Panels read what it returns and do no arithmetic
-of their own. Two of them recomputing the same figure is exactly the drift
-``history.verify_snapshot`` exists to catch, and it would catch it only after
-both pages had been built.
+One entry point: ``prepare``. Panels read what it returns and do no
+arithmetic of their own, so two panels cannot drift by recomputing the same
+figure differently.
 """
 
 from __future__ import annotations
@@ -35,12 +34,10 @@ CONFIRMATORY_CSV = os.path.join(
 
 
 def is_family(n: str) -> bool:
-    """A one-word label ending in -aceae is a family, not a genus.
-
-    Every botanical family name carries that suffix and no accepted genus does,
-    so the test is exact rather than a heuristic. It matters because a family
-    label can never equal a predicted genus, so counting those frames into a
-    genus-level rate would report guaranteed misses as measured ones.
+    """A one-word label ending in -aceae is a family, not a genus (exact:
+    every family name carries that suffix). It can never match a predicted
+    genus, so scoring it in a genus rate counts a guaranteed miss as
+    measured.
     """
     return n.strip().lower().endswith("aceae")
 
@@ -54,11 +51,9 @@ def conf(r):
 
 
 def camera_of(key):
-    """Which drone camera shot a frame, read off its key.
-
-    The drone carries a wide-angle camera and a long-lens one, named ``zoom``
-    and ``tele`` in the file names, and the key records which took the frame.
-    Counted, not assumed: the two populations are not the same one.
+    """Which drone camera shot a frame, read off its key: ``zoom``
+    (wide-angle) or ``tele`` (long-lens) in the file name. Counted, not
+    assumed: the two populations are not the same one.
     """
     low = key.lower()
     for c in ("zoom", "tele"):
@@ -70,12 +65,9 @@ def camera_of(key):
 
 
 def load_confirmatory(path=CONFIRMATORY_CSV):
-    """The frozen confirmatory read as a dict, or None if the file is absent.
-
-    Values that parse as a number come back as floats and the rest as strings,
-    so a caller can format a rate without knowing which keys are rates. Absent
-    is not an error here: the internal page never reads this, and a fresh clone
-    that has not run the scorer should still build its other page.
+    """The frozen confirmatory read as a dict, or None if absent. Numeric
+    values come back as floats, the rest as strings. Absent is not an error:
+    a fresh clone that has not run the scorer still builds its other page.
     """
     if not os.path.exists(path):
         return None
@@ -99,11 +91,8 @@ N_CANDIDATES = 5
 
 def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     """Every figure both pages draw from, computed once off one ``Health``.
-
-    The returned context is read-only as far as the builders are concerned, with
-    one exception: ``checks`` is filled in by the page after it has run its own
-    slice of ``history.verify_snapshot``, because which invariants apply is a
-    property of the page, not of the measurement.
+    Read-only for builders except ``checks``, filled in by the page after
+    its own slice of ``history.verify_snapshot`` runs.
     """
     sp_recs, per_species = h.sp_recs, h.per_species
     longest = max(len(r["ranked"]) for r in sp_recs + h.genus_recs)

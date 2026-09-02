@@ -1,5 +1,5 @@
-"""The panels only the queue page carries. ``panels.PANELS`` still names every
-panel on either page, so a builder asks by id as before.
+"""Panels used only by the queue page. ``panels.PANELS`` still names every
+panel on both pages.
 """
 
 from __future__ import annotations

@@ -54,7 +54,7 @@ def log(msg=""):
 # --- names -------------------------------------------------------------------
 
 def canonicaliser():
-    """The same normalisation the dashboard already applies, as one callable."""
+    """The dashboard's own normalisation, as one callable."""
     crosswalk, _ = core.load_wcvp_crosswalk(core.WCVP_CACHE_JSON)
 
     def canon(name):
@@ -67,11 +67,9 @@ def canonicaliser():
 # --- the two aggregation rules, as committed -------------------------------
 
 def rank_crowns(crowns):
-    """Frame prediction from crowns: each crown votes its own raw box area.
-
-    Ground truth is summed raw box area over the frame, so a crown arm that
-    pooled by crown count or by mean score would be answering a different
-    question than the label asks. `crowns` is a list of (area, top1, score).
+    """Frame prediction from crowns: each votes its raw box area, matching
+    ground truth (not crown count or mean score). ``crowns``: (area, top1,
+    score).
     """
     vote, best = {}, {}
     for area, top1, score in crowns:
@@ -116,7 +114,7 @@ def crown_id(base_image, box):
 
 
 def build_rows(frozen, boxes, canon):
-    """One row per frozen frame, with each arm's ranking and the frame's shape."""
+    """One row per frozen frame: each arm's ranking, the frame's shape."""
     rows, missing = [], {a: [] for a in ARMS}
     for f in frozen:
         base, gt = f["base_image"], canon(f["gt_species"])
@@ -175,12 +173,9 @@ def wilson(hits, n, z=1.96):
 
 
 def cluster_bootstrap(rows, unit, statistic, draws=BOOTSTRAP_DRAWS, seed=SEED):
-    """Percentile interval, resampling whole clusters with replacement.
-
-    Eleven or twelve sites is too few for a sandwich estimator to be trusted,
-    which is why the interval is a bootstrap and why the cluster is the site
-    rather than the flight day: a day is a mission at one site, so the site is
-    the coarser unit and the more conservative choice.
+    """Percentile interval, resampling whole clusters with replacement. Too
+    few sites (11-12) to trust a sandwich estimator. Cluster is site, not
+    day: a day is one mission at one site.
     """
     groups = {}
     for r in rows:
@@ -226,12 +221,9 @@ def discordance(rows, a, b, k=1):
 
 
 def bootstrap_p(rows, a, b, unit, draws=BOOTSTRAP_DRAWS, seed=SEED):
-    """Two-sided cluster bootstrap p for the paired accuracy difference.
-
-    The exact McNemar assumes independent pairs and these pairs are clustered,
-    so this is the pre-specified sensitivity. The p value is the share of
-    resamples whose difference has the opposite sign to the observed one,
-    doubled, which is the usual percentile inversion.
+    """Two-sided cluster bootstrap p: the pre-specified check, since exact
+    McNemar assumes independent pairs and these are clustered. p is the
+    doubled share of resamples opposite in sign to observed.
     """
     pairs = [r for r in rows if r[a] is not None and r[b] is not None]
     if not pairs:
@@ -263,9 +255,8 @@ def bootstrap_p(rows, a, b, unit, draws=BOOTSTRAP_DRAWS, seed=SEED):
 # --- report ------------------------------------------------------------------
 
 def report(rows, missing, complete, stat, draws=BOOTSTRAP_DRAWS):
-    """The run log. ``stat`` is ``result_rows`` as a dict, so every number the
-    log prints is the number the CSV publishes rather than a second resampling
-    of the same rows."""
+    """The run log: every number printed is the number ``result_rows``
+    (``stat``) publishes, not a resample."""
     n = len(rows)
     stamp = "CONFIRMATORY" if complete else "EXPLORATORY"
     log(f"=== {stamp} read of the frozen {n} ===")
@@ -348,11 +339,9 @@ def report(rows, missing, complete, stat, draws=BOOTSTRAP_DRAWS):
 
 
 def result_rows(rows, complete, draws=BOOTSTRAP_DRAWS):
-    """The published numbers as ordered (key, value) pairs.
-
-    Long format rather than one row per arm, because the paired comparison
-    belongs to neither arm and padding it into both would invite a reader to
-    average two copies of the same difference.
+    """The published numbers as ordered (key, value) pairs. Long format: the
+    paired comparison belongs to neither arm, avoiding an average of two
+    copies of it.
     """
     # Composition, not a result: a rate over 300 frames is weighted by whatever
     # those frames happen to hold, and a page that prints the rate without the
@@ -415,12 +404,9 @@ def write_result(pairs, path):
 
 
 def write_adjudication(rows, path, seed=SEED):
-    """Phase 5: the disagreements, with the arm labels hidden.
-
-    An adjudicator who can see which arm said what will find the arm they
-    expect to win. The two answers are written as A and B in an order drawn per
-    frame from the seed, and the key goes to a separate file that is not opened
-    until every verdict is in.
+    """Phase 5: disagreements, arm labels hidden so an adjudicator cannot
+    favor the arm they expect to win. A/B order is drawn per frame from
+    the seed; the key file stays closed until every verdict is in.
     """
     rng = random.Random(f"{seed}:adjudication")
     both = [r for r in rows if r["crown"] is not None and r["photo"] is not None]

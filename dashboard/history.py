@@ -1,15 +1,12 @@
 """The model-health snapshot on disk: verify the build against it.
 
-Everything that reads measure.py's *output* lives here, so the renderer only
-computes and renders. ``latest_snapshot_dir`` picks the folder to check
-against and ``verify_snapshot`` aborts the build when the page disagrees with
-that folder's CSVs or run log.
+Everything reading measure.py's output lives here, so the renderer only
+renders.
 
-The pages report the latest state only. A trend over the dated folders was
-dropped on 2026-08-27: it cut points on each cached response's mtime, and
-predictions were bulk-fetched in May while labelling ran on for months, so
-August labels plotted as May. Recover it from git history if a real label
-date ever exists to cut on.
+Pages report the latest state only; a trend over dated folders was
+dropped 2026-08-27, since it cut points on cached-response mtime while
+predictions were bulk-fetched months before labelling finished. Recover
+from git history if a real label date exists.
 """
 
 from __future__ import annotations
@@ -28,10 +25,8 @@ SNAPSHOT_GLOB = "model-health-*"
 def latest_snapshot_dir() -> str:
     """Newest model-health-<date>/ folder in the snapshot store.
 
-    Both pages gate on a snapshot folder, and a gate aimed at a fixed date
-    silently checks today's numbers against an old measurement and appends
-    today's trend points to that old folder's history. The date is in the
-    folder name, so sorting is unambiguous.
+    A gate on a fixed date would silently check today's numbers against an
+    old measurement; the date in the folder name keeps sorting unambiguous.
     """
     found = sorted(d for d in glob.glob(os.path.join(hc.SNAPSHOT_DIR, SNAPSHOT_GLOB))
                    if SNAPSHOT_DIR.search(d))
@@ -42,7 +37,6 @@ def latest_snapshot_dir() -> str:
 
 
 def snapshot_date_of(snap_dir: str) -> str:
-    """The date in a model-health-<date>/ folder name, which is the snapshot's date."""
     m = SNAPSHOT_DIR.search(snap_dir.rstrip("/"))
     return m.group(1) if m else "unknown"
 
@@ -52,11 +46,10 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
                     queue_counts=None, n_no_answer=None, review_counts=None):
     """Abort the build if the page disagrees with measure.py's snapshot.
 
-    ``queue_counts`` maps queue name to frame count over the unlabelled pool,
-    ``n_no_answer`` counts unlabelled frames whose candidate list came back
-    empty, and ``review_counts`` is (frames, distinct confusion pairs) for the
-    high-confidence label disagreements. All three are checked against the two
-    queue CSVs when given.
+    ``queue_counts`` maps queue to frame count, ``n_no_answer`` counts
+    unlabelled frames with an empty candidate list, ``review_counts`` is
+    (frames, distinct confusion pairs). All three, when given, are checked
+    against the queue CSVs.
     """
     def fail(msg):
         raise SystemExit(f"VERIFY FAIL: {msg}")
@@ -185,11 +178,10 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
 def model_tag_of(snap_dir: str, fallback: str) -> str:
     """Which Pl@ntNet model iteration produced a snapshot.
 
-    Read from that snapshot's own run_log.txt, which records the endpoint and
-    config.yaml's ``single_model_run_name`` (currently ``v7.4-2026-03-27``).
-    Those two strings are the only thing on disk that tells one Pl@ntNet
-    iteration from the next, so the tag is ``<endpoint-slug>@<run-name>``. A
-    log naming neither falls back to ``--model-tag``, never to an invented tag.
+    Reads the endpoint and config.yaml's ``single_model_run_name`` from
+    run_log.txt -- the only things on disk distinguishing iterations. Tag
+    is ``<endpoint-slug>@<run-name>``; falls back to ``--model-tag`` if
+    neither is found.
     """
     try:
         with open(os.path.join(snap_dir, "run_log.txt"), encoding="utf-8") as f:

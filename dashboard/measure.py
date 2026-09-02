@@ -56,13 +56,12 @@ def parse_args() -> argparse.Namespace:
 
 
 def _csv(out_dir: str, name: str):
-    """Open one output CSV. Every writer below opens the same way, and the
-    ``newline=""`` is the part that must not be forgotten in a new one."""
+    """Open one output CSV; keep ``newline=""`` like the others."""
     return open(os.path.join(out_dir, name), "w", newline="", encoding="utf-8")
 
 
 def write_name_reconciliation(out_dir, h):
-    """Every distinct label name, what it normalized to, and which tier matched it."""
+    """Every distinct label name, its normalized form, and match tier."""
     with _csv(out_dir, "name_reconciliation.csv") as f:
         w = csv.writer(f)
         w.writerow(["gt_raw_name", "normalized", "wcvp_accepted_binomial",
@@ -75,7 +74,7 @@ def write_name_reconciliation(out_dir, h):
 
 
 def write_per_species_health(out_dir, per_species):
-    """One row per species, straight from the aggregation: the page's table."""
+    """The page's table: one row per species from the aggregation."""
     with _csv(out_dir, "per_species_health.csv") as f:
         w = csv.DictWriter(f, fieldnames=list(per_species[0].keys()))
         w.writeheader()
@@ -84,7 +83,7 @@ def write_per_species_health(out_dir, per_species):
 
 
 def write_support_buckets(out_dir, B):
-    """Species grouped by how many labelled frames they have."""
+    """Species grouped by labelled-frame count."""
     with _csv(out_dir, "support_buckets.csv") as f:
         w = csv.writer(f)
         w.writerow(["support_bucket", "n_species", "n_crowns", "top1_accuracy",
@@ -99,8 +98,8 @@ def write_support_buckets(out_dir, B):
 
 
 def write_filter_gain(out_dir, B, *, n, c1, f1, f_abstain):
-    """What restricting the candidates to the BCI species list is worth, overall
-    and inside each labelled-frame group."""
+    """What restricting candidates to the BCI list is worth, overall and
+    per group."""
     with _csv(out_dir, "filter_gain.csv") as f:
         w = csv.writer(f)
         w.writerow(["scope", "n_crowns", "top1_global", "top1_bci_list_filtered",
@@ -120,8 +119,7 @@ def write_filter_gain(out_dir, B, *, n, c1, f1, f_abstain):
 
 
 def write_confidence_calibration(out_dir, scopes, top1):
-    """How often the first guess is right inside each confidence band, and at
-    each threshold, for every scope."""
+    """Accuracy by confidence band, and at each threshold, per scope."""
     with _csv(out_dir, "confidence_calibration.csv") as f:
         w = csv.writer(f)
         w.writerow(["row_type", "scope", "band", "n_crowns", "top1_accuracy",
@@ -143,7 +141,7 @@ def write_confidence_calibration(out_dir, scopes, top1):
 
 
 def write_coverage_gate(out_dir, sweep):
-    """The headline at every crop-coverage threshold, gated and ungated."""
+    """The headline at every crop-coverage threshold."""
     with _csv(out_dir, "coverage_gate.csv") as f:
         w = csv.writer(f)
         w.writerow(["min_coverage", "n_frames_admitted", "crown_top1",
@@ -154,8 +152,7 @@ def write_coverage_gate(out_dir, sweep):
 
 
 def write_send_first_queue(out_dir, queue_rows):
-    """The unlabelled pool in send order. The caller sorts first: the batch file
-    is built from the same list and must carry the same order."""
+    """The unlabelled pool in send order; send_batches must match it."""
     with _csv(out_dir, "send_first_queue.csv") as f:
         w = csv.writer(f)
         w.writerow(["queue", "global_key", "split", "predicted_species", "confidence",
@@ -164,7 +161,7 @@ def write_send_first_queue(out_dir, queue_rows):
 
 
 def write_send_batches(out_dir, batch_rows):
-    """The same order in batches a botanist can work in one sitting."""
+    """The send-first queue, batched to one botanist sitting."""
     with _csv(out_dir, "send_batches.csv") as f:
         w = csv.writer(f)
         w.writerow(["batch_id", "species_group", "global_key", "queue"])
@@ -172,7 +169,7 @@ def write_send_batches(out_dir, batch_rows):
 
 
 def write_label_review_queue(out_dir, review_rows):
-    """The confident disagreements, most confident first."""
+    """Confident model/label disagreements, most confident first."""
     with _csv(out_dir, "label_review_queue.csv") as f:
         w = csv.writer(f)
         w.writerow(["global_key", "split", "gt_species", "predicted_species",

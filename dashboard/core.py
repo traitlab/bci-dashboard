@@ -1,9 +1,8 @@
-"""Pl@ntNet-on-BCI model health -- the data layer every page reads.
+"""Pl@ntNet-on-BCI model health: the data layer every page reads.
 
-Deterministic, no network. Loads the labels, the splits and the cached
-Pl@ntNet responses, joins them, reconciles label names against the corpus
-vocabulary (optionally through a local WCVP synonym crosswalk), builds the
-scoreable per-frame records and aggregates them per species.
+Deterministic, no network. Loads labels, splits and predictions; joins
+and reconciles names (optionally via a WCVP crosswalk); builds per-frame
+records and per-species aggregates.
 """
 
 from __future__ import annotations
@@ -71,15 +70,10 @@ GT_KEY_PREFIX = "comb_"
 
 
 def gt_provenance(gt_csv: str = GT_CSV) -> str:
-    """One line saying which export the ground truth was merged from.
+    """One line naming the export the ground truth was merged from.
 
-    ``labelling/gt_from_export.py`` writes a sidecar next to the GT at merge
-    time, so a page describes the batch it was actually built over rather than
-    a batch baked into its prose. Without a sidecar, fall back to the file's
-    own date: vague, but never stale.
-
-    Lives here, not in a page module, so every page states the same provenance
-    for the same data (same reason ``diagnose`` lives here).
+    Reads the sidecar ``labelling/gt_from_export.py`` writes at merge,
+    falling back to the file's mtime. Lives here so every page agrees.
     """
     sidecar = os.path.splitext(gt_csv)[0] + ".provenance.txt"
     if os.path.exists(sidecar):
@@ -128,11 +122,10 @@ _WS = re.compile(r"\s+")
 
 
 def normalize(name: str) -> str:
-    """Tier (b): case/whitespace/punctuation-normalized name.
-
-    Strips accents, converts '_' separators to spaces, removes a trailing BCI
-    collection code ('-QUARAS'), removes infraspecific ranks ('var. grandiflora'),
-    collapses whitespace, lowercases. Does NOT resolve synonymy.
+    """Tier (b): normalized name. Strips accents, converts '_' to spaces,
+    drops a trailing BCI collection code and infraspecific ranks
+    ('var. grandiflora'), collapses whitespace, lowercases. Does not resolve
+    synonymy.
     """
     s = unicodedata.normalize("NFKD", name)
     s = "".join(c for c in s if not unicodedata.combining(c))
@@ -145,9 +138,9 @@ def normalize(name: str) -> str:
 def canonical_binomial(name):
     """Bare 'Genus species' from an authored accepted name.
 
-    'Ocotea leptobotra (Ruiz & Pav.) Mez' -> 'Ocotea leptobotra'.
-    Returns None when the first two tokens are not a plain binomial.
-    (Same rule as speciesfirst.wcvp_export.canonical_binomial.)
+    'Ocotea leptobotra (Ruiz & Pav.) Mez' -> 'Ocotea leptobotra'. None if
+    the first two tokens are not a plain binomial. (Same rule as
+    speciesfirst.wcvp_export.canonical_binomial.)
     """
     if not name:
         return None
@@ -176,11 +169,10 @@ def read_csv_rows(path: str) -> list[dict]:
 
 
 def labelbox_urls(path: str = DATA_ROW_IDS_CSV) -> dict[str, str]:
-    """global_key -> the Labelbox URL that opens that frame, where one is known.
+    """global_key -> Labelbox URL, where known.
 
-    Reads a file, never the API: building a page makes no network call and
-    reads no credential. A missing file is an empty map, not an error, so a
-    checkout without one still builds; the caller reports the coverage.
+    Reads a file, never the API: no network call, no credential. Missing
+    file is an empty map; caller reports coverage.
     """
     if not os.path.exists(path):
         return {}
@@ -193,12 +185,10 @@ def labelbox_urls(path: str = DATA_ROW_IDS_CSV) -> dict[str, str]:
 
 
 def adjudicated_keys(path: str = ADJUDICATIONS_CSV) -> set[str]:
-    """global_keys a botanist has ruled label-confirmed, so the review queue drops them.
+    """global_keys a botanist ruled label-confirmed; the review queue drops them.
 
-    Reads a file, never the API, on the same terms as ``labelbox_urls``: a
-    missing file is an empty set, not an error, so a checkout without one still
-    builds. Any other verdict is ignored here rather than rejected, so the file
-    can record a ruling the queue does not act on.
+    Missing file is an empty set. Other verdicts are ignored, not
+    rejected, so the file can record rulings this queue skips.
     """
     if not os.path.exists(path):
         return set()
@@ -294,17 +284,10 @@ BATCH_SIZE = 100
 
 
 def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
-    """Species-grouped, priority-first batches over an already-ordered queue.
-
-    ``queue_rows`` is send_first_queue.csv's row order: queue priority first,
-    then weakest confidence first inside a queue (see measure.py). A species is
-    visited once, where its highest-priority row occurs, and all its rows go
-    together, so the photos a botanist sees side by side look alike.
-
-    Species groups are packed whole, in priority order, until the next would
-    overflow ``batch_size``; a species with more rows than that splits into
-    batches of its own. So a batch holds whole species groups, contiguously,
-    and never more than ``batch_size`` rows. Pure function of its input.
+    """Species-grouped, priority-first batches over an already-ordered
+    ``queue_rows`` (send_first_queue.csv order). Each species is visited
+    once, at its highest-priority row; its rows travel together, packed
+    whole until the next would overflow ``batch_size``, then split.
     """
     if batch_size < 1:
         raise ValueError(f"batch_size must be at least 1, got {batch_size}")
@@ -340,10 +323,9 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
 def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> str:
     """Which queue an unlabelled crown lands in, from its first guess alone.
 
-    ``support`` maps a GT species to its labelled-crown count, ``top1`` to its
-    measured first-guess accuracy; a predicted species absent from both has
-    never been labelled. First matching rule wins, so a weak guess on a rare
-    species stays with the long tail rather than the anomaly queue.
+    ``support``: labelled-crown count per species. ``top1``: measured
+    accuracy per species. Absent from both means never labelled. First
+    rule wins, so a weak guess on a rare species stays in the long tail.
     """
     n = support.get(pred, 0)
     a = top1.get(pred)
@@ -357,15 +339,11 @@ def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> st
 
 
 def diagnose(row: dict) -> str:
-    """Per-species status. First matching rule wins; the order is the point.
+    """Per-species status. First matching rule wins; order is the point.
 
-    ``unreachable`` outranks everything because no amount of labelling moves it.
-    ``reliable`` outranks ``ranking`` because a species already at >=90% does not
-    need a re-rank. ``unmeasured`` sits below ``ranking`` so a thinly labelled
-    species whose answer is in the list is still the cheap win it is.
-
-    Lives here, not in a page module, so every dashboard renders the same
-    status for the same species (same reason queue_of_prediction lives here).
+    ``unreachable`` outranks all; no labelling helps. ``reliable`` outranks
+    ``ranking``: >=90% needs no re-rank. ``unmeasured`` sits below
+    ``ranking``, so a thin species already in the list counts as cheap.
     """
     n, a1, a5 = row["n_labelled_crowns"], row["top1_accuracy"], row["top5_accuracy"]
     if not row["in_corpus_vocabulary"]:
@@ -392,12 +370,9 @@ STATUS_PRECEDENCE = ("unreachable", "reliable", "ranking", "unmeasured")
 def strip_collection_codes(name: str) -> str:
     """Drop every trailing BCI collection code, then normalize.
 
-    The box CSV labels carry two ('Apeiba membranacea-APEIME-APEM'), and the
-    second is often shorter than the code normalize() recognises ('-ANAE').
-    Stripping has to happen before normalize() lowercases, because the codes are
-    identified by being upper case and a lowered code can no longer be told from
-    a hyphenated epithet. Without this a box label never compares equal to a GT
-    species name.
+    Box labels carry two codes; the second can be shorter than what
+    normalize() recognizes ('-ANAE'). Strip first: codes are upper case,
+    so a lowered one cannot be told from a hyphenated epithet.
     """
     s, prev = (name or "").strip(), None
     while s != prev:
@@ -409,9 +384,8 @@ def strip_collection_codes(name: str) -> str:
 def coverage_split(recs, min_coverage=MIN_CROP_COVERAGE):
     """(admitted, rejected) over records carrying a ``crop_coverage`` field.
 
-    A record whose frame has no measured box geometry carries None and is
-    rejected: the gate admits only frames measured to be covered, never assumed
-    ones. Rejected is therefore 'not admitted', which includes 'unknown'.
+    A frame with no measured geometry carries None and is rejected: the
+    gate admits only measured coverage, never assumed.
     """
     admitted, rejected = [], []
     for r in recs:
@@ -423,10 +397,9 @@ def coverage_split(recs, min_coverage=MIN_CROP_COVERAGE):
 def coverage_gate_stats(recs, min_coverage=MIN_CROP_COVERAGE):
     """Headline numbers over the admitted subset of ``recs``.
 
-    ``macro_top1`` averages per-species top-1 over the admitted rows only, and
-    the species set shrinks with the threshold, so it is a different quantity
-    from the ungated macro average: report it beside that number, never in place
-    of it, and always with ``n_admitted``.
+    ``macro_top1`` averages per-species top-1 over admitted rows only, so
+    its species set shrinks with threshold; report it beside the ungated
+    macro average, with ``n_admitted``.
     """
     admitted, rejected = coverage_split(recs, min_coverage)
     by_sp = defaultdict(list)
@@ -472,10 +445,9 @@ class Health:
 def scan_cache(cache_dir):
     """Every cached Pl@ntNet response, read once.
 
-    Returns the ranked list per photo stem, plus the counts the run log
-    reports about them: how each file parsed, the histogram of list lengths,
-    and the two invariants that say the lists are what the pages assume --
-    both score fields carry the same number, and every list is descending.
+    Returns the ranked list per photo stem, plus counts for the run log:
+    parse status, list-length histogram, and two invariants pages assume,
+    score fields match and lists descend.
     """
     files = sorted(f for f in os.listdir(cache_dir) if f.endswith(".json"))
     predictions, status_count, length_hist = {}, Counter(), Counter()
@@ -510,8 +482,7 @@ def scan_cache(cache_dir):
 
 
 def _log_cache(_log, s):
-    """The two run-log blocks about the cache: where it came from, and what
-    parsing it found. Text only -- every number is already in ``s``."""
+    """Run-log block on the cache. Text only; every number is in ``s``."""
     _log("--- CACHED PREDICTIONS: PROVENANCE ---")
     _log("  Read from predict/ingest_photos.py + config.yaml")
     _log("  + bin/sbatch_ingest.sh (the run that filled this cache):")
@@ -551,13 +522,9 @@ def _log_cache(_log, s):
 
 
 def reconcile_names(gt_rows, predictions, corpus_vocab, crosswalk):
-    """Sort every botanist label into one tier against the names the cache
-    actually returned.
-
-    The tiers say why a label could or could not be matched: byte-exact,
-    matched after normalising, matched through the WCVP synonym crosswalk,
-    genus-only, or absent from every cached list. The last two are the
-    ceiling the pages report -- a label no answer can ever be right about.
+    """Sort every botanist label into a tier against names the cache
+    returned: byte-exact, normalized match, WCVP synonym, genus-only, or
+    absent from every list. The last two are the ceiling pages report.
     """
     corpus_norm = set(corpus_vocab)
     corpus_genera = {genus_of(b) for b in corpus_norm if b}
@@ -598,8 +565,8 @@ def reconcile_names(gt_rows, predictions, corpus_vocab, crosswalk):
 
 
 def _log_reconciliation(_log, n, scan, gt_rows, crosswalk, wcvp_raw):
-    """The run-log block about name matching, including the ceiling line the
-    pages quote. Text only -- every number is already in ``n``."""
+    """Run-log block on name matching, including the ceiling line pages
+    quote. Text only; every number is in ``n``."""
     _log("--- NAME RECONCILIATION ---")
     _log("  GT column is called 'wcvp_canonical_name' but IS NOT WCVP-resolved: it is a")
     _log("  string-strip of the Labelbox field label (see labelling/")
@@ -646,8 +613,8 @@ def _log_reconciliation(_log, n, scan, gt_rows, crosswalk, wcvp_raw):
 
 
 def _log_inputs(_log, gt_rows, split_rows, split_of):
-    """The run-log block about the two input CSVs, including the sentence the
-    pages repeat: the labelled subset is a record, not a random draw."""
+    """Run-log block on the two input CSVs, including the line pages
+    repeat: the labelled subset is a record, not a random draw."""
     _log("--- INPUTS ---")
     _log(f"gt_dominant_taxon.csv rows            : {len(gt_rows)}")
     _log(f"  distinct global_key                 : {len(set(r['global_key'] for r in gt_rows))}")
@@ -671,8 +638,8 @@ def _log_inputs(_log, gt_rows, split_rows, split_of):
 
 
 def _log_join(_log, gt_rows, joined, missing_cache, predictions):
-    """The run-log block about matching a label row to its cached answer,
-    including every label that has none."""
+    """Run-log block on matching a label row to its cached answer,
+    including every label with none."""
     _log("--- JOIN (global_key -> cache file) ---")
     _log(f"  convention                          : GT '{GT_KEY_PREFIX}<stem>.JPG'  ->  cache '<stem>.JPG.json'")
     _log(f"  byte-exact key join                 : 0 / {len(gt_rows)}   (GT keys carry the '{GT_KEY_PREFIX}' prefix; cache names do not)")
@@ -686,8 +653,8 @@ def _log_join(_log, gt_rows, joined, missing_cache, predictions):
 
 def _log_crop_gate(_log, records, sp_recs, crop_frames, crop_suspect,
                    n_crop_joined, crop_admitted, crop_rejected, min_coverage):
-    """The run-log block about the crop-coverage gate. The pages report it as a
-    diagnostic sweep, never as a filter behind a headline."""
+    """Run-log block on the crop-coverage gate. Pages report it as a
+    diagnostic sweep, never a filter behind a headline."""
     _log("--- CROP COVERAGE GATE ---")
     _log("  Predictions were made from a fixed centre crop of each frame; ground truth")
     _log("  boxes are drawn anywhere in the frame. A frame is admitted only when its")
@@ -706,13 +673,11 @@ def _log_crop_gate(_log, records, sp_recs, crop_frames, crop_suspect,
 
 
 def aggregate_per_species(sp_recs, corpus_norm, corpus_canon):
-    """One row per species: how many labelled frames it has, how often the first
-    guess is right, how often the right name is anywhere in the returned list,
-    and how sure the model was.
+    """One row per species: labelled frame count, first-guess and top-5
+    accuracy, mean confidence.
 
-    The list is the five names we asked for. ``figures.N_CANDIDATES`` is where
-    that number is stated for the pages, and it aborts a build whose cache
-    carries more, so the two cannot drift apart unnoticed.
+    ``figures.N_CANDIDATES`` states the five-name list for the pages and
+    aborts a build whose cache carries more.
     """
     def top1(r):
         return r["ranked"][0][0]
