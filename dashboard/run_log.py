@@ -30,6 +30,7 @@ from core import (
     coverage_split,
     pct,
 )
+from crop_overlap import CROP_SIZE
 from queues import BATCH_SIZE, QUEUE_ORDER
 
 
@@ -45,7 +46,8 @@ def log_cache(_log, s):
     _log("    model    : config.yaml single_model_run_name 'v7.4-2026-03-27'")
     _log(f"    params   : nb-results={N_CANDIDATES}, no-reject=true, organs=auto, "
          f"include-related-images=false")
-    _log("    input    : 1280 px CENTRE CROP of each crown photo (CROP_SIZE=1280), not the full frame")
+    _log(f"    input    : {CROP_SIZE} px CENTRE CROP of each crown photo "
+         f"(CROP_SIZE={CROP_SIZE}), not the full frame")
     _log("    'coverage'/'max_score' in the cached JSON are BOTH the identify confidence")
     _log("    score, copied twice by identify_to_survey_json(); there is no real coverage")
     _log("    signal here. Pl@ntNet identify scores are normalised across returned results.")

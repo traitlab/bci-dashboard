@@ -109,3 +109,30 @@ def test_the_writer_and_the_reader_spell_the_crown_cache_name_alike():
     assert body_of("crown_id", writer) == body_of("crown_id", reader), (
         f"{writer} names the crown cache files and {reader} looks them up. "
         f"They no longer build the name the same way.")
+
+
+# The run-log's provenance block names the endpoint and the model run that
+# filled the cache, in prose, because dashboard/ is stdlib only and cannot
+# parse config.yaml. These are the strings it quotes and the keys they came
+# from. config.yaml is read as text here for the same reason.
+PROVENANCE = [
+    ("identify_url", "https://my-api.plantnet.org/v2/identify/k-central-america"),
+    ("single_model_run_name", "v7.4-2026-03-27"),
+]
+
+
+@pytest.mark.parametrize("key,quoted", PROVENANCE, ids=[p[0] for p in PROVENANCE])
+def test_the_run_log_quotes_the_config_it_says_it_is_quoting(key, quoted):
+    """The block reads "config.yaml single_model_run_name '...'". Nothing made
+    that true. Point the fetch at another endpoint or run and the record keeps
+    naming the old one, on a file whose whole job is to say where the numbers
+    came from."""
+    config = (REPO / "config.yaml").read_text(encoding="utf-8")
+    found = re.search(rf"^\s*{key}:\s*(\S+)\s*$", config, re.M)
+    assert found, f"config.yaml no longer sets {key}"
+    assert found.group(1) == quoted, (
+        f"config.yaml {key} is {found.group(1)}, dashboard/run_log.py still "
+        f"prints {quoted}.")
+    assert quoted in (REPO / "dashboard" / "run_log.py").read_text(encoding="utf-8"), (
+        f"dashboard/run_log.py no longer prints {quoted}. If the line moved, "
+        f"move this check with it.")
