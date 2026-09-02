@@ -18,8 +18,8 @@ Input:
   data/next_batch/unsent_for_plantnet.csv   (global_key, image_url)
 
 Output:
-  data/embeddings/cache/<global_key>.json   — per-image cache
-  data/embeddings/embeddings.npz            — keys + float32 matrix
+  data/embeddings/cache/<global_key>.json:  per-image cache
+  data/embeddings/embeddings.npz:           keys + float32 matrix
 
 Usage:
   python predict/embed.py --test

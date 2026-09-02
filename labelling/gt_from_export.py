@@ -1,4 +1,4 @@
-"""Phase 3a refresh — fold a Labelbox project export into the dominant-taxon GT.
+"""Phase 3a refresh: fold a Labelbox project export into the dominant-taxon GT.
 
 ``15a_export_gt_dominant_taxon.py`` derived the ground truth offline from
 ``input/boxes/crop_bounding_boxes.csv``. On 2026-08-06 the botanists' July 2026
@@ -17,7 +17,7 @@ Rows outside the photo corpus (``splits.csv``) are dropped: the 2026-04-02
 mission's tele photos have no cached prediction and would only pad the
 no-cache log lines in the dashboard measurement.
 
-Read-only — the NDJSON is parsed, never written back to Labelbox.
+Read-only: the NDJSON is parsed, never written back to Labelbox.
 
 Usage:
     python3 labelling/gt_from_export.py \

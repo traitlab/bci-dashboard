@@ -9,11 +9,11 @@ modifies, or moves existing resources. Follows the three-stage protocol
 (--test for 5 rows, then full).
 
 Usage:
-    # Stage 1 — test with 5 rows:
+    # Stage 1, test with 5 rows:
     python labelling/dispatch_round.py \\
         --round 1 --csv data/round_01_coreset_selection.csv --test
 
-    # Stage 2 — full dispatch:
+    # Stage 2, full dispatch:
     python labelling/dispatch_round.py \\
         --round 1 --csv data/round_01_coreset_selection.csv
 """

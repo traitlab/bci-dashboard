@@ -3,9 +3,9 @@
 Reads the per-image survey JSON files produced by the Pl@ntNet multi-species
 endpoint and outputs two files that the send-first queue (dashboard/measure.py) can consume:
 
-1. ``survey_embeddings.json``  — coverage-weighted aggregated embeddings
+1. ``survey_embeddings.json``: coverage-weighted aggregated embeddings
    (same format as embeddings.json: ``{global_key: [float x 768]}``)
-2. ``survey_species_scores.json`` — species-coverage priority scores
+2. ``survey_species_scores.json``: species-coverage priority scores
    (``{global_key: float}`` keyed by coverage × rarity)
 
 The embeddings use labelfirst.aggregate.weighted_mean_pool to collapse

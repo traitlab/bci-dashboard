@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import re
 import statistics
+from pathlib import Path
 
 import pytest
 
@@ -339,3 +340,26 @@ def test_no_page_sets_a_phrase_off_with_a_long_dash(page):
     assert not found, (
         f"a page carries {found}. Use ' -- ', a comma or two sentences; the "
         f"other pages do.")
+
+
+# The page test above only sees what a page prints. The dash got onto the page
+# from a source file, and the same source files are read by the next person to
+# change one. Half the long dashes in this repo were in docstrings and headers,
+# where no page test could ever have reached them.
+REPO = Path(__file__).resolve().parents[1]
+WRITTEN_FOR_PEOPLE = (sorted(REPO.glob("*.md"))
+                      + sorted((REPO / "dashboard").glob("*.py"))
+                      + sorted((REPO / "predict").glob("*.py"))
+                      + sorted((REPO / "labelling").glob("*.py")))
+
+
+@pytest.mark.parametrize("source", WRITTEN_FOR_PEOPLE,
+                         ids=lambda s: s.relative_to(REPO).as_posix())
+def test_no_source_file_sets_a_phrase_off_with_a_long_dash(source):
+    """Same rule as the pages, one step earlier: comments, docstrings and the
+    two front-page documents are prose too, and are where a dash starts."""
+    text = source.read_text(encoding="utf-8")
+    found = [dash for dash in LONG_DASHES if dash in text]
+    assert not found, (
+        f"{source.relative_to(REPO)} carries {found}. Use a comma, a colon or "
+        f"two sentences.")

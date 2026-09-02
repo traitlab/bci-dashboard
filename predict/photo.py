@@ -8,19 +8,19 @@ Uses a centre crop CROP_SIZE px on a side and a disk-cache/resume pattern. Safe 
 resume at any time.
 
 Config (config.yaml):
-  plantnet.identify_url       — full API endpoint URL
-  plantnet.identify_nb_results — how many names to ask for per photo
-  plantnet.identify_organs    — organ hint sent to API
-  plantnet.identify_lang      — language for common names
+  plantnet.identify_url:        full API endpoint URL
+  plantnet.identify_nb_results: how many names to ask for per photo
+  plantnet.identify_organs:     organ hint sent to API
+  plantnet.identify_lang:       language for common names
 Every one is required: the values live in config.yaml, not in a default here.
 
 Input:
   input/boxes/bci_images_for_plantnet.csv
 
 Output:
-  data/photos/cache/<global_key>.json  — per-image cache
-  data/photos/predictions.json         — all results combined
-  data/photos/predictions_summary.json — run statistics
+  data/photos/cache/<global_key>.json:  per-image cache
+  data/photos/predictions.json:         all results combined
+  data/photos/predictions_summary.json: run statistics
 
 Usage:
   python predict/photo.py --test
@@ -318,7 +318,7 @@ def main():
     print(f"  To process:     {len(to_process)}")
 
     if not to_process:
-        print("  All images already cached — proceeding to assemble output.")
+        print("  All images already cached, proceeding to assemble output.")
     else:
         print(f"  Delay: {args.delay}s between calls\n")
 
@@ -367,7 +367,7 @@ def main():
                 print(f"  Credits remaining: {last_remaining}")
             elif (i + 1) % 100 == 0 or i == 0:
                 cr = f", {last_remaining} credits remaining" if last_remaining else ""
-                print(f"  [{i+1}/{len(to_process)}] {gk} — "
+                print(f"  [{i+1}/{len(to_process)}] {gk}: "
                       f"top={entry['best_match']}{cr}")
 
         except QuotaExceededError as e:
