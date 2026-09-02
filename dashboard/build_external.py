@@ -81,7 +81,8 @@ def build(h, *, generated, verify_dir, fallback_tag):
          f'accuracy rate on this page is measured on those. Add {c.gn:,} frames labelled '
          f'only to a genus and {c.fam_n:,} labelled only to a family and you get the '
          f'{c.n_pred:,} frames that have a cached Pl@ntNet answer. That is the set the '
-         f'list-length chart counts. {len(h.gt_rows):,} is every frame a botanist has '
+         f'list-length chart counts.</p>'
+         f'<p class="note">{len(h.gt_rows):,} is every frame a botanist has '
          f'labelled at all, the '
          f'{len(h.gt_rows) - c.n_pred} with no cached answer included. Each number below '
          f'says which of the three it is using.</p>']
