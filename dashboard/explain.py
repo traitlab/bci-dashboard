@@ -153,11 +153,10 @@ def candidates_panel(*, recs, n_scored, gen_n, gen_none):
 
 def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
                     corpus_block):
-    """The four corpus-wide numbers, and why two of them disagree.
+    """The four corpus-wide rates, and why the per-species and per-frame ones differ.
 
-    ``corpus_block`` is the grid of the four rates and the caveats they inherit,
-    built by the caller because they are page copy rather than a computation. They
-    live inside this panel so the numbers and the explanation of them have one home.
+    ``corpus_block`` is page copy, built by the caller and passed in so the numbers
+    and the explanation of them stay in one place.
     """
     rows = []
     for lab in hc.BUCKET_ORDER:
@@ -203,11 +202,10 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           # a sliver too thin to carry a printed label, so "2% of the bottom" sent a
           # reader looking for a 2% they could not find.
           f'<p class="note">The {singles} single-frame species are '
-          f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the votes in the '
-          f'one-vote-per-species bar. They are only '
-          f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the votes in the '
-          f'one-vote-per-frame bar, a slice too thin to be labelled there. '
-          f'The key says why. '
+          f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the '
+          f'one-vote-per-species bar but only '
+          f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the one-vote-per-frame one. '
+          f'That slice is too thin to label there, so the key says it instead. '
           f'Pl@ntNet is right {pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} of the '
           f'time on species we labelled once, against '
           f'{pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at {BAND_WORD[fat]}. Rare in '
@@ -229,9 +227,9 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           # key redrawn as a bar chart plus this one paragraph.
           f'<div class="warn"><strong>Read the bands as how common a species is, not as '
           f'training data.</strong> These predictions come from a frozen Pl@ntNet regional '
-          f'model that has never seen a single BCI label, so labelling a species does not '
-          f'make Pl@ntNet better at it. Common species simply have more reference photos '
-          f'inside Pl@ntNet already. What extra labels buy is knowledge: below about '
+          f'model that has never seen a BCI label, so labelling a species does not make '
+          f'Pl@ntNet better at it. Common species simply have more reference photos '
+          f'inside Pl@ntNet already. Extra labels buy knowledge instead: below about '
           f'{hc.WELL_SAMPLED_MIN_N} frames a per-species accuracy jumps around too much to '
           f'act on, and above it the species can enter the queue-ordering rule.</div>',
         # Both headline rates are in the summary and both move every snapshot.
