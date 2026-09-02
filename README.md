@@ -13,9 +13,6 @@ responses.
    `send_batches.csv`, one of the tables `measure.py` writes, which the
    labelling script reads.
 
-`dashboard/build_export_only.py` scores one export on its own, so a new batch
-never mixes into the running total. A spot check, not a page anyone publishes.
-
 `CONTEXT.md` names every term the pages use and the plain words they say
 instead. `tests/test_plain_english.py` holds the pages to it.
 
@@ -91,7 +88,6 @@ Or the measurement pass and one page alone:
 python3 dashboard/measure.py --out-dir build/tables
 python3 dashboard/build_external.py --out build/model_health_dashboard.html
 python3 dashboard/build_internal.py --out build/label_queue_dashboard.html
-python3 dashboard/build_export_only.py --export path/to/export.ndjson
 ```
 
 ## Configure

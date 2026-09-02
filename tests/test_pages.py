@@ -2,9 +2,8 @@
 
 Nothing exercised `build_external.py` or `build_internal.py` before this file,
 so every cleanup pass over them had to be verified by hand-diffing 185KB of
-HTML. `assets.py` is exercised by `test_assets.py` and the export-only page's own
-inputs by `test_export_only_page.py`; the page-shape invariants below run
-against all three pages, this one included.
+HTML. `assets.py` is exercised by `test_assets.py`; the page-shape invariants
+below run against both pages.
 Golden-file comparison would just move that problem into the test (any
 legitimate number change breaks it), so this asserts structure instead: the
 build's own snapshot cross-check passed, the page is one self-contained file,
@@ -137,8 +136,7 @@ def test_tags_balance(page):
 def test_a_page_opens_only_the_panels_that_are_its_deliverable(page):
     """A panel is open only where it is the thing the page exists to hand over.
 
-    The queue page opens the two a labeller works from. The export-only page is
-    a 19-species spot check and opens both of its own. The model-health page
+    The queue page opens the two a labeller works from. The model-health page
     opens none: its answer is the two hero cards, and the species table is a
     lookup tool. Open, that table was 40% of the page's words sitting fourth of
     nine, and the five panels below it were a scroll nobody made.
@@ -147,7 +145,6 @@ def test_a_page_opens_only_the_panels_that_are_its_deliverable(page):
         "model_health": [],
         "label_queue": ["Where to spend botanist time next",
                         "What to send to the botanist first"],
-        "export_only": ["Where these numbers come from", "Look up one species"],
     }
     html, name, _ = page
     want = next(v for k, v in expected.items() if k in name)

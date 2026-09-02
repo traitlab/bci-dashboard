@@ -188,12 +188,7 @@ def internal_prose(internal_page):
     return prose(internal_page[0])
 
 
-@pytest.fixture(scope="session")
-def export_only_prose(export_only_page):
-    return prose(export_only_page[0])
-
-
-@pytest.fixture(params=("external_prose", "internal_prose", "export_only_prose"))
+@pytest.fixture(params=("external_prose", "internal_prose"))
 def page_prose(request):
     """Every page, one at a time, so a retired word cannot be retired on one
     page and left standing on another."""
@@ -214,10 +209,6 @@ def test_the_external_page_has_no_sentence_a_reader_has_to_reread(external_prose
 
 def test_the_internal_page_has_no_sentence_a_reader_has_to_reread(internal_prose):
     _no_long_sentences(internal_prose, "label_queue_dashboard.html")
-
-
-def test_the_export_only_page_has_no_sentence_a_reader_has_to_reread(export_only_prose):
-    _no_long_sentences(export_only_prose, "export_only_dashboard.html")
 
 
 def test_most_of_each_page_is_in_short_sentences(page_prose):
@@ -325,10 +316,9 @@ def test_the_readme_uses_no_word_context_md_retired(readme_prose, pattern, inste
         + "\n".join(f"  {block[:160]}" for block in hits[:5]))
 
 
-# The pages set a dash off with " -- " or rewrite it as a comma, everywhere
-# except one funnel line in build_export_only.py, which used an em dash for
-# months because nothing looked. A page is read next to the other two, and a
-# reader notices the typography before they notice why.
+# The pages set a dash off with " -- " or rewrite it as a comma. A page is
+# read next to the other one, and a reader notices the typography before they
+# notice why.
 LONG_DASHES = ("—", "–", "&mdash;", "&ndash;")
 
 
