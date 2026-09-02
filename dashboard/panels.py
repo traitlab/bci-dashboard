@@ -185,16 +185,19 @@ def hero_region(c):
     """
     half, none_ = crop_mismatch(c)
     return (
-        "<strong>These four numbers judge a centre crop against a label for the whole "
+        "<p><strong>These four numbers judge a centre crop against a label for the whole "
         f"frame.</strong> The two are not always looking at the same tree. On {half:,} of "
         f"{len(c.sp_recs):,} scored frames the labelled species covers less than half the "
         f"crop, and on {none_:,} it covers none of it. A wrong answer here is therefore not "
-        "always a wrong identification. Read these four as a record of what the centre-crop "
+        "always a wrong identification.</p>"
+        # The mismatch, then what to do about it. One 116-word block ran the count
+        # and the instruction together and was the longest paragraph on the page.
+        "<p>Read these four as a record of what the centre-crop "
         "path did, not as the model's accuracy. The number at the top of the page, where a "
         "botanist outlined the trees first, is the one to quote: it names the same thing the "
         "label names. "
         '<a href="#where-the-headline-comes-from">Where these two numbers come from</a> '
-        "says which frames it was measured on."
+        "says which frames it was measured on.</p>"
     )
 
 # Queue name -> (what it is, why it is worth sending). Shown in the order
@@ -907,7 +910,7 @@ def p_weighting(c):
         hero([(averaged, pctf(c.now[metric]), question.format(k=c.n_cand),
                note.format(n_sp=c.n_sp, k=c.n_cand))
               for metric, question, averaged, note in HEADLINES])
-        + f'<p class="caveat">{hero_region(c)}</p>'
+        + f'<div class="caveat">{hero_region(c)}</div>'
         + f'<p class="note">{HERO_READING}</p>'
         # One sentence, not the full caveat: the ceiling panel states the same numbers
         # with the reasoning, and twice made this the second dense paragraph up top.

@@ -77,6 +77,8 @@ h1{margin-bottom:2px}
 .caveat{font-size:0.85rem;color:#5d4037;background:#fbf3ec;border-left:3px solid #bf6a34;
   border-radius:0 4px 4px 0;padding:11px 14px;margin:14px 0 0}
 .caveat strong{color:#3e2723}
+/* The block holds two paragraphs now, and the reset above zeroes p margins. */
+.caveat p+p{margin-top:8px}
 /* Two fixed columns, not a wrapping flex row: the four headline numbers are a
    2x2 grid of question x weighting, and a reader who sees them in one long row
    reads them as four unrelated figures. Collapses to one column under 640px. */
