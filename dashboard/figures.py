@@ -200,7 +200,9 @@ def _review(sp_recs):
     # every disagreement, since a confirmed label still leaves the guess wrong.
     hits = len(confident) - len(raised)
     return {"confident": confident, "review": review, "confident_hits": hits,
-            "confident_ok": hits / len(confident),
+            # None, not 0.0: with nothing above REVIEW_CONF there is no rate
+            # to report, and `pctf` prints "n/a" for it.
+            "confident_ok": hc.ratio(hits, len(confident)),
             "n_adjudicated": len(raised) - len(review),
             "review_pairs": pairs, "review_counts": (len(review), len(pairs))}
 

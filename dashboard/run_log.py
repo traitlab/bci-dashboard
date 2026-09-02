@@ -221,6 +221,17 @@ def log_headline(_log, n, n_sp, c1, c5, macro1, macro5, g1, g5, reachable, r1, r
     _log("")
 
 
+def _macro(x, width: int) -> str:
+    """A macro average as a right-aligned percentage, or ``n/a``.
+
+    ``core.coverage_gate_stats`` returns ``macro_top1: None`` when its subset is
+    empty, and the sweep runs a threshold high enough to admit nothing. Column
+    width is passed in so the "n/a" lands under the same heading the number
+    would have, the trailing "%" included.
+    """
+    return f"{'n/a':>{width + 1}}" if x is None else f"{x * 100:>{width}.2f}%"
+
+
 def log_gate_comparison(_log, sp_recs, sweep, gate, n, n_sp, c1, macro1):
     """Gated and ungated side by side, then the sweep behind the threshold."""
     _log("--- CROP-COVERAGE GATE: GATED AND UNGATED, SIDE BY SIDE ---")
@@ -232,8 +243,8 @@ def log_gate_comparison(_log, sp_recs, sweep, gate, n, n_sp, c1, macro1):
     _log(f"  {'frames (N)':<34} {n:>12} {gate['n_admitted']:>12}")
     _log(f"  {'frame top-1':<34} {pct(c1, n):>12} {pct(gate['n_correct_top1'], gate['n_admitted']):>12}"
         f"   (N_admitted={gate['n_admitted']})")
-    _log(f"  {'macro per-species top-1':<34} {macro1 * 100:>11.2f}% "
-        f"{gate['macro_top1'] * 100:>11.2f}%   (N_admitted={gate['n_admitted']}, "
+    _log(f"  {'macro per-species top-1':<34} {_macro(macro1, 11)} "
+        f"{_macro(gate['macro_top1'], 11)}   (N_admitted={gate['n_admitted']}, "
         f"{gate['n_species']} species)")
     _log(f"  {'species':<34} {n_sp:>12} {gate['n_species']:>12}")
     _log(f"  threshold in force                  : {MIN_CROP_COVERAGE:.2f} "
@@ -243,7 +254,7 @@ def log_gate_comparison(_log, sp_recs, sweep, gate, n, n_sp, c1, macro1):
     for g in sweep:
         _log(f"  {g['min_coverage']:>12.2f} {g['n_admitted']:>12} "
             f"{pct(g['n_correct_top1'], g['n_admitted']):>13} "
-            f"{(g['macro_top1'] * 100):>12.2f}% {g['n_species']:>9}")
+            f"{_macro(g['macro_top1'], 12)} {g['n_species']:>9}")
     n_unknown = sum(1 for r in sp_recs if r["crop_coverage"] is None)
     _log(f"  frames with no box geometry, rejected at every threshold : {n_unknown} "
         f"({pct(n_unknown, n)})")
