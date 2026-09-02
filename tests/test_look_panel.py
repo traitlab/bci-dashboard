@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import base64
 import os
+from types import SimpleNamespace
 
 import pytest
 
@@ -178,3 +179,11 @@ def test_the_picture_reaches_the_page_as_bytes_and_not_as_a_path(look):
     _, _, uri = out["thumbs"]["normal"][0]
     assert uri.startswith("data:image/jpeg;base64,")
     assert base64.b64decode(uri.split(",", 1)[1]) == b"\xff\xd8\xff\xd9"
+
+
+def test_summary_does_not_assert_the_finding_when_nothing_was_scored(look, queue_panels):
+    """A closed panel stands alone, so its summary must not outrun its evidence."""
+    figures, _ = look
+    html = queue_panels.p_look(SimpleNamespace(**figures._look([], {}, 0)))
+    assert "finds species faster" not in html
+    assert "has not been scored on this checkout" in html

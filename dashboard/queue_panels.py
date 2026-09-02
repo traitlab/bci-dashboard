@@ -393,13 +393,23 @@ def contact_sheet(c) -> str:
               f'what the order was decided on.</p>')
 
 
+SCORED = ("<b>Ordering by look finds species faster than working down a random "
+          "list.</b> The charts below score that on photos already named, show where "
+          "the ordering stops separating photos, and put the head of every queue on "
+          "screen.")
+UNSCORED = ("<b>The queue is ordered by look: the photo least like everything already "
+            "named comes first.</b> That ordering has not been scored on this checkout, "
+            "so this panel makes no claim about what it buys.")
+
+
 def p_look(c):
-    """The evidence that ordering by look does anything, and what it costs."""
+    """The evidence that ordering by look does anything, and what it costs.
+
+    The summary changes with the evidence. A closed panel has to stand alone, so
+    it must not assert the finding on a checkout where nothing has been scored.
+    """
     charts = discovery_chart(c) + novelty_chart(c)
     body = (charts or NO_CURVES) + camera_note(c) + contact_sheet(c)
     return panel("Why the queue is in this order",
-                 "<b>Ordering by look finds species faster than working down a "
-                 "random list.</b> The charts below score that on photos already "
-                 "named, show where the ordering stops separating photos, and put "
-                 "the head of every queue on screen.",
+                 SCORED if c.discovery else UNSCORED,
                  body, open_=False, anchor="why-this-order")
