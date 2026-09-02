@@ -15,7 +15,7 @@ Config (config.yaml):
 Every one is required: the values live in config.yaml, not in a default here.
 
 Input:
-  input/boxes/bci_images_for_plantnet.csv
+  input/boxes/bci_images_for_plantnet_w_split.csv
 
 Output:
   data/photos/cache/<global_key>.json:  per-image cache
@@ -43,6 +43,13 @@ from dotenv import load_dotenv
 from PIL import Image
 
 REPO = Path(__file__).resolve().parents[1]
+
+# The tracked frame list. Named here rather than typed into the argument
+# default, because the folder it sits in comes from config.yaml and the two
+# halves of the path were drifting apart: this half still said
+# bci_images_for_plantnet.csv, a file no longer in the repo, so a plain
+# `python predict/photo.py` opened nothing.
+FRAMES_CSV_NAME = "bci_images_for_plantnet_w_split.csv"
 
 CROP_SIZE     = 1280
 JPEG_QUALITY  = 90
@@ -292,7 +299,7 @@ def main():
     lang       = pn_cfg["identify_lang"]
 
     images_csv  = (Path(args.input) if args.input else
-                   Path(config["folders"]["export_for_plantnet"]) / "bci_images_for_plantnet.csv")
+                   Path(config["folders"]["export_for_plantnet"]) / FRAMES_CSV_NAME)
     output_dir  = (Path(args.out_dir) if args.out_dir else
                    Path(config["folders"]["single_predictions"]))
     cache_dir   = output_dir / "cache"

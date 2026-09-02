@@ -202,3 +202,28 @@ def test_context_counts_the_sites_the_frame_list_actually_holds():
     assert f"There are {len(sites)};" in context, (
         f"{frames.name} covers {len(sites)} sites and CONTEXT.md says otherwise. "
         f"The sites are {sorted(sites)}.")
+
+
+# Every file under input/boxes/ that some script or docstring names. The folder
+# is tracked, small and rarely touched, which is exactly why a path into it goes
+# stale quietly: nothing fails until somebody runs the fetch with no --input.
+INPUT_BOXES = [path
+               for folder, pattern in (("predict", "*.py"), ("dashboard", "*.py"),
+                                       ("labelling", "*.py"), ("bin", "*.sh"))
+               for path in sorted((REPO / folder).glob(pattern))]
+
+
+@pytest.mark.parametrize("source", INPUT_BOXES,
+                         ids=lambda s: s.relative_to(REPO).as_posix())
+def test_every_input_boxes_path_a_script_names_is_a_file_that_is_there(source):
+    """`predict/photo.py` defaulted for months to input/boxes/
+    bci_images_for_plantnet.csv, which the repo renamed to ..._w_split.csv. The
+    script's docstring said the same missing name, so reading the file could
+    not catch it, and a run with no --input opened nothing. Names in comments
+    and docstrings count: they are what the next person types."""
+    text = source.read_text(encoding="utf-8")
+    for name in set(re.findall(r"input/boxes/([A-Za-z0-9_.\-]+\.csv)", text)):
+        assert (REPO / "input" / "boxes" / name).exists(), (
+            f"{source.relative_to(REPO)} names input/boxes/{name}, which is not "
+            f"there. input/boxes holds "
+            f"{sorted(p.name for p in (REPO / 'input' / 'boxes').iterdir())}.")
