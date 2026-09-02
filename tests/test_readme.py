@@ -225,6 +225,10 @@ def test_metrics_md_cites_symbols_that_exist_and_no_line_numbers(core):
     missing = []
     # A call or an upper-case constant. Anything else with a dot in it is a
     # filename: `history.csv` is not the `csv` member of a `history` module.
+    with open(os.path.join(root, "README.md"), encoding="utf-8") as fh:
+        text += fh.read()
+    with open(os.path.join(root, "CONTEXT.md"), encoding="utf-8") as fh:
+        text += fh.read()
     cited = (re.findall(r"`(\w+)\.(\w+)\(\)`", text)
              + re.findall(r"`(\w+)\.([A-Z][A-Z_0-9]+)`", text))
     for module, symbol in cited:
