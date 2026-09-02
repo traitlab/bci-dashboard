@@ -57,7 +57,9 @@ numbers wrong:
 
 Crop and box geometry comes from what the fetch recorded, never a constant.
 Three analyses write output the pages never read: `predict/crown_accuracy.py`,
-`labelling/rank_unsent.py`, and the crop-coverage gate.
+`labelling/rank_unsent.py`, and the crop-coverage gate. Two of the nine CSVs are
+the same: `filter_gain.csv` and `name_reconciliation.csv` are evidence to open,
+not page input. `measure.NOT_READ_BACK_BY_A_BUILD` names all three such CSVs.
 
 ## Layout
 
