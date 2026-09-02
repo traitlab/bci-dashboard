@@ -75,21 +75,67 @@ def test_build_renders_the_no_score_note_when_nothing_joins(tmp_path_factory):
     assert not re.search(r"\d+\.\d%", html), "an accuracy percentage was printed anyway"
 
 
-def test_the_export_funnel_accounts_for_every_row(export_only_page):
-    """The funnel exists to say where the rows that are not in the accuracy
-    rate went. It once dropped the genus-only frames: the counts on screen did
-    not add up, and a reader who checked found rows missing. Steps, in order:
-    rows, labelled, joined to a cached answer, named a species, stopped at the
-    genus, no cached answer."""
-    html, _ = export_only_page
+def _funnel_counts(html):
+    """The numbers off the funnel, in the order the page lists them."""
     funnel = re.search(r'<ul class="todo">(.*?)</ul>', html, re.DOTALL)
     assert funnel, "the export page rendered no funnel"
     counts = [int(x.replace(",", ""))
               for x in re.findall(r'<span class="n">([\d,]+)</span>', funnel.group(1))]
-    assert len(counts) == 6, f"expected six funnel steps, got {counts}"
-    rows, labelled, joined, species, genus, no_cache = counts
+    assert len(counts) == 7, f"expected seven funnel steps, got {counts}"
+    return counts
+
+
+def _assert_funnel_adds_up(counts):
+    """Rows, labelled, cached, species, genus, empty answer, no cached answer.
+    Every labelled row ends in exactly one of the last four."""
+    rows, labelled, cached, species, genus, empty, no_cache = counts
     assert labelled <= rows
-    assert joined + no_cache == labelled, (
-        f"labelled {labelled} is not joined {joined} plus un-joined {no_cache}")
-    assert species + genus == joined, (
-        f"joined {joined} is not species {species} plus genus-only {genus}")
+    assert cached + no_cache == labelled, (
+        f"labelled {labelled} is not cached {cached} plus un-cached {no_cache}")
+    assert species + genus + empty == cached, (
+        f"cached {cached} is not species {species} plus genus-only {genus} "
+        f"plus empty answers {empty}")
+
+
+def test_the_export_funnel_accounts_for_every_row(export_only_page):
+    """The funnel exists to say where the rows that are not in the accuracy
+    rate went. It once dropped the genus-only frames, then the frames whose
+    cached answer names nothing: both times the counts on screen did not add
+    up, and a reader who checked found rows missing."""
+    html, _ = export_only_page
+    _assert_funnel_adds_up(_funnel_counts(html))
+
+
+def test_the_funnel_still_adds_up_when_rows_fall_into_every_step(tmp_path_factory):
+    """The fixture export above is 48 keys that all score, so four of the
+    seven steps are zero there and the arithmetic is never really tested.
+    This one is built to put real rows in all of them: keys that score, keys
+    with no cached answer at all, and keys whose cached answer is an empty
+    list of names. The last group is the one the funnel used to drop."""
+    require_buildable()
+    with_cache, without_cache, gt = corpus_keys_with_species_gt()
+    empty = _keys_whose_cached_answer_names_nothing(with_cache)
+    assert without_cache and empty, (
+        "this machine's cache has no un-cached and no empty-answer key, "
+        "so there is nothing to build the mixed export from")
+    keys = sorted(set(with_cache[:48]) | set(without_cache) | set(empty))
+    path = tmp_path_factory.mktemp("export_mixed") / "export.ndjson"
+    write_export_ndjson(path, keys, gt)
+    html, _ = build_page(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
+    counts = _funnel_counts(html)
+    _assert_funnel_adds_up(counts)
+    assert counts[5] == len(empty), (
+        f"{len(empty)} keys have an empty cached answer, the funnel says {counts[5]}")
+    assert counts[6] == len(without_cache), (
+        f"{len(without_cache)} keys have no cached answer, the funnel says {counts[6]}")
+
+
+def _keys_whose_cached_answer_names_nothing(keys):
+    """The keys whose cache file parses but holds no ranked name, read through
+    `health.scan_cache` so this agrees with the builder by construction rather
+    than by a second reading of the JSON."""
+    import sys
+    sys.path.insert(0, str(REPO / "dashboard"))
+    import health as hl
+    predictions = hl.scan_cache(str(REPO / "data" / "predictions" / "cache")).predictions
+    return [gk for gk in keys if not predictions.get(gk[len(GT_KEY_PREFIX):])]

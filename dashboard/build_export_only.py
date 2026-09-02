@@ -110,9 +110,11 @@ TITLE = "Pl@ntNet on BCI: this export only"
 def export_counts(h, n_rows):
     """Where every row of the export ended up, and the rates over what is left.
 
-    The six counts sum to the rows in the file, which is the point: a reader
+    The counts sum to the rows in the file, which is the point: a reader
     seeing an accuracy over 31 photos should be able to see the other rows go
-    somewhere rather than wonder where they went.
+    somewhere rather than wonder where they went. A cached answer can also be
+    an empty list of names, so that is a step of its own; without it the steps
+    stop summing the moment an export contains one.
     """
     sp_recs, per_species = h.sp_recs, h.per_species
     n, n_sp = len(sp_recs), len(per_species)
@@ -124,7 +126,9 @@ def export_counts(h, n_rows):
         n_rows=n_rows, n=n, n_sp=n_sp, n_genus=n_genus,
         n_labelled=len(h.gt_rows),  # rows export_dominants found a botanist name for
         n_no_cache=len(h.missing_cache),
-        n_joined=n + n_genus, c1=c1, c5=c5,
+        n_cached=len(h.joined),  # a cache file was found, whatever is in it
+        n_empty=len(h.records) - n - n_genus,  # found, but it named nothing
+        c1=c1, c5=c5,
         macro1=(sum(d["top1_accuracy"] for d in per_species) / n_sp) if n_sp else None,
         macro5=(sum(d["top5_accuracy"] for d in per_species) / n_sp) if n_sp else None,
         micro1=(c1 / n) if n else None)
@@ -138,10 +142,11 @@ def funnel_panel(k):
         (k.n_labelled,
          "of those rows carry a botanist name in the Planta/Taxon field, "
          "and the rest have no annotation in this export"),
-        (k.n_joined, "of the labelled photos also have a cached Pl@ntNet answer"),
+        (k.n_cached, "of the labelled photos also have a cached Pl@ntNet answer"),
         (k.n, "of those name a species rather than stopping at the genus, and "
               "every accuracy figure below is measured on this set"),
         (k.n_genus, "stop at the genus, which this page does not score"),
+        (k.n_empty, "have a cached answer that names nothing at all"),
         (k.n_no_cache,
          "labelled photos have no cached prediction, so cannot be scored"),
     ])
