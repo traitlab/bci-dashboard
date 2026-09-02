@@ -74,4 +74,4 @@ asking, never calls it an **arm**: that word belongs in `hypothesis.md`.
 | **export-only page** | `build/export_only_dashboard.html`. One Labelbox export scored on its own, with no snapshot behind it and no corpus total. Answers "how did this batch do", nothing else. |
 | **snapshot** | One dated folder under `snapshots/` holding the CSVs a measurement pass wrote. A page is cross-checked against one and refuses to build if it disagrees. |
 | **panel** | One collapsible block on a page. Its summary must stand alone when everything is closed. |
-| **status** | One of six plain verdicts a species gets: right name in the list, too few labels to judge, wrong even with enough labels, mixed, usually right, never named in five candidates. |
+| **status** | One of six plain verdicts a species gets: right name in the list not first, too few labels to judge, wrong even with enough labels, mixed, usually right, never returned on any BCI photo. |
