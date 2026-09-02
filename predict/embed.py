@@ -96,27 +96,13 @@ def parse_args(argv=None):
     return p.parse_args(argv)
 
 
-def main(argv=None) -> int:
-    args = parse_args(argv)
-    load_dotenv()
-    api_key = os.environ.get("PLANTNET_API_KEY")
-    if not api_key:
-        print("MISSING PLANTNET_API_KEY", file=sys.stderr)
-        return 2
+def fetch_all(todo, api_key, api_url, cache_dir, *, delay, test):
+    """One embedding call per photo, each answer cached as it lands.
 
-    api_url = load_config()["plantnet"]["embeddings_api_url"]
-
-    out_dir   = Path(args.out_dir)
-    cache_dir = out_dir / "cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
-    rows = load_image_list(Path(args.input))
-    if args.test:
-        rows = rows[:1]
-    cached = {p.stem for p in cache_dir.glob("*.json")}
-    todo = [r for r in rows if cache_name(r["global_key"]) not in cached]
-    print(f"{len(rows)} images, {len(cached)} cached, {len(todo)} to fetch")
-
+    The narrow except is deliberate. One unreachable URL or undecodable JPEG
+    must not end a 3,000-image run, and anything outside that set is a bug that
+    should propagate rather than be counted as an error and skipped.
+    """
     ok = errors = 0
     for i, row in enumerate(todo):
         gk = row["global_key"]
@@ -134,7 +120,7 @@ def main(argv=None) -> int:
             }
             save_cache(cache_dir / f"{cache_name(gk)}.json", entry)
             ok += 1
-            if args.test:
+            if test:
                 print(json.dumps({k: v for k, v in entry.items()
                                   if k != "embedding"}, indent=2))
                 print(f"embedding dims: {len(entry['embedding'])}")
@@ -144,13 +130,20 @@ def main(argv=None) -> int:
             print(f"QUOTA EXCEEDED: {e}. Re-run to resume.", file=sys.stderr)
             break
         except (requests.RequestException, OSError, ValueError, RuntimeError) as e:
-            # One unreachable URL or undecodable JPEG must not end a 3,000-image
-            # run. Anything outside this set is a bug and should propagate.
             errors += 1
             print(f"  [{i+1}/{len(todo)}] ERROR {gk}: {e}", file=sys.stderr)
         if i < len(todo) - 1:
-            time.sleep(args.delay)
+            time.sleep(delay)
+    return ok, errors
 
+
+def write_matrix(cache_dir, out_dir):
+    """Stack the cache into one array, dropping any vector of the wrong length.
+
+    A short vector is a truncated answer, not a photo with less to say. Loading
+    it would put a row of the wrong width into a matrix nothing downstream
+    re-checks, so it is named on stderr and left out.
+    """
     keys, vectors = [], []
     for p in sorted(cache_dir.glob("*.json")):
         entry = json.loads(p.read_text(encoding="utf-8"))
@@ -164,7 +157,35 @@ def main(argv=None) -> int:
     npz_path = out_dir / "embeddings.npz"
     np.savez_compressed(npz_path, keys=np.array(keys),
                         embeddings=np.asarray(vectors, dtype=np.float32))
-    print(f"fetched {ok}, errors {errors}, wrote {len(keys)} vectors to {npz_path}")
+    return npz_path, len(keys)
+
+
+def main(argv=None) -> int:
+    """Fetch the embeddings that are missing, then write the whole cache as one
+    array. Resumable: the cache is what a second run skips on."""
+    args = parse_args(argv)
+    load_dotenv()
+    api_key = os.environ.get("PLANTNET_API_KEY")
+    if not api_key:
+        print("MISSING PLANTNET_API_KEY", file=sys.stderr)
+        return 2
+
+    api_url = load_config()["plantnet"]["embeddings_api_url"]
+    out_dir   = Path(args.out_dir)
+    cache_dir = out_dir / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    rows = load_image_list(Path(args.input))
+    if args.test:
+        rows = rows[:1]
+    cached = {p.stem for p in cache_dir.glob("*.json")}
+    todo = [r for r in rows if cache_name(r["global_key"]) not in cached]
+    print(f"{len(rows)} images, {len(cached)} cached, {len(todo)} to fetch")
+
+    ok, errors = fetch_all(todo, api_key, api_url, cache_dir,
+                           delay=args.delay, test=args.test)
+    npz_path, n = write_matrix(cache_dir, out_dir)
+    print(f"fetched {ok}, errors {errors}, wrote {n} vectors to {npz_path}")
     return 0
 
 
