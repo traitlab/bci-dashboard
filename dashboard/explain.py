@@ -100,7 +100,7 @@ def candidates_panel(*, recs, n_scored, gen_n, gen_none):
     shortest = min(hidden)
     middles = [k for k in sorted(hidden) if shortest < k < top]
     mid = middles[len(middles) // 2] if middles else None
-    mid_clause = (f", a {mid}-guess photo {pctf(1 - hidden[mid])}" if mid else "")
+    mid_clause = (f", and {pctf(1 - hidden[mid])} when it returns {mid}" if mid else "")
     return panel(
         f"Why only {top} guesses per photo, and what that hides",
         f"<b>Two different limits cut that list, one at each end.</b> We asked for the best "
@@ -136,11 +136,12 @@ def candidates_panel(*, recs, n_scored, gen_n, gen_none):
           f'on a round one. So a short list means fewer than {top} species cleared that '
           f'bar.</p>'
           f'<p class="note">Pl@ntNet spreads 100% of its confidence across every species it '
-          f'knows. A {shortest}-guess photo accounts for {pctf(1 - hidden[shortest])} of it'
-          f'{mid_clause}, and <b>a full list of {top} only {pctf(1 - hidden[top])}</b>. '
-          f'On those photos a typical {pctf(hidden[top])} of the confidence sits on species '
-          f'we never received. On {half:,} of the {full:,} full lists '
-          f'({pctf(half / full)}) more than half of it does.</p>'
+          f'knows. When it returns only {shortest}, that species holds '
+          f'{pctf(1 - hidden[shortest])} of the whole{mid_clause}. <b>When it returns a full '
+          f'{top}, those {top} hold only {pctf(1 - hidden[top])} between them.</b> So on '
+          f'those photos a typical {pctf(hidden[top])} of the confidence sits on species we '
+          f'never received. On {half:,} of the {full:,} full lists ({pctf(half / full)}) '
+          f'more than half of it does.</p>'
           f'<p class="note"><b>What the cap hides is a right answer in position {top + 1}</b>, '
           f'indistinguishable here from Pl@ntNet never having heard of the plant. Both look '
           f'like a miss. The clearest symptom is among the {gen_n:,} frames whose botanist '

@@ -89,7 +89,8 @@ HEADLINES = [
     ("micro_top1", "First guess is right", "per frame",
      "one vote per labelled frame, so common species dominate"),
     ("macro_top5", "Right name is among the {k} requested", "per species",
-     "the ceiling reranking can reach at nb-results={k}, not the model's ceiling"),
+     "the best we could do if a botanist picked the right name out of the {k} every "
+     "time, so a ceiling on our {k}-name request, not on the model"),
     ("micro_top5", "Right name is among the {k} requested", "per frame",
      "we only ever asked Pl@ntNet for {k} names"),
 ]
@@ -441,12 +442,17 @@ def p_wait(c):
             f'down under the next one. Re-run this page after every model change and the '
             f'queue '
             f're-sorts. Any frame can come back to the top.</p>'
-            f'<p class="note">{len(c.eligible)} species have at least '
-            f'{WAIT_SUPPORT_MIN} labelled frames, which is the second half of the rule. That '
-            f'count uses only the frames a rule is allowed to learn from. So it is smaller '
-            f'than the number of species with {WAIT_SUPPORT_MIN} labels in total. Do not '
-            f'read it against the rarely-labelled count elsewhere on this page, which '
-            f'counts every label. The error rate '
+            f'<p class="note">{len(c.eligible)} species reach {WAIT_SUPPORT_MIN} labelled '
+            f'frames inside the frames a rule is allowed to learn from, which is the second '
+            f'half of the rule. Counting every label instead would give a larger number. Do '
+            f'not read this against the rarely-labelled count elsewhere on this page, which '
+            f'counts every label.'
+            # Two unrelated counts on this page are 41 today, and a reader who meets
+            # the second one takes it for a back-reference to the heading.
+            + (f' It is also a different set from the {c.counts["ranking"]} species named in '
+               f'the panel heading above, which happens to be the same size.'
+               if c.counts["ranking"] == len(c.eligible) else '')
+            + f' The error rate '
             f'above is measured on the {len(c.test_recs):,} frames held back from that. So '
             f'no rule is graded on the frames that chose it.</p>')
     return panel(f"Which frames can wait: {best['n']:,} of the {len(c.test_recs):,} frames "
@@ -545,6 +551,11 @@ def p_species(c):
             status_tag(st, STATUS[st][0])])
         attrs.append(f' data-species="{esc(sp)}" data-status="{st}"')
     body = (status_legend([(st, STATUS[st][0], STATUS_REASON[st]) for st in STATUS])
+            + '<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own score '
+              'for its first guess, averaged over that species&rsquo; frames. Pl@ntNet '
+              'splits one whole unit of confidence across every species it knows. So 0.86 '
+              'means it put nearly all of that on one name, and 0.32 means it was spread '
+              'thin.</p>'
             + filterable_table(
         [("Species", False), ("Labelled frames", True),
          ("First guess right", True), ("Right name in the list", True),
@@ -566,8 +577,8 @@ def p_ceiling(c):
             f'Leaving them out raises the per-frame rate from {pctf(c.c1 / n)} to '
             f'{pctf(c.reach1)} on {len(c.reach):,} centre crops. A wider population: every '
             f'one of the {len(c.h.gt_rows):,} frames carrying a botanist label, genus-only '
-            f'frames and the few with no cached answer included. The same condition covers '
-            f'{c.never_all} of those.</p>'
+            f'frames and the few with no cached answer included. Counted that way, '
+            f'{c.never_all} frames carry a name the model never returned to us.</p>'
             f'<div class="warn"><strong>This is a limit of the question we asked, not proof '
             f'the model has never heard of these species.</strong> The only test we can run '
             f'offline is whether a species name turns up somewhere in the cached answers, and '
