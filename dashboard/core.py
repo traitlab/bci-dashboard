@@ -20,6 +20,7 @@ from collections import defaultdict
 #   BCI_DASHBOARD_REPO      checkout root            (default: one level up)
 #   BCI_DASHBOARD_DATA      measurement inputs       (default: <repo>/data)
 #   BCI_DASHBOARD_SNAPSHOTS dated snapshot store     (default: <repo>/snapshots)
+#   BCI_DASHBOARD_TABLES    live measurement tables  (default: <repo>/build/tables)
 #   BCI_WCVP_CACHE          WCVP resolution cache    (default: <repo>/data/wcvp_cache.json)
 REPO = os.environ.get("BCI_DASHBOARD_REPO") or os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))
@@ -43,6 +44,12 @@ LABEL_CONFIRMED = "label_confirmed_prediction_wrong"
 
 # Dated model-health-<date>/ folders: the trend history. Gitignored.
 SNAPSHOT_DIR = os.environ.get("BCI_DASHBOARD_SNAPSHOTS") or os.path.join(REPO, "snapshots")
+
+# Where measure.py writes the tables, and what a page cross-checks against. A
+# snapshot is dated by the botanist's labels, so it goes stale the moment the
+# code that writes a table changes; cross-checking it compares today's page
+# with whatever the code did then. This directory always holds current output.
+TABLES_DIR = os.environ.get("BCI_DASHBOARD_TABLES") or os.path.join(REPO, "build", "tables")
 
 # Warm WCVP cache from GBIF dataset f382f0ce-323a-4091-bb9f-add557f3a9a2.
 # Covers the ~249 BCI labels only. None disables match tier (d).
@@ -334,11 +341,17 @@ def strip_collection_codes(name: str) -> str:
 def coverage_split(recs, min_coverage=MIN_CROP_COVERAGE):
     """(admitted, rejected) over records carrying a ``crop_coverage`` field.
     None means no measured geometry, and is rejected: the gate admits measured
-    coverage only, never assumed."""
+    coverage only, never assumed. A crop dominated by a species other than the
+    label is rejected too: the coverage measured there is that other tree's, so
+    it says nothing about whether the label was inside the crop. Both tests
+    together are the question ``next_batch.crop_verdict`` sends on, so the gate
+    that is reported and the gate that picks work ask the same thing."""
     admitted, rejected = [], []
     for r in recs:
-        c = r.get("crop_coverage")
-        (admitted if c is not None and c >= min_coverage else rejected).append(r)
+        c, dom = r.get("crop_coverage"), r.get("crop_dominant")
+        ok = (c is not None and c >= min_coverage
+              and (dom is None or dom == r["gt"]))
+        (admitted if ok else rejected).append(r)
     return admitted, rejected
 
 

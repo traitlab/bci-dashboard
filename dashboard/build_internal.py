@@ -55,7 +55,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
                ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
                 "The whole pool this page puts in an order.")]),
          ('<p class="note"><strong>The page is not the deliverable. Work '
-          '<code>send_batches.csv</code> in the snapshot folder.</strong> '
+          '<code>build/tables/send_batches.csv</code>.</strong> '
           f'It carries the same order in batches of at most {BATCH_SIZE}, with each species '
           'group kept together. Read this page to check the order and the rule behind '
           'it, then work the CSV. How Pl@ntNet scores against the labels is a separate '

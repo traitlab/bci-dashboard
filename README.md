@@ -26,14 +26,15 @@ instead. `tests/test_plain_english.py` holds the pages to it.
    needs API keys                      needs only disk + stdlib
 
    predict/    ─┐
-   labelling/   ├─>  files  ─> measure.py ─> nine CSVs ─> build_*.py ─> HTML page
-   (Pl@ntNet,  ─┘    on disk    (score        (snapshot)   (render and
-    Labelbox)                    every                      cross-check)
+   labelling/   ├─>  files  ─> measure.py ─> nine CSVs  ─> build_*.py ─> HTML page
+   (Pl@ntNet,  ─┘    on disk    (score      (build/        (render and
+    Labelbox)                    every       tables)        cross-check)
                                  photo)
 ```
 
 The same files always give the same page. Each builder recomputes every number
-it prints and aborts if the snapshot CSVs disagree.
+it prints and aborts if `build/tables` disagrees. A dated `snapshots/` folder is
+a record of a day the labels moved; no build reads one back.
 
 ## What a number means
 
@@ -59,7 +60,7 @@ Crop and box geometry comes from what the fetch recorded, never a constant.
 Three of the nine CSVs are evidence a person opens rather than page input:
 `filter_gain.csv`, `name_reconciliation.csv` and `coverage_gate.csv`.
 `measure.NOT_READ_BACK_BY_A_BUILD` names them. Every other number a page prints
-is recomputed and compared against the snapshot on every build.
+is recomputed and compared against `build/tables` on every build.
 
 ## Layout
 
@@ -83,7 +84,7 @@ bin/refresh.sh path/to/export.ndjson
 Or the measurement pass and one page alone:
 
 ```bash
-python3 dashboard/measure.py --out-dir snapshots/model-health-$(date +%F)
+python3 dashboard/measure.py --out-dir build/tables
 python3 dashboard/build_external.py --out build/model_health_dashboard.html
 python3 dashboard/build_internal.py --out build/label_queue_dashboard.html
 python3 dashboard/build_export_only.py --export path/to/export.ndjson

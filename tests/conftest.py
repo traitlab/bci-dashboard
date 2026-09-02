@@ -301,20 +301,20 @@ def score_confirmatory():
 # subprocess and session-scoped, so it happens once per run either way.
 # ---------------------------------------------------------------------------
 
-# The gate is the newest snapshot, and `history.latest_snapshot_dir` is what
-# decides that for the builders themselves, so the suite asks it rather than
-# naming a date. A pinned date silently ages: this sat on 2026-08-24 while
-# the builders had moved on to 2026-08-27, so three snapshots' worth of
-# numbers were never checked by a test.
-# SystemExit here would abort collection instead of skipping, and a fresh
-# clone has no snapshots at all; `require_buildable` is what turns that into
-# a skip, so this only has to name a path it can print.
+# The gate is `core.TABLES_DIR`, what the builders themselves default to, so
+# the suite asks for it rather than naming a path. Naming one silently ages:
+# this once pinned a snapshot date and sat on 2026-08-24 while the builders
+# had moved on to 2026-08-27, so three snapshots' worth of numbers were never
+# checked by a test. A dated snapshot is the wrong gate for a different
+# reason: it is a record of one day, so it goes stale the moment the code
+# that writes a table changes, and the suite would be checking today's page
+# against what the code did then.
+# A fresh clone has never run measure.py, so this directory can be missing;
+# `require_buildable` is what turns that into a skip, so this only has to
+# name a path it can print.
 with _on_path(REPO / "dashboard"):
-    import history as _history
-    try:
-        SNAPSHOT_DIR = pathlib.Path(_history.latest_snapshot_dir())
-    except SystemExit:
-        SNAPSHOT_DIR = REPO / "snapshots"
+    import core as _core
+    SNAPSHOT_DIR = pathlib.Path(_core.TABLES_DIR)
 SPLITS_CSV = REPO / "data" / "splits.csv"
 CACHE_DIR = REPO / "data" / "predictions" / "cache"
 
@@ -373,8 +373,9 @@ PAGES = {
 
 
 def require_buildable():
-    """Skip on a fresh clone: the builders need measurement inputs and a
-    snapshot to verify against, neither of which is tracked in git."""
+    """Skip on a fresh clone: the builders need measurement inputs and the
+    tables to verify against, neither of which is tracked in git. Run
+    `dashboard/measure.py` to make the tables."""
     for path, label in ((GT_CSV, "data/gt_dominant_taxon.csv"),
                         (SPLITS_CSV, "data/splits.csv"),
                         (CACHE_DIR, "data/predictions/cache")):

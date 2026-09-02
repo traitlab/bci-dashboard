@@ -20,7 +20,6 @@ import core as hc
 import health as hl
 from assets import css_for, section, strip_comments
 from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
-from history import latest_snapshot_dir
 from confirmatory_panels import p_floor
 from panels import (
     p_ceiling, p_counts, p_method, p_review, p_species, p_terms,
@@ -110,8 +109,10 @@ def parse_args(doc: str, default_out: str):
     ap = argparse.ArgumentParser(description=hc.summarise(doc))
     hc.add_input_flags(ap)
     ap.add_argument("--verify-against", default=None,
-                    help="directory holding the committed measurement CSVs to cross-check; "
-                         "defaults to the newest model-health-<date>/ folder")
+                    help="directory holding the measurement CSVs to cross-check; "
+                         "defaults to build/tables, what measure.py last wrote. Point it "
+                         "at a model-health-<date>/ folder to rebuild an old page, and "
+                         "expect a table the code has changed since to abort")
     ap.add_argument("--model-tag", default="unknown",
                     help="Pl@ntNet model iteration to record for a snapshot whose "
                          "run_log.txt does not name one")
@@ -185,7 +186,7 @@ def copy_linked_csvs(page: str, verify_dir: str, out: str) -> None:
 def run(doc: str, out_name: str, build) -> None:
     """Load the data, build the page, write it: both builders' ``main()``."""
     args = parse_args(doc, out_name)
-    verify_dir = args.verify_against or latest_snapshot_dir()
+    verify_dir = args.verify_against or hc.TABLES_DIR
     h = hl.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
                        wcvp_cache=args.wcvp_cache)
     page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),

@@ -5,13 +5,16 @@
 # The export-only page is not built here. It scores one export on its own and
 # needs that export named, so it is a spot check somebody asks for.
 #
+# Every run re-measures into build/tables and rebuilds both pages from it. A
+# snapshot folder is a record of a day the labels moved, and nothing reads it
+# back: the deliverable is build/tables/send_batches.csv.
+#
 # - a snapshot folder for today already exists  -> stop (a same-day GT change
 #   is a human event; handle it by hand)
 # - no new export since the last merge          -> nothing to do
-# - the export adds no new labels               -> rebuild the pages against
-#   the newest snapshot, no new folder
-# - otherwise                                   -> new model-health-<date>/
-#   folder, every page rebuilt and verified against it
+# - the export adds no new labels               -> pages rebuilt, no new folder
+# - otherwise                                   -> pages rebuilt, and today's
+#   tables and pages kept in model-health-<date>/
 #
 # Exports come from the Labelbox UI (the account here has no API export
 # permission): download the project NDJSON, it lands in ~/Downloads, and this
@@ -65,21 +68,26 @@ python3 labelling/gt_from_export.py \
 AFTER="$(md5 -q "$GT")"
 echo "$HASH" > "$MARKER"
 
+# Always re-measure. build/tables is what the pages cross-check against, and a
+# change to the code that writes a table moves it even when no label did.
+python3 dashboard/measure.py --out-dir "$REPO/build/tables" > /dev/null
+
+python3 dashboard/build_external.py \
+  --out "$REPO/build/model_health_dashboard.html" --generated "$TODAY"
+python3 dashboard/build_internal.py \
+  --out "$REPO/build/label_queue_dashboard.html" --generated "$TODAY"
+
 if [ "$BEFORE" = "$AFTER" ]; then
   rm "$BAK"
   [ -f "$BAK.provenance.txt" ] && mv "$BAK.provenance.txt" "$SIDECAR"
-  SNAP="$(ls -d "$DOCS"/model-health-* | sort | tail -1)"
-  echo "refresh: no new labels; rebuilding pages against $SNAP"
+  echo "refresh: no new labels; pages rebuilt, no new snapshot"
 else
+  # The labels moved, so today is a point worth keeping. A snapshot is that
+  # record and nothing reads it back: the deliverable is build/tables.
   echo "refresh: GT moved ($BAK kept); new snapshot $SNAP"
   mkdir -p "$SNAP"
-  python3 dashboard/measure.py --out-dir "$SNAP" > /dev/null
+  cp "$REPO"/build/tables/* "$SNAP/"
+  cp "$REPO/build/model_health_dashboard.html" "$SNAP/"
+  cp "$REPO/build/label_queue_dashboard.html" "$SNAP/"
 fi
-
-python3 dashboard/build_external.py --verify-against "$SNAP" \
-  --out "$REPO/build/model_health_dashboard.html" --generated "$TODAY"
-python3 dashboard/build_internal.py --verify-against "$SNAP" \
-  --out "$REPO/build/label_queue_dashboard.html" --generated "$TODAY"
-cp "$REPO/build/model_health_dashboard.html" "$SNAP/"
-cp "$REPO/build/label_queue_dashboard.html" "$SNAP/"
-echo "refresh: done; snapshot $SNAP"
+echo "refresh: done"
