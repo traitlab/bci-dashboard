@@ -278,8 +278,8 @@ def p_send(c):
              f'queueing them rather than filtering on it.</p>'
              f'<p class="note"><b>The drone carries two cameras, and every frame scored '
              f'on this page came from one of them.</b> The wide-angle camera (called '
-             f'<i>zoom</i> in the file names) took {c.scored_cams["zoom"]:,} of the '
-             f'{sum(c.scored_cams.values()):,} scored frames. The long-lens camera '
+             f'<i>zoom</i> in the file names) took all '
+             f'{c.scored_cams["zoom"]:,} scored frames. The long-lens camera '
              f'(called <i>tele</i>) took none of them, because no tele frame has a '
              f'botanist label yet. Tele frames are '
              f'{c.queue_cams["tele"]:,} of the {sum(c.queue_cams.values()):,} photos in '
@@ -287,7 +287,9 @@ def p_send(c):
              f'How well the model reads that camera is not known from here. Sending them '
              f'is how it becomes known.</p>'
              f'<p class="note">The pool is {c.n_unlab:,} of {len(c.h.split_rows):,} photos: '
-             f'the frames with a cached Pl@ntNet answer and no botanist label. The species '
+             f'the frames with a cached Pl@ntNet answer and no botanist label. The other '
+             f'{len(c.h.split_rows) - c.n_unlab:,} are already labelled, or have no cached '
+             f'answer to rank. The species '
              f'record behind each queue is the one measured above, so a model update '
              f're-sorts this queue exactly as it re-sorts the can-wait one.</p>')
     # The same two queues the hero counts, added the same way. When the heading
@@ -393,8 +395,8 @@ def p_wait(c):
             f'counts every label. The error rate '
             f'above is measured on the {len(c.test_recs):,} frames held back from that. So '
             f'no rule is graded on the frames that chose it.</p>')
-    return panel(f"Which frames can wait: {best['n']:,} of {len(c.test_recs):,} held-out frames, "
-                 f"undone at the next model change",
+    return panel(f"Which frames can wait: {best['n']:,} of the {len(c.test_recs):,} frames "
+                 f"held back for grading, undone at the next model change",
                  "<b>Use this to order the queue, not to close frames.</b> These are the "
                  "frames to look at last, and the ranking is recomputed from scratch "
                  "whenever Pl@ntNet updates.", body)
