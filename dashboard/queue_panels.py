@@ -44,8 +44,8 @@ UNGRADED_NOTE = (
 
 
 def p_todo(c):
-    # The page-level orientation moved down here off the head: this is the open panel,
-    # so it is the first thing a reader lands in either way.
+    # This is the open panel, so it is the first thing a reader lands in either
+    # way -- the orientation belongs here, not above the panels.
     body = ['<p class="note">Every unlabelled photo already has a Pl@ntNet guess, and every '
             'species already has a measured record. Together those two put the pool in an '
             'order: the frames that buy the most per label first.</p>',
@@ -54,8 +54,8 @@ def p_todo(c):
              f'<span class="tag {k}">{esc(lab)}</span> {esc(act)}</li>'
              for k, (lab, act) in STATUS.items()]
     body.append(f'</ul><p class="note">Each of the {c.n_sp} species sits in exactly one row. '
-                # There is no species table on this page. The sortable one is on the
-                # model-health page, and "below" sent the reader looking for it here.
+                # There is no species table on this page: the sortable one is on the
+                # model-health page, named explicitly rather than as "below".
                 f'The frame counts and accuracy behind each status are in the species '
                 f'table on the model-health page, '
                 f'<code>model_health_dashboard.html</code>.</p>'
@@ -138,9 +138,8 @@ def p_send(c):
              f'{len(c.h.split_rows):,} photos are already labelled, or have no cached answer '
              f'to rank. A model update re-sorts this queue exactly as it re-sorts the '
              f'can-wait one.</p>')
-    # The same two queues the hero counts, added the same way. When the heading
-    # named only the first queue, the hero's larger number and this smaller one
-    # looked like two answers to the same question.
+    # The same two queues the hero counts, added the same way, so this number and
+    # the hero's agree.
     send_now = (c.queue_counts.get("long_tail", 0)
                 + c.queue_counts.get("low_conf_known", 0))
     return panel(f"What to send to the botanist first: {send_now:,} "
@@ -166,8 +165,8 @@ def p_wait(c):
             f'{len(c.test_recs):,} frames held back for grading, that rule reaches '
             f'{best["n"]:,} of them ({pctf(best["share"])}), and the first guess is wrong '
             f'on {pctf(best["err"])} of those.</div>'
-            # What 479 is. Every count in the comparison table below is a share of
-            # it, so a reader who cannot picture the set cannot audit the table.
+            # What this count is: every share in the comparison table below is out
+            # of it, so a reader who cannot picture the set cannot audit the table.
             f'<p class="note"><strong>What those {len(c.test_recs):,} frames are.</strong> '
             f'The labelled frames marked <code>test</code> in <code>splits.csv</code>, an '
             f'input to this page rather than something it computes. The rule was chosen on '
@@ -196,8 +195,8 @@ def p_wait(c):
                f'heading above, which happens to be the same size.'
                if c.counts["ranking"] == len(c.eligible) else '')
             + '</p>')
-    # The "undone at the next model change" clause moved out of the title: the
-    # ask below already says the ranking is recomputed whenever Pl@ntNet updates.
+    # No "undone at the next model change" clause in this title: the ask below
+    # already says the ranking is recomputed whenever Pl@ntNet updates.
     return panel(f"Which frames can wait: {best['n']:,} of the {len(c.test_recs):,} frames "
                  f"held back for grading",
                  "<b>Use this to order the queue, not to close frames.</b> These are the "

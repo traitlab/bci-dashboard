@@ -34,9 +34,8 @@ TITLE = "How well does Pl@ntNet name BCI trees?"
 def build(h, *, generated, verify_dir, fallback_tag):
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
 
-    # This page reports no send queue, so it does not gate on one. It still
-    # gates on every CSV behind a number it does print, including the review
-    # queue, which moved here with the panel that renders it.
+    # This page reports no send queue, so it does not gate on one. It still gates
+    # on every CSV behind a number it does print, including the review queue.
     c.checks = verify_snapshot(
         verify_dir, per_species=c.per_species, buckets=c.buckets, bins_all=c.bins_all,
         never_all=c.never_all, unscoreable=c.unscoreable, strict_hits=c.strict1,
@@ -60,8 +59,8 @@ def build(h, *, generated, verify_dir, fallback_tag):
          # whose unit of prediction is the unit the label describes. The corpus-wide
          # grid follows it, inside a panel, not the other way round.
          pn.confirmatory_hero(c.cf),
-         # The gap used to sit in a hover tooltip, which is nothing on a phone and
-         # nothing to a reader who never hovers. It is the finding, so it is prose.
+         # The gap is the finding, so it is prose rather than a hover tooltip nothing
+         # on a phone would see.
          (f'<p class="note"><strong>Quote the top number, and carry the two warnings '
           f'below it.</strong> Outlining the trees first is worth '
           f'{100 * c.cf["crown_minus_photo"]:+.1f} points over sending the fixed centre '

@@ -71,7 +71,7 @@ h1{margin-bottom:2px}
 .caveat{font-size:0.85rem;color:#5d4037;background:#fbf3ec;border-left:3px solid #bf6a34;
   border-radius:0 4px 4px 0;padding:11px 14px;margin:14px 0 0}
 .caveat strong{color:#3e2723}
-/* The block holds two paragraphs now, and the reset above zeroes p margins. */
+/* Second paragraph needs its own top margin: the reset above zeroes p margins. */
 .caveat p+p{margin-top:8px}
 /* Two fixed columns, not a wrapping flex row: the four headline numbers are a
    2x2 grid of question x weighting, and a reader who sees them in one long row
@@ -131,16 +131,13 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .tag.reliable{background:#e8f5e9;color:#2e7d32}
 .tag.adequate{background:#e3f2fd;color:#1565c0}
 .tag.ranking{background:#ede7f6;color:#5e35b1}
-/* The most common badge on the page, so its contrast matters most; #e65100 on
-   this fill was 3.46:1, #bf360c is 5.11:1. The species counts that were written
-   here went stale the next time a batch landed. */
+/* The most common badge on the page, so its contrast matters most; #e65100 on this fill was 3.46:1, #bf360c is 5.11:1. */
 .tag.unmeasured{background:#fff3e0;color:#bf360c}
 .tag.hard{background:#ffebee;color:#c62828}
 .tag.unreachable{background:#eceff1;color:#455a64}
-/* Sits directly above/below the table it explains, so the reader learns what
-   a status means without leaving the table -- same job the per-row title=
-   used to do, done once instead of 186 times. Text colour matches .todo li,
-   already used on this same white card background elsewhere on the page. */
+/* Sits directly above/below the table it explains, so a status stays legible
+   without leaving the table. Text colour matches .todo li, already used on
+   this card background elsewhere on the page. */
 .status-legend{list-style:none;font-size:0.82rem;color:#424242;
   margin:8px 0 14px;display:flex;flex-direction:column;gap:5px}
 .status-legend li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
@@ -169,8 +166,8 @@ section.grp>h2{
    page carrying the snapshot date and the model tag. The rule it overrides is inside
    the vendored block above, which stays byte-identical to labelfirst's. */
 .subtitle{color:#6d6d6d}
-/* A sub-heading inside a panel body: the send-first panel now carries a table
-   of counts and a table of photos, and they are answers to different questions. */
+/* A sub-heading inside a panel body, separating the count table from the photo
+   table since they answer different questions. */
 h3.sub{font-size:0.95rem;font-weight:700;color:#37474f;margin:22px 0 8px}
 /* A photo key is long and only ever copied, never read as prose. */
 code.key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.72rem;
@@ -239,7 +236,6 @@ JS = Template("""\
                            :'No species matches that filter.';
   }
 
-  // Sort key: the cell's own data-sort, else a descendant's, else its text.
   function key(cell){
     var v=cell.getAttribute('data-sort');
     if(v===null){
@@ -252,9 +248,8 @@ JS = Template("""\
   var heads=Array.prototype.slice.call(table.tHead.rows[0].cells);
   heads.forEach(function(th,idx){
     if(!th.classList.contains('sortable')) return;
-    // Sorting was mouse-only: the headings carried no tab stop and no role, so a
-    // reader on a keyboard or a screen reader could not reach a control the page
-    // tells them to use ("click any heading to sort").
+    // Headings need a tab stop and role="button" so keyboard and screen-reader
+    // users can reach sort, which the page otherwise says to reach only by click.
     th.tabIndex=0;
     th.setAttribute('role','button');
     th.addEventListener('keydown',function(e){

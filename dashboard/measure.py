@@ -29,8 +29,8 @@ from core import (
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Every file a run produces, in the order it reports them. Named once: three
-# places carried their own copy and two had drifted to "six".
+# Every file a run produces, in the order it reports them. Named once, so
+# nothing else can drift out of sync.
 OUTPUTS = ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
            "confidence_calibration.csv", "name_reconciliation.csv",
            "send_first_queue.csv", "send_batches.csv", "label_review_queue.csv",
@@ -183,8 +183,8 @@ def write_label_review_queue(out_dir, review_rows):
 def main() -> None:
     args = parse_args()
     out_dir = args.out_dir
-    # Up front, not at the first open(): every CSV is written after load_health, so
-    # a missing directory used to surface only after the whole pass had run.
+    # Up front, not at the first open(): a missing directory would otherwise
+    # surface only after the whole load_health pass had run.
     os.makedirs(out_dir, exist_ok=True)
 
     log("=" * 84)

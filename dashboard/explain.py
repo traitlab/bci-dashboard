@@ -118,9 +118,8 @@ def candidates_panel(*, recs, n_scored, gen_n, gen_none):
         + svg_hbar(rows, title=f"how long the returned list actually was, {len(recs):,} frames")
         + f'<p class="note">{full:,} of {len(recs):,} photos came back with a full {top} '
           f'({pctf(full / len(recs))}) and none came back with more. The shorter lists are '
-          # One notation for one number: the floor was printed as a percentage and
-          # then as a decimal one sentence later, and the reader had to spot that
-          # 0.1% and 0.001 were the same cutoff before the argument made sense.
+          # One notation only for the floor, so a reader is not left matching a
+          # percentage against a decimal to see they're the same cutoff.
           f'the other cut: <b>Pl@ntNet never returns a species it scores below '
           f'{floor:.3f}</b>. Of the {len(scores):,} guesses here, {at_floor} sit exactly on '
           f'{floor:.3f} and {just_above:,} more just above it, under {2 * floor:.3f}. '
@@ -177,16 +176,14 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
     big = max(per_species, key=lambda d: d["n_labelled_crowns"])
     singles = buckets[thin]["n_species"]
     return panel(
-        # The "why X and Y disagree" clause is gone: the paragraph under the
-        # headline grid answers that once, and repeating it here made this the
-        # longest title on the page.
+        # No "why X and Y disagree" clause here: the paragraph under the headline
+        # grid answers that once.
         "Every labelled frame, scored on the centre crop: four rates",
         "<b>Quote the number at the top of the page, not these four.</b> These cover "
         "every labelled frame instead of the frozen sample, so they answer a different "
         "question. If you cite one of them anyway, cite the per-species rate, never the "
-        # What the two rates each ask used to be spelled out here and again in
-        # HERO_READING, directly under the four cards. Said once, next to the
-        # cards, where a reader is looking at the numbers it explains.
+        # What the two rates each ask is said once, next to the headline cards
+        # where a reader is looking at the numbers it explains.
         "per-frame one.",
         # No note restating the two rates: the summary names both, the headline cards
         # state the distinction, and the chart labels its own bars with it.
@@ -223,8 +220,6 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           f'{100 * (well_micro - well_macro):.0f} points apart instead of {gap:.0f}. A '
           f'one-frame species scores only 0% or 100%, so those {singles} votes are coin '
           f'flips.</p>'
-          # From the deleted accuracy-by-support panel, which was this panel's own
-          # key redrawn as a bar chart plus this one paragraph.
           f'<div class="warn"><strong>Read the bands as how common a species is, not as '
           f'training data.</strong> These predictions come from a frozen Pl@ntNet regional '
           f'model that has never seen a BCI label, so labelling a species does not make '

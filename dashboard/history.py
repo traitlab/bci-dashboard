@@ -101,8 +101,8 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
             fail(f"confidence band {band!r} counts")
     checks.append(f"confidence_calibration.csv: {len(bins_all)} confidence bands match")
 
-    # These three live in the run log's prose, on denominators no CSV uses. Checking
-    # them here once caught the report and the CSVs disagreeing by two frames.
+    # These three live in the run log's prose, on denominators no CSV uses, so
+    # they need their own check.
     path = os.path.join(directory, "run_log.txt")
     with open(path, encoding="utf-8") as f:
         log = f.read()
@@ -118,9 +118,8 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
             fail(f"no line for {what} in {path}")
         if int(m.group(1)) != here:
             fail(f"{what}: {here} here vs {m.group(1)} in {path}")
-    # Named the way the headline names them. The page calls these frames "counted
-    # wrong however the score is cut"; calling the same 82 frames "cannot be scored"
-    # here read as a second, different group.
+    # Named the way the headline names them, not "cannot be scored", so the check
+    # message and the page prose describe the same group.
     checks.append(f"run_log.txt: the {never_all:,}-frame ceiling, the {unscoreable:,} frames "
                   f"whose species the model never names, and the {strict_hits:,} right "
                   f"without name reconciliation, all match")

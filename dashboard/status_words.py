@@ -21,19 +21,16 @@ STATUS = {
              "More labels will not fix this one. Treat it as a model limit"),
     "adequate": ("Mixed", "Keep it in the normal review queue"),
     "reliable": ("Usually right", "Lowest priority. Spot-check a few and move on"),
-    # "in five candidates" described the wrong set. core.diagnose reads
-    # in_corpus_vocabulary, which is true when the name came back on ANY BCI
-    # photo, not only on this species' own frames. Rows showing 0.0% in the
-    # list column with a different status are the difference, and the old
-    # wording made those rows look like a contradiction.
+    # core.diagnose reads in_corpus_vocabulary, true when the name came back on
+    # ANY BCI photo, not only on this species' own frames -- so a row showing
+    # 0.0% in the list column under a different status is not a contradiction.
     "unreachable": ("Never returned on any BCI photo",
                     "Nothing to do until we know whether Pl@ntNet carries this "
                     "species at all"),
 }
 
-# The rows a botanist can pass over. Two of them are not last in STATUS order,
-# and the panel used to claim "the last two rows", which sent a reader past a
-# skippable row to reach two rows of live work.
+# The rows a botanist can pass over -- not simply the last two entries of
+# STATUS, which would skip past live work.
 SKIP_STATUSES = ("hard", "reliable", "unreachable")
 
 

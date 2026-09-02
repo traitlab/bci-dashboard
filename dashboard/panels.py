@@ -70,8 +70,8 @@ HERO_WHY_DIFFER = (
     "are the ones Pl@ntNet already knows."
 )
 
-# The centre crop as a share of the frame. Derived, and formatted once, because the
-# page printed it twice at two roundings (13.65% and 13.7%) and a reader met both.
+# The centre crop as a share of the frame, derived and formatted once so it cannot
+# be printed at two different roundings.
 CROP_SHARE = f"{100 * CROP_SIZE ** 2 / (FRAME_W * FRAME_H):.1f}%"
 
 # What a reader has to know before any number on the page means anything. The
@@ -124,8 +124,8 @@ def hero_region(c):
         f"{len(c.sp_recs):,} scored frames the labelled species covers less than half the "
         f"crop, and on {none_:,} it covers none of it. A wrong answer here is therefore not "
         "always a wrong identification.</p>"
-        # The mismatch, then what to do about it. One 116-word block ran the count
-        # and the instruction together and was the longest paragraph on the page.
+        # The mismatch, then what to do about it, kept as two paragraphs rather than
+        # one.
         "<p>Read these four as a record of what the centre-crop "
         "path did, not as the model's accuracy. The number at the top of the page, where a "
         "botanist outlined the trees first, is the one to quote: it names the same thing the "
@@ -207,11 +207,8 @@ def confirmatory_hero(cf):
 
 def p_review(c):
     pair_rows = sorted(c.review_pairs.items(), key=lambda kv: -len(kv[1]))[:10]
-    # What each table is, before it rather than after it. The heading promises 51
-    # frames and the first table showed ten rows summing to a fraction of that,
-    # with nothing saying it was a grouping rather than the list. What a row on
-    # either table means comes first of all: it used to sit below both of them,
-    # so a reader met the confusion pairs with nothing saying what put them here.
+    # What a row on either table means comes first, before the tables themselves,
+    # so a reader is not left guessing what put a frame here.
     body = (f'<p class="note">Each row on both tables is a labelled frame where the '
             f'model is at least {hc.REVIEW_CONF:.1f} confident in a <em>different</em> '
             f'species. A first guess this confident is right {pctf(c.confident_ok)} of '
@@ -268,8 +265,8 @@ def p_review(c):
                  f'count against the {pctf(c.confident_ok)} above.</p>')
     return panel(f"Labels worth a second look: {c.review_counts[0]} frames where Pl@ntNet "
                  f"confidently disagrees",
-                 # No cross-page pointer here: this panel is on the model-health
-                 # page and the queues it used to defer to are on the other one.
+                 # No cross-page pointer here: this panel is on the model-health page,
+                 # and the send queues are on the other one.
                  f"<b>Put these {c.review_counts[0]} frames in front of a botanist.</b> "
                  f"Either the label is wrong or the model is, and one look settles "
                  f"which. They are the disagreements most worth an expert's minute.", body)
@@ -314,9 +311,9 @@ def p_species(c):
     n_thin = sum(1 for d in c.per_species
                  if _starts_hidden(d, c.status[d["species"]]))
     half, none_ = c.crop_half, c.crop_none
-    # Three things a reader needs before the table, one paragraph each. They used
-    # to be a single 159-word ask above the panel body: how to work the table,
-    # how a status is chosen, and what the rates are scored on, run together.
+    # Three things a reader needs before the table, kept as separate paragraphs:
+    # how to work the table, how a status is chosen, and what the rates are
+    # scored on.
     body = (f'<p class="note"><b>Every rate here is scored on the fixed centre square, '
             f'not on outlined crowns.</b> On {half:,} of these {len(c.sp_recs):,} frames '
             f'the labelled species covers less than half that square, and on {none_:,} it '
@@ -400,9 +397,8 @@ def p_ceiling(c):
               f'predictions up to family needs a list we do not have here. Counting them in '
               f'would have reported {pctf(c.gg1 / (gn + c.fam_n))} instead of '
               f'{pctf(c.gg1 / gn)}.</p>')
-    # The cap clause used to hang off this title, at 119 characters the longest
-    # on the page. The ask below already says the cap is one of the two
-    # explanations, so the title only has to say what the panel is about.
+    # The cap clause is not on this title: the ask below already says the cap is
+    # one of the two explanations, so the title only says what the panel is about.
     return panel(f"What labelling cannot fix: {len(c.never)} species, {c.never_crowns} frames "
                  f"the model never named",
                  "<b>Do not spend expert time renaming or relabelling these.</b> Either "
@@ -522,7 +518,7 @@ def p_caveats(c):
         f'from one site are not. So the plan named the resampling test as the answer where '
         f'the two disagree.</p>'
         # Its own paragraph: the range is a different claim from the two p-values,
-        # and running them together made this the second-longest block on the page.
+        # not the same one restated.
         f'<p class="note">The ordinary textbook range for the top number would read '
         f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])}. It '
         f'assumes independence too, so it is narrower than the data supports, and the two '
@@ -532,8 +528,8 @@ def p_caveats(c):
         f'the outline-first method scored, on a different set of photos. That does not make '
         f'the number wrong and it does not touch the gap above, but the number has to travel '
         f'with this warning.</p>'
-        # The warning, then the key to the quote. One block ran the two together,
-        # so the reader met three glosses before reaching the words they gloss.
+        # The warning comes first, then the glossary key, then the quoted text --
+        # kept in that order rather than run together.
         f'<p>Below in full is amendment A2 of <code>hypothesis.md</code>, in the '
         f'plan&rsquo;s words. Two of them are not this page&rsquo;s: <b>tiles</b> is a third '
         f'way of asking, cut partway through, and a <b>quadrat</b> is a marked-out ground '
@@ -602,9 +598,9 @@ def p_candidates(c):
 
 
 def p_weighting(c):
-    # The four corpus rates and everything that qualifies them, moved off the head of
-    # the page into the one panel that explains them. The grid reuses the headline
-    # card markup, so a reader meets the same shape twice and no new CSS exists.
+    # The four corpus rates and everything that qualifies them, in the one panel
+    # that explains them. The grid reuses the headline card markup, so a reader
+    # meets the same shape twice and no new CSS exists.
     corpus = (
         hero([(averaged, pctf(c.now[metric]), question.format(k=c.n_cand),
                note.format(n_sp=c.n_sp, k=c.n_cand))

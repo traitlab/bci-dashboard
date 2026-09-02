@@ -120,10 +120,8 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
          "The running total across every past batch is on the model-health page, <code>model_health_dashboard.html</code>.</p>"),
     ]
 
-    # Every row of the export ends in exactly one of these steps. The genus-only
-    # step used to be missing, so a reader adding the funnel up found frames
-    # unaccounted for: the third step claimed the scored count was "photos with a
-    # cached prediction", which it is not once a label stops at the genus.
+    # Every row of the export ends in exactly one of these steps, so the counts
+    # below sum to n_rows.
     funnel_body = funnel_list(
         [
             (n_rows, "rows in this NDJSON export"),
