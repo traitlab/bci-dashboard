@@ -383,3 +383,42 @@ def test_the_low_confidence_note_states_what_the_calibration_table_measured():
     assert int(said.group(1)) == measured, (
         f"core.py says ~{said.group(1)}% under LOW_CONF={low} and the latest "
         f"calibration table measured {measured}% over {rows[0]['n_crowns']} crowns")
+
+
+# Every place the frozen sample's size is written out in words rather than
+# computed. `predict/draw_confirmatory.N` is the one definition; each of these
+# is a sentence a reader believes.
+FROZEN_SIZE_IN_WORDS = [
+    ("dashboard/confirmatory_panels.py", "These {n} frames were not chosen"),
+    ("dashboard/score_confirmatory.py", "Score the frozen {n}"),
+    ("dashboard/score_confirmatory.py", "a rate over {n} frames"),
+    # CONTEXT.md says it too, and DOC_NUMBERS above already holds that copy.
+]
+
+
+@pytest.mark.parametrize("where,phrase", FROZEN_SIZE_IN_WORDS,
+                         ids=[f"{w}-{p.split(' ')[0]}" for w, p in FROZEN_SIZE_IN_WORDS])
+def test_the_frozen_sample_is_the_size_every_sentence_says_it_is(where, phrase):
+    """The draw is 300 frames, and several sentences say so in prose. Redraw at
+    a different size and every one of them keeps telling the reader 300,
+    because the number was typed rather than read. The committed
+    manifest is checked too: the size the draw intends and the size it actually
+    froze are different facts.
+    """
+    n = int(value_of("N", "predict/draw_confirmatory.py"))
+
+    # The manifest path is read out of score_confirmatory rather than typed
+    # here, which would be one more copy of the same kind.
+    name = value_of("FROZEN", "dashboard/score_confirmatory.py")
+    manifest = REPO / "input" / re.findall(r'"([^"]+)"', name)[-1]
+    rows = list(csv.DictReader(manifest.read_text(encoding="utf-8").splitlines()))
+    assert len(rows) == n, (
+        f"draw_confirmatory draws {n} frames and {manifest.name} holds "
+        f"{len(rows)}. The committed sample is the one that was frozen, so "
+        f"the constant is what moved.")
+
+    text = (REPO / where).read_text(encoding="utf-8")
+    assert phrase.format(n=n) in text, (
+        f"{where} no longer says {phrase.format(n=n)!r}. Either the draw size "
+        f"moved and this sentence did not follow it, or the sentence was "
+        f"reworded and this check has to follow it.")
