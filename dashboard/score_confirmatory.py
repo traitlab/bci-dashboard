@@ -1,27 +1,26 @@
 """Score the frozen 300 under the design committed in bci-dashboard-docs/hypothesis.md.
 
-Two arms, one label, two regions:
+Two arms, one label:
 
     crown   one identify call per labelled crown, aggregated to the frame
     photo   the 1280 px centre square, 13.7% of the frame, the legacy reference
 
 The label names the species whose crowns hold the largest summed box area over
-the whole frame. The crown rule mirrors that criterion at its own unit; the
-photo rule does not, and that gap is what the experiment measures. A third arm,
-tiles, was dropped on 2026-08-27 before any read (deviation A4); P1 and P4 named
-it and die with it, leaving P3, crown beats photo, as the primary prediction.
+the frame. The crown rule mirrors that criterion at its own unit and the photo
+rule does not, which is the gap the experiment measures. A third arm, tiles, was
+dropped before any read (deviation A4), taking P1 and P4 with it and leaving P3,
+crown beats photo, as the primary prediction.
 
-Nothing here chooses anything: every rule, cluster unit, test and stopping rule
-was fixed in hypothesis.md before the data existed, and this file applies them.
-A crown arm missing a frozen frame stamps the report EXPLORATORY, because the
-stopping rule allows one read, on the complete set.
+Nothing here chooses anything: hypothesis.md fixed every rule, cluster unit, test
+and stopping rule before the data existed. A crown arm missing a frozen frame
+stamps the report EXPLORATORY, because the stopping rule allows one read on the
+complete set.
 
     python dashboard/score_confirmatory.py [--adjudication out.csv] [--out CSV]
 
 ``--out`` writes the numbers the external page publishes. The page reads that
 file rather than re-running this script: a number that moved because a page was
-rebuilt would not be a confirmatory number. Tracked for the same reason the
-frozen frame list is.
+rebuilt would not be a confirmatory number.
 """
 
 import argparse

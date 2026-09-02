@@ -2,18 +2,15 @@
 
 The prediction scripts send a fixed CROP_SIZE square from the centre of the
 frame and discard the offsets, while the label comes from crown boxes drawn
-anywhere in the frame. So a prediction made from 13.7% of a frame is scored
-against a label that may lie entirely outside it. This module recomputes the
-crop rectangle offline and measures how much of it each labelled species
-covers, so downstream code can admit a frame only when one species covers at
-least T of what the model saw.
+anywhere in it. This module recomputes the crop rectangle offline and measures
+how much of it each labelled species covers, so downstream code can admit a
+frame only when one species covers at least T of what the model saw.
 
 No API call, no Labelbox. Crown geometry comes from two files, newer per frame
-wins. ``data/export_boxes.csv`` is the July 2026 botanist revision, from the
-Labelbox export. ``input/boxes/crop_bounding_boxes.csv`` predates it and is
-kept only for frames the export misses: where both describe a frame, the old
-file holds twice as many boxes, 35% match a current crown at IoU 0.5, and a
-fifth of even those name a superseded species.
+wins: ``data/export_boxes.csv``, the July 2026 botanist revision, and
+``input/boxes/crop_bounding_boxes.csv``, kept only for frames the export misses.
+Where both describe a frame the old file holds twice as many boxes, 35% match a
+current crown at IoU 0.5, and a fifth of even those name a superseded species.
 
 All 16 sampled base frames (2024-2026, both cameras) measured exactly
 FRAME_W x FRAME_H, so the crop rectangle is constant. A frame whose boxes

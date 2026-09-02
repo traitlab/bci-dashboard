@@ -298,19 +298,14 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
     """Species-grouped, priority-first batches over an already-ordered queue.
 
     ``queue_rows`` is send_first_queue.csv's row order: queue priority first,
-    then weakest confidence first inside a queue (see measure.py). This
-    keeps that global priority order between species -- a species is only
-    visited once, at the point its first (highest-priority) row occurs -- and
-    groups every row for that species together, so the photos a botanist sees
-    side by side look alike.
+    then weakest confidence first inside a queue (see measure.py). A species is
+    visited once, where its highest-priority row occurs, and all its rows go
+    together, so the photos a botanist sees side by side look alike.
 
-    A batch is filled to ``batch_size``, not left at whatever one species
-    happens to weigh: species groups are packed whole, in priority order,
-    until the next one would overflow. A species with more rows than
-    ``batch_size`` still splits into batches of its own. So a batch holds one
-    or more whole species groups, contiguously, and never more than
-    ``batch_size`` rows. Pure function of its input, so the same queue always
-    chunks the same way.
+    Species groups are packed whole, in priority order, until the next would
+    overflow ``batch_size``; a species with more rows than that splits into
+    batches of its own. So a batch holds whole species groups, contiguously,
+    and never more than ``batch_size`` rows. Pure function of its input.
     """
     if batch_size < 1:
         raise ValueError(f"batch_size must be at least 1, got {batch_size}")

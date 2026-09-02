@@ -4,20 +4,14 @@ Nothing here reads data or computes a number. Stdlib only, no network, no CDN.
 
 ``_BASE_CSS`` is vendored from labelfirst's report substrate
 (``labelfirst/src/labelfirst/eval/report/_html.py``, ``_CSS``) so the two
-reports look like one family, then extended by ``_EXTRA_CSS`` below. It is
-vendored rather than imported because ``import labelfirst`` pulls
-numpy/scipy/scikit-learn/pandas, and this page must render from the stdlib
-alone.
+reports look like one family, then extended by ``_EXTRA_CSS`` below. Vendored
+rather than imported because ``import labelfirst`` pulls numpy/scipy/pandas.
 
-It is a *strict subset*, not a verbatim copy: every retained rule is
-byte-identical, and the rules for elements this page has none of (verdict bar,
-pass/refuted badge, design details, chart grid, tooltips, key-number chips) are
-dropped. A future upstream ``_CSS`` change therefore cannot be picked up by
-plain copy-paste; the prune has to be reapplied.
-
-``_JS`` is NOT vendored: labelfirst's script only drives tooltips for its
-trajectory chart. This page needs client-side sort and filter over the
-per-species table instead.
+It is a *strict subset*: every retained rule is byte-identical, and rules for
+elements this page has none of are dropped. An upstream ``_CSS`` change cannot
+be picked up by plain copy-paste; the prune has to be reapplied. ``_JS`` is not
+vendored at all, because this page needs client-side sort and filter over the
+per-species table rather than labelfirst's chart tooltips.
 """
 
 from __future__ import annotations

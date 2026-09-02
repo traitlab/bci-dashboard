@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """A dashboard scoped to one Labelbox export, nothing else.
 
-The other two pages (16b, 16c) answer "how good is the model, overall,
-right now" from the *cumulative* ground truth: every label collected across
-every past batch, merged. That is the right question for the labelling
-programme, but it is a different question from "how did this one export do",
-and merging the two makes the second question unanswerable from either page.
+The other two pages answer "how good is the model right now" from the
+*cumulative* record: every label collected across every past batch, merged.
+That is the right question for the labelling programme and a different question
+from "how did this one export do", which merging makes unanswerable from either
+page.
 
-This page answers only the second question. It reads one NDJSON export
-directly and evaluates Pl@ntNet only on the crowns that export itself
-labels. It never opens ``gt_dominant_taxon.csv`` (the cumulative record), the
-photo corpus (``splits.csv`` totals), the send-first queues, or the history
-trend -- none of that is "this export", so none of it is on this page.
+This page answers only the second. It reads one NDJSON export directly and
+evaluates Pl@ntNet only on the crowns that export labels. It never opens
+``gt_dominant_taxon.csv``, the photo corpus, the send-first queues or the
+history trend: none of that is "this export".
 
 Read-only against Labelbox data: the export is parsed, never written back,
 and the cumulative GT file on disk is never touched (see CLAUDE.md).
