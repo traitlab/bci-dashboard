@@ -91,8 +91,8 @@ def hero_terms(k):
         "A frame's <b>label</b> is the species whose outlined crowns cover the most "
         "area in the <i>whole</i> frame.",
         f"The <b>centre crop</b> is the fixed {CROP_SIZE}&times;{CROP_SIZE} square from "
-        f"the middle of a frame, which is {CROP_SHARE} of the frame&rsquo;s area. That "
-        f"square is what most of this page sends to Pl@ntNet. We ask Pl@ntNet for {k} "
+        f"the middle of a frame, which is {CROP_SHARE} of the frame&rsquo;s area. Every "
+        f"corpus-wide number below was scored on that square. We ask Pl@ntNet for {k} "
         f"names per photo (<code>nb-results={k}</code>). That is our request setting, "
         f"not a limit of the model.",
         "The <b>first guess</b> is the top-ranked of those names, and <b>right</b> "
@@ -314,7 +314,7 @@ def p_species(c):
     # scored on.
     body = (f'<p class="note"><b>Every rate here is scored on the fixed centre square, '
             f'not on outlined crowns.</b> On {half:,} of these {len(c.sp_recs):,} frames '
-            f'the labelled species covers less than half that square, and on {none_:,} it '
+            f'the labelled species covers less than half the crop, and on {none_:,} it '
             f'covers none of it.</p>'
             f'<p class="note">So a low rate can mean the crop missed the tree rather '
             f'than that the model missed the name. Read a row as a flag for a second look, '
@@ -332,7 +332,7 @@ def p_species(c):
               f'screen.</p>'
             + '<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own score '
               'for its first guess, averaged over that species&rsquo; frames. Pl@ntNet '
-              'splits one whole unit of confidence across every species it knows. So 0.86 '
+              'spreads 100% of its confidence across every species it knows. So 0.86 '
               'means it put nearly all of that on one name, and 0.32 means it was spread '
               'thin.</p>'
             + filterable_table(
@@ -358,10 +358,11 @@ def p_ceiling(c):
     body = (f'<p class="note"><strong>{len(c.never)} species ({c.never_crowns} of the {n:,} '
             f'evaluated frames) never appear in any answer the model gave us.</strong> '
             f'Leaving them out raises the per-frame rate from {pctf(c.c1 / n)} to '
-            f'{pctf(c.reach1)} on {len(c.reach):,} centre crops. A wider population: every '
-            f'one of the {len(c.h.gt_rows):,} frames carrying a botanist label, genus-only '
-            f'frames and the few with no cached answer included. Counted that way, '
-            f'{c.never_all} frames carry a name the model never returned to us.</p>'
+            f'{pctf(c.reach1)} on {len(c.reach):,} centre crops.</p>'
+            f'<p class="note">A wider count uses every one of the {len(c.h.gt_rows):,} '
+            f'frames carrying a botanist label, genus-only frames and the few with no '
+            f'cached answer included. On that set {c.never_all} frames carry a name the '
+            f'model never returned to us.</p>'
             f'<div class="warn"><strong>This is a limit of the question we asked, not proof '
             f'the model has never heard of these species.</strong> Offline we can only check '
             f'whether a name turns up in the cached answers, and we asked for five candidates '

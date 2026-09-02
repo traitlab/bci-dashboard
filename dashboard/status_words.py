@@ -47,9 +47,10 @@ STATUS_REASON = {
     "adequate": "Mixed results, so keep it in the normal review queue.",
     "reliable": "Usually right, so this species is low priority for extra work.",
     "unreachable": "Pl@ntNet never returned this name on any BCI photo, not just on this "
-                   "species\u2019 own frames. Labelling will not recover it. A row showing "
-                   "0.0% in the list column under some other status was returned on another "
-                   "species\u2019 photo, so the model can produce that name.",
+                   "species\u2019 own frames. Labelling will not recover it. Other rows do "
+                   "show 0.0% in the \u201cRight name in the list\u201d column under a "
+                   "different status. There the model did produce the name, just never on "
+                   "the frames of that species.",
 }
 
 def status_precedence_note():

@@ -217,11 +217,11 @@ def p_rules(c):
     # carries the one that is and the other four open on request. The arithmetic
     # below is unchanged; this is page weight, not evidence.
     b = c.best
-    return panel(f'The {len(c.ops)} rules I compared, and why {b["label"]} is the one '
-                 f'in force',
-                 "<b>Read this only if you want to move the confidence line.</b> Each row "
-                 "trades how many frames it takes off the queue against how often a frame "
-                 "it pushed down was named wrong after all.", body,
+    return panel(f'The {len(c.ops)} rules we compared, and why the one in force won',
+                 f'<b>Read this only if you want to move the confidence line.</b> The rule '
+                 f'in force is <em>{b["label"]}</em>. Each row trades how many frames it '
+                 f'takes off the queue against how often a frame it pushed down was named '
+                 f'wrong after all.', body,
                  anchor="how-the-rules-compare")
 
 

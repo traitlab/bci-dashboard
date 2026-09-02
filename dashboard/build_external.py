@@ -70,8 +70,9 @@ def build(h, *, generated, verify_dir, fallback_tag):
          # at a time cannot tell whether they contradict each other. They do not. Said
          # once, below the headline rather than above it: this is arithmetic a reader
          # needs before the panels, not before the finding.
-         f'<p class="note"><strong>Three frame counts appear below, and they fit '
-         f'together.</strong> {c.n:,} frames carry a label naming a species, and every '
+         f'<p class="note"><strong>Three frame counts run through this page: '
+         f'{c.n:,}, {c.n_pred:,} and {len(h.gt_rows):,}.</strong> The first is the frames '
+         f'that carry a label naming a species, and every '
          f'accuracy rate on this page is measured on those. Add {c.gn:,} frames labelled '
          f'only to a genus and {c.fam_n:,} labelled only to a family and you get the '
          f'{c.n_pred:,} frames that have a cached Pl@ntNet answer.</p>'
