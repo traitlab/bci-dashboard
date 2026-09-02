@@ -75,7 +75,7 @@ def _load_photo_script():
     """Reuse predict/photo.py's API client rather than restating it.
 
     Loaded by path, not by package import: predict/ holds no __init__.py, so it
-    is not a package on the normal path. Same idiom build_export_only.py uses.
+    is not a package on the normal path.
     """
     path = REPO / "predict" / "photo.py"
     spec = importlib.util.spec_from_file_location("_predict_photo", path)

@@ -16,6 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from types import SimpleNamespace
 
+import run_log as rl
 from core import (
     CACHE_DIR,
     GT_CSV,
@@ -34,6 +35,7 @@ from core import (
     normalize,
     read_csv_rows,
 )
+
 
 @dataclass
 class Health:
@@ -248,10 +250,6 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
                     (cache_dir, "the cached Pl@ntNet answers")), _log)
     _log(f"  wcvp cache: {wcvp_cache if wcvp_cache and os.path.exists(wcvp_cache) else 'ABSENT (tier d disabled)'}")
     _log("")
-
-    # Local, like ``crop_overlap`` below: run_log reads pct and GT_KEY_PREFIX from
-    # this module, so importing it at the top would be a cycle.
-    import run_log as rl
 
     # ---------------- 1. the two input CSVs ----------------
     gt_rows = read_csv_rows(gt_csv)

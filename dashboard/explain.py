@@ -4,6 +4,13 @@
 counting species or counting frames; ``method_panel`` names the model, settings,
 and the untestable assumption. Every figure is verified from ``core`` or
 recomputed from the same records, so no rate is hardcoded here.
+
+Only ``panels.py`` imports this, which normally reads as a seam nobody needed.
+It stays separate anyway: the panels here answer "how was this number made" and
+the ones in ``panels.py`` report the number, and dissolving three symbols back
+into a module already over the 500-line convention moves the lines without
+concentrating anything. ``BAND_SHORT`` is the one symbol crossing that is not a
+panel, and it is a genuine leak this does not bless.
 """
 
 import core as hc

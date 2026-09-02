@@ -161,8 +161,7 @@ def test_the_glossary_names_the_files_the_builders_actually_write():
 
     context = (REPO / "CONTEXT.md").read_text(encoding="utf-8")
     for module, pattern in (("build_external.py", r'OUT_NAME = "([\w.]+)"'),
-                            ("build_internal.py", r'OUT_NAME = "([\w.]+)"'),
-                            ("build_export_only.py", r'"build", "([\w.]+)"')):
+                            ("build_internal.py", r'OUT_NAME = "([\w.]+)"')):
         source = (REPO / "dashboard" / module).read_text(encoding="utf-8")
         found = re.search(pattern, source)
         assert found, f"{module} no longer names the file it writes"

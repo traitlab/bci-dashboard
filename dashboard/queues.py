@@ -3,8 +3,14 @@
 One decision procedure on top of `core.py`'s shared vocabulary: the four
 send-first queues, their order, and how the queue is packed into batches one
 sitting can review. `measure.py` and `figures.py` both go through
-`send_first_rows`, so the file and the page cannot disagree. Why this is its
-own module: docs/adr/0004.
+`send_first_rows`, so the file and the page cannot disagree.
+
+Not in `core.py`, which holds "the vocabulary every other module works in",
+because this is a decision procedure rather than vocabulary and has its own
+reason to change: a botanist saying the queue sends the wrong photos first. The
+five thresholds stay in `core` because `run_log.py` and both page builders read
+them too. The two column orders came here to sit beside the batcher that
+indexes them by position, which is how they last drifted apart.
 """
 
 from __future__ import annotations

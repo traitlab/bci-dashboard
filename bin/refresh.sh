@@ -2,9 +2,6 @@
 # Daily model-health refresh: fold the newest Labelbox export into the ground
 # truth, snapshot, rebuild both cumulative pages. Safe to re-run:
 #
-# The export-only page is not built here. It scores one export on its own and
-# needs that export named, so it is a spot check somebody asks for.
-#
 # Every run re-measures into build/tables and rebuilds both pages from it. A
 # snapshot folder is a record of a day the labels moved, and nothing reads it
 # back: the deliverable is build/tables/send_batches.csv.

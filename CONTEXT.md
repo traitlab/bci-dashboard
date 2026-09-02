@@ -71,7 +71,6 @@ asking, never "arm": that word belongs in `hypothesis.md`.
 |---|---|
 | **model-health page** | `build/model_health_dashboard.html`. How well Pl@ntNet names what a botanist labelled. The page that leaves the lab. |
 | **queue page** | `build/label_queue_dashboard.html`. What to label next. The labelling team's own tool; the deliverable is `send_batches.csv`, one of the tables `measure.py` writes to `build/tables`. |
-| **export-only page** | `build/export_only_dashboard.html`. One Labelbox export scored on its own, with no snapshot behind it and no corpus total. Answers "how did this batch do", nothing else. |
 | **snapshot** | One dated folder under `snapshots/` holding the CSVs and pages of a day the botanist's labels moved. A record, kept for the trend; no build reads one back. What a page is cross-checked against is `build/tables`, where `measure.py` writes, and a page refuses to build if it disagrees. |
 | **panel** | One collapsible block on a page. Its summary must stand alone when everything is closed. |
 | **status** | One of six plain verdicts a species gets: right name in the list not first, too few labels to judge, wrong even with enough labels, mixed, usually right, never returned on any BCI photo. |
