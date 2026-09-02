@@ -128,6 +128,18 @@ def _crop_share():
     return f"{100 * size * size / frame:.1f}%"
 
 
+# The README draws the chain as a diagram and counts the files at one step in
+# words. measure.OUTPUTS is the list, and it is read here rather than imported
+# so this file keeps needing nothing installed.
+WORDS = "zero one two three four five six seven eight nine ten eleven twelve".split()
+
+
+def _measure_csv_count():
+    source = (REPO / "dashboard" / "measure.py").read_text(encoding="utf-8")
+    block = source[source.index("OUTPUTS = ("):]
+    return WORDS[block[:block.index(")")].count(".csv")]
+
+
 DOC_NUMBERS = [
     ("the crop", "README.md", lambda: f"{_crop_size()}x{_crop_size()}"),
     ("the crop's share of the frame", "README.md", _crop_share),
@@ -135,6 +147,8 @@ DOC_NUMBERS = [
      lambda: f"`MIN_CROP_COVERAGE` ({value_of('MIN_CROP_COVERAGE', 'dashboard/core.py')})"),
     ("the frozen sample", "README.md",
      lambda: f"{value_of('N', 'predict/draw_confirmatory.py')} frames"),
+    ("how many CSVs a run writes", "README.md",
+     lambda: f"{_measure_csv_count()} CSVs"),
     ("the crop", "CONTEXT.md", lambda: f"{_crop_size()}x{_crop_size()}"),
     ("the crop's share of the frame", "CONTEXT.md", _crop_share),
     ("the frozen sample", "CONTEXT.md",
