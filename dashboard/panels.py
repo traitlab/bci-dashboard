@@ -111,19 +111,29 @@ def hero_terms(k):
 # The two regions above are not the same region, and the numbers below compare
 # across them. Stated here rather than in a footnote because every figure on
 # this page inherits the mismatch.
-def hero_region(c):
-    """How far the crop and the label disagree, counted rather than remembered.
+def crop_mismatch(c):
+    """The one sentence that says how far the crop and the label disagree.
 
-    Was a module constant with the counts written into the prose. They were
-    stale and measured over the wrong population, which is the failure the rest
-    of this file avoids by recomputing every figure at build time.
+    Two panels need it: the four corpus rates and the species table. It was
+    written out twice, in different words, with the same two counts. Once here,
+    so the two panels cannot drift apart and a reader who opens both is not
+    told the same thing twice in two voices.
+
+    Counted, never a module constant. It was a constant once, with the counts
+    in the prose; they went stale and were measured over the wrong population,
+    which is the failure the rest of this file avoids by recomputing every
+    figure at build time.
     """
-    half, none_ = c.crop_half, c.crop_none
+    return (f"The two are not always looking at the same tree. On {c.crop_half:,} of "
+            f"{len(c.sp_recs):,} scored frames the labelled species covers less than half "
+            f"the crop, and on {c.crop_none:,} it covers none of it.")
+
+
+def hero_region(c):
+    """The crop-versus-label mismatch, worded for the four corpus rates."""
     return (
         "<p><strong>These four numbers judge a centre crop against a label for the whole "
-        f"frame.</strong> The two are not always looking at the same tree. On {half:,} of "
-        f"{len(c.sp_recs):,} scored frames the labelled species covers less than half the "
-        f"crop, and on {none_:,} it covers none of it. A wrong answer here is therefore not "
+        f"frame.</strong> {crop_mismatch(c)} A wrong answer here is therefore not "
         "always a wrong identification.</p>"
         # The mismatch, then what to do about it, kept as two paragraphs rather than
         # one.
@@ -309,14 +319,11 @@ def p_species(c):
                      + (' data-thin="1"' if _starts_hidden(d, st) else ""))
     n_thin = sum(1 for d in c.per_species
                  if _starts_hidden(d, c.status[d["species"]]))
-    half, none_ = c.crop_half, c.crop_none
     # Three things a reader needs before the table, kept as separate paragraphs:
     # how to work the table, how a status is chosen, and what the rates are
     # scored on.
     body = (f'<p class="note"><b>Every rate here is scored on the fixed centre square, '
-            f'not on outlined crowns.</b> On {half:,} of these {len(c.sp_recs):,} frames '
-            f'the labelled species covers less than half the crop, and on {none_:,} it '
-            f'covers none of it.</p>'
+            f'not on outlined crowns.</b> {crop_mismatch(c)}</p>'
             f'<p class="note">So a low rate can mean the crop missed the tree rather '
             f'than that the model missed the name. Read a row as a flag for a second look, '
             f'not as that species&rsquo; identification accuracy.</p>'
