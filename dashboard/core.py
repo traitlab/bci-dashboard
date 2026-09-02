@@ -322,9 +322,8 @@ def canonicaliser(crosswalk: dict):
     """Normalize a name and apply the WCVP crosswalk, as one callable.
 
     Both the page builders and `score_confirmatory.py` compare names this way,
-    and each used to define the closure itself. Two definitions of what counts
-    as the same species is the one difference that would make the frozen
-    experiment and the pages disagree without either being wrong.
+    from here. Two definitions of what counts as the same species would make
+    the frozen experiment and the pages disagree without either being wrong.
     """
     def canon(name: str) -> str:
         nn = normalize(name or "")

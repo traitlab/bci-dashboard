@@ -88,10 +88,8 @@ def hero(cards):
 class Cell(NamedTuple):
     """Cell text plus the attributes its own ``<td>`` should carry.
 
-    A cell that needs an attribute used to wrap its text in a span to hold it.
-    The span was 12 characters per cell and the table was already building a
-    ``<td>`` around it, so the attribute goes on the ``<td>`` instead. Rows are
-    still written as plain strings wherever a cell needs no attribute.
+    The attribute goes on the ``<td>`` the table already builds, not on a span
+    inside it. Rows stay plain strings wherever a cell needs no attribute.
     """
 
     html: str

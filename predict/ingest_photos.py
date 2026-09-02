@@ -81,10 +81,9 @@ def call_identify(jpeg_bytes: bytes, filename: str, api_key: str,
                   lang: str) -> dict:
     """One identify call. Every request setting comes from config.yaml.
 
-    `organs` used to be "auto" typed here, so `plantnet.identify_organs` moved
-    `predict/photo.py` and left this path asking the old way, silently. `lang`
-    was missing outright, so this path took Pl@ntNet's default language for
-    common names while photo.py asked for the configured one.
+    `organs` and `lang` come from the settings, not from literals here: typed
+    out, this path once asked for different organs and a different common-name
+    language than `predict/photo.py`, silently.
     """
     return post_image(api_url, "images", jpeg_bytes, filename,
                  params={"api-key": api_key, "nb-results": nb_results,
@@ -115,10 +114,9 @@ def call_survey(jpeg_bytes: bytes, filename: str, api_key: str,
                 survey_url: str | None = None) -> dict:
     """Quadrat: the API slides a 518px window over the whole frame itself.
 
-    The field is 'image', singular, unlike identify's 'images'. Sending the
-    plural name returns HTTP 400 '"image" is required', which is how this was
-    found: the endpoint had been assumed unavailable on this key when in fact
-    only the request was malformed. 'organs' is not accepted here either.
+    The field is 'image', singular, unlike identify's 'images'. The plural
+    returns HTTP 400 '"image" is required', which reads as the endpoint being
+    unavailable on this key. 'organs' is not accepted here either.
 
     Verified 2026-08-15 against a 4000x3000 frame: 140 sub-queries at
     tile_size 518 / tile_stride 259, and the quadrat quota counter did not move.
