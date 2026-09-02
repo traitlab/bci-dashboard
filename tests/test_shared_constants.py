@@ -112,10 +112,11 @@ def test_the_writer_and_the_reader_spell_the_crown_cache_name_alike():
 
 
 
-# What the README states as a number, and where the code keeps it. The README
-# is the first thing anyone reads and the last thing anyone reruns: every one
-# of these was typed out once and then left alone. Each entry is (the phrase
-# as the README writes it, a function that builds that phrase from source).
+# What README.md and CONTEXT.md state as a number, and where the code keeps it.
+# These two files are the first thing anyone reads and the last thing anyone
+# reruns: every one of these numbers was typed out once and then left alone.
+# Each entry is (what it is, the file, a function that builds the phrase the
+# file has to contain).
 def _crop_size():
     return value_of("CROP_SIZE", "dashboard/crop_overlap.py")
 
@@ -127,22 +128,32 @@ def _crop_share():
     return f"{100 * size * size / frame:.1f}%"
 
 
-README_NUMBERS = [
-    ("the crop", lambda: f"{_crop_size()}x{_crop_size()}"),
-    ("the crop's share of the frame", _crop_share),
-    ("the coverage gate", lambda: f"`MIN_CROP_COVERAGE` ({value_of('MIN_CROP_COVERAGE', 'dashboard/core.py')})"),
-    ("the frozen sample", lambda: f"{value_of('N', 'predict/draw_confirmatory.py')} frames"),
+DOC_NUMBERS = [
+    ("the crop", "README.md", lambda: f"{_crop_size()}x{_crop_size()}"),
+    ("the crop's share of the frame", "README.md", _crop_share),
+    ("the coverage gate", "README.md",
+     lambda: f"`MIN_CROP_COVERAGE` ({value_of('MIN_CROP_COVERAGE', 'dashboard/core.py')})"),
+    ("the frozen sample", "README.md",
+     lambda: f"{value_of('N', 'predict/draw_confirmatory.py')} frames"),
+    ("the crop", "CONTEXT.md", lambda: f"{_crop_size()}x{_crop_size()}"),
+    ("the crop's share of the frame", "CONTEXT.md", _crop_share),
+    ("the frozen sample", "CONTEXT.md",
+     lambda: f"{value_of('N', 'predict/draw_confirmatory.py')} frames"),
+    ("the resample count", "CONTEXT.md",
+     lambda: f"{int(value_of('BOOTSTRAP_DRAWS', 'dashboard/score_confirmatory.py')):,} times"),
 ]
 
 
-@pytest.mark.parametrize("what,build", README_NUMBERS, ids=[r[0] for r in README_NUMBERS])
-def test_the_readme_still_states_the_numbers_the_code_holds(what, build):
-    """A reader who never opens the code takes the README's word for it. A
+@pytest.mark.parametrize("what,doc,build", DOC_NUMBERS,
+                         ids=[f"{d[1]}-{d[0]}" for d in DOC_NUMBERS])
+def test_the_docs_still_state_the_numbers_the_code_holds(what, doc, build):
+    """A reader who never opens the code takes these files at their word. A
     constant moved in the code and left standing here is a claim nothing
-    checks and nobody notices."""
+    checks and nobody notices. CONTEXT.md is the wording the pages answer to,
+    so a number stale there is a number stale on a page."""
     phrase = build()
-    readme = (REPO / "README.md").read_text(encoding="utf-8")
-    assert phrase in readme, (
-        f"README.md no longer states {what} as {phrase!r}. Either the code "
-        f"moved and the README did not, or the sentence was reworded and this "
-        f"check has to follow it.")
+    text = (REPO / doc).read_text(encoding="utf-8")
+    assert phrase in text, (
+        f"{doc} no longer states {what} as {phrase!r}. Either the code moved "
+        f"and the file did not, or the sentence was reworded and this check "
+        f"has to follow it.")
