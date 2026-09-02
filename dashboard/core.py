@@ -88,8 +88,13 @@ N_CANDIDATES = 5
 
 CONF_BINS = [(0.0, 0.5), (0.5, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.01)]
 CONF_THRESHOLDS = [0.7, 0.8, 0.9]
+# The top band has no upper bound. It is written as a number so the bands
+# can tile the integers with plain comparisons; anything reading a band back
+# out, like explain._band_words turning it into "25 or more frames", tests
+# against this name rather than retyping the number.
+NO_UPPER_BOUND = 10 ** 9
 SUPPORT_BUCKETS = [(1, 1, "1"), (2, 4, "2-4"), (5, 9, "5-9"),
-                   (10, 24, "10-24"), (25, 10 ** 9, "25+")]
+                   (10, 24, "10-24"), (25, NO_UPPER_BOUND, "25+")]
 BUCKET_ORDER = [lab for _, _, lab in SUPPORT_BUCKETS]
 WELL_SAMPLED_MIN_N = 10
 

@@ -110,7 +110,7 @@ def test_the_bands_tile_every_count_with_no_gap_and_no_overlap(core):
     Checked across every boundary rather than a sample, since the bands are
     written as literal pairs."""
     edges = sorted({e for lo, hi, _ in core.SUPPORT_BUCKETS for e in (lo - 1, lo, hi, hi + 1)})
-    for n in [x for x in edges if 1 <= x <= 10 ** 9]:
+    for n in [x for x in edges if 1 <= x <= core.NO_UPPER_BOUND]:
         hits = [lab for lo, hi, lab in core.SUPPORT_BUCKETS if lo <= n <= hi]
         assert len(hits) == 1, f"{n} labelled frames falls in {hits}"
         assert core.bucket_label(n) == hits[0]

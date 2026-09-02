@@ -40,7 +40,7 @@ def _band_words():
     for lo, hi, lab in hc.SUPPORT_BUCKETS:
         noun = "frame" if hi == 1 else "frames"
         long_[lab] = (f"{lo} {noun}" if lo == hi
-                      else f"{lo} or more {noun}" if hi >= 10 ** 9
+                      else f"{lo} or more {noun}" if hi >= hc.NO_UPPER_BOUND
                       else f"{lo} to {hi} {noun}")
         short[lab] = f"{lab} {noun}"
     return long_, short
