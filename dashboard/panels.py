@@ -333,8 +333,8 @@ def p_todo(c):
                 f'{c.n_sp} species scored on this page, because they never named a species. '
                 f'The model-health page says more about what those frames can and '
                 f'cannot show.</p>')
-    return panel(f"Where to spend botanist time next: {c.counts['ranking']} species are a "
-                 f"cheap confirmation, {c.counts['unreachable']} are not worth time yet",
+    return panel(f"Where to spend botanist time next: {c.counts['ranking']} cheap "
+                 f"confirmations, {c.counts['unreachable']} not worth time yet",
                  "<b>Work top to bottom.</b> Rows are ordered cheapest useful work "
                  "first, and three of them are work you can skip: "
                  + ", ".join(f"&ldquo;{uncap(STATUS[k][0])}&rdquo;" for k in SKIP_STATUSES)
@@ -551,8 +551,10 @@ def p_wait(c):
             + f'</p><p class="note">The error rate '
             f'above is measured on the {len(c.test_recs):,} frames held back from that. So '
             f'no rule is graded on the frames that chose it.</p>')
+    # The "undone at the next model change" clause moved out of the title: the
+    # ask below already says the ranking is recomputed whenever Pl@ntNet updates.
     return panel(f"Which frames can wait: {best['n']:,} of the {len(c.test_recs):,} frames "
-                 f"held back for grading, undone at the next model change",
+                 f"held back for grading",
                  "<b>Use this to order the queue, not to close frames.</b> These are the "
                  "frames to look at last, and the ranking is recomputed from scratch "
                  "whenever Pl@ntNet updates.", body)
@@ -571,8 +573,7 @@ def p_rules(c):
              f'of the {len(c.test_recs):,} held-out frames. No rarely-labelled frame can be '
              f'pushed down the queue by a rule that also asks for labelled frames: that '
              f'second condition leaves them out.</p>')
-    return panel("How the five candidate rules compare, with and without the "
-                 "labelled-frames condition",
+    return panel("How the five candidate rules compare",
                  "<b>Read this only if you want to move the confidence line.</b> Each row "
                  "trades how many frames it takes off the queue against how often a frame "
                  "it pushed down was named wrong after all.", body,
