@@ -226,3 +226,32 @@ def test_every_word_context_md_bans_is_a_word_this_file_checks_for(core):
     assert not unchecked, (
         "CONTEXT.md retires these and nothing checks a page for them: "
         f"{unchecked}. Add a pattern to RETIRED, with what a page says instead.")
+
+
+def test_context_md_lists_the_statuses_the_pages_actually_print(core, status_words):
+    """CONTEXT.md glosses "status" by listing all six, and that list is a copy.
+
+    `status_words.STATUS` is the one definition: it names the legend, the
+    species table and the to-do list together. The glossary entry retypes the
+    six labels, so renaming one leaves the shared vocabulary describing a word
+    no page says. The count is checked too, since the entry says "six".
+    """
+    import os
+    import re
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    text = open(os.path.join(root, "CONTEXT.md"), encoding="utf-8").read()
+    entry = re.search(r"One of (\w+) plain verdicts a species gets: ([^|]+)", text)
+    assert entry, "CONTEXT.md no longer glosses status by listing them"
+
+    words = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+             7: "seven", 8: "eight"}
+    assert entry.group(1) == words[len(status_words.STATUS)], (
+        f"CONTEXT.md says {entry.group(1)} statuses; status_words.STATUS has "
+        f"{len(status_words.STATUS)}.")
+
+    listed = entry.group(2).replace(",", "").lower()
+    for label, _ in status_words.STATUS.values():
+        assert label.replace(",", "").lower() in listed, (
+            f"status_words calls a status {label!r} and CONTEXT.md's list does "
+            f"not say it. The glossary is what every page's wording answers to.")

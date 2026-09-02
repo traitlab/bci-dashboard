@@ -147,6 +147,15 @@ def confirmatory_panels():
 
 
 @pytest.fixture(scope="session")
+def status_words():
+    """The status vocabulary all three pages share. Module constants only, so
+    no snapshot is needed to read it."""
+    with _on_path(REPO / "dashboard"):
+        import status_words
+        yield status_words
+
+
+@pytest.fixture(scope="session")
 def panels():
     """The model-health page's panel functions. `dashboard/` on the path,
     because panels imports core and assets as siblings. Every function here
