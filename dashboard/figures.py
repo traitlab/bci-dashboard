@@ -90,125 +90,149 @@ def load_confirmatory(path=CONFIRMATORY_CSV):
 N_CANDIDATES = hc.N_CANDIDATES
 
 
-def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
-    """Every figure both pages draw from, computed once off one ``Health``.
-    Read-only for builders except ``checks``, filled in by the page after
-    its own slice of ``history.verify_snapshot`` runs.
+def _rates(sp_recs, per_species):
+    """The four corpus rates, and the two counts they are over.
+
+    One question asked two ways: counting species, so a rare one weighs as much
+    as a common one, and counting frames, so every frame weighs the same. Both
+    are reported because neither alone says how the model does.
     """
-    sp_recs, per_species = h.sp_recs, h.per_species
-    longest = max(len(r["ranked"]) for r in sp_recs + h.genus_recs)
-    if longest > N_CANDIDATES:
-        raise SystemExit(
-            f"cached predictions carry up to {longest} names per photo, but every rate\n"
-            f"and every sentence on both pages is written for {N_CANDIDATES}. Re-ingest\n"
-            f"changed the request setting: update N_CANDIDATES in dashboard/core.py.")
     n, n_sp = len(sp_recs), len(per_species)
-
     c1 = sum(1 for r in sp_recs if top1(r) == r["gt"])
-    _c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:N_CANDIDATES]])
-    now = dict(macro_top1=sum(d["top1_accuracy"] for d in per_species) / n_sp,
-               macro_top5=sum(d["top5_accuracy"] for d in per_species) / n_sp,
-               micro_top1=c1 / n, micro_top5=_c5 / n)
+    c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:N_CANDIDATES]])
+    return {
+        "n": n, "n_sp": n_sp, "c1": c1,
+        "now": {"macro_top1": sum(d["top1_accuracy"] for d in per_species) / n_sp,
+                "macro_top5": sum(d["top5_accuracy"] for d in per_species) / n_sp,
+                "micro_top1": c1 / n, "micro_top5": c5 / n}}
 
+
+def _species_status(per_species):
+    """How many labels each species has, and the verdict core.diagnose gives it."""
     support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
     status = {d["species"]: hc.diagnose(d) for d in per_species}
     counts = defaultdict(int)
     for s in status.values():
         counts[s] += 1
+    return {"support": support, "status": status, "counts": counts}
 
-    # --- frames grouped by how many labels their species has ---
+
+def _support_buckets(per_species, sp_recs, support):
+    """Frames grouped by how many labels their species has."""
     buckets = {}
     for d in per_species:
         buckets.setdefault(d["support_bucket"],
-                           dict(n_species=0, n_crowns=0, c1=0))["n_species"] += 1
+                           {"n_species": 0, "n_crowns": 0, "c1": 0})["n_species"] += 1
     for r in sp_recs:
         b = buckets[hc.bucket_label(support[r["gt"]])]
         b["n_crowns"] += 1
         b["c1"] += top1(r) == r["gt"]
+    return {"buckets": buckets}
 
-    # --- confidence bands over the whole species-level set ---
-    bins_all = [(f"[{lo:.1f},{min(hi, 1.0):.1f})", len(sub),
-                 sum(1 for r in sub if top1(r) == r["gt"]))
-                for lo, hi in hc.CONF_BINS
-                for sub in ([r for r in sp_recs if lo <= conf(r) < hi],)]
 
-    # --- what this evaluation cannot score, and what name matching is worth ---
-    # "Never named": in no cached candidate list, so no threshold scores it. Counted
-    # over the evaluated set and over every label; the run log uses the second.
+def _confidence_bands(sp_recs):
+    """How often the first guess is right, by how sure the model was."""
+    return {"bins_all": [(f"[{lo:.1f},{min(hi, 1.0):.1f})", len(sub),
+                          sum(1 for r in sub if top1(r) == r["gt"]))
+                         for lo, hi in hc.CONF_BINS
+                         for sub in ([r for r in sp_recs if lo <= conf(r) < hi],)]}
+
+
+def _out_of_reach(h, sp_recs, per_species):
+    """What this evaluation cannot score, and what name matching is worth.
+
+    "Never named" means the species is in no cached candidate list, so no
+    threshold scores it. Counted over the evaluated set and over every label:
+    the run log uses the second.
+    """
     never = sorted((d for d in per_species if not d["in_corpus_vocabulary"]),
                    key=lambda d: -d["n_labelled_crowns"])
     never_sp = {d["species"] for d in never}
-    never_crowns = sum(d["n_labelled_crowns"] for d in never)
-    never_all = h.tier_crowns["e_absent_from_corpus"] + h.tier_crowns["c_genus_only_in_corpus"]
     reach = [r for r in sp_recs if r["gt"] not in never_sp]
-    reach1 = sum(1 for r in reach if top1(r) == r["gt"]) / len(reach)
-    # Labels and predictions are canonicalised the same way before matching. Scoring the raw
-    # names instead says what that is worth, and it is a gain, never a source of error.
+    # Labels and predictions are canonicalised the same way before matching. Scoring
+    # the raw names says what that is worth, and it is a gain, never a source of error.
     strict1 = sum(1 for r in sp_recs
                   if r["ranked_strict"] and r["ranked_strict"][0][0] == r["gt_strict"])
-    short5 = sum(1 for r in sp_recs + h.genus_recs if len(r["ranked"]) < N_CANDIDATES)
-    n_pred = len(sp_recs) + len(h.genus_recs)
+    return {
+        "never": never,
+        "never_crowns": sum(d["n_labelled_crowns"] for d in never),
+        "never_all": (h.tier_crowns["e_absent_from_corpus"]
+                      + h.tier_crowns["c_genus_only_in_corpus"]),
+        "reach": reach,
+        "reach1": sum(1 for r in reach if top1(r) == r["gt"]) / len(reach),
+        "unscoreable": len(sp_recs) - len(reach),
+        "strict1": strict1,
+        "short5": sum(1 for r in sp_recs + h.genus_recs
+                      if len(r["ranked"]) < N_CANDIDATES),
+        "n_pred": len(sp_recs) + len(h.genus_recs)}
 
-    tag = model_tag_of(verify_dir, fallback_tag)
-    snap_date = snapshot_date_of(verify_dir)
 
-    # --- send-first queue over the unlabelled pool, and labels worth a second look.
-    # The logic lives in core so this page and measure.py cannot drift apart.
+def _queue(h, support, per_species):
+    """The send-first queue over the unlabelled pool.
+
+    The ordering lives in ``queues``, and this is the same call measure.py
+    makes, so the page and send_first_queue.csv are one list read twice rather
+    than two lists that have to be reconciled.
+    """
     acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     joined_stems = {stem for _, stem, _ in h.joined}
-    # The same call measure.py makes, so the page and send_first_queue.csv are
-    # one list read twice rather than two lists that have to be reconciled.
-    queue_rows, n_no_answer = queues.send_first_rows(h.predictions, joined_stems,
-                                                 h.canon, support, acc_of)
-    queue_counts = Counter(q for q, _, _, _ in queue_rows)
-    lt_species = Counter(pred for q, _, pred, _ in queue_rows if q == "long_tail")
-    n_unlab = sum(queue_counts.values())
-    # The rows in the form send_first_queue.csv writes them, so verify_snapshot
-    # can compare the two lists row for row.
-    queue_keys = [hc.GT_KEY_PREFIX + stem for _, stem, _, _ in queue_rows]
+    rows, n_no_answer = queues.send_first_rows(h.predictions, joined_stems,
+                                               h.canon, support, acc_of)
+    counts = Counter(q for q, _, _, _ in rows)
+    return {
+        "queue_rows": rows, "queue_counts": counts, "n_no_answer": n_no_answer,
+        "n_unlab": sum(counts.values()),
+        "lt_species": Counter(pred for q, _, pred, _ in rows if q == "long_tail"),
+        "queue_cams": Counter(camera_of(stem) for _, stem, _, _ in rows),
+        # In the form send_first_queue.csv writes them, so verify_snapshot can
+        # compare the two lists row for row.
+        "queue_keys": [hc.GT_KEY_PREFIX + stem for _, stem, _, _ in rows]}
 
-    # How many scored frames the centre crop mostly misses. Read under the species
-    # table and again under the four corpus rates, so it is computed here once.
-    # The line is core.MIN_CROP_COVERAGE, the same split the coverage gate makes,
-    # not a 0.5 typed here: the sentence on the page says "less than half the
-    # crop" and has to mean the threshold the rest of the page reports on.
-    crop_half = len(hc.coverage_split(sp_recs)[1])
-    crop_none = sum(1 for r in sp_recs if (r.get("crop_coverage") or 0) == 0)
 
-    scored_cams = Counter(camera_of(r["global_key"]) for r in sp_recs)
-    queue_cams = Counter(camera_of(stem) for _, stem, _, _ in queue_rows)
+def _review(sp_recs):
+    """Labels worth a second look: the model is sure and disagrees with the label.
 
+    The same filter as measure.py's label_review_queue.csv, or verify_snapshot
+    aborts the build on the count mismatch. That check is the guard.
+    """
     confident = [r for r in sp_recs if conf(r) >= hc.REVIEW_CONF]
-    # Same filter as measure.py's label_review_queue.csv, or verify_snapshot
-    # aborts the build on the count mismatch. That check is the guard.
-    adjudicated = hc.adjudicated_keys()
     raised = [r for r in confident if top1(r) != r["gt"]]
-    review = [r for r in raised if r["global_key"] not in adjudicated]
-    n_adjudicated = len(raised) - len(review)
+    review = [r for r in raised if r["global_key"] not in hc.adjudicated_keys()]
+    pairs = defaultdict(list)
+    for r in review:
+        pairs[(r["gt"], top1(r))].append(conf(r))
     # The claim the review panel rests on. Measured, not asserted: it moves with
     # every batch, and stale it argues for spending expert time on the wrong list.
     # Counted over every disagreement, adjudicated or not: a botanist confirming
     # the label makes the model's guess wrong, not right.
-    confident_hits = len(confident) - len(raised)
-    confident_ok = confident_hits / len(confident)
-    review_pairs = defaultdict(list)
-    for r in review:
-        review_pairs[(r["gt"], top1(r))].append(conf(r))
-    review_counts = (len(review), len(review_pairs))
+    hits = len(confident) - len(raised)
+    return {"confident": confident, "review": review, "confident_hits": hits,
+            "confident_ok": hits / len(confident),
+            "n_adjudicated": len(raised) - len(review),
+            "review_pairs": pairs, "review_counts": (len(review), len(pairs))}
 
-    # --- why confidence alone is unsafe: error by labelled frames, at the
-    # lowest band core.CONF_THRESHOLDS names. The queue page writes this number
-    # into its own column header, so it reads it from here rather than typing it.
-    flat_thr = hc.CONF_THRESHOLDS[0]
+
+def _error_by_support(sp_recs, support):
+    """Why being sure is not enough: error by labelled frames, at the lowest
+    band core.CONF_THRESHOLDS names. The queue page writes this threshold into
+    its own column header, so it reads it from here rather than typing it.
+    """
+    thr = hc.CONF_THRESHOLDS[0]
     flat = {}
     for r in sp_recs:
-        if conf(r) >= flat_thr:
+        if conf(r) >= thr:
             b = flat.setdefault(hc.bucket_label(support[r["gt"]]), [0, 0])
             b[0] += 1
             b[1] += top1(r) != r["gt"]
+    return {"flat": flat, "flat_thr": thr}
 
-    # --- queue-ordering rules. Which species clear the gate is decided from train frames
-    # only, then scored on test only, so no rule is graded on the frames that defined it.
+
+def _wait_rules(sp_recs, support):
+    """Every queue-ordering rule the page compares, and the one it recommends.
+
+    Which species clear the gate is decided from train frames only, then scored
+    on test only, so no rule is graded on the frames that defined it.
+    """
     train_support = defaultdict(int)
     for r in sp_recs:
         if r["split"] == "train":
@@ -216,7 +240,6 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     eligible = {s for s, k in train_support.items() if k >= WAIT_SUPPORT_MIN}
     test_recs = [r for r in sp_recs if r["split"] == "test"]
     rare = {s for s, k in support.items() if k < RARE_MAX_SUPPORT}
-    n_rare_test = sum(1 for r in test_recs if r["gt"] in rare)
 
     rules = [(f"{t} or more sure, any species", t, False)
              for t in hc.CONF_THRESHOLDS[:-1]]
@@ -227,48 +250,83 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
         wait = [r for r in test_recs if conf(r) >= thr and (not gate or r["gt"] in eligible)]
         ids = {id(r) for r in wait}
         rest = [r for r in test_recs if id(r) not in ids]
-        ops.append(dict(label=label, thr=thr, gate=gate, n=len(wait),
-                        share=len(wait) / len(test_recs) if test_recs else None,
-                        err=sum(1 for r in wait if top1(r) != r["gt"]) / len(wait)
-                        if wait else None,
-                        rare=sum(1 for r in wait if r["gt"] in rare),
-                        rare_rest=sum(1 for r in rest if r["gt"] in rare) / len(rest)
-                        if rest else None))
-    best = next(o for o in ops if o["gate"] and abs(o["thr"] - RECOMMENDED_CONF) < 1e-9)
+        ops.append({"label": label, "thr": thr, "gate": gate, "n": len(wait),
+                    "share": len(wait) / len(test_recs) if test_recs else None,
+                    "err": sum(1 for r in wait if top1(r) != r["gt"]) / len(wait)
+                    if wait else None,
+                    "rare": sum(1 for r in wait if r["gt"] in rare),
+                    "rare_rest": sum(1 for r in rest if r["gt"] in rare) / len(rest)
+                    if rest else None})
+    return {
+        "eligible": eligible, "test_recs": test_recs, "rare": rare,
+        "n_rare_test": sum(1 for r in test_recs if r["gt"] in rare), "ops": ops,
+        "best": next(o for o in ops
+                     if o["gate"] and abs(o["thr"] - RECOMMENDED_CONF) < 1e-9)}
 
-    # Kept apart from family-only labels: a family name can never equal a predicted
-    # genus, so mixing them scores guaranteed misses as measured ones.
+
+def _genus_and_family(h):
+    """Frames labelled only to genus, and only to family, kept apart.
+
+    A family name can never equal a predicted genus, so mixing the two scores
+    guaranteed misses as measured ones.
+    """
     fam_recs = [r for r in h.genus_recs if is_family(r["gt"])]
     gen_recs = [r for r in h.genus_recs if not is_family(r["gt"])]
-    gn, fam_n = len(gen_recs), len(fam_recs)
-    gg1 = sum(1 for r in gen_recs if hc.genus_of(r["ranked"][0][0]) == r["gt"])
-    fam_names = len({r["gt"] for r in fam_recs})
     # Genus-only frames whose right answer is narrowed to one in-genus candidate:
     # the cheapest confirmation on the page, a yes/no rather than an identification.
-    in_gen = [sum(1 for b, _ in r["ranked"][:N_CANDIDATES] if hc.genus_of(b) == r["gt"]) for r in gen_recs]
+    in_gen = [sum(1 for b, _ in r["ranked"][:N_CANDIDATES] if hc.genus_of(b) == r["gt"])
+              for r in gen_recs]
     gen_any = sum(1 for k in in_gen if k)
-    gen_one = sum(1 for k in in_gen if k == 1)
-    gen_none = len(in_gen) - gen_any
+    return {
+        "gn": len(gen_recs), "fam_n": len(fam_recs),
+        "gg1": sum(1 for r in gen_recs if hc.genus_of(r["ranked"][0][0]) == r["gt"]),
+        "fam_names": len({r["gt"] for r in fam_recs}),
+        "gen_any": gen_any, "gen_one": sum(1 for k in in_gen if k == 1),
+        "gen_none": len(in_gen) - gen_any}
 
-    return SimpleNamespace(
-        h=h, sp_recs=sp_recs, per_species=per_species, n=n, n_sp=n_sp,
-        c1=c1, now=now, support=support, status=status, counts=counts,
-        buckets=buckets, bins_all=bins_all, never=never, never_crowns=never_crowns,
-        never_all=never_all, reach=reach, reach1=reach1, unscoreable=n - len(reach),
-        strict1=strict1, short5=short5, n_pred=n_pred, tag=tag, snap_date=snap_date,
-        queue_counts=queue_counts, lt_species=lt_species, queue_rows=queue_rows,
-        queue_keys=queue_keys,
-        n_no_answer=n_no_answer, n_unlab=n_unlab, scored_cams=scored_cams,
-        queue_cams=queue_cams, confident=confident, review=review,
-        confident_ok=confident_ok, confident_hits=confident_hits,
-        n_adjudicated=n_adjudicated,
-        review_pairs=review_pairs, review_counts=review_counts,
-        flat=flat, flat_thr=flat_thr, eligible=eligible, test_recs=test_recs, rare=rare,
-        n_rare_test=n_rare_test, ops=ops, best=best, gn=gn, fam_n=fam_n, gg1=gg1,
-        fam_names=fam_names, gen_any=gen_any, gen_one=gen_one, gen_none=gen_none,
-        n_cand=N_CANDIDATES, cf=load_confirmatory(), checks=None,
-        crop_half=crop_half, crop_none=crop_none,
-        # Every frame a botanist has labelled at all, whatever rank the name
-        # stops at and whether or not a Pl@ntNet answer was cached for it. The
-        # widest of the three frame counts the page reconciles.
-        n_gt=len(h.gt_rows))
+
+def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
+    """Every figure both pages draw from, computed once off one ``Health``.
+
+    Each helper below owns one question and hands back the fields answering it;
+    this assembles them into the one object panels read. Read-only for builders
+    except ``checks``, filled in by the page after its own slice of
+    ``history.verify_snapshot`` runs.
+    """
+    sp_recs, per_species = h.sp_recs, h.per_species
+    longest = max(len(r["ranked"]) for r in sp_recs + h.genus_recs)
+    if longest > N_CANDIDATES:
+        raise SystemExit(
+            f"cached predictions carry up to {longest} names per photo, but every rate\n"
+            f"and every sentence on both pages is written for {N_CANDIDATES}. Re-ingest\n"
+            f"changed the request setting: update N_CANDIDATES in dashboard/core.py.")
+
+    fig = {"h": h, "sp_recs": sp_recs, "per_species": per_species,
+           "n_cand": N_CANDIDATES, "cf": load_confirmatory(), "checks": None,
+           "tag": model_tag_of(verify_dir, fallback_tag),
+           "snap_date": snapshot_date_of(verify_dir),
+           "scored_cams": Counter(camera_of(r["global_key"]) for r in sp_recs),
+           # How many scored frames the centre crop mostly misses. Read under
+           # the species table and again under the four corpus rates. The line
+           # is core.MIN_CROP_COVERAGE, the same split the coverage gate makes,
+           # not a 0.5 typed here: the page says "less than half the crop" and
+           # has to mean the threshold the rest of the page reports on.
+           "crop_half": len(hc.coverage_split(sp_recs)[1]),
+           "crop_none": sum(1 for r in sp_recs
+                            if (r.get("crop_coverage") or 0) == 0),
+           # Every frame a botanist has labelled at all, whatever rank the
+           # name stops at and whether or not a Pl@ntNet answer was cached
+           # for it. The widest of the three frame counts the page reconciles.
+           "n_gt": len(h.gt_rows)}
+
+    fig.update(_rates(sp_recs, per_species))
+    fig.update(_species_status(per_species))
+    fig.update(_support_buckets(per_species, sp_recs, fig["support"]))
+    fig.update(_confidence_bands(sp_recs))
+    fig.update(_out_of_reach(h, sp_recs, per_species))
+    fig.update(_queue(h, fig["support"], per_species))
+    fig.update(_review(sp_recs))
+    fig.update(_error_by_support(sp_recs, fig["support"]))
+    fig.update(_wait_rules(sp_recs, fig["support"]))
+    fig.update(_genus_and_family(h))
+    return SimpleNamespace(**fig)
