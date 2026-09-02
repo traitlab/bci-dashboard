@@ -123,10 +123,11 @@ def p_send(c):
              # Kept because it names an unscored population, not because it is a fact
              # about the drone: nothing on this page grades that camera. "Camera",
              # not "lens", is the word CONTEXT.md settles on for the pair.
-             f'<p class="note"><b>The long-lens camera is ungraded.</b> Every frame scored here came '
-             f'from the wide-angle camera (<i>zoom</i>), all {c.scored_cams["zoom"]:,}. No '
-             f'botanist has labelled a <i>tele</i> frame, so this page says nothing about '
-             f'them. Tele is {c.queue_cams["tele"]:,} of the queue '
+             f'<p class="note"><b>The long-lens camera is ungraded.</b> Every frame scored '
+             f'here came from the wide-angle camera, marked <i>zoom</i> in the file name: '
+             f'all {c.scored_cams["zoom"]:,} of them. No botanist has labelled a long-lens '
+             f'frame, marked <i>tele</i>, so this page says nothing about those. They are '
+             f'{c.queue_cams["tele"]:,} of the queue '
              f'({pctf(c.queue_cams["tele"] / sum(c.queue_cams.values()))}); sending them is '
              f'how it becomes known.</p>')
     # The same two queues the hero counts, added the same way, so this number and
