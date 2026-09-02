@@ -1,8 +1,11 @@
-"""Pl@ntNet-on-BCI model health: the data layer every page reads.
+"""The vocabulary every other module works in.
 
-Deterministic, no network. Loads labels, splits and predictions; joins
-and reconciles names (optionally via a WCVP crosswalk); builds per-frame
-records and per-species aggregates.
+Where the input files are, what the thresholds are, how a species name is
+normalised, and the small helpers that turn counts into the strings a page
+prints. Deterministic, no network, and nothing here reads a file it was not
+handed a path to.
+
+Reading those files and joining them into one ``Health`` is ``health.py``.
 """
 
 from __future__ import annotations
@@ -13,10 +16,7 @@ import json
 import os
 import re
 import unicodedata
-from collections import Counter, defaultdict
-from collections.abc import Callable
-from dataclasses import dataclass
-from types import SimpleNamespace
+from collections import defaultdict
 
 # --- INPUT PATHS ---
 # Every path is derived from the checkout, so a clone runs anywhere. Each one

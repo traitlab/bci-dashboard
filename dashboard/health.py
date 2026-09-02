@@ -11,7 +11,6 @@ there are to measure.
 
 from __future__ import annotations
 
-import csv
 import json
 import os
 from collections import Counter, defaultdict
