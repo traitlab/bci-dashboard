@@ -1,36 +1,28 @@
 """Draw the frozen frame list for the confirmatory region-aligned evaluation.
 
-Every published accuracy number before this drew its frames the same way it
-drew its conclusions: after the fact. This script draws them first, from a
-seed, and writes the list to a file that is committed before a single API call
-is made. Re-running it reproduces the list byte for byte, which is the only
-thing that makes the later comparison confirmatory rather than exploratory.
+Earlier published numbers drew their frames after the fact. This script draws
+them from a seed and commits the list before any API call, so re-running it
+reproduces the list byte for byte. That is what makes the later comparison
+confirmatory rather than exploratory.
 
-Eligibility. A frame earns a place only if both arms can score it against the
-same label:
+A frame is eligible only if both arms can score it against the same label: a
+species-level ground truth, a frame URL, an existing centre-crop prediction,
+no tiles cache entry (the 146 frames fetched earlier have been seen), and a
+labelled crown at least MIN_BOX_SIDE px on both sides in `data/export_boxes.csv`.
+That file is the July 2026 botanist revision, which defines the label; the
+tracked 2024 file holds three times as many boxes, and a crown cut from a
+different revision is not aligned with the label it is scored against.
 
-  1. a species-level ground truth for the frame,
-  2. a frame URL, so the pixels can be fetched,
-  3. an existing centre-crop prediction, so the legacy arm stays reportable
-     alongside the two region-aligned ones,
-  4. NO tiles cache entry, because the 146 frames already fetched were scored
-     in an earlier session and their result has been seen,
-  5. at least one labelled crown at least 128 px on both sides IN THE SAME BOX
-     EXPORT THE GROUND TRUTH IS COMPUTED FROM, `data/export_boxes.csv`. The
-     tracked 2024 file carries three times as many boxes, but the July 2026
-     botanist revision is what defines the label, and a crown arm cut from a
-     different revision is not aligned with the label it is scored against.
+The pool gets its own committed manifest, because eligibility reads live caches
+and the fetch this draw authorises fills one of them. --verify redraws from the
+manifest rather than re-deriving the pool, which would fail the moment fetching
+began.
 
-The pool is written to its own committed manifest. Eligibility reads live
-caches, and the fetch this draw authorises fills one of them, so a --verify that
-re-derived the pool would start failing the moment Phase 2 began. The manifest
-freezes the pool, and --verify redraws from the manifest.
-
-Stratification. Frames are not independent draws: 47 flight days and 12 sites
-carry them, and one site holds a third of the pool. The draw is proportional to
-site, with any one site capped at CAP of the sample so a single plot cannot
-carry the headline. The excess a capped site sheds is redistributed over the
-uncapped ones, to a fixed point, then rounded by largest remainder.
+Frames are not independent draws: 40 flight days and 12 sites carry them, and
+one site holds 26.3% of the pool. The draw is proportional to site, capped at
+CAP of the sample so no single plot carries the headline. What a capped site
+sheds is spread over the uncapped ones to a fixed point, then rounded by
+largest remainder.
 
     python predict/draw_confirmatory.py --rebuild-pool   # derive the pool, report
     python predict/draw_confirmatory.py --rebuild-pool --write
@@ -93,7 +85,7 @@ def eligible(core, crown):
     """Derive the draw pool from the live caches. Run once, at freeze time.
 
     Everything afterwards reads the committed manifest instead, because the
-    Phase 2 fetch fills the tiles cache this function reads.
+    per-photo fetch fills the tiles cache this function reads.
     """
     gt, _ = crown.frame_gt_map(core)
     urls = crown.load_frame_urls()
@@ -196,7 +188,9 @@ def read_pool(path=POOL):
     return sorted(rows, key=lambda r: r["base_image"])
 
 
-def main():
+def parse_args():
+    """Read the committed manifest by default. --rebuild-pool derives the pool
+    from the live caches instead, which is only correct before the freeze."""
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--rebuild-pool", action="store_true",
@@ -211,7 +205,50 @@ def main():
     ap.add_argument("--out", type=Path, default=OUT)
     ap.add_argument("-n", type=int, default=N)
     ap.add_argument("--seed", type=int, default=SEED)
-    args = ap.parse_args()
+    return ap.parse_args()
+
+
+def report_draw(pool, rows, quota, digest, seed) -> None:
+    """What was drawn, and how it spread across sites.
+
+    The sha256 is printed on every run, not only on --verify: it is how anyone
+    can tell at a glance whether the list in front of them is the frozen one.
+    """
+    print(f"eligible pool          : {len(pool)} frames")
+    print(f"sites                  : {len(quota)}")
+    print(f"drawn                  : {len(rows)} (seed {seed}, cap {CAP:.0%})")
+    print(f"crowns in the draw     : {sum(r['n_crowns'] for r in rows)}")
+    print(f"flight days in the draw: {len({r['flight_day'] for r in rows})}")
+    print(f"sha256                 : {digest}")
+    sizes = {}
+    for r in pool:
+        sizes[r["site"]] = sizes.get(r["site"], 0) + 1
+    print(f"\n{'site':18} {'pool':>6} {'drawn':>6} {'share':>7}")
+    for s in sorted(quota, key=lambda s: -quota[s]):
+        print(f"{s:18} {sizes[s]:6d} {quota[s]:6d} {quota[s] / len(rows):6.1%}")
+
+
+def verify_draw(args, text) -> None:
+    """Hold the committed list to what this seed draws, byte for byte.
+
+    Refuses to run against the live caches: a pool rebuilt after the freeze
+    would make the check pass by moving the thing it checks.
+    """
+    if args.rebuild_pool:
+        sys.exit("FAIL: --verify must read the committed manifest, not the "
+                 "live caches; drop --rebuild-pool")
+    if not args.out.exists():
+        sys.exit(f"FAIL: {args.out} does not exist")
+    if args.out.read_text() != text:
+        sys.exit("FAIL: the committed list is not what this seed draws")
+    print(f"\nVERIFY OK: {args.out} matches the draw byte for byte")
+
+
+def main():
+    """Draw the confirmatory sample, or check that the committed one is the
+    draw. The draw is a pure function of the pool and the seed, which is what
+    makes --verify meaningful."""
+    args = parse_args()
 
     if args.rebuild_pool:
         core = _load("_core", REPO / "dashboard" / "core.py")
@@ -223,29 +260,10 @@ def main():
     text = to_csv_text(rows)
     digest = hashlib.sha256(text.encode()).hexdigest()
 
-    print(f"eligible pool          : {len(pool)} frames")
-    print(f"sites                  : {len(quota)}")
-    print(f"drawn                  : {len(rows)} (seed {args.seed}, cap {CAP:.0%})")
-    print(f"crowns in the draw     : {sum(r['n_crowns'] for r in rows)}")
-    print(f"flight days in the draw: {len({r['flight_day'] for r in rows})}")
-    print(f"sha256                 : {digest}")
-    sizes = {}
-    for r in pool:
-        sizes[r["site"]] = sizes.get(r["site"], 0) + 1
-    print(f"\n{'site':18} {'pool':>6} {'drawn':>6} {'share':>7}")
-    for s in sorted(quota, key=lambda s: -quota[s]):
-        print(f"{s:18} {sizes[s]:6d} {quota[s]:6d} {quota[s] / len(rows):6.1%}")
+    report_draw(pool, rows, quota, digest, args.seed)
 
     if args.verify:
-        if args.rebuild_pool:
-            sys.exit("FAIL: --verify must read the committed manifest, not the "
-                     "live caches; drop --rebuild-pool")
-        if not args.out.exists():
-            sys.exit(f"FAIL: {args.out} does not exist")
-        on_disk = args.out.read_text()
-        if on_disk != text:
-            sys.exit("FAIL: the committed list is not what this seed draws")
-        print(f"\nVERIFY OK: {args.out} matches the draw byte for byte")
+        verify_draw(args, text)
     if args.write:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         if args.rebuild_pool:

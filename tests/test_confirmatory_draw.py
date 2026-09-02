@@ -69,6 +69,38 @@ class TestTheCommittedListIsTheOneThatWasFrozen:
         digest = hashlib.sha256(FROZEN.read_bytes()).hexdigest()
         assert digest == SHA256
 
+    def test_the_stratification_note_describes_the_committed_pool(
+            self, draw_confirmatory):
+        """The docstring says how many days and sites carry the pool and how
+        much of it the largest site holds. That is the argument for drawing by
+        site at all, and it was written against a pool of 2,685 frames. A1 cut
+        the pool to 1,607 and the sentence stayed, so it named 47 flight days
+        and a third of the pool when the manifest had 40 and a quarter.
+
+        The manifest is committed, so the sentence can simply be counted."""
+        import collections
+        import csv
+        import re
+        pool = draw_confirmatory.POOL
+        if not pool.exists():
+            pytest.skip("the pool manifest is not present")
+        with open(pool, newline="", encoding="utf-8") as fh:
+            rows = list(csv.DictReader(fh))
+        sites = collections.Counter(r["site"] for r in rows)
+        doc = draw_confirmatory.__doc__
+        m = re.search(r"(\d+) flight days and (\d+) sites", doc)
+        assert m, "the docstring no longer says what carries the pool"
+        assert (int(m.group(1)), int(m.group(2))) == (
+            len({r["flight_day"] for r in rows}), len(sites)), (
+            f"{pool.name} holds {len({r['flight_day'] for r in rows})} flight "
+            f"days over {len(sites)} sites; the docstring says {m.group(1)} and "
+            f"{m.group(2)}.")
+        share = re.search(r"one site holds ([\d.]+)% of the pool", doc)
+        assert share, "the docstring no longer says how dominant the largest site is"
+        assert float(share.group(1)) == round(100 * max(sites.values()) / len(rows), 1), (
+            f"the largest site is {100 * max(sites.values()) / len(rows):.1f}% of "
+            f"{len(rows)} pool frames and the docstring says {share.group(1)}%.")
+
     def test_no_site_carries_more_than_the_cap(self, draw_confirmatory):
         import collections
         import csv

@@ -16,12 +16,16 @@ from __future__ import annotations
 
 import contextlib
 import importlib.util
+import io
 import pathlib
+import re
+import subprocess
 import sys
 
 import pytest
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
+DASHBOARD = REPO / "dashboard"
 BOX_CSV = REPO / "input" / "boxes" / "crop_bounding_boxes.csv"
 GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
 
@@ -56,6 +60,24 @@ def core():
     return load("_core_under_test", REPO / "dashboard" / "core.py")
 
 
+@pytest.fixture(scope="session")
+def queues():
+    """The send-first queue policy. Imported with `dashboard/` on the path,
+    since it reads its thresholds from core as a sibling."""
+    with _on_path(REPO / "dashboard"):
+        import queues
+        yield queues
+
+
+@pytest.fixture(scope="session")
+def health():
+    """`health`, the load-and-join layer. On the path rather than loaded by
+    path like `core`, because it imports core as a sibling."""
+    with _on_path(REPO / "dashboard"):
+        import health
+        yield health
+
+
 def _require(*packages, who="predict"):
     """Skip rather than fail when a requirements.txt package is absent.
 
@@ -66,10 +88,51 @@ def _require(*packages, who="predict"):
         pytest.importorskip(name, reason=f"{who} needs {name}")
 
 
+@pytest.fixture
+def jpeg():
+    """A solid JPEG of a given size, as bytes. Two files ask a fetch path what
+    it did with a frame, and they have to hand it the same kind of frame."""
+    Image = pytest.importorskip("PIL.Image", reason="predict needs PIL")
+
+    def make(w, h):
+        buf = io.BytesIO()
+        Image.new("RGB", (w, h), (11, 99, 33)).save(buf, format="JPEG")
+        return buf.getvalue()
+
+    return make
+
+
 @pytest.fixture(scope="session")
 def ingest():
+    """Imported with `predict/` on the path: it takes the crop, the quota
+    error and config loading from photo.py as a sibling, the way the script
+    does when it is run."""
     _require("PIL", "requests", "yaml", "dotenv")
-    return load("_ingest_under_test", REPO / "predict" / "ingest_photos.py")
+    with _on_path(REPO / "predict"):
+        yield load("_ingest_under_test", REPO / "predict" / "ingest_photos.py")
+
+
+@pytest.fixture(scope="session")
+def embed():
+    """Imported the way the script runs it, with photo.py as a sibling: the
+    post, the retry and the crop all come from there."""
+    _require("numpy", "requests", "yaml", "dotenv", "PIL")
+    with _on_path(REPO / "predict"):
+        yield load("_embed_under_test", REPO / "predict" / "embed.py")
+
+
+@pytest.fixture(scope="session")
+def checklist():
+    """Imported with photo.py as a sibling: the project id comes from config."""
+    _require("requests", "yaml", "dotenv", "PIL")
+    with _on_path(REPO / "predict"):
+        yield load("_checklist_under_test", REPO / "predict" / "fetch_checklist.py")
+
+
+@pytest.fixture(scope="session")
+def photo():
+    _require("PIL", "requests", "yaml", "dotenv")
+    return load("_photo_under_test", REPO / "predict" / "photo.py")
 
 
 @pytest.fixture(scope="session")
@@ -110,13 +173,72 @@ def assets():
 
 
 @pytest.fixture(scope="session")
+def style():
+    """The stylesheet, the script and the element ids they share with
+    `assets.filterable_table`. Separate from `assets` because they are literal
+    text a test greps, not functions it calls."""
+    with _on_path(REPO / "dashboard"):
+        import style
+        yield style
+
+
+@pytest.fixture(scope="session")
+def confirmatory_panels():
+    """The frozen experiment's two panels, and the two amendments they quote
+    verbatim. Its own fixture because the quotes are what several tests need,
+    and they are literals a test can read without a snapshot."""
+    with _on_path(REPO / "dashboard"):
+        import confirmatory_panels
+        yield confirmatory_panels
+
+
+@pytest.fixture(scope="session")
+def measure():
+    """The measurement pass, for its module constants. Imported with
+    `dashboard/` on the path, since it imports core and health as siblings."""
+    with _on_path(REPO / "dashboard"):
+        import measure
+        yield measure
+
+
+@pytest.fixture(scope="session")
+def status_words():
+    """The status vocabulary all three pages share. Module constants only, so
+    no snapshot is needed to read it."""
+    with _on_path(REPO / "dashboard"):
+        import status_words
+        yield status_words
+
+
+@pytest.fixture(scope="session")
 def panels():
-    """`dashboard/` on the path, because panels imports core and assets as
-    siblings. Only the registry and the section machinery are reachable
-    without a snapshot; `prepare` needs the measurement inputs."""
+    """The model-health page's panel functions. `dashboard/` on the path,
+    because panels imports core and assets as siblings. Every function here
+    needs a figure namespace, so a test without a snapshot can only read the
+    module constants."""
     with _on_path(REPO / "dashboard"):
         import panels
         yield panels
+
+
+@pytest.fixture(scope="session")
+def pagemod():
+    """`page`, which holds the panel registry, the section layout and the
+    builder plumbing. Named `pagemod` because `page` is already the built HTML
+    in `test_pages.py`. Reachable without a snapshot, unlike the panels it
+    registers."""
+    with _on_path(REPO / "dashboard"):
+        import page
+        yield page
+
+
+@pytest.fixture(scope="session")
+def queue_panels():
+    """The internal queue page\'s own panels, split out of `panels` so the two
+    audiences do not share a 1,100-line module. Same path dance as `panels`."""
+    with _on_path(REPO / "dashboard"):
+        import queue_panels
+        yield queue_panels
 
 
 @pytest.fixture(scope="session")
@@ -170,3 +292,205 @@ def score_confirmatory():
     with _on_path(REPO / "dashboard"):
         import score_confirmatory
         yield score_confirmatory
+
+
+# ---------------------------------------------------------------------------
+# The built pages. Shared, because more than one file asks what a reader
+# meets on a page: `test_pages.py` checks what is on it, and
+# `test_plain_english.py` checks that it can be read. Building is a real
+# subprocess and session-scoped, so it happens once per run either way.
+# ---------------------------------------------------------------------------
+
+# The gate is the newest snapshot, and `history.latest_snapshot_dir` is what
+# decides that for the builders themselves, so the suite asks it rather than
+# naming a date. A pinned date silently ages: this sat on 2026-08-24 while
+# the builders had moved on to 2026-08-27, so three snapshots' worth of
+# numbers were never checked by a test.
+# SystemExit here would abort collection instead of skipping, and a fresh
+# clone has no snapshots at all; `require_buildable` is what turns that into
+# a skip, so this only has to name a path it can print.
+with _on_path(REPO / "dashboard"):
+    import history as _history
+    try:
+        SNAPSHOT_DIR = pathlib.Path(_history.latest_snapshot_dir())
+    except SystemExit:
+        SNAPSHOT_DIR = REPO / "snapshots"
+SPLITS_CSV = REPO / "data" / "splits.csv"
+CACHE_DIR = REPO / "data" / "predictions" / "cache"
+
+# A fixed generation string, like the worktree byte-diff checks use: real
+# dates would make two builds of the same code differ for no reason a test
+# should care about.
+GENERATED = "2026-08-25-test"
+
+# What each page is expected to carry, so a test states its expectation once
+# and every page is checked against the same list. `species` is the sortable,
+# filterable species table with its status legend, which is also what the
+# inline JS binds to. The send queue splits in two: `queue_counts` is the
+# how-many-per-queue breakdown and `queue_keys` is the frame-by-frame
+# send-first list with the camera note beside it. `snapshot` marks a page that
+# reconciles against the newest snapshot at build time and so
+# must print a `verified` line for every check it ran; the export page has no
+# such snapshot -- it is scoped to one Labelbox export -- so it carries none.
+#
+# `species_status` is narrower than `species`: it is the per-row
+# status tag plus the status legend that
+# `panels.p_species` renders. All three pages carry it. `build_export_only.py`
+# used to build its own species table straight off `assets.filterable_table`
+# with no `row_attrs`, so a row said 40% and nothing said whether that was a
+# species the model gets wrong or one with too few labels to judge; it now
+# renders the same status column and legend as the other two.
+#
+# `species_thin` is narrower again: the show-all checkbox that `p_species`
+# renders over rows with fewer than `panels.THIN_MIN_FRAMES` labelled frames.
+# Only the model-health page hides rows that way; the export page shows every
+# species it labelled, however few frames each has.
+#
+# Each flag now names exactly one page, so a flag no longer distinguishes
+# between pages the way it did while a third page carried `species` and
+# `queue_counts` together. The flags stay because they say what a page is
+# expected to carry, which is the claim the assertions need.
+# A species row is a row carrying a status tag. The rows used to be found by a
+# `data-status` attribute that repeated on every row what the tag already says;
+# the page dropped it, so the tests look for the tag itself.
+_ANY_ROW = re.compile(r"<tr\b[^>]*>.*?</tr>", re.S)
+
+
+def species_rows(html: str) -> list[str]:
+    """Every row of the species table, tags and all."""
+    return [row for row in _ANY_ROW.findall(html) if '<span class="tag ' in row]
+
+
+PAGES = {
+    "external_page": ("build_external.py", "model_health_dashboard.html",
+                      {"species", "species_status", "species_thin",
+                       "confirmatory", "snapshot"}),
+    "internal_page": ("build_internal.py", "label_queue_dashboard.html",
+                      {"queue_counts", "queue_keys", "snapshot"}),
+    "export_only_page": ("build_export_only.py", "export_only_dashboard.html",
+                         {"species", "species_status"}),
+}
+
+
+def require_buildable():
+    """Skip on a fresh clone: the builders need measurement inputs and a
+    snapshot to verify against, neither of which is tracked in git."""
+    for path, label in ((GT_CSV, "data/gt_dominant_taxon.csv"),
+                        (SPLITS_CSV, "data/splits.csv"),
+                        (CACHE_DIR, "data/predictions/cache")):
+        if not path.exists():
+            pytest.skip(f"{label} not present (fresh clone)")
+    if not SNAPSHOT_DIR.exists():
+        pytest.skip(f"{SNAPSHOT_DIR} not present (fresh clone)")
+
+
+def build_page(tmp_path_factory, script: str, out_name: str, *,
+               export: str | None = None) -> tuple[str, str]:
+    """Run a builder as a real subprocess, the way `bin/refresh.sh` does.
+
+    Returns (page_html, stdout). Raises via `assert` on a non-zero exit so
+    the failure message carries the process's own stderr (a `VERIFY FAIL:
+    ...` line from `history.verify_snapshot`, or a traceback).
+
+    `build_export_only.py` takes `--export` and no `--verify-against` -- it
+    has no snapshot to reconcile against -- so `export` switches which flags
+    get built rather than duplicating the subprocess call for one page.
+    """
+    out = tmp_path_factory.mktemp("page") / out_name
+    args = [sys.executable, str(DASHBOARD / script), "--out", str(out),
+            "--generated", GENERATED]
+    args += ["--export", export] if export is not None else (
+        ["--verify-against", str(SNAPSHOT_DIR)])
+    proc = subprocess.run(args, capture_output=True, text=True, cwd=REPO)
+    assert proc.returncode == 0, (
+        f"{script} exited {proc.returncode}\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}")
+    return out.read_text(encoding="utf-8"), proc.stdout
+
+
+# Same convention as core.GT_KEY_PREFIX / gt_from_export.GT_KEY_PREFIX: a GT or
+# splits global_key is "comb_<stem>.JPG", a cache file is "<stem>.JPG.json".
+GT_KEY_PREFIX = "comb_"
+
+def corpus_keys_with_species_gt():
+    """Every corpus global_key that also carries a species label in
+    gt_dominant_taxon.csv, split by whether the cache holds a prediction for
+    it, plus the GT map itself. All three come straight off disk."""
+    import csv
+    with open(GT_CSV, newline="", encoding="utf-8") as f:
+        gt = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
+    with open(SPLITS_CSV, newline="", encoding="utf-8") as f:
+        corpus = {r["global_key"] for r in csv.DictReader(f)}
+    cached = {p.stem for p in CACHE_DIR.glob("*.json")}
+    labelled = sorted(gk for gk in corpus if gk in gt)
+    with_cache = [gk for gk in labelled if gk[len(GT_KEY_PREFIX):] in cached]
+    without_cache = [gk for gk in labelled if gk[len(GT_KEY_PREFIX):] not in cached]
+    return with_cache, without_cache, gt
+
+
+def write_export_ndjson(path, keys, gt) -> None:
+    """Emit NDJSON in the shape `gt_from_export.export_dominants` parses: one
+    data row per key, one project with one label carrying a single
+    full-frame Planta box whose Taxon radio answer is that key's own GT
+    species.
+
+    This fabricates no data and asserts nothing about Labelbox: every key and
+    species comes from the repo's own tracked data/gt_dominant_taxon.csv and
+    data/splits.csv, and the file exists only for the duration of the test.
+    """
+    import json
+    with open(path, "w", encoding="utf-8") as f:
+        for i, gk in enumerate(keys):
+            stem = gk[len(GT_KEY_PREFIX):]
+            row = {
+                "data_row": {"id": f"dr_{i}", "global_key": stem},
+                "projects": {"proj1": {"labels": [{"annotations": {"objects": [{
+                    "bounding_box": {"top": 0, "left": 0, "width": 100, "height": 100},
+                    "classifications": [{"radio_answer": {"name": gt[gk]}}],
+                }]}}]}},
+            }
+            f.write(json.dumps(row) + "\n")
+
+
+@pytest.fixture(scope="session")
+def export_fixture(tmp_path_factory):
+    """A deterministic slice of 48 real, cache-backed keys and the NDJSON
+    file built from them, shared by every test below that needs a scored
+    export page."""
+    require_buildable()
+    with_cache, _, gt = corpus_keys_with_species_gt()
+    keys = with_cache[:48]
+    path = tmp_path_factory.mktemp("export") / "export.ndjson"
+    write_export_ndjson(path, keys, gt)
+    return path, keys, gt
+
+
+@pytest.fixture(scope="session")
+def export_only_page(tmp_path_factory, export_fixture):
+    require_buildable()
+    path, _, _ = export_fixture
+    return build_page(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
+
+
+@pytest.fixture(scope="session")
+def external_page(tmp_path_factory):
+    require_buildable()
+    return build_page(tmp_path_factory, *PAGES["external_page"][:2])
+
+
+@pytest.fixture(scope="session")
+def internal_page(tmp_path_factory):
+    require_buildable()
+    return build_page(tmp_path_factory, *PAGES["internal_page"][:2])
+
+
+@pytest.fixture(params=sorted(PAGES))
+def page(request):
+    """Every shared page assertion against all three pages, written once.
+
+    Yields ``(html, stdout, panels-this-page-carries)``. Here rather than in
+    one test file because `test_pages.py` and `test_page_navigation.py` both
+    run against all three, and a second copy of the parametrisation is how one
+    file quietly stops covering a page.
+    """
+    html, stdout = request.getfixturevalue(request.param)
+    return html, stdout, PAGES[request.param][2]

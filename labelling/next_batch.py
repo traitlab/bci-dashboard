@@ -1,62 +1,48 @@
 """What to send to the Labelbox project next, and why.
 
-Answers the standing question -- "the goal is to know which picture in the
-dataset to send to the project" -- from the two things a read-only key can
-actually reach: the dataset inventory (``labelling/fetch_dataset.py``) and a
-project export dropped on disk.
-
-What comes out, and how far each part can be trusted:
+Answers "which picture do we send next" from the two things a read-only key can
+reach: the dataset inventory (``labelling/fetch_dataset.py``) and a project
+export dropped on disk. Three files come out, and they are not equally
+trustworthy.
 
 ``queue_contradictions.csv``  (ready to dispatch)
-    Crowns where the field label and the Pl@ntNet top-1 disagree at high
-    confidence -- the review the field team asked for -- resolved onto global
-    keys that exist in the current dataset. Every row is backed by a cached
-    prediction and a botanist label, so the ranking is a measurement.
+    Crowns where the field label and Pl@ntNet's first guess disagree at high
+    confidence, the review the field team asked for. Every row is backed by a
+    cached prediction and a botanist label, so the ranking is a measurement.
 
 ``queue_missions.csv``  (ready to dispatch, coarse)
-    The 32 flights whose photos are in the dataset but not yet in the project,
-    largest first. Mission is the unit the team already batches in: the single
-    non-legacy batch in the export is one whole mission. Nothing here ranks
+    Flights whose photos are in the dataset but not in the project, largest
+    first. Mission is the unit the team already batches in. Nothing ranks
     *within* a mission, because nothing available can.
 
-``queue_photos.csv``  (provisional -- read the caveat)
-    Every unsent photo, ordered by mission then by a file-size proxy. This is a
-    dispatch convenience, not a priority signal.
+``queue_photos.csv``  (a dispatch list, not a priority signal)
+    Every unsent photo, ordered by mission then by file size. Ranking them by
+    what they would teach the model needs a prediction or an embedding per
+    photo, and this script has neither: the cache covers the legacy corpus
+    only, and Labelbox holds the embeddings behind an export task a read-only
+    key cannot create. ``predict/embed.py`` computes one from the pixels
+    instead and ``labelling/rank_unsent.py`` ranks over those vectors. That is
+    the order to dispatch in.
 
-The caveat, stated once, plainly. Ranking the 3,269 unsent photos by what they
-would teach the model needs one of three things, and this script has none of
-them:
-
-  * a Pl@ntNet prediction per photo -- none of the 3,269 has one cached, the
-    local cache covers only the legacy corpus;
-  * an embedding per photo -- present in Labelbox, but reachable only through
-    an export task, which a read-only key cannot create (verified: dataset
-    export fails with AuthorizationError, same as project export);
-  * a crown identity, to tell a new tree from one photographed before.
-
-The third was tested and does not exist in the metadata. See
-``report_polygon_identity`` -- both candidate proxies were checked against
-ground truth and both failed. Any queue claiming to deduplicate crowns from
-this metadata would be making it up.
+Telling a new tree from one photographed before would be better still, and the
+metadata cannot do it: ``labelling/polygon_identity.py`` checked both proxies
+against the labels and both failed.
 
 Read-only. Nothing is written back to Labelbox.
 
 Usage:
-    python3 labelling/next_batch.py \\
+    python3 labelling/next_batch.py \
         --export "/path/to/Export  project - 2024_bci - 8_6_2026.ndjson"
 
-Which project block is read out of the export comes from
-``LABELBOX_PROJECT_ID`` if the environment or ``.env`` carries it, and from
-``config.yaml`` otherwise. ``--project-id`` beats both.
+The project block comes from ``LABELBOX_PROJECT_ID`` if the environment or
+``.env`` carries it, from ``config.yaml`` otherwise. ``--project-id`` beats both.
 """
 from __future__ import annotations
 
 import argparse
 import csv
 import json
-import math
 import os
-import random
 import sys
 from collections import Counter, defaultdict
 
@@ -64,7 +50,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, "dashboard"))
 
 import core as hc
+import crop_overlap as co
+import health as hl
 import settings
+from polygon_identity import report_polygon_identity
 
 DATASET_ROWS = "data/dataset_rows.jsonl"
 OUT_DIR = "data/next_batch"
@@ -73,19 +62,25 @@ OUT_DIR = "data/next_batch"
 # it. Below this the model is hedging and the "contradiction" is noise.
 CONTRADICTION_MIN_SCORE = 0.5
 
-# Pl@ntNet was sent a fixed 1280x1280 centre crop, which is 13.7% of the 4000x3000
-# frame, while the field label comes from a crown box drawn anywhere in that frame.
-# So a "contradiction" can mean the model named a *different* tree correctly. A
-# row is only a real contradiction when the field label is the species that
-# dominates the crop the model was actually sent.
-CONTRADICTION_MIN_COVERAGE = 0.5
+# Pl@ntNet was sent a fixed centre crop of each frame, while the field label
+# comes from a crown box drawn anywhere in that frame. So a "contradiction" can
+# mean the model named a *different* tree correctly. A row is only a real
+# contradiction when the field label is the species that dominates the crop the
+# model was actually sent.
+#
+# Same threshold as the one dashboard/ reports in coverage_gate.csv, and it is
+# the same question, so it is the same constant rather than a second 0.5.
+CONTRADICTION_MIN_COVERAGE = hc.MIN_CROP_COVERAGE
 
 # Verdicts assigned by build_contradiction_queue, best first. Only ``send`` rows
 # are a disagreement about one tree; the rest are crop artifacts or unprovable.
 VERDICT_ORDER = ("send", "low_coverage", "other_crown", "unknown_geometry")
 
-# Radii tried when testing whether drone position identifies a crown.
-GPS_CLUSTER_RADII_M = (5, 10, 20)
+# The one batch the botanists have worked so far. The report divides the
+# unsent pool by it, because "15 batches like the one you know" is a size a
+# reader can hold and a four-digit photo count is not. The pool itself is not
+# named here: it moves with the queue, and the report is what counts it.
+PILOT_BATCH_PHOTOS = 213
 
 
 def parse_args(argv=None):
@@ -110,55 +105,11 @@ def basename(global_key: str) -> str:
     project use ``migrated/NAME``, and rows uploaded by the current ingest use
     ``<flight_folder>/NAME``. The bare file name is the only id the three share.
     """
-    return global_key.rsplit("/", 1)[-1].removeprefix("comb_")
+    return global_key.rsplit("/", 1)[-1].removeprefix(hc.GT_KEY_PREFIX)
 
 
 def sensor_of(mission: str) -> str:
     return mission.rsplit("_", 1)[-1] if "_" in mission else ""
-
-
-def gps_of(row: dict):
-    point = (row.get("media_attributes") or {}).get("gpsPoint")
-    if not point:
-        return None
-    lat, lon = point.split(",")
-    return float(lat), float(lon)
-
-
-def gps_clusters(rows: list[dict], radius_m: float) -> dict:
-    """Single-link cluster of photos by drone position, at ``radius_m``.
-
-    A plain grid would split one true cluster across a cell boundary and then
-    report it as two pure clusters, which flatters the purity test it feeds.
-    Neighbouring occupied cells are therefore merged.
-    """
-    cells = defaultdict(list)
-    for row in rows:
-        lat, lon = gps_of(row)
-        cells[(int(lat * 111320.0 // radius_m),
-               int(lon * 111320.0 * math.cos(math.radians(lat)) // radius_m)
-               )].append(row)
-
-    parent = {key: key for key in cells}
-
-    def find(key):
-        while parent[key] != key:
-            parent[key] = parent[parent[key]]
-            key = parent[key]
-        return key
-
-    for cx, cy in list(cells):
-        for dx, dy in ((0, 1), (1, -1), (1, 0), (1, 1)):
-            neighbour = (cx + dx, cy + dy)
-            if neighbour in cells:
-                root_a, root_b = find((cx, cy)), find(neighbour)
-                if root_a != root_b:
-                    parent[root_a] = root_b
-
-    merged = defaultdict(list)
-    for key, members in cells.items():
-        merged[find(key)].extend(members)
-    return merged
 
 
 def load_dataset_rows(path: str) -> list[dict]:
@@ -226,87 +177,8 @@ def reconcile(dataset_rows: list[dict], in_project: dict, log) -> list[dict]:
     return unlabelled
 
 
-def report_polygon_identity(dataset_rows: list[dict], log) -> None:
-    """Record that no crown identity is recoverable from this metadata.
-
-    Two proxies suggest themselves and both are wrong. Writing the test down
-    matters more than the queue it rules out: without it the next person spends
-    the same day rediscovering that ``polygon`` looks like a tree id.
-    """
-    log("--- CAN WE TELL WHICH CROWN A PHOTO SHOWS? (no) ---")
-
-    by_polygon = defaultdict(list)
-    for row in dataset_rows:
-        by_polygon[row["metadata"].get("polygon")].append(row)
-    shared = [rows for rows in by_polygon.values() if len(rows) > 1]
-    reused_across_missions = sum(
-        1 for rows in shared
-        if len({r["metadata"].get("mission") for r in rows}) == len(rows))
-
-    # If `polygon` named a tree, two photos sharing one would sit on top of each
-    # other. Compare their separation against random pairs from the same site.
-    def metres(a, b):
-        return math.hypot((a[0] - b[0]) * 111320.0,
-                          (a[1] - b[1]) * 111320.0 * math.cos(math.radians(a[0])))
-
-    same, rnd = [], []
-    for rows in shared:
-        points = [gps_of(r) for r in rows if gps_of(r)]
-        same.extend(metres(points[i], points[i + 1])
-                    for i in range(len(points) - 1))
-    located = [r for r in dataset_rows if gps_of(r)]
-    rng = random.Random(0)
-    for _ in range(3000):
-        a, b = rng.sample(located, 2)
-        rnd.append(metres(gps_of(a), gps_of(b)))
-    def median(values):
-        return sorted(values)[len(values) // 2] if values else float("nan")
-
-    log(f"'polygon' values                      : {len(by_polygon)} distinct, "
-        f"range {min(by_polygon)}-{max(by_polygon)}")
-    log(f"  shared by >1 photo                  : {len(shared)}")
-    log(f"  ... always from different missions  : {reused_across_missions}")
-    log(f"  median separation, same polygon     : {median(same):.0f} m")
-    log(f"  median separation, random pair      : {median(rnd):.0f} m")
-    log("  Identical. 'polygon' is the waypoint index within one flight (it is")
-    log("  the number in the file name), not a tree. Deduplicating on it would")
-    log("  merge trees kilometres apart.")
-
-    # Second proxy: drone position. Score it on the only truth available -- do
-    # co-located photos carry the same botanist label?
-    gt = {}
-    for row in hc.read_csv_rows(hc.GT_CSV):
-        gt[basename(row["global_key"])] = row["wcvp_canonical_name"]
-    for radius in GPS_CLUSTER_RADII_M:
-        cells = gps_clusters(located, radius)
-        pure = impure = 0
-        for members in cells.values():
-            names = {gt[basename(r["global_key"])] for r in members
-                     if basename(r["global_key"]) in gt}
-            if len([r for r in members if basename(r["global_key"]) in gt]) >= 2:
-                pure += len(names) == 1
-                impure += len(names) > 1
-        total = pure + impure
-        log(f"  GPS cells at {radius:2} m                   : {len(cells)} cells, "
-            f"same-species purity {hc.pct(pure, total) if total else 'n/a'} "
-            f"({pure}/{total} multi-label cells)")
-    log("  Drone position is where the aircraft hovered, not where the crown is,")
-    log("  so co-location does not mean same tree either.")
-    log("  Nor is 'polygon' a census tag. Checked offline against the 7,688-crown")
-    log("  combined_crownmaps_2025 (speciesfirst-docs): matching polygon to Tag")
-    log("  puts photo and crown 2577 m apart at the median, worse than the 897 m")
-    log("  to the nearest crown of any tag; scoping the match to the crown map's")
-    log("  own plot resolves 72 of 1744 photos, still 315 m out. Whatever numbers")
-    log("  the mission planner writes into the file name, they are not that map.")
-    log("  A point-in-polygon join would need the camera footprint (gimbal yaw and")
-    log("  pitch, focal length, altitude, and a canopy height model) rather than")
-    log("  the drone's own coordinate. The cheap route is the waypoint-to-crown")
-    log("  table the flight planner already had. Ask for it before rebuilding it.")
-    log("")
-
-
 def build_mission_queue(unlabelled: list[dict], log) -> list[dict]:
-    """The 32 unsent flights, largest first. The unit the team already uses."""
+    """The unsent flights, largest first. The unit the team already uses."""
     by_mission = defaultdict(list)
     for row in unlabelled:
         by_mission[row["metadata"].get("mission")].append(row)
@@ -336,7 +208,8 @@ def build_mission_queue(unlabelled: list[dict], log) -> list[dict]:
     log(f"  by sensor (missions)                : "
         f"{', '.join(f'{k}={v}' for k, v in sorted(sensors.items()))}")
     log("  For scale, the one pilot batch the botanists are working through is")
-    log("  213 photos and is still in review. The unsent pool is 15 such batches.")
+    log(f"  {PILOT_BATCH_PHOTOS} photos and is still in review. The unsent pool is "
+        f"{round(len(unlabelled) / PILOT_BATCH_PHOTOS)} such batches.")
     log("")
     return missions
 
@@ -404,7 +277,7 @@ def crop_verdict(rec: dict, top1_name: str, min_coverage: float) -> str:
 def build_contradiction_queue(dataset_rows: list[dict], min_score: float,
                               min_coverage: float, log) -> list[dict]:
     """Field label vs Pl@ntNet top-1, resolved onto live dataset global keys."""
-    health = hc.load_health()
+    health = hl.load_health()
     by_basename = {basename(r["global_key"]): r for r in dataset_rows}
 
     queue, unresolved = [], 0
@@ -459,7 +332,9 @@ def build_contradiction_queue(dataset_rows: list[dict], min_score: float,
         f"{sum(1 for r in queue if r['field_label_absent_from_top5'])} have the field")
     log("  label nowhere in the model's top 5, which is the sharper disagreement.")
     log("")
-    log("  Pl@ntNet saw a 1280x1280 centre crop, 13.7% of the 4000x3000 frame.")
+    log(f"  Pl@ntNet saw a {co.CROP_SIZE}x{co.CROP_SIZE} centre crop, "
+        f"{100 * co.CROP_SIZE ** 2 / (co.FRAME_W * co.FRAME_H):.1f}% of the "
+        f"{co.FRAME_W}x{co.FRAME_H} frame.")
     log("  The field label comes from a crown box drawn anywhere in that frame,")
     log("  so a disagreement can mean the model named a different tree correctly.")
     log(f"  send             : {tally['send']:3d}  field label dominates the crop, "
@@ -478,6 +353,8 @@ def build_contradiction_queue(dataset_rows: list[dict], min_score: float,
 
 
 def main(argv=None) -> int:
+    """Everything printed here also lands in report.txt, because the reader of
+    this queue is usually not the person who ran it."""
     args = parse_args(argv)
     lines: list[str] = []
 
@@ -495,7 +372,7 @@ def main(argv=None) -> int:
     log(f"project export    : {args.export}")
     log("")
     unlabelled = reconcile(dataset_rows, in_project, log)
-    report_polygon_identity(dataset_rows, log)
+    report_polygon_identity(dataset_rows, log, basename)
     missions = build_mission_queue(unlabelled, log)
     photos = build_photo_queue(unlabelled, missions)
     contradictions = build_contradiction_queue(dataset_rows, args.min_score,

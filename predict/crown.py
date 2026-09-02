@@ -1,23 +1,16 @@
 """
-Phase 18a - Pl@ntNet predictions per CROWN instead of per photo.
+Pl@ntNet predictions per crown instead of per photo.
 
-13a sends a fixed 1280 square cut from the centre of each base frame, so a
-prediction is scored against crown labels that may lie entirely outside the
+predict/photo.py sends a fixed square cut from the centre of each base frame, so
+a prediction is scored against crown labels that may lie entirely outside the
 region the model saw. This script sends each labelled crown's own pixels, which
-removes the mismatch instead of filtering around it: the unit of prediction and
-the unit of ground truth become the same object.
+removes the mismatch instead of filtering around it, and stores the geometry it
+used: photo.py and the ingest script both computed crop offsets and discarded
+them, so the region had to be reconstructed afterwards from the box file.
 
-It also stores the geometry it used. 13a and the ingest script both computed crop
-offsets and discarded them, which is why the region had to be reconstructed
-afterwards from the box file.
-
-Costs 1 credit per crown. The identify quota is 10,000/day, so a full run over
-every labelled crown spans more than one day: the run is resumable and stops
-cleanly at --max-calls or on HTTP 429, and re-running continues where it left
-off. Frames are downloaded once and reused across the crowns they contain.
-
-Nothing is sent until --run is passed. Without it the script reports the plan,
-the credit cost and the join rates, and exits.
+Costs 1 credit per crown, against a quota of 10,000/day, so a full run spans
+more than one day. It is resumable: cached crowns are skipped, and nothing is
+sent until --run is passed.
 
 Input:
   input/boxes/crop_bounding_boxes.csv                 - crown boxes in frame pixels
@@ -29,7 +22,7 @@ Output:
 
 Usage:
   python predict/crown.py
-  python predict/crown.py --run --max-calls 9500
+  python predict/crown.py --run
   python predict/crown.py --run --sample 500          # size-spanning pilot
   python predict/crown.py --run --frame-paired 700    # paired crown-vs-crop pilot
 """
@@ -65,17 +58,24 @@ DATASET_ROWS = REPO / "data" / "dataset_rows.jsonl"
 # Pl@ntNet would be identifying texture rather than a plant.
 MIN_BOX_SIDE = 128
 
+# Pl@ntNet's own window on a frame, the one it slides when it surveys a whole
+# image (predict/ingest_photos.py records the measurement). The sample line
+# below counts crowns smaller than that, which are crowns smaller than what the
+# model looks at in one step. It was the number 518 typed into the comparison
+# and again into the words beside it.
+TILE_WINDOW_PX = 518
+
 # Identify quota is 10,000/day. Stop below it so a run never trips the limit
 # mid-crown and leaves a half-written cache entry.
 DEFAULT_MAX_CALLS = 9500
 DEFAULT_DELAY = 0.5
 
 
-def _load_13a():
-    """Reuse 13a's API client rather than restating it.
+def _load_photo_script():
+    """Reuse predict/photo.py's API client rather than restating it.
 
-    Module name starts with a digit so it cannot be imported normally; the
-    by-path import is the same idiom build_export_only.py uses.
+    Loaded by path, not by package import: predict/ holds no __init__.py, so it
+    is not a package on the normal path. Same idiom build_export_only.py uses.
     """
     path = REPO / "predict" / "photo.py"
     spec = importlib.util.spec_from_file_location("_predict_photo", path)
@@ -296,7 +296,8 @@ def frame_paired_todo(frames, urls, n_frames, seed, cache_dir, min_box_side):
     return out, len(eligible)
 
 
-def main(argv=None) -> int | None:
+def parse_args(argv=None):
+    """Every knob the run has, and what each one costs."""
     ap = argparse.ArgumentParser(description="Pl@ntNet predictions per crown.")
     ap.add_argument("--run", action="store_true",
                     help="actually call the API and spend credits")
@@ -305,95 +306,78 @@ def main(argv=None) -> int | None:
     ap.add_argument("--delay", type=float, default=DEFAULT_DELAY)
     ap.add_argument("--min-box-side", type=int, default=MIN_BOX_SIDE)
     ap.add_argument("--frame-paired", type=int, metavar="N_FRAMES",
-                    help="pilot on N frames, up to 2 crowns each, for the paired "
-                         "crown-vs-centre-crop test")
+                    help="pilot on N frames, up to 2 crowns each, for the "
+                         "paired crown-vs-centre-crop test")
     ap.add_argument("--sample", type=int,
                     help="pilot on this many crowns, spread over box sizes")
     ap.add_argument("--sample-frames", type=int, default=100,
                     help="frames the sample is drawn from (default 100)")
     ap.add_argument("--boxes-csv", default=str(BOXES_CSV),
-                    help="crown geometry. Default is the 2024 file, which "
-                         "predates the July 2026 revision; pass "
+                    help="crown geometry. The default is the 2024 file; pass "
                          "data/export_boxes.csv for current geometry")
     ap.add_argument("--frames-csv", default=str(FRAMES_CSV),
                     help="frame URLs (global_key,image_url)")
     ap.add_argument("--frames-jsonl", default=str(DATASET_ROWS),
-                    help="dataset inventory, used for frames the frame list does "
-                         "not carry")
+                    help="dataset inventory, for frames the frame list lacks")
     ap.add_argument("--allow-missing-frames", action="store_true",
-                    help="proceed even though some boxes have no resolvable frame "
-                         "URL; without this a run that would drop them exits 2")
+                    help="proceed even though some boxes have no frame URL; "
+                         "without this such a run exits 2")
     ap.add_argument("--only-frames", metavar="FILE",
                     help="restrict to the base_image names in FILE, one per "
-                         "line. Lets a specific question be answered for a few "
-                         "hundred credits instead of running the whole corpus")
+                         "line, to answer one question cheaply")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out-dir", default=None,
-                    help="where the cache and run log go. Give a separate "
-                         "directory when re-cutting the same crowns from "
-                         "different box geometry, so the two runs stay "
-                         "comparable instead of mixing in one cache")
-    args = ap.parse_args(argv)
+                    help="where the cache and run log go. Give a separate one "
+                         "per box geometry, so two runs stay comparable "
+                         "instead of mixing in a single cache")
+    return ap.parse_args(argv)
 
-    load_dotenv(REPO / ".env")
-    with open(REPO / "config.yaml") as fh:
-        config = yaml.safe_load(fh)
 
-    out_dir = Path(args.out_dir) if args.out_dir else REPO / "data" / "crowns"
-    cache_dir = out_dir / "cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
+def open_run_log(path):
+    """Print and append at once, so a long run can be tailed while it is alive.
 
-    frames, dupes = load_crowns(args.boxes_csv)
-    urls = load_frame_urls(args.frames_csv, args.frames_jsonl)
-
-    # Applied before anything is counted, so the PLAN block reports the cost of
-    # the restricted job rather than the whole corpus.
-    only = None
-    if args.only_frames:
-        with open(args.only_frames, encoding="utf-8") as fh:
-            only = {line.strip() for line in fh if line.strip()}
-        frames = {b: v for b, v in frames.items() if b in only}
-
-    n_boxes = sum(len(v) for v in frames.values())
-
-    # Truncated up front, then appended to on every log() call below, so a
-    # background run can be tailed while it is alive instead of only reading
-    # back once the process has already exited.
-    run_log_path = out_dir / "run_log.txt"
-    run_log_path.write_text("", encoding="utf-8")
+    The file is truncated here and appended to on every call, rather than
+    written at the end: a run that spans a quota reset is one nobody watches to
+    completion.
+    """
+    path.write_text("", encoding="utf-8")
 
     def log(msg=""):
         print(msg, flush=True)
-        with open(run_log_path, "a", encoding="utf-8") as fh:
+        with open(path, "a", encoding="utf-8") as fh:
             fh.write(msg + "\n")
 
+    return log
+
+
+def report_input(log, args, frames, dupes, urls, only):
+    """What the box file and the frame list gave us, before any planning."""
     log("--- INPUT ---")
     if only is not None:
         log(f"  RESTRICTED to {len(only)} frames from {args.only_frames}")
-    log(f"  frames with boxes            : {len(frames)}")
-    log(f"  distinct crowns              : {n_boxes}  ({dupes} duplicate rows collapsed)")
-    log(f"  frames with a known URL      : {sum(1 for b in frames if b in urls)}")
     matched = sum(1 for b in frames if b in urls)
+    log(f"  frames with boxes            : {len(frames)}")
+    log(f"  distinct crowns              : {sum(len(v) for v in frames.values())}"
+        f"  ({dupes} duplicate rows collapsed)")
+    log(f"  frames with a known URL      : {matched}")
     if matched < len(frames):
         log(f"  WARNING frames with no URL   : {len(frames) - matched}, their crowns "
             "cannot be fetched")
 
-    todo, dropped = plan(frames, urls, cache_dir, args.min_box_side)
-    n_eligible = None
-    if args.frame_paired:
-        todo, n_eligible = frame_paired_todo(
-            frames, urls, args.frame_paired, args.seed, cache_dir, args.min_box_side)
-    elif args.sample:
-        todo = sample_todo(todo, args.sample, args.sample_frames, args.seed)
+
+def report_plan(log, args, frames, urls, todo, dropped, n_eligible):
+    """The credit cost of the job, and the one condition that refuses to run.
+
+    Returns 2 when frames would be dropped silently, otherwise None. A run that
+    cannot resolve a frame drops every crown of that frame and still reports
+    "requested ok: 0, errors: 0", which reads as a completed job. Six such runs
+    against the tele frames looked like success and cost three days.
+    """
     log("")
     log("--- PLAN ---")
     log(f"  already cached               : {dropped['cached']}")
     log(f"  skipped, side < {args.min_box_side} px      : {dropped['too_small']}")
     log(f"  skipped, no frame URL        : {dropped['no_frame_url']}")
-    # A run that cannot resolve a frame drops every crown of that frame and
-    # still reports "requested ok: 0, errors: 0", which reads as a completed
-    # job. Six such runs against the tele frames looked like success and cost
-    # three days. Refuse to be that quiet.
     if dropped["no_frame_url"] and not args.allow_missing_frames:
         unresolved = sorted({b for b in frames
                              if not (urls.get(b) or urls.get(b.split("/")[-1]))})
@@ -414,38 +398,36 @@ def main(argv=None) -> int | None:
             f"(species-level GT, a photo-cache entry, and a crown of that species)")
         log(f"  frames drawn                   : {n_f}")
         log(f"  frames giving a second crown   : {len(todo) - n_f}")
-    if args.sample and not args.frame_paired:
+    elif args.sample:
         sides = sorted(min(t[2][2] - t[2][0], t[2][3] - t[2][1]) for t in todo)
         log(f"  SAMPLE of {args.sample} over {args.sample_frames} frames, seed {args.seed}")
         if sides:
             log(f"  sampled shorter side px      : min {sides[0]}, "
                 f"median {sides[len(sides) // 2]}, max {sides[-1]}")
-            log(f"  sampled below 518 px         : "
-                f"{sum(1 for s in sides if s < 518)} of {len(sides)}")
+            log(f"  sampled below {TILE_WINDOW_PX} px         : "
+                f"{sum(1 for s in sides if s < TILE_WINDOW_PX)} of {len(sides)}")
     log(f"  to request                   : {len(todo)}  (1 credit each)")
     log(f"  this run will stop after     : {min(len(todo), args.max_calls)} calls")
     log(f"  frames to download           : {len({t[0] for t in todo[:args.max_calls]})}")
+    return None
 
-    if not args.run:
-        log("")
-        log("  DRY RUN. No credits spent. Pass --run to send.")
-        return
 
-    api_key = os.environ.get("PLANTNET_API_KEY")
-    if not api_key:
-        sys.exit("ERROR: PLANTNET_API_KEY not found in .env")
+def fetch_crowns(log, args, todo, cache_dir, cfg, api_key):
+    """Send each crown, cache the answer with the geometry it was cut from.
 
-    pn = _load_13a()
-    cfg = config["plantnet"]
+    One frame is held at a time and the work is sorted by frame, so a frame
+    carrying eight crowns is downloaded once. A bad crown is logged and skipped;
+    a spent quota stops the run cleanly, and the cache makes the next one resume.
+    """
+    pn = _load_photo_script()
     api_url = cfg["identify_url"]
-
     log("")
     log("--- RUN ---")
     ok = errors = 0
     frame_cache: tuple = (None, None)  # one frame at a time, keyed by name
     todo.sort(key=lambda t: t[0])      # group by frame so each is fetched once
 
-    for i, (base, url, box) in enumerate(todo[:args.max_calls]):
+    for base, url, box in todo[:args.max_calls]:
         cid = crown_id(base, box)
         try:
             if frame_cache[0] != base:
@@ -453,12 +435,12 @@ def main(argv=None) -> int | None:
             jpeg, frame_w, frame_h = crop_box(frame_cache[1], box)
             resp = pn.call_identify_api(
                 jpeg, f"{cid}.jpg", api_url, api_key,
-                cfg.get("identify_nb_results", 5),
-                cfg.get("identify_organs", "auto"),
-                cfg.get("identify_lang", "en"),
+                cfg["identify_nb_results"],
+                cfg["identify_organs"],
+                cfg["identify_lang"],
             )
             entry = pn.parse_response(resp, cid, url, frame_w, frame_h, None)
-            # The geometry 13a threw away. Without these fields the region the
+            # The geometry photo.py threw away. Without these fields the region the
             # model saw cannot be recovered from the cache alone.
             entry.update({
                 "base_image": base,
@@ -487,6 +469,55 @@ def main(argv=None) -> int | None:
     log(f"  requested ok : {ok}")
     log(f"  errors       : {errors}")
     log(f"  cache        : {cache_dir}")
+
+
+def main(argv=None) -> int | None:
+    """Report the plan, and send only if --run says to."""
+    args = parse_args(argv)
+    load_dotenv(REPO / ".env")
+    with open(REPO / "config.yaml") as fh:
+        config = yaml.safe_load(fh)
+
+    out_dir = Path(args.out_dir) if args.out_dir else REPO / "data" / "crowns"
+    cache_dir = out_dir / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    log = open_run_log(out_dir / "run_log.txt")
+
+    frames, dupes = load_crowns(args.boxes_csv)
+    urls = load_frame_urls(args.frames_csv, args.frames_jsonl)
+
+    # Applied before anything is counted, so the PLAN block reports the cost of
+    # the restricted job rather than the whole corpus.
+    only = None
+    if args.only_frames:
+        with open(args.only_frames, encoding="utf-8") as fh:
+            only = {line.strip() for line in fh if line.strip()}
+        frames = {b: v for b, v in frames.items() if b in only}
+
+    report_input(log, args, frames, dupes, urls, only)
+
+    todo, dropped = plan(frames, urls, cache_dir, args.min_box_side)
+    n_eligible = None
+    if args.frame_paired:
+        todo, n_eligible = frame_paired_todo(
+            frames, urls, args.frame_paired, args.seed, cache_dir, args.min_box_side)
+    elif args.sample:
+        todo = sample_todo(todo, args.sample, args.sample_frames, args.seed)
+
+    refused = report_plan(log, args, frames, urls, todo, dropped, n_eligible)
+    if refused is not None:
+        return refused
+
+    if not args.run:
+        log("")
+        log("  DRY RUN. No credits spent. Pass --run to send.")
+        return None
+
+    api_key = os.environ.get("PLANTNET_API_KEY")
+    if not api_key:
+        sys.exit("ERROR: PLANTNET_API_KEY not found in .env")
+    fetch_crowns(log, args, todo, cache_dir, config["plantnet"], api_key)
+    return None
 
 
 if __name__ == "__main__":

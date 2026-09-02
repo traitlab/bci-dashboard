@@ -1,56 +1,85 @@
-#!/usr/bin/env python3
-"""Prose panels for the model-health dashboard.
+"""The model-health panels that are mostly explanation, not measurement.
 
-Two panels that are mostly explanation rather than measurement live here, so
-the page builders stay page assemblers:
-
-- ``weighting_panel`` answers the question the two headline numbers always
-  provoke, namely how one model can score 81% and 56% at once.
-- ``method_panel`` names the model, the request settings, and the assumption
-  that cannot be checked offline.
-
-Every figure either arrives already verified from ``core`` or is
-recomputed here from the same records. Nothing is hardcoded.
+``weighting_panel`` answers how one model scores two rates far apart at once,
+counting species or counting frames; ``method_panel`` names the model, settings,
+and the untestable assumption. Every figure is verified from ``core`` or
+recomputed from the same records, so no rate is hardcoded here.
 """
 
 from collections import Counter
 from statistics import median
 
 import core as hc
-from assets import cap, esc, panel, pctf, svg_hbar, svg_weight_pair
+from assets import esc, panel, pctf, svg_hbar, svg_weight_pair
+from crop_overlap import CROP_SIZE
+
+# Said in two panels a reader can open independently, the species table and the
+# candidates panel. Written once so the two cannot say it in two voices.
+CONFIDENCE_IS_SHARED = ("Pl@ntNet spreads 100% of its confidence across every "
+                        "species it knows.")
 
 # One colour and name per labelled-frame band, both bars of the weighting chart.
 # All 4.5:1 against white so the in-bar number is readable.
 #
-# Known limitation: the ramp does not order by lightness (luminance 0.110, 0.180,
-# 0.168, 0.175, 0.083; the two ends are the closest pair at 1.20:1), so without
-# hue it carries no order. Fixing that is a new palette, not a contrast tweak.
+# Known limitation: the ramp does not order by lightness (luminance 0.110, 0.179,
+# 0.168, 0.175, 0.083; the two ends sit at 1.20:1 and the closest pair, 2-4
+# against 10-24, at 1.02:1), so without hue it carries no order. Fixing that is a
+# new palette, not a contrast tweak.
 BAND_COLOR = {"1": "#b71c1c", "2-4": "#d44215", "5-9": "#8d6e00",
               "10-24": "#4f812c", "25+": "#1b5e20"}
-BAND_WORD = {"1": "1 frame", "2-4": "2 to 4 frames", "5-9": "5 to 9 frames",
-             "10-24": "10 to 24 frames", "25+": "25 or more frames"}
-# The same bands, short enough for a chart row label. Built as f"{key} frames"
-# they read "1 frames" for the band holding 51 of the 186 species.
-BAND_SHORT = {"1": "1 frame", "2-4": "2-4 frames", "5-9": "5-9 frames",
-              "10-24": "10-24 frames", "25+": "25+ frames"}
+def _band_words():
+    """Each labelled-frame band in words, and short enough for a chart label.
 
-# Frames at or below this many labels are "thin" in the near-miss comparison.
-THIN_MAX = 4
-FAT_MIN = 25
+    Built from ``hc.SUPPORT_BUCKETS``: retyped, "2 to 4 frames" keeps saying 4
+    after the band moves. The singular keeps this off ``f"{label} frames"``,
+    which would read "1 frames".
+    """
+    long_, short = {}, {}
+    for lo, hi, lab in hc.SUPPORT_BUCKETS:
+        noun = "frame" if hi == 1 else "frames"
+        long_[lab] = (f"{lo} {noun}" if lo == hi
+                      else f"{lo} or more {noun}" if hi >= hc.NO_UPPER_BOUND
+                      else f"{lo} to {hi} {noun}")
+        short[lab] = f"{lab} {noun}"
+    return long_, short
+
+
+BAND_WORD, BAND_SHORT = _band_words()
+
+def _conf_band_words():
+    """"0.7 to 0.8", not "[0.7,0.8)": a botanist has no reason to know interval
+    notation. Built from ``hc.CONF_BINS`` so a changed band cannot leave a stale
+    phrase behind."""
+    words = {}
+    for lo, hi in hc.CONF_BINS:
+        hi = min(hi, 1.0)
+        words[f"[{lo:.1f},{hi:.1f})"] = (
+            f"under {hi:.1f}" if lo == 0.0
+            else f"{lo:.1f} and up" if hi >= 1.0
+            else f"{lo:.1f} to {hi:.1f}")
+    return words
+
+
+CONF_BAND_WORDS = _conf_band_words()
+
+# The two ends of the near-miss comparison, read off the bands: the upper edge
+# of the second band and the lower edge of the last. The prose below prints both.
+THIN_MAX = hc.SUPPORT_BUCKETS[1][1]
+FAT_MIN = hc.SUPPORT_BUCKETS[-1][0]
 
 
 def _near_miss(recs):
     """Wrong first guesses, and the share whose right answer is still listed."""
     wrong = [r for r in recs if r["ranked"][0][0] != r["gt"]]
-    got = sum(1 for r in wrong if r["gt"] in [b for b, _ in r["ranked"][:5]])
+    got = sum(1 for r in wrong if r["gt"] in
+              [b for b, _ in r["ranked"][:hc.N_CANDIDATES]])
     return len(wrong), got / len(wrong) if wrong else 0.0
 
 
-def candidates_panel(*, recs, gen_n, gen_none):
-    """Where the five-candidate limit comes from, and what it hides.
-
-    ``recs`` is every frame that got a prediction, species-level or not, so the
-    list-length picture covers the same photos the rest of the page scores.
+def candidates_panel(*, recs, n_scored, gen_n, gen_none):
+    """Where the five-candidate limit comes from, and what it hides. ``recs``
+    is every frame with a prediction, species-level or not: a slightly
+    larger set than ``n_scored``, the frames accuracy is measured on.
     """
     lens = Counter(len(r["ranked"]) for r in recs)
     top = max(lens)
@@ -58,8 +87,7 @@ def candidates_panel(*, recs, gen_n, gen_none):
     rows = [(f"{k} guess{'' if k == 1 else 'es'}", lens[k] / len(recs),
              f"{lens[k]:,} frames", "#1b5e20" if k == top else "#78909c")
             for k in range(1, top + 1) if lens[k]]
-    # Two cuts, one from each end: our nb-results, and Pl@ntNet's floor on a
-    # candidate worth returning, which is why a list can come back short.
+    # Two cuts, one from each end: our nb-results and Pl@ntNet's own floor.
     scores = [s for r in recs for _, s in r["ranked"]]
     floor = min(scores)
     # What makes it a floor rather than a coincidence: dense right above, stopping
@@ -76,62 +104,66 @@ def candidates_panel(*, recs, gen_n, gen_none):
     shortest = min(hidden)
     middles = [k for k in sorted(hidden) if shortest < k < top]
     mid = middles[len(middles) // 2] if middles else None
-    mid_clause = (f", a {mid}-guess photo {pctf(1 - hidden[mid])}" if mid else "")
+    mid_clause = (f", and {pctf(1 - hidden[mid])} when it returns {mid}" if mid else "")
     return panel(
         f"Why only {top} guesses per photo, and what that hides",
         f"<b>Two different limits cut that list, one at each end.</b> We asked for the best "
-        f"{top}, and Pl@ntNet drops anything it scores below {floor:.1%} whether we asked for "
+        f"{top}, and Pl@ntNet drops anything it scores below {floor:.3f} whether we asked "
+        f"for "
         f"it or not. Both put a ceiling on the numbers above.",
         # Explicit: the summary states the list length, which is a fetch setting
         # rather than a fixed fact, so it must not decide the anchor.
-        f'<p class="note">Every request carried <code>nb-results={top}</code>: reply with your '
-        f'{top} best guesses, best first. Pl@ntNet documents the setting only as a way to '
-        f'"restrict size of output list of probable species", with no published maximum and no '
-        f'published default, so the ceiling on a longer request is however many candidates the '
-        f'model has for the photo. The {top} is an inherited <code>config.yaml</code> value '
-        f'(<code>identify_nb_results: {top}</code>) with no recorded rationale, a setting to '
-        f'revisit rather than a property of the model.</p>'
+        f'<p class="note">Every request carried <code>nb-results={top}</code>: reply with '
+        f'your {top} best guesses, best first. Pl@ntNet publishes no maximum and no default '
+        f'for it, so a longer list would be capped only by how many candidates the model '
+        f'has. We chose the {top}. It is a setting in our own <code>config.yaml</code> '
+        f'(<code>identify_nb_results</code>), nobody wrote down why, and we can change it. '
+        f'It is not a limit of the model.</p>'
+        + f'<p class="note">The chart below counts the {len(recs):,} labelled frames that '
+          f'have a cached Pl@ntNet answer. That is more than the {n_scored:,} frames the '
+          f'accuracy rates are measured on. A list length can be read off a frame whose '
+          f'label stops at the genus, but an accuracy cannot.</p>'
         + svg_hbar(rows, title=f"how long the returned list actually was, {len(recs):,} frames")
         + f'<p class="note">{full:,} of {len(recs):,} photos came back with a full {top} '
-          f'({pctf(full / len(recs))}) and none came back with more. The shorter lists are the '
-          f'other cut: <b>Pl@ntNet never returns a species it scores below {floor:.1%}</b>. '
-          f'Of the {len(scores):,} guesses on this page, {just_above:,} score between '
-          f'{floor:.3f} and {2 * floor:.3f} and {at_floor} sit on exactly {floor:.3f}, and '
-          f'none goes lower. A model that simply had no smaller numbers would not stop dead '
-          f'on a round one, so a short list means fewer than {top} species cleared that '
-          f'bar.</p>'
-          f'<p class="note">Pl@ntNet spreads 100% of its confidence across every species it '
-          f'knows. A {shortest}-guess photo accounts for {pctf(1 - hidden[shortest])} of it'
-          f'{mid_clause}, and <b>a full list of {top} only '
-          f'{pctf(1 - hidden[top])}</b>: on those photos a typical {pctf(hidden[top])} of the '
-          f'confidence sits on species we never received, and on {half:,} of the {full:,} full '
-          f'lists ({pctf(half / full)}) more than half of it does.</p>'
+          f'({pctf(full / len(recs))}) and none came back with more. The shorter lists are '
+          # One notation only for the floor, not a percentage and a decimal.
+          f'the other cut: <b>Pl@ntNet never returns a species it scores below '
+          f'{floor:.3f}</b>. Of the {len(scores):,} guesses here, {at_floor} sit exactly on '
+          f'{floor:.3f} and {just_above:,} more just above it, under {2 * floor:.3f}. '
+          f'Nothing goes lower. A model that simply ran out of guesses would not stop dead '
+          f'on a round number, so {floor:.3f} is a cut-off Pl@ntNet applies. A short list '
+          f'means fewer than {top} '
+          f'species cleared it.</p>'
+          f'<p class="note">{CONFIDENCE_IS_SHARED} When it returns only {shortest}, '
+          f'that species holds '
+          f'{pctf(1 - hidden[shortest])} of the whole{mid_clause}. <b>When it returns a full '
+          f'{top}, those {top} hold only {pctf(1 - hidden[top])} between them</b>, so a '
+          f'typical {pctf(hidden[top])} sits on species we never received. On {half:,} of '
+          f'the {full:,} full lists ({pctf(half / full)}) more than half the confidence '
+          f'sits outside the {top}.</p>'
           f'<p class="note"><b>What the cap hides is a right answer in position {top + 1}</b>, '
           f'indistinguishable here from Pl@ntNet never having heard of the plant. Both look '
-          f'like a miss. The clearest symptom is among the {gen_n:,} frames whose botanist '
-          f'label stops at the genus: {gen_none:,} have no species from that genus anywhere in '
-          f'the {top}, and for a genus the model plainly knows, some of those sit in that '
-          f'unseen confidence.</p>'
+          f'like a miss.</p>'
+          f'<p class="note">The clearest symptom is among the {gen_n:,} frames whose botanist '
+          f'label stops at the genus. On {gen_none:,} of them no species from that genus '
+          f'appears anywhere in the {top}. For a genus the model plainly knows, some of those '
+          f'right answers are sitting in the confidence we never got to see.</p>'
           f'<p class="note">Raising it is not free. These answers are cached, so rebuilding '
-          f'this page costs nothing, but a longer list means asking Pl@ntNet again for every '
-          f'photo in the collection at one paid call each.</p>'
-          f'<p class="note"><b>If that call is made, ask for more than a longer list.</b> The '
-          f'same endpoint takes <code>detailed=true</code>, which returns "extra identification '
-          f'results such as results per family and results per genus" under '
-          f'<code>otherResults</code>. A genus label is scored here by chopping the genus off a '
-          f'predicted species name, and a family label cannot be scored offline at all; '
-          f'Pl@ntNet will state both directly if asked.</p>',
+          f'this page costs nothing. But a longer list means asking Pl@ntNet again for every '
+          f'photo in the collection, at one paid call each.</p>'
+          f'<p class="note"><b>If that call is made, ask for more than a longer list.</b> '
+          f'The same endpoint takes <code>detailed=true</code>, which also returns results '
+          f'per genus and per family. A genus label is scored here by chopping the genus off '
+          f'a predicted species name, and a family label cannot be scored offline at '
+          f'all.</p>',
         anchor="why-only-five-guesses-per-photo")
 
 
 def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
                     corpus_block):
-    """The four corpus-wide numbers, and why two of them disagree.
-
-    ``corpus_block`` is the grid of the four rates and the caveats they inherit,
-    built by the caller because they are page copy rather than a computation. They
-    live inside this panel so the numbers and the explanation of them have one home.
-    """
+    """The four corpus-wide rates, and why per-species and per-frame differ.
+    ``corpus_block`` is page copy, passed in by the caller so numbers and
+    explanation stay together."""
     rows = []
     for lab in hc.BUCKET_ORDER:
         b = buckets.get(lab)
@@ -148,83 +180,95 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
     well_micro = sum(1 for r in well if r["ranked"][0][0] == r["gt"]) / len(well)
     well_macro = sum(d["top1_accuracy"] for d in well_sp) / len(well_sp)
     gap = 100 * (now["micro_top1"] - now["macro_top1"])
-    big = max(per_species, key=lambda d: d["n_labelled_crowns"])
     singles = buckets[thin]["n_species"]
     return panel(
-        f"Every labelled frame, scored on the centre crop: four rates, and why "
-        f"{pctf(now['micro_top1'])} and {pctf(now['macro_top1'])} disagree",
-        "<b>Same model, same centre crops, two ways of averaging.</b>",
-        # No note restating the two rates: the summary names both, the headline cards
-        # state the distinction, and the chart labels its own bars with it.
+        "Every labelled frame, scored on the centre crop: four rates",
+        "<b>Quote the number at the top of the page, not these four.</b> These cover "
+        "every labelled frame instead of the frozen sample, so they answer a different "
+        "question. If you cite one of them anyway, cite the per-species rate, never the "
+        # What the two rates each ask is said once, next to the headline cards,
+        # where a reader is looking at the numbers it explains.
+        "per-frame one.",
         corpus_block
         + svg_weight_pair(rows,
                           label_a=f"one vote per species ({n_sp} votes)",
                           label_b=f"one vote per frame ({n:,} votes)")
-        + f'<p class="note">Picture {n_sp} classes, one per species, {n:,} students, one quiz. '
-          f'Count students and the big classes decide; score each class once and a class of one '
-          f'counts as much as <em>{esc(cap(big["species"]))}</em>\'s '
-          f'{big["n_labelled_crowns"]:,}. <b>Quote the per-species number: a labelling '
-          f'programme exists to move it.</b></p>'
-          f'<p class="note">The {singles} single-frame species fill '
-          f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the top bar and '
-          f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the bottom, and the key says why: '
-          f'{pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} right at one frame against '
-          f'{pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at {BAND_WORD[fat]} (rare in '
-          f'our labels usually means rare in Pl@ntNet\'s photos).</p>'
-          f'<p class="note">Misses differ at each end: the right name is still in the five for '
-          f'{pctf(thin_in5)} of misses on species with {THIN_MAX} frames or fewer ({thin_n}), '
-          f'against {pctf(fat_in5)} at {FAT_MIN}+ ({fat_n}). Misses on common species are near '
+          # Name the bars by their own labels, not by position: the second share
+          # is a sliver too thin to carry a printed label.
+        + f'<p class="note">The {singles} single-frame species are '
+          f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the '
+          f'one-vote-per-species bar but only '
+          f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the one-vote-per-frame one. '
+          f'That slice is too thin to label there. '
+          f'Pl@ntNet is right {pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} of the '
+          f'time on species we labelled once, against '
+          f'{pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at {BAND_WORD[fat]}.</p>'
+          # No cause asserted here: the warning block below gives that claim
+          # with its reason attached, where a reader can weigh it.
+          f'<p class="note">Misses differ at each end. On species with {THIN_MAX} frames '
+          f'or fewer, the right name is still in the {hc.N_CANDIDATES} for {pctf(thin_in5)} of '
+          f'{thin_n} misses. At {FAT_MIN}+ frames it is {pctf(fat_in5)} of {fat_n}. '
+          f'Misses on common '
+          f'species are near '
           f'misses settled from the short list; on rare ones the model does not know the '
           f'plant.</p>'
-          f'<p class="note"><b>Set aside species under {hc.WELL_SAMPLED_MIN_N} frames and the '
-          f'scores become {pctf(well_micro)} and {pctf(well_macro)}</b>, '
-          f'{100 * (well_micro - well_macro):.0f} points apart instead of {gap:.0f}. A '
+          f'<p class="note"><b>Set aside species under {hc.WELL_SAMPLED_MIN_N} frames and '
+          f'the scores become {pctf(well_micro)} per frame and {pctf(well_macro)} per '
+          f'species.</b> '
+          f'That is {100 * (well_micro - well_macro):.0f} points apart, instead of the '
+          f'{gap:.0f} between {pctf(now["micro_top1"])} and {pctf(now["macro_top1"])}. A '
           f'one-frame species scores only 0% or 100%, so those {singles} votes are coin '
-          f'flips.</p>',
+          f'flips.</p>'
+          f'<div class="warn"><strong>Read those rows as how common a species is, not as '
+          f'something labelling changed.</strong> These predictions come from a frozen '
+          f'Pl@ntNet regional '
+          f'model that has never seen a BCI label, so labelling a species does not make '
+          f'Pl@ntNet better at it. Common species simply have more reference photos '
+          f'inside Pl@ntNet already. Extra labels buy knowledge instead: below about '
+          f'{hc.WELL_SAMPLED_MIN_N} frames a per-species accuracy jumps around too much to '
+          f'act on, and above it the species has a score steady enough to rank work by.</div>',
         # Both headline rates are in the summary and both move every snapshot.
         anchor="why-the-two-headline-scores-differ")
 
 
-def method_panel(*, tag, n, n_sp, checks):
+def method_panel(*, tag, n, n_sp, n_cand, checks):
     """Model, request settings, evaluated set, and the untestable assumption."""
     body = ('<ul class="prov">'
-            f'<li>Predictions: <code>identify/k-central-america</code>, model run '
-            f'<code>{esc(tag)}</code>. The Central America regional model, not the '
-            f'worldwide one, so a regional restriction is already in place.</li>'
-            f'<li>Request settings: <code>nb-results=5</code>, sent explicitly on every '
-            f'request from <code>config.yaml</code> <code>identify_nb_results</code> and not '
-            f'an API default, plus <code>no-reject=true</code>, organs detected '
+            # The tag is `<endpoint-slug>@<run-name>`, so it already carries the
+            # endpoint; a typed one could not follow a move to another endpoint.
+            f'<li>Predictions: model run <code>{esc(tag)}</code>, the Central '
+            f'America regional model and not the worldwide one, so a regional '
+            f'restriction is already in place.</li>'
+            f'<li>Request settings: <code>nb-results={n_cand}</code>, '
+            f'plus <code>no-reject=true</code>, organs detected '
             f'automatically, and <code>include-related-images=false</code>, on a '
-            f'1280&nbsp;px centre crop of each frame photo. A correct answer at position 6 '
+            f'{CROP_SIZE}&nbsp;px centre crop of each frame photo. A correct answer at '
+            f'position '
+            f'{n_cand + 1} '
             f'or beyond was never returned and cannot be seen here.</li>'
             f'<li>Evaluated set: {n:,} frames across {n_sp} species carrying a botanist '
             f'label that names a species rather than only a genus. They are the historical '
-            f'labelling record, not a random draw, so these rates carry over to unlabelled '
-            f'frames only under an assumption that cannot be tested offline.</li>'
-            f'<li>{esc(hc.gt_provenance())} The merge keeps the newer label: where a '
-            f'photo carries one from that export it wins, everything else keeps the '
-            f'earlier offline label. That batch has had no review step on Labelbox yet. '
-            f'The line is read from the sidecar <code>labelling/gt_from_export.py</code> '
-            f'writes beside the ground truth, so it names the batch this page was built '
-            f'over rather than one fixed in the prose.</li>'
+            f'labelling record, not a random draw. These rates carry over to unlabelled '
+            f'frames only if unlabelled frames look like labelled ones, and that is not '
+            f'something we can check offline.</li>'
+            f'<li>Where the labels came from, in the merge script\u2019s own words. '
+            f'&ldquo;{esc(hc.gt_provenance())}&rdquo; The merge keeps the newer label, and '
+            f'that batch has had no review step on Labelbox yet. '
+            f'<code>labelling/gt_from_export.py</code> writes that line beside the label '
+            f'file, so it always names the batch this page was built over.</li>'
             f'<li>Snapshot: this page reports one dated '
             f'<code>model-health-&lt;date&gt;/</code> folder, the latest state, with no trend '
             f'over earlier folders. Its model tag is read from its own '
             f'<code>run_log.txt</code>, which records the endpoint and the model run '
             f'name.</li>'
-            '<li>Every number here is recomputed from the source data at build time and '
-            'cross-checked against the CSVs the measurement pass wrote into the snapshot '
-            'folder:<ul>'
-            + "".join(f"<li>{esc(c)}</li>" for c in checks)
-            + '</ul>A mismatch aborts the build.</li>'
-            '<li>Artifact: one HTML file that opens from a <code>file://</code> path, so it is '
-            'mailable, archivable next to the snapshot it describes, and readable by a '
-            'botanist or PI with no Python environment. It renders from the standard library '
-            'alone, so it needs no environment to rebuild either.</li>'
-            '<li>Rebuild: <code>python3 dashboard/measure.py</code> then '
-            '<code>python3 dashboard/build_external.py</code>. Standard library '
-            'only, same output every run, no network.</li></ul>')
-    return panel("How this was measured, and what it does not tell you",
+            f'<li>Every number here is recomputed from the source data at build time. '
+            f'It is then checked against the {len(checks)} CSVs the measurement pass '
+            f'wrote into the snapshot folder. A mismatch aborts the build.</li>'
+            # Build provenance is a maintainer's question, not a reader's. One
+            # line stays so an archived copy of this page says where to look.
+            '<li>Rebuild: see the README beside this dashboard&rsquo;s source.</li></ul>')
+    # This one is provenance: which model, which frames, which files.
+    return panel("How this was measured: the model, the frames, the files",
                  "<b>Read this before quoting any number outside the team.</b> It names "
                  "the model, the request settings, and the one assumption that cannot be "
-                 "checked offline.", body)
+                 "checked offline.", body, anchor="how-this-was-measured")

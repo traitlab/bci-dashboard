@@ -9,11 +9,11 @@ modifies, or moves existing resources. Follows the three-stage protocol
 (--test for 5 rows, then full).
 
 Usage:
-    # Stage 1 — test with 5 rows:
+    # Stage 1, test with 5 rows:
     python labelling/dispatch_round.py \\
         --round 1 --csv data/round_01_coreset_selection.csv --test
 
-    # Stage 2 — full dispatch:
+    # Stage 2, full dispatch:
     python labelling/dispatch_round.py \\
         --round 1 --csv data/round_01_coreset_selection.csv
 """
@@ -28,7 +28,10 @@ from pathlib import Path
 import labelbox as lb
 import settings
 
-BATCH_SIZE = 500
+# How many metadata rows go up in one bulk_upsert call. Not the botanist-session
+# batch size: `queues.BATCH_SIZE` is that one, and it is a different number for a
+# different reason, so the two do not share a name.
+UPSERT_CHUNK = 500
 EXPORT_TIMEOUT_SEC = 300
 METADATA_SCHEMA_NAME = "selection_round"
 
@@ -57,6 +60,11 @@ def get_or_create_round_schema(mdo) -> str:
 
 
 def fetch_data_row_ids(client: lb.Client, dataset_name: str) -> dict[str, str]:
+    """Map every global key in the dataset to its Labelbox data row id.
+
+    The queue names photos by global key; Labelbox wants row ids. Exporting the
+    whole dataset once beats one lookup per photo in a batch of hundreds.
+    """
     dataset = next((d for d in client.get_datasets() if d.name == dataset_name), None)
     if dataset is None:
         sys.exit(f"ERROR: Dataset '{dataset_name}' not found.")
@@ -89,7 +97,8 @@ def fetch_data_row_ids(client: lb.Client, dataset_name: str) -> dict[str, str]:
     return key_to_id
 
 
-def main() -> None:
+def parse_args():
+    """Which round, which selection, and how urgently the botanists should see it."""
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -98,12 +107,74 @@ def main() -> None:
     ap.add_argument("--test", action="store_true", help="process first 5 rows only (Stage 1)")
     ap.add_argument("--priority", type=int, default=1, choices=[1, 2, 3, 4, 5],
                     help="labelling priority (1=highest, default 1)")
-    args = ap.parse_args()
+    return ap.parse_args()
 
+
+def match_keys(global_keys, key_to_id):
+    """The selected photos that Labelbox actually has, and a warning for the rest.
+
+    A key in the queue and not in the dataset is not fatal, it is a photo that
+    was never uploaded. Sending the rest is better than sending nothing, so the
+    gap is reported and the round goes out.
+    """
+    missing = [gk for gk in global_keys if gk not in key_to_id]
+    if missing:
+        print(f"  WARNING: {len(missing)} keys not found in dataset (first 5: {missing[:5]})")
+    matched = [gk for gk in global_keys if gk in key_to_id]
+    if not matched:
+        sys.exit("ERROR: No matching data rows found.")
+    return matched, missing
+
+
+def tag_round(client, matched_keys, key_to_id, round_no):
+    """Stamp the round number onto each data row, in chunks Labelbox accepts.
+
+    The tag is what a closed round is found by later: `close_round.py` reads
+    the batch, and the metadata is what survives if the batch is renamed.
+    """
+    mdo = client.get_data_row_metadata_ontology()
+    schema_id = get_or_create_round_schema(mdo)
+
+    updates = [
+        lb.DataRowMetadata(
+            data_row_id=key_to_id[gk],
+            fields=[lb.DataRowMetadataField(schema_id=schema_id, value=float(round_no))],
+        )
+        for gk in matched_keys
+    ]
+    for i in range(0, len(updates), UPSERT_CHUNK):
+        batch = updates[i:i + UPSERT_CHUNK]
+        mdo.bulk_upsert(batch)
+        print(f"  Batch {i // UPSERT_CHUNK + 1}: {len(batch)} rows tagged")
+
+
+def create_batch(client, project_name, matched_keys, round_no, priority):
+    """Put the round in front of the botanists, named so a human can find it.
+
+    The name carries the round number and the day it went out, which is what
+    `close_round.py` matches on and what anyone reading the project sees.
+    """
+    project = next((p for p in client.get_projects() if p.name == project_name), None)
+    if project is None:
+        sys.exit(f"ERROR: Project '{project_name}' not found.")
+
+    batch_name = f"Round {round_no} - {date.today().isoformat()}"
+    batch = project.create_batch(
+        name=batch_name,
+        global_keys=matched_keys,
+        priority=priority,
+    )
+    print(f"  Created batch: {batch.name} ({len(matched_keys)} data rows, priority={priority})")
+    return batch_name
+
+
+def main() -> None:
+    """Send one round of photos to the botanists: read the selection, find the
+    rows, tag them with the round number, and create the batch. Four numbered
+    steps, because any of them can be the one that finds nothing."""
+    args = parse_args()
     if not args.csv.exists():
         sys.exit(f"ERROR: {args.csv} not found.")
-
-    api_key = settings.api_key()
 
     config = settings.load_config()
     combined_dataset_name = config["labelbox"]["combined_dataset_name"]
@@ -115,63 +186,29 @@ def main() -> None:
         print(f"TEST MODE: processing {len(global_keys)} rows only")
     print(f"Step 1 - Loaded {len(global_keys)} global keys from {args.csv}")
 
-    client = lb.Client(api_key=api_key)
+    client = lb.Client(api_key=settings.api_key())
 
     print(f"\nStep 2 - Fetching data row IDs from '{combined_dataset_name}'...")
     key_to_id = fetch_data_row_ids(client, combined_dataset_name)
     print(f"  Exported {len(key_to_id)} data rows")
-
-    missing = [gk for gk in global_keys if gk not in key_to_id]
-    if missing:
-        print(f"  WARNING: {len(missing)} keys not found in dataset (first 5: {missing[:5]})")
-    matched_keys = [gk for gk in global_keys if gk in key_to_id]
-    if not matched_keys:
-        sys.exit("ERROR: No matching data rows found.")
+    matched_keys, missing = match_keys(global_keys, key_to_id)
 
     print(f"\nStep 3 - Upserting '{METADATA_SCHEMA_NAME}' = {args.round} on {len(matched_keys)} rows...")
-    mdo = client.get_data_row_metadata_ontology()
-    schema_id = get_or_create_round_schema(mdo)
+    tag_round(client, matched_keys, key_to_id, args.round)
 
-    updates = []
-    for gk in matched_keys:
-        updates.append(lb.DataRowMetadata(
-            data_row_id=key_to_id[gk],
-            fields=[lb.DataRowMetadataField(
-                schema_id=schema_id,
-                value=float(args.round),
-            )],
-        ))
+    print("\nStep 4 - Creating labelling batch in Project B...")
+    batch_name = create_batch(client, project_b_name, matched_keys,
+                              args.round, args.priority)
 
-    for i in range(0, len(updates), BATCH_SIZE):
-        batch = updates[i:i + BATCH_SIZE]
-        mdo.bulk_upsert(batch)
-        print(f"  Batch {i // BATCH_SIZE + 1}: {len(batch)} rows tagged")
-
-    print(f"\nStep 4 - Creating labelling batch in Project B...")
-    project = next(
-        (p for p in client.get_projects() if p.name == project_b_name), None
-    )
-    if project is None:
-        sys.exit(f"ERROR: Project '{project_b_name}' not found.")
-
-    batch_name = f"Round {args.round} - {date.today().isoformat()}"
-    batch = project.create_batch(
-        name=batch_name,
-        global_keys=matched_keys,
-        priority=args.priority,
-    )
-    print(f"  Created batch: {batch.name} ({len(matched_keys)} data rows, priority={args.priority})")
-
-    print(f"\n{'=' * 50}")
-    print("DISPATCH COMPLETE")
-    print(f"{'=' * 50}")
+    rule = "=" * 50
+    print(f"\n{rule}\nDISPATCH COMPLETE\n{rule}")
     print(f"  Round:          {args.round}")
     print(f"  Batch:          {batch_name}")
     print(f"  Data rows:      {len(matched_keys)}")
     print(f"  Missing keys:   {len(missing)}")
     print(f"  Project:        {project_b_name}")
     print(f"  Metadata field: {METADATA_SCHEMA_NAME} = {args.round}")
-    print(f"{'=' * 50}")
+    print(rule)
 
 
 if __name__ == "__main__":

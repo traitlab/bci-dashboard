@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Daily model-health refresh: fold the newest Labelbox export into the ground
-# truth, snapshot, rebuild every dashboard page. Safe to re-run:
+# truth, snapshot, rebuild both cumulative pages. Safe to re-run:
+#
+# The export-only page is not built here. It scores one export on its own and
+# needs that export named, so it is a spot check somebody asks for.
 #
 # - a snapshot folder for today already exists  -> stop (a same-day GT change
 #   is a human event; handle it by hand)
@@ -13,7 +16,8 @@
 # Exports come from the Labelbox UI (the account here has no API export
 # permission): download the project NDJSON, it lands in ~/Downloads, and this
 # script finds it. An explicit path also works: refresh.sh path/to/export.ndjson
-# Intended to be run by launchd (org.bci.dashboard-refresh.plist) or by hand.
+# Run by hand. Nothing in the repo schedules it; a daily run is a launchd agent
+# or a cron line somebody writes on the machine that holds the Labelbox export.
 set -euo pipefail
 
 REPO="${BCI_DASHBOARD_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"

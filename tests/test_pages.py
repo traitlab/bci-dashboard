@@ -2,9 +2,9 @@
 
 Nothing exercised `build_external.py` or `build_internal.py` before this file,
 so every cleanup pass over them had to be verified by hand-diffing 185KB of
-HTML. `assets.py` is exercised by `test_assets.py` instead of here, and
-`build_export_only.py` is exercised here alongside the other two builders.
-`explain.py` is still not exercised anywhere.
+HTML. `assets.py` is exercised by `test_assets.py` and the export-only page's own
+inputs by `test_export_only_page.py`; the page-shape invariants below run
+against all three pages, this one included.
 Golden-file comparison would just move that problem into the test (any
 legitimate number change breaks it), so this asserts structure instead: the
 build's own snapshot cross-check passed, the page is one self-contained file,
@@ -20,8 +20,8 @@ the panel: it flips to the opposite claim, that the page carries *none* of that
 panel's machinery. A page holding half of it -- a filter input with no table,
 say -- fails both ways, which is the failure this file exists to catch.
 
-Every builder runs as a subprocess against `--verify-against
-snapshots/model-health-2026-08-24`, the same gate `bin/refresh.sh` runs, so a
+Every builder runs as a subprocess against `--verify-against` the newest
+snapshot, the same gate `bin/refresh.sh` runs and picked the same way, so a
 non-zero exit here means the page actually disagreed with the measurement, not
 just that this test's assumptions are stale.
 
@@ -32,228 +32,26 @@ from __future__ import annotations
 
 import pathlib
 import re
-import subprocess
-import sys
 
 import pytest
+from conftest import SNAPSHOT_DIR, species_rows
+# The frame list is the one file that says how many field sites there are, and
+# reading it lives with the other checks that hold a number to its source.
+from test_shared_constants import frame_list_sites
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-DASHBOARD = REPO / "dashboard"
-SNAPSHOT_DIR = REPO / "snapshots" / "model-health-2026-08-24"
-GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
-SPLITS_CSV = REPO / "data" / "splits.csv"
-CACHE_DIR = REPO / "data" / "predictions" / "cache"
 
-# Same convention as core.GT_KEY_PREFIX / gt_from_export.GT_KEY_PREFIX: a GT or
-# splits global_key is "comb_<stem>.JPG", a cache file is "<stem>.JPG.json".
-GT_KEY_PREFIX = "comb_"
-
-# The status dropdown is the only element the inline JS tolerates missing, so
-# the id-presence check below has to know which one it is.
-STATUS_SELECT_ID = "status-filter"
-
-# A fixed generation string, like the worktree byte-diff checks use: real
-# dates would make two builds of the same code differ for no reason a test
-# should care about.
-_GENERATED = "2026-08-25-test"
-
-# What each page is expected to carry, so a test states its expectation once
-# and every page is checked against the same list. `species` is the sortable,
-# filterable species table with its status legend, which is also what the
-# inline JS binds to. The send queue splits in two: `queue_counts` is the
-# how-many-per-queue breakdown and `queue_keys` is the frame-by-frame
-# send-first list with the camera note beside it. `snapshot` marks a page that
-# reconciles against `snapshots/model-health-2026-08-24` at build time and so
-# must print a `verified` line for every check it ran; the export page has no
-# such snapshot -- it is scoped to one Labelbox export -- so it carries none.
-#
-# `species_status` is narrower than `species`: it is the per-row
-# `data-species`/`data-status` attributes plus the status legend that
-# `panels.p_species` renders. `build_export_only.py` builds its own species
-# table straight off `assets.filterable_table` instead of going through
-# `panels.p_species`, and passes it no `row_attrs` -- so its page carries a
-# species table and filter box (`species`) but no row ever carries a status,
-# and no legend is rendered. That is a real gap in `build_export_only.py`
-# (the status dropdown and per-row status tag), left as found; the flag
-# records what is actually on the page rather than hiding the gap behind a
-# weaker shared assertion.
-#
-# Each flag now names exactly one page, so a flag no longer distinguishes
-# between pages the way it did while a third page carried `species` and
-# `queue_counts` together. The flags stay because they say what a page is
-# expected to carry, which is the claim the assertions need.
-PAGES = {
-    "external_page": ("build_external.py", "model_health_dashboard.html",
-                      {"species", "species_status", "confirmatory", "snapshot"}),
-    "internal_page": ("build_internal.py", "label_queue_dashboard.html",
-                      {"queue_counts", "queue_keys", "snapshot"}),
-    "export_only_page": ("build_export_only.py", "export_only_dashboard.html",
-                         {"species"}),
-}
-
-_GETELEMENTBYID = re.compile(r"getElementById\(\s*['\"]([^'\"]+)['\"]\s*\)")
-_ID_ATTR = re.compile(r"""\bid=['"]([^'"]+)['"]""")
-_SCRIPT_BODY = re.compile(r"<script>(.*)</script>", re.S)
 _LEGEND = re.compile(r'<ul class="status-legend">.*?</ul>', re.S)
 _TAG_LABEL = re.compile(r'<span class="tag [^"]*"[^>]*>([^<]*)</span>')
-_ROW = re.compile(r"<tr data-species=.*?</tr>", re.S)
 
 
-def _require_buildable():
-    """Skip on a fresh clone: the builders need measurement inputs and a
-    snapshot to verify against, neither of which is tracked in git."""
-    for path, label in ((GT_CSV, "data/gt_dominant_taxon.csv"),
-                        (SPLITS_CSV, "data/splits.csv"),
-                        (CACHE_DIR, "data/predictions/cache")):
-        if not path.exists():
-            pytest.skip(f"{label} not present (fresh clone)")
-    if not SNAPSHOT_DIR.exists():
-        pytest.skip("snapshots/model-health-2026-08-24 not present (fresh clone)")
-
-
-def _build(tmp_path_factory, script: str, out_name: str, *,
-           export: str | None = None) -> tuple[str, str]:
-    """Run a builder as a real subprocess, the way `bin/refresh.sh` does.
-
-    Returns (page_html, stdout). Raises via `assert` on a non-zero exit so
-    the failure message carries the process's own stderr (a `VERIFY FAIL:
-    ...` line from `history.verify_snapshot`, or a traceback).
-
-    `build_export_only.py` takes `--export` and no `--verify-against` -- it
-    has no snapshot to reconcile against -- so `export` switches which flags
-    get built rather than duplicating the subprocess call for one page.
-    """
-    out = tmp_path_factory.mktemp("page") / out_name
-    args = [sys.executable, str(DASHBOARD / script), "--out", str(out),
-            "--generated", _GENERATED]
-    args += ["--export", export] if export is not None else (
-        ["--verify-against", str(SNAPSHOT_DIR)])
-    proc = subprocess.run(args, capture_output=True, text=True, cwd=REPO)
-    assert proc.returncode == 0, (
-        f"{script} exited {proc.returncode}\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}")
-    return out.read_text(encoding="utf-8"), proc.stdout
-
-
-@pytest.fixture(scope="session")
-def external_page(tmp_path_factory):
-    _require_buildable()
-    return _build(tmp_path_factory, *PAGES["external_page"][:2])
-
-
-@pytest.fixture(scope="session")
-def internal_page(tmp_path_factory):
-    _require_buildable()
-    return _build(tmp_path_factory, *PAGES["internal_page"][:2])
-
-
-# ---------------------------------------------------------------------------
-# The export page: no NDJSON export is tracked in the repo, so one is built at
-# test time from the repo's own real inputs rather than being fixture data
-# that would make this page skip on every machine.
-# ---------------------------------------------------------------------------
-
-def _gt_from_export():
-    """Import labelling/gt_from_export.py by path, the same trick
-    build_export_only.py's own `_load_gt_from_export` uses: labelling/ is not
-    a package on the normal import path."""
-    import importlib.util
-    path = REPO / "labelling" / "gt_from_export.py"
-    spec = importlib.util.spec_from_file_location("_gt_from_export", str(path))
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-def _corpus_keys_with_species_gt():
-    """Every corpus global_key that also carries a species label in
-    gt_dominant_taxon.csv, split by whether the cache holds a prediction for
-    it, plus the GT map itself. All three come straight off disk."""
-    import csv
-    with open(GT_CSV, newline="", encoding="utf-8") as f:
-        gt = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
-    with open(SPLITS_CSV, newline="", encoding="utf-8") as f:
-        corpus = {r["global_key"] for r in csv.DictReader(f)}
-    cached = {p.stem for p in CACHE_DIR.glob("*.json")}
-    labelled = sorted(gk for gk in corpus if gk in gt)
-    with_cache = [gk for gk in labelled if gk[len(GT_KEY_PREFIX):] in cached]
-    without_cache = [gk for gk in labelled if gk[len(GT_KEY_PREFIX):] not in cached]
-    return with_cache, without_cache, gt
-
-
-def _write_export_ndjson(path, keys, gt) -> None:
-    """Emit NDJSON in the shape `gt_from_export.export_dominants` parses: one
-    data row per key, one project with one label carrying a single
-    full-frame Planta box whose Taxon radio answer is that key's own GT
-    species.
-
-    This fabricates no data and asserts nothing about Labelbox: every key and
-    species comes from the repo's own tracked data/gt_dominant_taxon.csv and
-    data/splits.csv, and the file exists only for the duration of the test.
-    """
-    import json
-    with open(path, "w", encoding="utf-8") as f:
-        for i, gk in enumerate(keys):
-            stem = gk[len(GT_KEY_PREFIX):]
-            row = {
-                "data_row": {"id": f"dr_{i}", "global_key": stem},
-                "projects": {"proj1": {"labels": [{"annotations": {"objects": [{
-                    "bounding_box": {"top": 0, "left": 0, "width": 100, "height": 100},
-                    "classifications": [{"radio_answer": {"name": gt[gk]}}],
-                }]}}]}},
-            }
-            f.write(json.dumps(row) + "\n")
-
-
-@pytest.fixture(scope="session")
-def export_fixture(tmp_path_factory):
-    """A deterministic slice of 48 real, cache-backed keys and the NDJSON
-    file built from them, shared by every test below that needs a scored
-    export page."""
-    _require_buildable()
-    with_cache, _, gt = _corpus_keys_with_species_gt()
-    keys = with_cache[:48]
-    path = tmp_path_factory.mktemp("export") / "export.ndjson"
-    _write_export_ndjson(path, keys, gt)
-    return path, keys, gt
-
-
-def test_the_generated_export_is_in_the_shape_export_dominants_parses(export_fixture):
-    """The hard part this suite exists to get right: nothing guarantees the
-    NDJSON shape invented above is the shape the real merge script accepts.
-    This calls `export_dominants` on the generated file directly and checks it
-    recovers exactly the species that were put in, rather than trusting the
-    shape by construction."""
-    path, keys, gt = export_fixture
-    dominants, _, _ = _gt_from_export().export_dominants(path)
-    assert dominants, "export_dominants returned nothing -- the NDJSON shape is wrong"
-    for gk in keys:
-        stem = gk[len(GT_KEY_PREFIX):]
-        assert dominants.get(stem) == gt[gk], (
-            f"export_dominants did not recover the species put in for {gk}")
-
-
-@pytest.fixture(scope="session")
-def export_only_page(tmp_path_factory, export_fixture):
-    _require_buildable()
-    path, _, _ = export_fixture
-    return _build(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
-
-
-def test_build_renders_the_no_score_note_when_nothing_joins(tmp_path_factory):
-    """The branch nothing else here covers: every labelled key in the export
-    has no cached Pl@ntNet prediction, so nothing can be scored. Real keys
-    again -- the corpus's own GT rows with no file under
-    data/predictions/cache -- not a fabricated gap."""
-    _require_buildable()
-    _, without_cache, gt = _corpus_keys_with_species_gt()
-    assert without_cache, (
-        "no GT key on this machine lacks a cached prediction -- nothing to build this from")
-    path = tmp_path_factory.mktemp("export_nocache") / "export.ndjson"
-    _write_export_ndjson(path, without_cache, gt)
-    html, _ = _build(tmp_path_factory, *PAGES["export_only_page"][:2], export=str(path))
-    assert ("No crown in this export both carries a species label and has a "
-            "cached Pl@ntNet prediction") in html
-    assert not re.search(r"\d+\.\d%", html), "an accuracy percentage was printed anyway"
+def test_no_page_shows_interval_notation(page):
+    """"[0.7,0.8)" is how the CSVs name a confidence band and it is a
+    convention a botanist has no reason to know: the half-open bracket is the
+    part that carries the meaning. A page says "0.7 to 0.8". CONTEXT.md."""
+    html, _, _ = page
+    found = re.findall(r"\[\d[\d.]*,\s*\d[\d.]*\)", html)
+    assert not found, f"interval notation on the page: {sorted(set(found))}"
 
 
 @pytest.fixture(scope="session")
@@ -265,13 +63,6 @@ def n_species():
     with open(SNAPSHOT_DIR / "per_species_health.csv", newline="", encoding="utf-8") as f:
         return sum(1 for _ in csv.DictReader(f))
 
-
-@pytest.fixture(params=sorted(PAGES))
-def page(request):
-    """Runs every shared assertion against all three pages without writing it
-    three times. Yields (html, stdout, panels-this-page-carries)."""
-    html, stdout = request.getfixturevalue(request.param)
-    return html, stdout, PAGES[request.param][2]
 
 
 # ---------------------------------------------------------------------------
@@ -328,37 +119,6 @@ def test_page_has_no_external_asset_references(page):
 
 
 # ---------------------------------------------------------------------------
-# JS <-> HTML id coupling: derived from the JS text, not hardcoded here
-# ---------------------------------------------------------------------------
-
-def test_every_id_the_js_looks_up_exists_exactly_once(page):
-    html, _, carries = page
-    script = _SCRIPT_BODY.search(html)
-    assert script, "no inline <script> block -- JS was not embedded"
-    ids = _GETELEMENTBYID.findall(script.group(1))
-    assert ids, "no getElementById calls found in the inline script"
-    counts = {}
-    for m in _ID_ATTR.finditer(html):
-        counts[m.group(1)] = counts.get(m.group(1), 0) + 1
-    found = {eid: counts.get(eid, 0) for eid in ids}
-    if "species" in carries:
-        for eid, k in found.items():
-            # The status select is the one lookup the JS guards, because a page
-            # with no statuses to offer ships no select. Every other id is
-            # dereferenced straight away and has to be there exactly once.
-            want = 1 if (eid != STATUS_SELECT_ID or "species_status" in carries) else 0
-            assert k == want, (
-                f"id {eid!r} (looked up by the inline JS) appears {k} times in the "
-                f"page, not {want}")
-    else:
-        # The whole block guards on the species table and returns early without
-        # one, so every id it reaches for has to be absent together. Half of
-        # them present is a page that throws on the first keystroke.
-        assert set(found.values()) == {0}, (
-            f"page carries no species table but wires up part of the filter: {found}")
-
-
-# ---------------------------------------------------------------------------
 # Tag balance
 # ---------------------------------------------------------------------------
 
@@ -371,25 +131,87 @@ def test_tags_balance(page):
 
 
 # ---------------------------------------------------------------------------
+# What a reader sees before clicking anything
+# ---------------------------------------------------------------------------
+
+def test_a_page_opens_only_the_panels_that_are_its_deliverable(page):
+    """A panel is open only where it is the thing the page exists to hand over.
+
+    The queue page opens the two a labeller works from. The export-only page is
+    a 19-species spot check and opens both of its own. The model-health page
+    opens none: its answer is the two hero cards, and the species table is a
+    lookup tool. Open, that table was 40% of the page's words sitting fourth of
+    nine, and the five panels below it were a scroll nobody made.
+    """
+    expected = {
+        "model_health": [],
+        "label_queue": ["Where to spend botanist time next",
+                        "What to send to the botanist first"],
+        "export_only": ["Where these numbers come from", "Look up one species"],
+    }
+    html, name, _ = page
+    want = next(v for k, v in expected.items() if k in name)
+    opened = [re.sub(r"<[^>]+>", "", o).strip() for o in re.findall(
+        r"<details[^>]*\bopen\b[^>]*>\s*<summary[^>]*>(.*?)</summary>", html, re.S)]
+    assert len(opened) == len(want), f"{name} opens {opened}, expected {want}"
+    for got, prefix in zip(opened, want):
+        assert got.startswith(prefix), f"{name}: {got!r} does not start {prefix!r}"
+
+
+# ---------------------------------------------------------------------------
 # Species table: one row per scored species, every status explained
 # ---------------------------------------------------------------------------
 
 def test_one_species_row_per_scored_species(page, n_species):
     html, _, carries = page
-    rows = re.findall(r"<tr data-species=", html)
-    # Gated on `species_status`, not the broader `species`: the export page
-    # carries a species table but, per the PAGES comment above, no row is
-    # ever tagged `data-species`, so its count here is 0 regardless of how
-    # many species it actually scored.
-    assert len(rows) == (n_species if "species_status" in carries else 0)
+    rows = species_rows(html)
+    if "species_status" not in carries:
+        assert not rows
+    elif "snapshot" in carries:
+        # The two corpus pages score every species in the cumulative record.
+        assert len(rows) == n_species
+    else:
+        # The export page scores only what its own export labels, which is a
+        # smaller set by design. What matters is that every row it does render
+        # carries a status the legend explains.
+        assert rows
+
+
+def test_the_hidden_rows_are_the_ones_the_prose_says_they_are(page, panels, core):
+    """The count in the prose, the marked rows and the threshold agree.
+
+    Three things can drift apart: the sentence naming how many species start
+    hidden, the ``data-thin`` attributes the JS filters on, and the cut-off in
+    ``panels.THIN_MIN_FRAMES``. A reader who unticks the box and counts is
+    entitled to find the number the page gave them.
+    """
+    html, _, carries = page
+    marked = re.findall(r'<tr [^>]*data-thin="1"', html)
+    if "species_thin" not in carries:
+        assert not marked, "page ships no show-all checkbox but hides rows anyway"
+        return
+    said = re.search(r"<b>(\d+) of these (\d+) species start hidden\.</b>", html)
+    assert said, "no sentence saying how many species start hidden"
+    assert len(marked) == int(said.group(1)), (
+        f"prose says {said.group(1)} species start hidden, "
+        f"{len(marked)} rows carry data-thin")
+    assert 0 < len(marked) < int(said.group(2)), (
+        "every row hidden, or none: the checkbox would have nothing to do")
+    # The threshold is stated in the same sentence, so it cannot quietly become
+    # a second number beside the status column's own cut-off.
+    assert f"fewer than {panels.THIN_MIN_FRAMES} labelled frames" in html
+    assert panels.THIN_MIN_FRAMES == core.WELL_SAMPLED_MIN_N
 
 
 def test_every_row_status_has_a_matching_legend_entry(page):
+    """A status tag on a row with no legend entry above it is a colour the
+    reader has to guess the meaning of, which is the whole thing a legend is
+    there to prevent."""
     html, _, carries = page
     legend = _LEGEND.search(html)
     if "species_status" not in carries:
         assert legend is None, "page carries no species status legend but renders it"
-        assert not _ROW.findall(html), "page carries no species status legend but renders its rows"
+        assert not species_rows(html), "page carries no species status legend but renders its rows"
         return
     assert legend, "no <ul class=\"status-legend\"> block -- legend was not rendered"
     legend_start = legend.start()
@@ -404,7 +226,7 @@ def test_every_row_status_has_a_matching_legend_entry(page):
     assert legend_labels, "legend block has no status labels in it"
 
     row_labels = set()
-    for row in _ROW.findall(html):
+    for row in species_rows(html):
         found = _TAG_LABEL.findall(row)
         assert found, "a species row has no status tag"
         row_labels.update(found)
@@ -535,23 +357,27 @@ def test_the_rendered_queue_matches_the_file_it_points_at(internal_page):
         f"rendered order differs from the CSV: {shown[:3]} against {expected[:3]}")
 
 
-def test_the_camera_note_counts_the_frames_it_describes(internal_page):
+def test_the_camera_note_counts_the_frames_it_describes(internal_page, panels):
     """The note names a camera split read off the frame keys. If the keys stop
     naming a camera the build aborts, so this checks the number that survived
     is the number of keys actually rendered as tele."""
     html, _ = internal_page
-    m = re.search(r"(\d[\d,]*) of the ([\d,]*) photos in this queue \(([\d.]+)%\) are tele",
-                  html)
+    m = re.search(r"They are (\d[\d,]*) of the queue \(([\d.]+)%\)", html)
     assert m, "the camera note is not on the page"
     tele = int(m.group(1).replace(",", ""))
-    pool = int(m.group(2).replace(",", ""))
-    pct = float(m.group(3))
+    # The denominator is no longer printed beside the share, so take it from the
+    # file the panel ranks: the queue is every row of it.
+    import csv
+
+    with open(SNAPSHOT_DIR / "send_first_queue.csv", newline="", encoding="utf-8") as f:
+        pool = sum(1 for _ in csv.DictReader(f))
+    pct = float(m.group(2))
     assert 0 < tele < pool
     assert abs(100 * tele / pool - pct) < 0.05
     # The note says the scored population is all zoom. If a tele key ever reaches
     # the scored table the sentence beside it becomes false, so check the claim
     # rather than only the arithmetic.
-    assert "Every frame scored on this page was shot with the zoom lens" in html
+    assert f"No botanist has labelled a frame from {panels.CAMERA_IS['tele']}" in html
 
 
 def test_only_the_internal_page_renders_the_queue(page):
@@ -564,55 +390,52 @@ def test_only_the_internal_page_renders_the_queue(page):
         f"{'queue_keys' in carries}")
 
 
-# ---------------------------------------------------------------------------
-# anchors and jump lists
-# ---------------------------------------------------------------------------
-# These five gate behaviour shipped in fcb0aec (panel anchors, per-section jump
-# lists, the table scroll wrapper) and in af4b521 (the status legend). They are
-# assertions about the page, not about any builder's internals, so they run
-# against every page like everything above.
+def test_the_crop_mismatch_note_says_half_only_while_the_gate_means_half(
+        external_page, core):
+    """The note counts frames on the wrong side of `core.MIN_CROP_COVERAGE` and
+    calls that "less than half the crop". The count follows the constant; the
+    word does not, so moving the gate off 0.50 has to move the wording too.
 
-def test_every_link_into_the_page_lands_on_something(page):
-    """The jump lists are generated from the panels, so a broken one means the
-    two have drifted apart. Since the split it also catches a link left behind
-    pointing at a section that moved to the other page."""
+    The model-health page prints it once, under the four corpus rates. It used
+    to print the same sentence again under the species table, where what a
+    reader needs is not the counts but what they mean for a row."""
+    html, _ = external_page
+    assert html.count("covers less than half the crop") == 1, (
+        "the note is gone, reworded, or back to being said twice")
+    assert core.MIN_CROP_COVERAGE == 0.50, (
+        f"MIN_CROP_COVERAGE is {core.MIN_CROP_COVERAGE}, so the page's "
+        f"'less than half the crop' names a line the gate no longer draws")
+
+
+
+def test_a_page_styles_every_class_it_renders(page):
+    """The stylesheet is trimmed to the rules a page has something to style, so
+    the failure to guard against is a page that loses a rule it needed and
+    comes out unstyled. `assets.css_for` is what does the trimming and
+    `test_assets.py` holds it to the other direction, the bytes."""
     html, _, _ = page
-    targets = set(_ID_ATTR.findall(html))
-    for href in set(re.findall(r'href="#([^"]+)"', html)):
-        assert href in targets, f"jump link #{href} has no target"
+    css = "\n".join(re.findall(r"<style[^>]*>(.*?)</style>", html, re.DOTALL))
+    body = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL)
+    rendered = {name for group in re.findall(r'class="([^"]+)"', body)
+                for name in group.split()}
+    styled = set(re.findall(r"\.([A-Za-z][\w-]*)", css))
+    assert not rendered - styled, (
+        f"the page renders {sorted(rendered - styled)} with no rule for them")
 
 
-def test_no_anchor_carries_a_number(page):
-    """An id built from a summary that states a live count changes on the next
-    snapshot, and every saved link to it breaks. `panel()` rejects those, so
-    this is the assertion that the guard is actually wired up."""
+def test_a_page_counting_the_field_sites_counts_the_ones_the_frame_list_holds(page):
+    """A page saying "at 12 of the 17 field sites" gives two numbers of
+    different kinds. The 12
+    is measured, read off the frozen sample. The 17 is typed, and it is the
+    size of the whole corpus, which no CSV behind the page carries: the
+    builders never open the frame list. So it can only go stale, and the
+    sentence it sits in is the page's own statement of what it does not cover.
+    """
     html, _, _ = page
-    for eid in re.findall(r'<details class="panel" id="([^"]+)"', html):
-        assert not any(c.isdigit() for c in eid), f"anchor {eid!r} carries a number"
-
-
-def test_each_id_is_unique(page):
-    html, _, _ = page
-    ids = _ID_ATTR.findall(html)
-    duplicated = {i for i in ids if ids.count(i) > 1}
-    assert not duplicated, f"duplicate ids: {sorted(duplicated)}"
-
-
-def test_a_wide_table_scrolls_inside_its_own_box(page):
-    """Without the wrapper the widest table sets the page width and every
-    paragraph scrolls sideways with it on a phone."""
-    html, _, _ = page
-    assert len(re.findall(r"<table\b", html)) == html.count('class="tscroll"')
-
-
-def test_the_filter_can_reach_every_row(page):
-    """The filter reads data-species and data-status. A row missing either is
-    invisible to it, which reads as a table that loses rows when you type."""
-    html, _, carries = page
-    tagged = [r for r in re.findall(r"<tr\b[^>]*>", html) if "data-species=" in r]
-    if "species_status" not in carries:
-        assert not tagged, "page carries no species status wiring but renders filterable rows"
+    named = re.search(r"of the (\d+) field sites", html)
+    if named is None:
         return
-    assert tagged, "no filterable rows"
-    for row in tagged:
-        assert "data-status=" in row, f"row filterable by name but not status: {row}"
+    sites = frame_list_sites()
+    assert int(named.group(1)) == len(sites), (
+        f"the page says {named.group(1)} field sites and the frame list covers "
+        f"{len(sites)}: {sorted(sites)}")

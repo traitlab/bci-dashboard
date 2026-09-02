@@ -3,9 +3,9 @@
 Reads the per-image survey JSON files produced by the Pl@ntNet multi-species
 endpoint and outputs two files that the send-first queue (dashboard/measure.py) can consume:
 
-1. ``survey_embeddings.json``  — coverage-weighted aggregated embeddings
+1. ``survey_embeddings.json``: coverage-weighted aggregated embeddings
    (same format as embeddings.json: ``{global_key: [float x 768]}``)
-2. ``survey_species_scores.json`` — species-coverage priority scores
+2. ``survey_species_scores.json``: species-coverage priority scores
    (``{global_key: float}`` keyed by coverage × rarity)
 
 The embeddings use labelfirst.aggregate.weighted_mean_pool to collapse
@@ -110,6 +110,12 @@ def aggregate_photo_embedding(parsed: dict) -> np.ndarray | None:
 
 
 def main() -> None:
+    """Turn a directory of survey answers into one embedding matrix and one
+    priority score per photo.
+
+    Both are written even when there is no GT file: the scores are then all
+    zero, which is the honest cold-start answer rather than an error.
+    """
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--survey-dir", type=Path, required=True,

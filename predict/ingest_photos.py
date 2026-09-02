@@ -1,45 +1,29 @@
 """Ingest drone photos: call Pl@ntNet, aggregate, and score.
 
-For each photo, calls the Pl@ntNet identify + embeddings endpoints (the
-2-call fallback when direct survey API access isn't available), writes
-a survey-compatible JSON per image, then runs the aggregation and
-scoring steps from predict/aggregate_survey.py.
+Per photo, calls identify + embeddings (the two-call stand-in for direct
+survey access) and writes one survey-shaped JSON, then runs the aggregation
+and scoring in predict/aggregate_survey.py.
 
-Input: either a local directory (--photos) or a CSV with image_url
-column (--csv). The CSV mode streams each photo in memory from its URL,
-never touching disk for image data. Use this for bulk processing from
-Arbutus object storage without downloading the full image set.
+Photos come from a local directory (--photos) or from a CSV carrying
+image_url (--csv). CSV mode streams each photo from its URL and never writes
+image data to disk, which is how the Arbutus bucket is processed.
 
-Output per image (in --out-dir/cache/):
-    <filename>.json  — survey-compatible JSON (same schema as 14b)
-
-Aggregated outputs (in --out-dir/):
-    survey_embeddings.json       — coverage-weighted embeddings
-    survey_species_scores.json   — rarity-weighted species scores
+Output per image, in --out-dir/cache/: <filename>.json, the survey-shaped
+record. Aggregated, in --out-dir/: survey_embeddings.json (coverage-weighted)
+and survey_species_scores.json (rarity-weighted).
 
 Usage:
-    # Stream from CSV (no local photos needed):
-    python predict/ingest_photos.py \\
-        --csv input/boxes/bci_images_for_plantnet_w_split.csv
+    python predict/ingest_photos.py --csv input/boxes/bci_images_for_plantnet_w_split.csv
+    python predict/ingest_photos.py --photos /data/new_drone_photos/
+    python predict/ingest_photos.py --csv ... --test        # one image
 
-    # From local directory:
-    python predict/ingest_photos.py \\
-        --photos /data/new_drone_photos/
-
-    # Direct survey endpoint (if available):
-    python predict/ingest_photos.py \\
-        --photos /data/new_drone_photos/ \\
-        --survey-endpoint https://my-api.plantnet.org/v2/survey/k-central-america
-
-    # Test mode (1 image):
-    python predict/ingest_photos.py \\
-        --csv input/boxes/bci_images_for_plantnet_w_split.csv --test
+--survey-endpoint <url> calls the survey API directly instead, when a key
+that reaches it is available.
 """
 
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import os
 import sys
@@ -47,35 +31,26 @@ import time
 from pathlib import Path
 
 import requests
-import yaml
 from dotenv import load_dotenv
-from PIL import Image
+from photo import (
+    API_TIMEOUT,
+    CROP_SIZE,
+    QuotaExceededError,
+    api_and_project,
+    center_crop_jpeg_box,
+    load_config,
+    post_image,
+    with_retry,
+)
 
 REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "data"
 
-CROP_SIZE = 1280
-JPEG_QUALITY = 90
-MAX_RETRIES = 3
-BACKOFF = [1, 5, 10]
-API_TIMEOUT = 60
 DEFAULT_DELAY = 0.5
 
-# The quadrat endpoint. The path documented as /v2/survey/<project> returns 404;
-# this is the one that answers, and the trailing 'tiles' is the flavor.
-SURVEY_TILES_URL = "https://my-api.plantnet.org/v2/survey/tiles/k-central-america"
-# One call runs 140 sub-queries over a 4000x3000 frame, so it is not a 60s job.
+# One call runs 140 sub-queries over a whole frame, so it is not a 60s job.
 SURVEY_TIMEOUT = 300
 IMG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
-
-
-class QuotaExceededError(Exception):
-    pass
-
-
-def load_config() -> dict:
-    with open(REPO / "config.yaml") as f:
-        return yaml.safe_load(f)
 
 
 def load_csv_urls(csv_path: Path) -> list[tuple[str, str]]:
@@ -96,99 +71,58 @@ def download_image_bytes(url: str) -> bytes:
     return resp.content
 
 
-def center_crop_jpeg_from_bytes(raw: bytes) -> tuple[bytes, int, int, tuple]:
-    """-> (jpeg, frame_w, frame_h, box) where box is the rectangle that was sent.
-
-    The box is returned rather than recomputed downstream. A prediction is only
-    interpretable against the region the model saw, and that region used to be
-    reconstructed afterwards from the frame size and CROP_SIZE, which works only
-    while every frame is the same shape. A frame smaller than the crop is sent
-    whole, and its box is the whole frame.
-    """
-    img = Image.open(io.BytesIO(raw)).convert("RGB")
-    w, h = img.size
-    box = (0, 0, w, h)
-    if w >= CROP_SIZE and h >= CROP_SIZE:
-        left = (w - CROP_SIZE) // 2
-        top = (h - CROP_SIZE) // 2
-        box = (left, top, left + CROP_SIZE, top + CROP_SIZE)
-        img = img.crop(box)
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=JPEG_QUALITY)
-    return buf.getvalue(), w, h, box
-
-
-def center_crop_jpeg(image_path: Path) -> tuple[bytes, int, int, tuple]:
-    return center_crop_jpeg_from_bytes(image_path.read_bytes())
-
-
-def _api_call_with_retry(fn, *args, **kwargs):
-    for attempt in range(MAX_RETRIES):
-        try:
-            return fn(*args, **kwargs)
-        except QuotaExceededError:
-            raise
-        except Exception as e:
-            if attempt < MAX_RETRIES - 1:
-                wait = BACKOFF[attempt]
-                print(f"    Attempt {attempt + 1} failed ({e}), retrying in {wait}s...")
-                time.sleep(wait)
-            else:
-                raise
+# The crop lives in photo.py, so both fetch paths send the model the same
+# pixels and record the same rectangle.
+center_crop_jpeg_from_bytes = center_crop_jpeg_box
 
 
 def call_identify(jpeg_bytes: bytes, filename: str, api_key: str,
-                  api_url: str, nb_results: int = 5) -> dict:
-    resp = requests.post(
-        api_url,
-        files=[("images", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
-        data={"organs": "auto"},
-        params={"api-key": api_key, "nb-results": nb_results,
-                "no-reject": "true", "include-related-images": "false"},
-        timeout=API_TIMEOUT,
-    )
-    if resp.status_code == 429:
-        raise QuotaExceededError(f"Quota exceeded (HTTP 429)")
-    resp.raise_for_status()
-    return resp.json()
+                  api_url: str, nb_results: int, organs: str,
+                  lang: str) -> dict:
+    """One identify call. Every request setting comes from config.yaml.
+
+    `organs` and `lang` come from the settings, not from literals here: typed
+    out, this path once asked for different organs and a different common-name
+    language than `predict/photo.py`, silently.
+    """
+    return post_image(api_url, "images", jpeg_bytes, filename,
+                 params={"api-key": api_key, "nb-results": nb_results,
+                         "no-reject": "true", "include-related-images": "false",
+                         "lang": lang},
+                 data={"organs": organs})
 
 
 def call_embeddings(jpeg_bytes: bytes, filename: str, api_key: str,
                     api_url: str) -> dict:
-    resp = requests.post(
-        api_url,
-        files=[("image", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
-        params={"api-key": api_key},
-        timeout=API_TIMEOUT,
-    )
-    if resp.status_code == 429:
-        raise QuotaExceededError(f"Quota exceeded (HTTP 429)")
-    resp.raise_for_status()
-    return resp.json()
+    return post_image(api_url, "image", jpeg_bytes, filename,
+                 params={"api-key": api_key})
+
+
+def survey_tiles_url(config=None) -> str:
+    """The quadrat endpoint for the project config.yaml names.
+
+    The path documented as /v2/survey/<project> returns 404; this is the one
+    that answers, and the trailing 'tiles' is the flavor. Built from the same
+    setting the identify calls use, so the two arms cannot end up on different
+    projects.
+    """
+    base, project = api_and_project(config)
+    return f"{base}/survey/tiles/{project}"
 
 
 def call_survey(jpeg_bytes: bytes, filename: str, api_key: str,
-                survey_url: str = SURVEY_TILES_URL) -> dict:
+                survey_url: str | None = None) -> dict:
     """Quadrat: the API slides a 518px window over the whole frame itself.
 
-    The field is 'image', singular, unlike identify's 'images'. Sending the
-    plural name returns HTTP 400 '"image" is required', which is how this was
-    found: the endpoint had been assumed unavailable on this key when in fact
-    only the request was malformed. 'organs' is not accepted here either.
+    The field is 'image', singular, unlike identify's 'images'. The plural
+    returns HTTP 400 '"image" is required', which reads as the endpoint being
+    unavailable on this key. 'organs' is not accepted here either.
 
     Verified 2026-08-15 against a 4000x3000 frame: 140 sub-queries at
     tile_size 518 / tile_stride 259, and the quadrat quota counter did not move.
     """
-    resp = requests.post(
-        survey_url,
-        files=[("image", (filename, io.BytesIO(jpeg_bytes), "image/jpeg"))],
-        params={"api-key": api_key},
-        timeout=SURVEY_TIMEOUT,
-    )
-    if resp.status_code == 429:
-        raise QuotaExceededError(f"Quota exceeded (HTTP 429)")
-    resp.raise_for_status()
-    return resp.json()
+    return post_image(survey_url or survey_tiles_url(), "image", jpeg_bytes, filename,
+                 params={"api-key": api_key}, timeout=SURVEY_TIMEOUT)
 
 
 def identify_to_survey_json(identify_resp: dict, emb_resp: dict) -> dict:
@@ -254,78 +188,40 @@ def stamp_geometry(result: dict, frame_w: int, frame_h: int, box: tuple) -> dict
     return result
 
 
-def process_photo(
-    photo_path: Path,
-    api_key: str,
-    config: dict,
-    cache_dir: Path,
-    survey_url: str | None = None,
-    delay: float = DEFAULT_DELAY,
-) -> dict | None:
-    filename = photo_path.name
-    cache_file = cache_dir / f"{filename}.json"
-    if cache_file.exists():
-        with open(cache_file) as f:
-            return json.load(f)
-
-    jpeg_bytes, orig_w, orig_h, crop_box = center_crop_jpeg(photo_path)
-
-    if survey_url:
-        raw = _api_call_with_retry(call_survey, jpeg_bytes, filename, api_key, survey_url)
-        result = raw
-    else:
-        identify_url = config["plantnet"]["identify_url"]
-        embeddings_url = config["plantnet"]["embeddings_api_url"]
-        nb_results = config["plantnet"].get("identify_nb_results", 5)
-
-        id_resp = _api_call_with_retry(
-            call_identify, jpeg_bytes, filename, api_key, identify_url, nb_results
-        )
-        time.sleep(delay)
-        emb_resp = _api_call_with_retry(
-            call_embeddings, jpeg_bytes, filename, api_key, embeddings_url
-        )
-        result = identify_to_survey_json(id_resp, emb_resp)
-
-    stamp_geometry(result, orig_w, orig_h, crop_box)
-
-    tmp = cache_file.with_suffix(".tmp")
-    with open(tmp, "w") as f:
-        json.dump(result, f)
-    tmp.replace(cache_file)
-    return result
-
-
-def process_url(
+def process_image(
     filename: str,
-    url: str,
+    read_bytes,
     api_key: str,
     config: dict,
     cache_dir: Path,
     survey_url: str | None = None,
     delay: float = DEFAULT_DELAY,
 ) -> dict | None:
+    """One photo, cached under ``filename``. ``read_bytes`` returns its pixels.
+
+    A local file and a URL differ only in that call, so both modes run this:
+    a second copy of the crop, the two calls and the atomic cache write is how
+    the streaming path once stopped recording the crop rectangle.
+    """
     cache_file = cache_dir / f"{filename}.json"
     if cache_file.exists():
         with open(cache_file) as f:
             return json.load(f)
 
-    raw_image = download_image_bytes(url)
-    jpeg_bytes, orig_w, orig_h, crop_box = center_crop_jpeg_from_bytes(raw_image)
+    jpeg_bytes, orig_w, orig_h, crop_box = center_crop_jpeg_from_bytes(read_bytes())
 
     if survey_url:
-        result = _api_call_with_retry(call_survey, jpeg_bytes, filename, api_key, survey_url)
+        result = with_retry(call_survey, jpeg_bytes, filename, api_key,
+                                      survey_url)
     else:
-        identify_url = config["plantnet"]["identify_url"]
-        embeddings_url = config["plantnet"]["embeddings_api_url"]
-        nb_results = config["plantnet"].get("identify_nb_results", 5)
-
-        id_resp = _api_call_with_retry(
-            call_identify, jpeg_bytes, filename, api_key, identify_url, nb_results
+        pn_cfg = config["plantnet"]
+        id_resp = with_retry(
+            call_identify, jpeg_bytes, filename, api_key, pn_cfg["identify_url"],
+            pn_cfg["identify_nb_results"], pn_cfg["identify_organs"], pn_cfg["identify_lang"]
         )
         time.sleep(delay)
-        emb_resp = _api_call_with_retry(
-            call_embeddings, jpeg_bytes, filename, api_key, embeddings_url
+        emb_resp = with_retry(
+            call_embeddings, jpeg_bytes, filename, api_key, pn_cfg["embeddings_api_url"]
         )
         result = identify_to_survey_json(id_resp, emb_resp)
 
@@ -338,7 +234,9 @@ def process_url(
     return result
 
 
-def main() -> None:
+def parse_args():
+    """One source of photos, a local directory or a CSV of URLs, and the knobs
+    for how they are called and scored."""
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -359,113 +257,68 @@ def main() -> None:
     ap.add_argument("--no-aggregate", action="store_true",
                     help="skip aggregation (cache JSONs only, aggregate locally later)")
     ap.add_argument("--test", action="store_true", help="process 1 image only")
-    args = ap.parse_args()
+    return ap.parse_args()
 
-    load_dotenv()
-    api_key = os.environ.get("PLANTNET_API_KEY")
-    if not api_key:
-        sys.exit("ERROR: PLANTNET_API_KEY not found in .env")
 
-    config = load_config()
-    out_dir = args.out_dir
-    cache_dir = out_dir / "cache"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    cache_dir.mkdir(parents=True, exist_ok=True)
+def photo_sources(args):
+    """Pair every photo with a way to get its bytes, without getting them yet.
 
+    Each entry is a name and a callable. In CSV mode the callable downloads from
+    the bucket when the photo is due, so a run streams and never writes image
+    data to disk. Returns the pairs and the words to add to the run banner.
+    """
     if args.csv:
-        entries = load_csv_urls(args.csv)
-        if not entries:
+        rows = load_csv_urls(args.csv)
+        if not rows:
             sys.exit(f"No valid rows in {args.csv}")
-        if args.test:
-            entries = entries[:1]
-            print("TEST MODE: 1 image only\n")
+        return ([(gk, lambda url=url: download_image_bytes(url)) for gk, url in rows],
+                " (streaming from URLs)")
 
-        mode = "survey" if args.survey_endpoint else "identify+embeddings"
-        cached = sum(1 for gk, _ in entries if (cache_dir / f"{gk}.json").exists())
-        print(f"Ingesting {len(entries)} photos via {mode} (streaming from URLs)")
-        print(f"  Cached: {cached}, remaining: {len(entries) - cached}\n")
+    files = sorted(p for p in args.photos.iterdir()
+                   if p.suffix.lower() in IMG_EXTENSIONS)
+    if not files:
+        sys.exit(f"No image files found in {args.photos}")
+    return [(p.name, p.read_bytes) for p in files], ""
 
-        processed = 0
-        failed = []
-        for i, (gk, url) in enumerate(entries, 1):
-            print(f"  [{i}/{len(entries)}] {gk} ... ", end="", flush=True)
-            try:
-                result = process_url(
-                    gk, url, api_key, config, cache_dir,
-                    survey_url=args.survey_endpoint, delay=args.delay,
-                )
-                if result:
-                    n_sp = len(result.get("results", {}).get("species", []))
-                    print(f"OK ({n_sp} species)")
-                    processed += 1
-                else:
-                    print("SKIP (no result)")
-            except QuotaExceededError as e:
-                print(f"\n\nQUOTA EXHAUSTED after {processed} images: {e}")
-                print("Safe to resume -- cached images will be skipped.")
-                break
-            except Exception as e:
-                print(f"FAIL ({e})")
-                failed.append(gk)
 
-            if i < len(entries):
-                time.sleep(args.delay)
-    else:
-        photos = sorted(
-            p for p in args.photos.iterdir()
-            if p.suffix.lower() in IMG_EXTENSIONS
-        )
-        if not photos:
-            sys.exit(f"No image files found in {args.photos}")
+def fetch_all(photos, api_key, config, cache_dir, *, survey_url, delay):
+    """Call the API once per photo, cache as you go, and say so on every line.
 
-        if args.test:
-            photos = photos[:1]
-            print("TEST MODE: 1 image only\n")
+    A run is long enough to be watched, so each photo prints its own result
+    rather than a bar. A quota refusal stops the loop and is safe to resume
+    from, because the cache is what the next run skips on.
+    """
+    processed, failed = 0, []
+    for i, (name, read_bytes) in enumerate(photos, 1):
+        print(f"  [{i}/{len(photos)}] {name} ... ", end="", flush=True)
+        try:
+            result = process_image(
+                name, read_bytes, api_key, config, cache_dir,
+                survey_url=survey_url, delay=delay,
+            )
+            if result:
+                n_sp = len(result.get("results", {}).get("species", []))
+                print(f"OK ({n_sp} species)")
+                processed += 1
+            else:
+                print("SKIP (no result)")
+        except QuotaExceededError as e:
+            print(f"\n\nQUOTA EXHAUSTED after {processed} images: {e}")
+            print("Safe to resume -- cached images will be skipped.")
+            break
+        except Exception as e:
+            print(f"FAIL ({e})")
+            failed.append(name)
 
-        mode = "survey" if args.survey_endpoint else "identify+embeddings"
-        cached = sum(1 for p in photos if (cache_dir / f"{p.name}.json").exists())
-        print(f"Ingesting {len(photos)} photos via {mode}")
-        print(f"  Cached: {cached}, remaining: {len(photos) - cached}\n")
+        if i < len(photos):
+            time.sleep(delay)
+    return processed, failed
 
-        processed = 0
-        failed = []
-        for i, photo in enumerate(photos, 1):
-            print(f"  [{i}/{len(photos)}] {photo.name} ... ", end="", flush=True)
-            try:
-                result = process_photo(
-                    photo, api_key, config, cache_dir,
-                    survey_url=args.survey_endpoint, delay=args.delay,
-                )
-                if result:
-                    n_sp = len(result.get("results", {}).get("species", []))
-                    print(f"OK ({n_sp} species)")
-                    processed += 1
-                else:
-                    print("SKIP (no result)")
-            except QuotaExceededError as e:
-                print(f"\n\nQUOTA EXHAUSTED after {processed} images: {e}")
-                print("Safe to resume -- cached images will be skipped.")
-                break
-            except Exception as e:
-                print(f"FAIL ({e})")
-                failed.append(photo.name)
 
-            if i < len(photos):
-                time.sleep(args.delay)
-
-    print(f"\nAPI calls done: {processed} processed, {len(failed)} failed")
-    if failed:
-        print(f"  Failed: {', '.join(failed[:10])}")
-
-    if args.no_aggregate:
-        n_cached = len(list(cache_dir.glob("*.json")))
-        print(f"\n--no-aggregate: {n_cached} JSONs in {cache_dir}")
-        print(f"Aggregate locally with:")
-        print(f"  python3 predict/aggregate_survey.py --survey-dir {cache_dir}")
-        return
-
-    # --- Aggregate (same as 15c) ---
-    print("\nAggregating ...")
+def read_cache(cache_dir):
+    """One embedding and one species list per cached photo, skipping the
+    unparseable. Reads the whole cache, not this run: two half-runs aggregate
+    into the same thing one whole run would have."""
     json_files = sorted(cache_dir.glob("*.json"))
     if not json_files:
         sys.exit("No cached JSONs to aggregate")
@@ -486,12 +339,16 @@ def main() -> None:
             embeddings[global_key] = emb.tolist()
         if parsed["species"]:
             dataset_species[global_key] = parsed["species"]
+    return embeddings, dataset_species
 
-    emb_path = out_dir / "survey_embeddings.json"
-    with open(emb_path, "w") as f:
-        json.dump(embeddings, f)
-    print(f"  Embeddings: {len(embeddings)} photos -> {emb_path}")
 
+def score_photos(dataset_species, args, out_dir):
+    """Rank photos by how much labelling them would buy, against what is labelled.
+
+    The count of existing labels comes from the GT file, so a photo full of
+    species the botanists have already named scores low and a photo of something
+    rare scores high. Missing GT is not an error: everything is rare then.
+    """
     import pandas as pd
     from labelfirst.eval.species_priority import batch_scores
 
@@ -509,9 +366,62 @@ def main() -> None:
     with open(score_path, "w") as f:
         json.dump(scores, f)
     print(f"  Scores: {len(scores)} photos -> {score_path}")
+    return score_path
 
-    print(f"\nDone. Rebuild the dashboard over the new cache:")
-    print(f"  python3 dashboard/measure.py && python3 dashboard/build_external.py")
+
+def main() -> None:
+    """Fetch what is missing, then aggregate the whole cache into embeddings and
+    priority scores. --no-aggregate stops after the fetch, for when the calls
+    happen on one machine and the numpy work on another."""
+    args = parse_args()
+    load_dotenv()
+    api_key = os.environ.get("PLANTNET_API_KEY")
+    if not api_key:
+        sys.exit("ERROR: PLANTNET_API_KEY not found in .env")
+
+    config = load_config()
+    out_dir = args.out_dir
+    cache_dir = out_dir / "cache"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    photos, streaming = photo_sources(args)
+    if args.test:
+        photos = photos[:1]
+        print("TEST MODE: 1 image only\n")
+
+    mode = "survey" if args.survey_endpoint else "identify+embeddings"
+    cached = sum(1 for name, _ in photos if (cache_dir / f"{name}.json").exists())
+    print(f"Ingesting {len(photos)} photos via {mode}{streaming}")
+    print(f"  Cached: {cached}, remaining: {len(photos) - cached}\n")
+
+    processed, failed = fetch_all(
+        photos, api_key, config, cache_dir,
+        survey_url=args.survey_endpoint, delay=args.delay)
+
+    print(f"\nAPI calls done: {processed} processed, {len(failed)} failed")
+    if failed:
+        print(f"  Failed: {', '.join(failed[:10])}")
+
+    if args.no_aggregate:
+        n_cached = len(list(cache_dir.glob("*.json")))
+        print(f"\n--no-aggregate: {n_cached} JSONs in {cache_dir}")
+        print("Aggregate locally with:")
+        print(f"  python3 predict/aggregate_survey.py --survey-dir {cache_dir}")
+        return
+
+    print("\nAggregating ...")
+    embeddings, dataset_species = read_cache(cache_dir)
+
+    emb_path = out_dir / "survey_embeddings.json"
+    with open(emb_path, "w") as f:
+        json.dump(embeddings, f)
+    print(f"  Embeddings: {len(embeddings)} photos -> {emb_path}")
+
+    score_path = score_photos(dataset_species, args, out_dir)
+
+    print("\nDone. Rebuild the dashboard over the new cache:")
+    print("  python3 dashboard/measure.py && python3 dashboard/build_external.py")
     print(f"  embeddings: {emb_path}")
     print(f"  species scores: {score_path}")
 

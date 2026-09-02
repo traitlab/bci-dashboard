@@ -23,6 +23,7 @@ import csv
 import sys
 from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
 
 import labelbox as lb
 import settings
@@ -74,7 +75,8 @@ def extract_dominant_species(label_data: dict) -> str | None:
     return species_counts.most_common(1)[0][0]
 
 
-def main() -> None:
+def parse_args():
+    """One round to close, and a --dry-run that stops before anything is written."""
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -83,30 +85,25 @@ def main() -> None:
                     help="show what would be appended without writing")
     ap.add_argument("--gt", type=Path, default=GT_CSV,
                     help=f"GT CSV path (default: {GT_CSV.relative_to(REPO)})")
-    args = ap.parse_args()
+    return ap.parse_args()
 
-    api_key = settings.api_key()
 
-    config = settings.load_config()
-    project_b_name = config["labelbox"]["project_b_name"]
-
-    client = lb.Client(api_key=api_key)
-
-    print(f"Step 1 - Finding Project B '{project_b_name}'...")
-    project = next(
-        (p for p in client.get_projects() if p.name == project_b_name), None
-    )
+def find_project(client, name):
+    """The Labelbox project the botanists work in, looked up by its configured
+    name. Exits rather than returning None: every step below needs it."""
+    project = next((p for p in client.get_projects() if p.name == name), None)
     if project is None:
-        sys.exit(f"ERROR: Project '{project_b_name}' not found.")
-    print(f"  Project ID: {project.uid}")
+        sys.exit(f"ERROR: Project '{name}' not found.")
+    return project
 
-    print(f"\nStep 2 - Finding batch for round {args.round}...")
-    batch = find_batch(project, args.round)
-    if batch is None:
-        sys.exit(f"ERROR: No batch matching 'Round {args.round} -' found in project.")
-    print(f"  Found batch: {batch.name}")
 
-    print("\nStep 3 - Exporting labels from batch...")
+def export_rows(project, batch):
+    """Pull one batch's labels out of Labelbox and wait for the export to finish.
+
+    Errors are drained from their own stream before the results are: a failed
+    export still returns an empty result stream, which would otherwise read as
+    a round nobody labelled.
+    """
     export_task = project.export(
         params={
             "data_row_details": True,
@@ -130,40 +127,90 @@ def main() -> None:
     export_task.get_buffered_stream(stream_type=lb.StreamType.RESULT).start(
         stream_handler=lambda output: rows.append(output.json)
     )
-    print(f"  Exported {len(rows)} data rows")
+    return rows
 
-    print("\nStep 4 - Parsing dominant species per image...")
-    existing_keys = load_existing_gt(args.gt)
-    new_entries: list[tuple[str, str]] = []
-    skipped_existing = 0
-    skipped_no_label = 0
-    skipped_no_species = 0
+
+def new_gt_entries(rows, project_uid, existing_keys):
+    """The rows this round adds to the GT file, and where the rest went.
+
+    Three ways a row is not new: it is already in the GT file, nobody has
+    labelled it yet, or the label carries no species. They are counted apart
+    because they mean different things. Photos nobody labelled come back in a
+    later round; photos with no species parsed are a job for whoever reads the
+    export.
+    """
+    entries: list[tuple[str, str]] = []
+    skipped = SimpleNamespace(existing=0, no_label=0, no_species=0)
 
     for row in rows:
         gk = row.get("data_row", {}).get("global_key", "")
         if not gk:
             continue
         if gk in existing_keys:
-            skipped_existing += 1
+            skipped.existing += 1
             continue
 
-        project_labels = row.get("projects", {}).get(project.uid, {}).get("labels", [])
+        project_labels = row.get("projects", {}).get(project_uid, {}).get("labels", [])
         if not project_labels:
-            skipped_no_label += 1
+            skipped.no_label += 1
             continue
 
-        label_data = project_labels[0]
-        species = extract_dominant_species(label_data)
+        species = extract_dominant_species(project_labels[0])
         if not species:
-            skipped_no_species += 1
+            skipped.no_species += 1
             continue
 
-        new_entries.append((gk, species))
+        entries.append((gk, species))
+    return entries, skipped
+
+
+def append_gt(path, entries):
+    """Append the round's labels, writing the header only on a first run.
+
+    Append, not rewrite: the GT file is the accumulated record of every round
+    the botanists have closed, and this script has no business holding all of
+    it in memory to write it back.
+    """
+    write_header = not path.exists()
+    with open(path, "a", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        if write_header:
+            writer.writerow(["global_key", "wcvp_canonical_name"])
+        for gk, species in sorted(entries):
+            writer.writerow([gk, species])
+
+
+def main() -> None:
+    """Close one round: export what the botanists labelled, keep the rows that
+    are new, and append them to the GT file. Five numbered steps, each printing
+    what it found, because any of them can be the one that comes back empty."""
+    args = parse_args()
+    config = settings.load_config()
+    project_b_name = config["labelbox"]["project_b_name"]
+    client = lb.Client(api_key=settings.api_key())
+
+    print(f"Step 1 - Finding Project B '{project_b_name}'...")
+    project = find_project(client, project_b_name)
+    print(f"  Project ID: {project.uid}")
+
+    print(f"\nStep 2 - Finding batch for round {args.round}...")
+    batch = find_batch(project, args.round)
+    if batch is None:
+        sys.exit(f"ERROR: No batch matching 'Round {args.round} -' found in project.")
+    print(f"  Found batch: {batch.name}")
+
+    print("\nStep 3 - Exporting labels from batch...")
+    rows = export_rows(project, batch)
+    print(f"  Exported {len(rows)} data rows")
+
+    print("\nStep 4 - Parsing dominant species per image...")
+    existing_keys = load_existing_gt(args.gt)
+    new_entries, skipped = new_gt_entries(rows, project.uid, existing_keys)
 
     print(f"  New labels:         {len(new_entries)}")
-    print(f"  Already in GT:      {skipped_existing}")
-    print(f"  No labels yet:      {skipped_no_label}")
-    print(f"  No species parsed:  {skipped_no_species}")
+    print(f"  Already in GT:      {skipped.existing}")
+    print(f"  No labels yet:      {skipped.no_label}")
+    print(f"  No species parsed:  {skipped.no_species}")
 
     if not new_entries:
         print("\nNothing to append.")
@@ -181,17 +228,10 @@ def main() -> None:
         return
 
     print(f"\nStep 5 - Appending {len(new_entries)} rows to {args.gt}...")
-    write_header = not args.gt.exists()
-    with open(args.gt, "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if write_header:
-            writer.writerow(["global_key", "wcvp_canonical_name"])
-        for gk, species in sorted(new_entries):
-            writer.writerow([gk, species])
+    append_gt(args.gt, new_entries)
 
-    print(f"\n{'=' * 50}")
-    print("ROUND CLOSED")
-    print(f"{'=' * 50}")
+    rule = "=" * 50
+    print(f"\n{rule}\nROUND CLOSED\n{rule}")
     print(f"  Round:              {args.round}")
     print(f"  New GT rows:        {len(new_entries)}")
     print(f"  Total GT rows:      {len(existing_keys) + len(new_entries)}")
@@ -199,7 +239,7 @@ def main() -> None:
     print(f"  GT file:            {args.gt}")
     print("\n  Next: python3 dashboard/measure.py, then dispatch the top of")
     print(f"        send_batches.csv with labelling/dispatch_round.py --round {args.round + 1}")
-    print(f"{'=' * 50}")
+    print(rule)
 
 
 if __name__ == "__main__":

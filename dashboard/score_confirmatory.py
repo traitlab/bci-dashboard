@@ -1,36 +1,24 @@
 """Score the frozen 300 under the design committed in bci-dashboard-docs/hypothesis.md.
 
-Two arms, one label, two regions:
+Two arms, one label:
 
     crown   one identify call per labelled crown, aggregated to the frame
-    photo   the 1280 px centre square, 13.65% of the frame, carried as the
-            legacy reference and never described as region-aligned
+    photo   the centre square crop_overlap.CROP_SIZE names, the legacy reference
 
-Ground truth names the species whose labelled crowns hold the largest summed
-raw box area over the whole frame. The crown rule below mirrors that criterion
-at its own unit; the photo rule does not, which is the defect the experiment
-exists to measure.
+The label names the species whose crowns hold the largest summed box area over
+the frame. The crown rule mirrors that criterion at its own unit and the photo
+rule does not, which is the gap the experiment measures. Tiles, a third arm, was
+dropped before any read (deviation A4), taking P1 and P4 with it and leaving P3,
+crown beats photo, as the primary prediction.
 
-A third arm, tiles, was frozen alongside these two and dropped on 2026-08-27,
-before any confirmatory read. bci-dashboard-docs/hypothesis.md carries the
-reasons as deviation A4. P1 and P4 named tiles and die with it, so P3, crown
-beats photo, is the primary prediction from here.
+hypothesis.md fixed every rule, cluster unit, test and stopping rule before the
+data existed. A crown arm missing a frozen frame stamps the report EXPLORATORY,
+because the stopping rule allows one read on the complete set.
 
-Nothing here chooses anything. Every rule, every threshold, the cluster unit,
-the test and the stopping rule were fixed in bci-dashboard-docs/hypothesis.md before the data
-existed. This file only applies them. If the region-aligned arm is missing a
-frozen frame the report is stamped EXPLORATORY, because the stopping rule says
-the confirmatory read happens once, on the complete set.
+    python dashboard/score_confirmatory.py [--adjudication out.csv] [--out CSV]
 
-    python dashboard/score_confirmatory.py
-    python dashboard/score_confirmatory.py --adjudication out.csv
-    python dashboard/score_confirmatory.py --out input/confirmatory_result_2026-08.csv
-
-``--out`` writes the numbers the external dashboard publishes. The page reads
-that file rather than re-running this script, which is deliberate: the stopping
-rule says the confirmatory read happens once, on the complete set, so a number
-that changed because a page was rebuilt would not be a confirmatory number. The
-file is tracked for the same reason the frozen frame list is.
+``--out`` writes the numbers the external page publishes. The page reads that
+file rather than re-running this script: a rebuilt number is not confirmatory.
 """
 
 import argparse
@@ -43,6 +31,11 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import core
+from crop_overlap import FRAME_H, FRAME_W
+
+# The frame is a fixed size across the corpus, written down and checked in
+# crop_overlap. Typed here it would be a second copy of a frozen number.
+FRAME_AREA = FRAME_W * FRAME_H
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 FROZEN = REPO / "input" / "confirmatory_frames_2026-08.csv"
@@ -64,24 +57,17 @@ def log(msg=""):
 # --- names -------------------------------------------------------------------
 
 def canonicaliser():
-    """The same normalisation the dashboard already applies, as one callable."""
+    """The dashboard's own normalisation, over the cached crosswalk."""
     crosswalk, _ = core.load_wcvp_crosswalk(core.WCVP_CACHE_JSON)
-
-    def canon(name):
-        n = core.normalize(name or "")
-        return crosswalk.get(n, n)
-
-    return canon
+    return core.canonicaliser(crosswalk)
 
 
 # --- the two aggregation rules, as committed -------------------------------
 
 def rank_crowns(crowns):
-    """Frame prediction from crowns: each crown votes its own raw box area.
-
-    Ground truth is summed raw box area over the frame, so a crown arm that
-    pooled by crown count or by mean score would be answering a different
-    question than the label asks. `crowns` is a list of (area, top1, score).
+    """Frame prediction from crowns: each votes its raw box area, matching
+    ground truth (not crown count or mean score). ``crowns``: (area, top1,
+    score).
     """
     vote, best = {}, {}
     for area, top1, score in crowns:
@@ -126,7 +112,7 @@ def crown_id(base_image, box):
 
 
 def build_rows(frozen, boxes, canon):
-    """One row per frozen frame, with each arm's ranking and the frame's shape."""
+    """One row per frozen frame: each arm's ranking, the frame's shape."""
     rows, missing = [], {a: [] for a in ARMS}
     for f in frozen:
         base, gt = f["base_image"], canon(f["gt_species"])
@@ -155,10 +141,10 @@ def build_rows(frozen, boxes, canon):
         # How much of the frame the labelled crowns cover at all. Kept as a
         # descriptive column; the prediction that read it, P4, named tiles.
         row["labelled_area"] = min(
-            1.0, sum((b[2] - b[0]) * (b[3] - b[1]) for b in big) / (4000 * 3000))
+            1.0, sum((b[2] - b[0]) * (b[3] - b[1]) for b in big) / FRAME_AREA)
         row["gt_area"] = min(1.0, sum(
             (b[2] - b[0]) * (b[3] - b[1]) for b in big if canon(b[4]) == gt)
-            / (4000 * 3000))
+            / FRAME_AREA)
 
         for a in ARMS:
             if row[a] is None:
@@ -185,12 +171,9 @@ def wilson(hits, n, z=1.96):
 
 
 def cluster_bootstrap(rows, unit, statistic, draws=BOOTSTRAP_DRAWS, seed=SEED):
-    """Percentile interval, resampling whole clusters with replacement.
-
-    Eleven or twelve sites is too few for a sandwich estimator to be trusted,
-    which is why the interval is a bootstrap and why the cluster is the site
-    rather than the flight day: a day is a mission at one site, so the site is
-    the coarser unit and the more conservative choice.
+    """Percentile interval, resampling whole clusters with replacement. Too
+    few sites (11-12) to trust a sandwich estimator. Cluster is site, not
+    day: a day is one mission at one site.
     """
     groups = {}
     for r in rows:
@@ -236,12 +219,9 @@ def discordance(rows, a, b, k=1):
 
 
 def bootstrap_p(rows, a, b, unit, draws=BOOTSTRAP_DRAWS, seed=SEED):
-    """Two-sided cluster bootstrap p for the paired accuracy difference.
-
-    The exact McNemar assumes independent pairs and these pairs are clustered,
-    so this is the pre-specified sensitivity. The p value is the share of
-    resamples whose difference has the opposite sign to the observed one,
-    doubled, which is the usual percentile inversion.
+    """Two-sided cluster bootstrap p: the pre-specified check, since exact
+    McNemar assumes independent pairs and these are clustered. p is the
+    doubled share of resamples opposite in sign to observed.
     """
     pairs = [r for r in rows if r[a] is not None and r[b] is not None]
     if not pairs:
@@ -272,7 +252,9 @@ def bootstrap_p(rows, a, b, unit, draws=BOOTSTRAP_DRAWS, seed=SEED):
 
 # --- report ------------------------------------------------------------------
 
-def report(rows, missing, complete, draws=BOOTSTRAP_DRAWS):
+def report(rows, missing, complete, stat, draws=BOOTSTRAP_DRAWS):
+    """The run log: every number printed is the number ``result_rows``
+    (``stat``) publishes, not a resample."""
     n = len(rows)
     stamp = "CONFIRMATORY" if complete else "EXPLORATORY"
     log(f"=== {stamp} read of the frozen {n} ===")
@@ -286,41 +268,43 @@ def report(rows, missing, complete, draws=BOOTSTRAP_DRAWS):
                 f"e.g. {missing[a][0]}")
     log("")
 
-    log("primary endpoint: frame-level top-1 accuracy, and top-5")
+    # The list length is core's, not a 5 typed here: the same constant decides
+    # how many names were asked for and how wide the last column is named.
+    top_n = f"top-{core.N_CANDIDATES}"
+    log(f"primary endpoint: frame-level top-1 accuracy, and {top_n}")
     log(f"  {'arm':7} {'n':>4}  {'top-1':>6}  {'95% CI by site':>16}  "
-        f"{'by day':>16}  {'Wilson':>16}  {'top-5':>6}")
+        f"{'by day':>16}  {'Wilson':>16}  {top_n:>6}")
     for a in ARMS:
         scorable = [r for r in rows if r[a] is not None]
         if not scorable:
             log(f"  {a:7} {'0':>4}  no data")
             continue
-        acc = accuracy(scorable, a)
-        hits = sum(hit(r, a) for r in scorable)
-        def acc_of(sample, arm=a):
-            return accuracy(sample, arm)
-
-        s_lo, s_hi = cluster_bootstrap(scorable, "site", acc_of, draws)
-        d_lo, d_hi = cluster_bootstrap(scorable, "day", acc_of, draws)
-        w_lo, w_hi = wilson(hits, len(scorable))
+        acc = stat[f"{a}_top1"]
+        # The day-clustered interval is the one number here that no published
+        # row carries, so it is the only bootstrap this function still runs.
+        d_lo, d_hi = cluster_bootstrap(
+            scorable, "day", lambda x, arm=a: accuracy(x, arm), draws)
+        s_lo, s_hi = stat[f"{a}_top1_site_lo"], stat[f"{a}_top1_site_hi"]
+        w_lo, w_hi = stat[f"{a}_top1_wilson_lo"], stat[f"{a}_top1_wilson_hi"]
         log(f"  {a:7} {len(scorable):4d}  {acc:6.1%}  "
             f"[{s_lo:6.1%},{s_hi:6.1%}]  [{d_lo:6.1%},{d_hi:6.1%}]  "
-            f"[{w_lo:6.1%},{w_hi:6.1%}]  {accuracy(scorable, a, 5):6.1%}")
+            f"[{w_lo:6.1%},{w_hi:6.1%}]  {stat[f'{a}_top5']:6.1%}")
     log("  Wilson is the unclustered interval the page already publishes. It is")
     log("  too narrow here, and is shown so the cost of clustering is visible.")
-    log("  crown top-5 is bounded by the number of distinct species its crowns")
-    log("  name, which is usually fewer than five, so it is not comparable.")
+    log("  crown right-name-in-list is bounded by the number of distinct species")
+    log(f"  its crowns name, usually fewer than {core.N_CANDIDATES}, so it is not comparable.")
     log("")
 
     log("P3, primary since tiles was dropped: crown against photo, paired on")
     log("    the frame. The test, the cluster unit and the tie-break are the ones")
     log("    P1 was to be read with; only the second arm changed.")
-    pairs, crown_only, photo_only = discordance(rows, "crown", "photo")
-    p_exact = mcnemar_exact(crown_only, photo_only)
-    log(f"  pairs {pairs}, crown-only {crown_only}, photo-only {photo_only}")
-    log(f"  exact McNemar, two-sided        p = {p_exact:.5f}")
-    p_boot, band = bootstrap_p(rows, "crown", "photo", "site", draws)
-    if band:
-        d, lo, hi = band
+    log(f"  pairs {stat['paired_n']}, crown-only {stat['crown_only_hits']}, "
+        f"photo-only {stat['photo_only_hits']}")
+    log(f"  exact McNemar, two-sided        p = {stat['p_mcnemar_exact']:.5f}")
+    if "crown_minus_photo" in stat:
+        d = stat["crown_minus_photo"]
+        lo, hi = stat["crown_minus_photo_site_lo"], stat["crown_minus_photo_site_hi"]
+        p_boot = stat["p_cluster_bootstrap"]
         log(f"  difference                      {d:+.1%} "
             f"[{lo:+.1%}, {hi:+.1%}] clustered on site")
         log(f"  cluster bootstrap, two-sided    p = {p_boot:.5f}")
@@ -332,11 +316,9 @@ def report(rows, missing, complete, draws=BOOTSTRAP_DRAWS):
 
     log("P2: the region-aligned arm beats 50% top-1")
     for a in ALIGNED:
-        scorable = [r for r in rows if r[a] is not None]
-        if not scorable:
+        if f"{a}_top1_site_lo" not in stat:
             continue
-        lo, _ = cluster_bootstrap(scorable, "site",
-                                  lambda x, arm=a: accuracy(x, arm), draws)
+        lo = stat[f"{a}_top1_site_lo"]
         log(f"  {a:6} lower bound of the site-clustered interval {lo:6.1%}  "
             f"{'beats' if lo > 0.5 else 'does not beat'} 50%")
     log("")
@@ -358,16 +340,13 @@ def report(rows, missing, complete, draws=BOOTSTRAP_DRAWS):
 
 
 def result_rows(rows, complete, draws=BOOTSTRAP_DRAWS):
-    """The published numbers as ordered (key, value) pairs.
-
-    Long format rather than one row per arm, because the paired comparison
-    belongs to neither arm and padding it into both would invite a reader to
-    average two copies of the same difference.
+    """The published numbers as ordered (key, value) pairs. Long format: the
+    paired comparison belongs to neither arm, avoiding an average of two
+    copies of it.
     """
     # Composition, not a result: a rate over 300 frames is weighted by whatever
-    # those frames happen to hold, and a page that prints the rate without the
-    # weighting invites the same per-frame-average mistake the dashboard already
-    # argues against for the corpus numbers.
+    # those frames hold, the per-frame-average trap the dashboard argues against
+    # for the corpus numbers.
     by_species = {}
     for r in rows:
         by_species[r["gt"]] = by_species.get(r["gt"], 0) + 1
@@ -399,7 +378,7 @@ def result_rows(rows, complete, draws=BOOTSTRAP_DRAWS):
                 (f"{a}_top1", accuracy(scorable, a)),
                 (f"{a}_top1_site_lo", s_lo), (f"{a}_top1_site_hi", s_hi),
                 (f"{a}_top1_wilson_lo", w_lo), (f"{a}_top1_wilson_hi", w_hi),
-                (f"{a}_top5", accuracy(scorable, a, 5))]
+                (f"{a}_top5", accuracy(scorable, a, core.N_CANDIDATES))]
 
     pairs, crown_only, photo_only = discordance(rows, "crown", "photo")
     p_boot, band = bootstrap_p(rows, "crown", "photo", "site", draws)
@@ -413,24 +392,21 @@ def result_rows(rows, complete, draws=BOOTSTRAP_DRAWS):
     return out
 
 
-def write_result(rows, complete, path, draws=BOOTSTRAP_DRAWS):
+def write_result(pairs, path):
     path = pathlib.Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh, lineterminator="\n")
         w.writerow(["key", "value"])
-        for k, v in result_rows(rows, complete, draws):
+        for k, v in pairs:
             w.writerow([k, f"{v:.6f}" if isinstance(v, float) else v])
     log(f"wrote {path}")
 
 
 def write_adjudication(rows, path, seed=SEED):
-    """Phase 5: the disagreements, with the arm labels hidden.
-
-    An adjudicator who can see which arm said what will find the arm they
-    expect to win. The two answers are written as A and B in an order drawn per
-    frame from the seed, and the key goes to a separate file that is not opened
-    until every verdict is in.
+    """The disagreements, arm labels hidden so an adjudicator cannot
+    favor the arm they expect to win. A/B order is drawn per frame from
+    the seed; the key file stays closed until every verdict is in.
     """
     rng = random.Random(f"{seed}:adjudication")
     both = [r for r in rows if r["crown"] is not None and r["photo"] is not None]
@@ -456,23 +432,27 @@ def write_adjudication(rows, path, seed=SEED):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--frozen", type=pathlib.Path, default=FROZEN)
+    """Score the frozen confirmatory set and write the numbers it publishes."""
+    ap = argparse.ArgumentParser(description=core.summarise(__doc__))
+    ap.add_argument("--frozen", type=pathlib.Path, default=FROZEN,
+                    help="the list of frames frozen before the numbers existed")
     ap.add_argument("--adjudication", type=pathlib.Path,
                     help="write the blind adjudication sheet here")
     ap.add_argument("--out", type=pathlib.Path,
                     help="write the published numbers here as key,value rows")
-    ap.add_argument("--draws", type=int, default=BOOTSTRAP_DRAWS)
+    ap.add_argument("--draws", type=int, default=BOOTSTRAP_DRAWS,
+                    help=f"how many times to re-run the count for the range "
+                         f"(default: {BOOTSTRAP_DRAWS:,})")
     args = ap.parse_args(argv)
 
     frozen = load_frozen(args.frozen)
     canon = canonicaliser()
     rows, missing = build_rows(frozen, load_boxes(), canon)
     complete = not any(missing[a] for a in ALIGNED)
-    report(rows, missing, complete, args.draws)
+    published = result_rows(rows, complete, args.draws)
+    report(rows, missing, complete, dict(published), args.draws)
     if args.out:
-        write_result(rows, complete, args.out, args.draws)
+        write_result(published, args.out)
     if args.adjudication:
         if not complete:
             log("\nrefusing to write the adjudication sheet: the set is not "

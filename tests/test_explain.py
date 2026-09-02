@@ -84,7 +84,7 @@ def _candidates_recs():
 
 
 def test_candidates_panel_returns_a_balanced_string_with_the_given_numbers(explain):
-    out = explain.candidates_panel(recs=_candidates_recs(), gen_n=7, gen_none=3)
+    out = explain.candidates_panel(recs=_candidates_recs(), n_scored=4, gen_n=7, gen_none=3)
     assert isinstance(out, str)
     assert _balanced(out)
     assert "7" in out
@@ -94,13 +94,13 @@ def test_candidates_panel_returns_a_balanced_string_with_the_given_numbers(expla
 def test_candidates_panel_names_the_longest_list_length_returned(explain):
     # top = max list length across recs, so a 1-guess and a 2-guess record
     # must report 2 as the cap, not the number of records.
-    out = explain.candidates_panel(recs=_candidates_recs(), gen_n=0, gen_none=0)
+    out = explain.candidates_panel(recs=_candidates_recs(), n_scored=4, gen_n=0, gen_none=0)
     assert "2 guesses" in out
 
 
 # --- weighting_panel -----------------------------------------------------------
 
-def _weighting_kwargs(*, big_species="sp2"):
+def _weighting_kwargs():
     support = {"sp1": 1, "sp2": 25}
     sp_recs = [
         {"gt": "sp1", "ranked": [("other", 0.9), ("sp1", 0.05)]},
@@ -108,7 +108,7 @@ def _weighting_kwargs(*, big_species="sp2"):
     ]
     per_species = [
         {"species": "sp1", "n_labelled_crowns": 1, "top1_accuracy": 0.0},
-        {"species": big_species, "n_labelled_crowns": 25, "top1_accuracy": 1.0},
+        {"species": "sp2", "n_labelled_crowns": 25, "top1_accuracy": 1.0},
     ]
     buckets = {
         "1": {"n_species": 1, "n_crowns": 1, "c1": 0},
@@ -125,12 +125,6 @@ def test_weighting_panel_returns_a_balanced_string_with_the_given_numbers(explai
     assert isinstance(out, str)
     assert _balanced(out)
     assert "2" in out
-
-
-def test_weighting_panel_escapes_the_biggest_species_name(explain):
-    out = explain.weighting_panel(**_weighting_kwargs(big_species=INJECT))
-    assert "<script>&" not in out
-    assert "&lt;script&gt;" in out
 
 
 def test_weighting_panel_raises_zero_division_when_no_species_is_well_sampled(explain):
@@ -156,26 +150,30 @@ def test_weighting_panel_raises_zero_division_when_no_species_is_well_sampled(ex
 # --- method_panel --------------------------------------------------------------
 
 def test_method_panel_returns_a_balanced_string_with_the_given_numbers(explain):
-    out = explain.method_panel(tag="run-1", n=100, n_sp=12, checks=["check a"])
+    out = explain.method_panel(tag="run-1", n=100, n_sp=12, n_cand=5, checks=["check a"])
     assert isinstance(out, str)
     assert _balanced(out)
     assert "100" in out
     assert "12" in out
 
 
-def test_method_panel_renders_every_check_as_its_own_li(explain):
-    out = explain.method_panel(tag="run-1", n=1, n_sp=1, checks=["first check", "second check"])
-    assert "<li>first check</li>" in out
-    assert "<li>second check</li>" in out
+def test_method_panel_counts_the_checks_rather_than_listing_them(explain):
+    """The bullets only asserted that each CSV matched, which the closing
+    sentence already guarantees. The count stays live so the page cannot claim a
+    number of cross-checks the build did not run."""
+    out = explain.method_panel(tag="run-1", n=1, n_sp=1, n_cand=5,
+                               checks=["first check", "second check"])
+    assert "the 2 CSVs" in out
+    assert "first check" not in out
 
 
-def test_method_panel_escapes_a_check_containing_html(explain):
-    out = explain.method_panel(tag="run-1", n=1, n_sp=1, checks=[INJECT])
-    assert "<script>&" not in out
-    assert "&lt;script&gt;" in out
+def test_method_panel_leaks_no_check_text_onto_the_page(explain):
+    out = explain.method_panel(tag="run-1", n=1, n_sp=1, n_cand=5, checks=[INJECT])
+    assert INJECT not in out
+    assert "<script>" not in out
 
 
 def test_method_panel_escapes_the_model_tag(explain):
-    out = explain.method_panel(tag=INJECT, n=1, n_sp=1, checks=[])
+    out = explain.method_panel(tag=INJECT, n=1, n_sp=1, n_cand=5, checks=[])
     assert "<script>&" not in out
     assert "&lt;script&gt;" in out

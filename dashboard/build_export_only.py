@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
 """A dashboard scoped to one Labelbox export, nothing else.
 
-The other two pages (16b, 16c) answer "how good is the model, overall,
-right now" from the *cumulative* ground truth: every label collected across
-every past batch, merged. That is the right question for the labelling
-programme, but it is a different question from "how did this one export do",
-and merging the two makes the second question unanswerable from either page.
+The other two pages score the cumulative record, every batch merged, which
+makes "how did this one export do" unanswerable from either. This page reads
+one NDJSON export and scores Pl@ntNet on the crowns it labels, opening neither
+``gt_dominant_taxon.csv``, the photo corpus nor the send-first queues.
 
-This page answers only the second question. It reads one NDJSON export
-directly and evaluates Pl@ntNet only on the crowns that export itself
-labels. It never opens ``gt_dominant_taxon.csv`` (the cumulative record), the
-photo corpus (``splits.csv`` totals), the send-first queues, or the history
-trend -- none of that is "this export", so none of it is on this page.
-
-Read-only against Labelbox data: the export is parsed, never written back,
-and the cumulative GT file on disk is never touched (see CLAUDE.md).
+Read-only against Labelbox data: the export is parsed, never written back, and
+the cumulative GT file on disk is never touched (see CLAUDE.md).
 
     python3 dashboard/build_export_only.py \\
         --export "/path/to/Export  project - 2024_bci - 8_6_2026.ndjson" \\
@@ -30,28 +23,36 @@ import importlib.util
 import os
 import sys
 import tempfile
+from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import core as hc  # noqa: E402
-import panels as pn
+import core as hc
+import figures
+import health as hl
+import page as pg
 from assets import (
     cap,
     esc,
     filterable_table,
     funnel_list,
+    hero,
+    num_cell,
     panel,
     pctf,
-)  # noqa: E402
+    status_legend,
+    status_tag,
+)
+from panels import HEADLINES, SPECIES_LOOKUP_LEDE
+from status_words import (STATUS, filter_options, legend_entries,
+                          status_precedence_note)
 
 
 def _load_gt_from_export():
-    """Import the merge script's ``export_dominants`` without duplicating its
-    NDJSON parse.
+    """Import the merge script's ``export_dominants``, no second NDJSON parse.
 
-    Loaded by path, not by package import: labelling/ isn't a package on the
-    normal path, and this is the one function this page needs from it
-    (module-level only; ``main()`` is never called).
+    Loaded by path: labelling/ is not a package on the normal path, and only
+    its module level runs, never its ``main()``.
     """
     path = os.path.join(hc.REPO, "labelling", "gt_from_export.py")
     spec = importlib.util.spec_from_file_location("_gt_from_export", path)
@@ -62,12 +63,11 @@ def _load_gt_from_export():
 
 def export_only_health(
     export_path: str, *, splits_csv: str, cache_dir: str, wcvp_cache: str
-) -> tuple[hc.Health, int]:
+) -> tuple[hl.Health, int]:
     """Load a ``Health`` computed only over this export's own labelled photos.
 
-    Returns ``(health, n_ndjson_rows)``. Writes a throwaway GT CSV to a temp
-    file so the existing, already-verified ``load_health`` join/scoring logic
-    can be reused unchanged; nothing is written under the repo.
+    Returns ``(health, n_ndjson_rows)``. The throwaway GT CSV goes to a temp
+    file so ``load_health`` is reused unchanged, nothing under the repo.
     """
     mod = _load_gt_from_export()
     with open(export_path, encoding="utf-8") as f:
@@ -83,7 +83,7 @@ def export_only_health(
             w.writerow([hc.GT_KEY_PREFIX + stem, sp])
         tmp_gt = tf.name
     try:
-        h = hc.load_health(
+        h = hl.load_health(
             gt_csv=tmp_gt,
             splits_csv=splits_csv,
             cache_dir=cache_dir,
@@ -94,119 +94,137 @@ def export_only_health(
     return h, n_rows
 
 
-def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str:
+TITLE = "Pl@ntNet on BCI: this export only"
+
+
+def export_counts(h, n_rows):
+    """Where every row of the export ended up, and the rates over what is left.
+
+    The counts sum to the rows in the file: a reader seeing an accuracy over 31
+    photos can see where the other rows went. An empty list of names is a step
+    of its own, without it the steps stop summing.
+    """
     sp_recs, per_species = h.sp_recs, h.per_species
     n, n_sp = len(sp_recs), len(per_species)
-    n_labelled = len(h.gt_rows)  # rows export_dominants found a species label for
-    n_no_cache = len(h.missing_cache)
-
+    n_genus = len(h.genus_recs)  # labelled, cached, but the name stops at the genus
     c1 = sum(1 for r in sp_recs if r["ranked"][0][0] == r["gt"])
-    c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:5]])
-    macro1 = (sum(d["top1_accuracy"] for d in per_species) / n_sp) if n_sp else None
-    micro1 = (c1 / n) if n else None
-    macro5 = (sum(d["top5_accuracy"] for d in per_species) / n_sp) if n_sp else None
+    c5 = sum(1 for r in sp_recs
+             if r["gt"] in [b for b, _ in r["ranked"][:figures.N_CANDIDATES]])
+    return SimpleNamespace(
+        n_rows=n_rows, n=n, n_sp=n_sp, n_genus=n_genus,
+        n_labelled=len(h.gt_rows),  # rows export_dominants found a botanist name for
+        n_no_cache=len(h.missing_cache),
+        n_cached=len(h.joined),  # a cache file was found, whatever is in it
+        n_empty=len(h.records) - n - n_genus,  # found, but it named nothing
+        c1=c1, c5=c5,
+        macro1=(sum(d["top1_accuracy"] for d in per_species) / n_sp) if n_sp else None,
+        macro5=(sum(d["top5_accuracy"] for d in per_species) / n_sp) if n_sp else None,
+        micro1=(c1 / n) if n else None)
 
+
+def funnel_panel(k):
+    """Every row of the export ends in exactly one of these steps."""
+    body = funnel_list([
+        (k.n_rows, "rows in this NDJSON export"),
+        (k.n_labelled,
+         "of those rows carry a botanist name in the Planta/Taxon field, "
+         "and the rest have no annotation in this export"),
+        (k.n_cached, "of the labelled photos also have a cached Pl@ntNet answer"),
+        (k.n, "of those name a species rather than stopping at the genus, and "
+              "every accuracy figure below is measured on this set"),
+        (k.n_genus, "stop at the genus, which this page does not score"),
+        (k.n_empty, "have a cached answer that names nothing at all"),
+        (k.n_no_cache,
+         "labelled photos have no cached prediction, so cannot be scored"),
+    ])
+    return panel("Where these numbers come from",
+                 f"<b>Why {k.n_rows - k.n:,} of the {k.n_rows:,} rows are not in the "
+                 f"accuracy rate above.</b>",
+                 body, open_=True)
+
+
+def headline_panels(k):
+    """The one big number, and the same question averaged the other way.
+
+    Wording and markup come from ``assets.hero`` and HEADLINES, so this page
+    and the model-health page cannot call one number two things.
+    """
+    _, question, averaged, _ = HEADLINES[0]
+    out = [hero([(averaged, pctf(k.macro1),
+                  question.format(k=figures.N_CANDIDATES),
+                  f"this export\u2019s {k.n_sp} species, each counted once")])]
+    if k.n:
+        out.append(
+            f'<p class="note">Averaged across frames instead of species: '
+            f"{pctf(k.micro1)} right ({k.c1:,} of {k.n:,}). The right name is somewhere "
+            f"in the {figures.N_CANDIDATES} names Pl@ntNet returned for "
+            f"{pctf(k.macro5)} of species, and {pctf(k.c5 / k.n)} of frames. Those "
+            f"names were ranked by Pl@ntNet before this export existed. "
+            f"They are looked up per photo, so the botanist\u2019s label in this "
+            f"export can be checked against them.</p>")
+    else:
+        out.append(
+            '<p class="note">No photo in this export both carries a species label '
+            "and has a cached Pl@ntNet prediction, so no accuracy rate can be "
+            "computed.</p>")
+    return out
+
+
+def species_panel(per_species):
+    """The same table the model-health page renders, status column included.
+
+    Without the status, a row saying 40% does not say whether the model gets
+    that species wrong or has too few labels to judge it.
+    """
+    rows = []
+    for d in per_species:
+        st = hc.diagnose(d)
+        rows.append([
+            esc(cap(d["species"])),
+            num_cell(d["n_labelled_crowns"], f'{d["n_labelled_crowns"]:,}'),
+            num_cell(d["top1_accuracy"], pctf(d["top1_accuracy"])),
+            status_tag(st, STATUS[st][0]),
+        ])
+    body = status_legend(legend_entries()) + filterable_table(
+        [("Species", False), ("Labelled frames", True),
+         ("First guess right", True), ("Status", False)],
+        rows, options=filter_options())
+    return panel(f"Look up one species: all {len(per_species)} in this export",
+                 SPECIES_LOOKUP_LEDE + " " + status_precedence_note(),
+                 body, open_=True)
+
+
+def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str:
+    """The page, top to bottom: what this export is and how it scored."""
+    k = export_counts(h, n_rows)
     P = [
-        "<h1>Pl@ntNet on BCI: this export only</h1>",
+        f"<h1>{esc(TITLE)}</h1>",
         f'<div class="subtitle">built {esc(generated)} &middot; '
         f"<code>{esc(export_name)}</code></div>",
+        ('<p class="intro">This page scores one Labelbox export on its own. It asks '
+         "how well Pl@ntNet named the trees this batch labelled, and nothing else. "
+         "The running total across every past batch is on the model-health page, <code>model_health_dashboard.html</code>.</p>"),
     ]
-
-    funnel_body = funnel_list(
-        [
-            (n_rows, "rows in this NDJSON export"),
-            (
-                n_labelled,
-                "of those rows carry a Planta/Taxon species label \u2014 the rest "
-                "have no annotation in this export",
-            ),
-            (
-                n,
-                "of the labelled photos also have a cached Pl@ntNet prediction \u2014 every "
-                "accuracy figure below is measured on this set",
-            ),
-            (
-                n_no_cache,
-                "labelled photos have no cached prediction, so cannot be scored",
-            ),
-        ]
-    )
-    P.append(
-        f'<div class="hero">'
-        f'<div class="metric first"><div class="v">{pctf(macro1)}</div>'
-        f'<div class="l">Right first guess, averaged across species</div>'
-        f'<div class="n">this export\u2019s {n_sp} species, each counted once</div></div>'
-        f"</div>"
-    )
-    if n:
-        P.append(
-            f'<p class="note">Averaged across crowns instead of species: '
-            f"{pctf(micro1)} right ({c1:,} of {n:,}). The right name is in the "
-            f"5-guess list for {pctf(macro5)} of species ({pctf(c5 / n)} of "
-            f"crowns. The 5-guess list is Pl@ntNet\u2019s own ranked "
-            f"prediction for the photo, made before this export existed. "
-            f"It is looked up per photo so the "
-            f"ground-truth name here can be checked against it.</p>"
-        )
-    else:
-        P.append(
-            '<p class="note">No crown in this export both carries a species label '
-            "and has a cached Pl@ntNet prediction, so no accuracy rate can be "
-            "computed.</p>"
-        )
-    P.append(
-        panel(
-            "Where these numbers come from",
-            f"<b>Why {n_rows - n:,} of the {n_rows:,} rows are not in the "
-            f"accuracy rate above.</b>",
-            funnel_body,
-            open_=True,
-        )
-    )
-
-    if per_species:
-        rows = [
-            [
-                f'<span class="sp">{esc(cap(d["species"]))}</span>',
-                f'{d["n_labelled_crowns"]:,}',
-                pctf(d["top1_accuracy"]),
-            ]
-            for d in sorted(
-                per_species, key=lambda d: (-d["n_labelled_crowns"], d["species"])
-            )
-        ]
-        body = filterable_table(
-            [
-                ("Species", False),
-                ("Labelled crowns", True),
-                ("First guess right", True),
-            ],
-            rows,
-            options=[],
-        )
-        P.append(panel("Filter Species", "", body, open_=True))
-
-    return pn.document("Pl@ntNet on BCI - this export only", "\n".join(P))
+    P += headline_panels(k)
+    P.append(funnel_panel(k))
+    if h.per_species:
+        P.append(species_panel(h.per_species))
+    return pg.document(TITLE, "\n".join(P))
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    """Read one export, score it, write the page. No snapshot, no corpus total."""
+    ap = argparse.ArgumentParser(description=hc.summarise(__doc__))
     ap.add_argument("--export", required=True, help="Labelbox project export NDJSON")
-    ap.add_argument(
-        "--splits",
-        default=hc.SPLITS_CSV,
-        help="splits.csv; used only to resolve a stem to a cache file, "
-        "never rendered as a corpus total on this page",
+    hc.add_input_flags(
+        ap, "--splits", "--cache-dir", "--wcvp-cache",
+        splits="read only to find each photo's cached answer; this page prints "
+               "no corpus total",
     )
-    ap.add_argument("--cache-dir", default=hc.CACHE_DIR)
-    ap.add_argument("--wcvp-cache", default=hc.WCVP_CACHE_JSON)
     ap.add_argument(
         "--out",
-        default=os.path.join(
-            hc.REPO, "build", "export_only_dashboard.html"
-        ),
+        default=os.path.join(hc.REPO, "build", "export_only_dashboard.html"),
+        help="write the page here (default: build/export_only_dashboard.html)",
     )
     ap.add_argument(
         "--generated", default=None, help="build date string; defaults to today"
@@ -230,9 +248,8 @@ def main() -> None:
     print(f"  labelled (species) rows     : {len(h.gt_rows):,}")
     print(f"  joined to cached prediction : {len(h.sp_recs) + len(h.genus_recs):,}")
     print(f"  species-level, scoreable    : {len(h.sp_recs):,}")
-    # No verify list: this page is scoped to one export and has no snapshot to
-    # reconcile against, so it passes an empty one.
-    pn.write_page(page, [], args.out)
+    # No verify list: no snapshot to reconcile one export against.
+    pg.write_page(page, [], args.out)
 
 
 if __name__ == "__main__":

@@ -1,23 +1,23 @@
-"""Phase 3a refresh — fold a Labelbox project export into the dominant-taxon GT.
+"""Fold a Labelbox project export into the dominant-taxon GT.
 
-``15a_export_gt_dominant_taxon.py`` derived the ground truth offline from
-``input/boxes/crop_bounding_boxes.csv``. On 2026-08-06 the botanists' July 2026
-revision pass was exported from the Labelbox project ``2024_bci`` as NDJSON:
-per-crown ``Planta`` boxes with a nested Radio ``Taxon``. Those labels are the
-revised record, so where the export covers a photo its label wins; photos the
-export does not cover keep the offline label, and photos newly labelled in the
-export are added.
+The botanists' July 2026 revision was exported from the Labelbox project
+``2024_bci`` as NDJSON on 2026-08-06: per-crown ``Planta`` boxes with a nested
+Radio ``Taxon``. Those labels are the revised record, so where the export
+covers a photo its label wins. Photos it does not cover keep the label an
+earlier script (``15a_export_gt_dominant_taxon.py``, no longer in the repo)
+derived offline from ``input/boxes/crop_bounding_boxes.csv``, and photos
+newly labelled in the export are added.
 
-Dominant taxon per photo is by summed box area, the same rule 15a used on the
-crop CSV. Taxon option names carry trailing ALL-CAPS code tokens
-(``Mascagnia divaricata-MAS2DI`` / ``-MASCDI``); one or two trailing codes are
-stripped so name variants of one species collapse to the same string.
+Dominant taxon per photo is by summed box area, the rule that script used.
+Taxon option names carry trailing ALL-CAPS code tokens
+(``Mascagnia divaricata-MAS2DI`` / ``-MASCDI``); one or two are stripped so
+name variants of one species collapse to the same string.
 
 Rows outside the photo corpus (``splits.csv``) are dropped: the 2026-04-02
 mission's tele photos have no cached prediction and would only pad the
 no-cache log lines in the dashboard measurement.
 
-Read-only — the NDJSON is parsed, never written back to Labelbox.
+Read-only: the NDJSON is parsed, never written back to Labelbox.
 
 Usage:
     python3 labelling/gt_from_export.py \
@@ -47,7 +47,7 @@ _CODE = re.compile(r"^[A-Z0-9]{2,}$")
 def strip_codes(name: str) -> str:
     """``Anacardium excelsum-ANACEX-ANAE`` -> ``Anacardium excelsum``.
 
-    Also strips a single trailing code (``-MASCDI``), which 15a's two-code
+    Also strips a single trailing code (``-MASCDI``), which that script's two-code
     strip left in place. Genera/families without codes pass through.
     """
     parts = str(name).split("-")
@@ -114,7 +114,12 @@ def export_dominants(ndjson_path: Path) -> tuple[dict[str, str], list[dict], dic
     return dominants, boxes, row_ids
 
 
-def main() -> None:
+def parse_args():
+    """The export to merge, the three files it merges into, and an optional note.
+
+    The note is written to a sidecar the dashboards read, so a page can say
+    which batch its ground truth came from without anyone retyping it there.
+    """
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--export", required=True, help="Labelbox project export NDJSON")
     ap.add_argument("--gt", default=str(GT), help="existing gt_dominant_taxon.csv")
@@ -125,7 +130,92 @@ def main() -> None:
                     help="one-line provenance note for the merged GT, e.g. the batch "
                          "name and its review status; written to a sidecar the "
                          "dashboards read, so the page never quotes a stale batch")
-    args = ap.parse_args()
+    return ap.parse_args()
+
+
+def write_boxes(boxes, path):
+    """The crown geometry exactly as the export drew it, never recomputed."""
+    fields = ["base_image", "x_min", "y_min", "x_max", "y_max",
+              "width", "height", "lb_label"]
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fields)
+        w.writeheader()
+        w.writerows(boxes)
+    print(f"export crown boxes {len(boxes)} on "
+          f"{len({b['base_image'] for b in boxes})} frames -> {path}")
+
+
+def merge_gt(base_gt, july, path):
+    """Fold this export's labels into the accumulated ground truth.
+
+    The export wins where the two disagree: it is the more recent read of the
+    same photo by the same botanists. Which rows it revised is returned rather
+    than swallowed, because a batch that revises hundreds of rows is worth
+    someone looking at before it is trusted.
+    """
+    merged = dict(base_gt)
+    revised = {k: (base_gt[k], sp) for k, sp in july.items()
+               if k in base_gt and base_gt[k] != sp}
+    new = {k: sp for k, sp in july.items() if k not in base_gt}
+    merged.update(july)
+
+    out = sorted(merged.items())
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["global_key", "wcvp_canonical_name"])
+        w.writerows(out)
+    return out, revised, new
+
+
+def merge_row_ids(row_ids, corpus, n_gt, path):
+    """Data row ids accumulate the same way the GT does.
+
+    An export names only the project it came from, so a frame labelled in a
+    legacy project has no id here until that project's rows are migrated and
+    exported again. The share is printed rather than the gap being filled by a
+    guess: the pages report the coverage.
+    """
+    known: dict[str, tuple[str, str]] = {}
+    if path.exists():
+        with open(path, newline="", encoding="utf-8") as f:
+            known = {r["global_key"]: (r["data_row_id"], r["project_id"])
+                     for r in csv.DictReader(f)}
+    before = len(known)
+    known.update({GT_KEY_PREFIX + stem: pair for stem, pair in row_ids.items()
+                  if GT_KEY_PREFIX + stem in corpus})
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["global_key", "data_row_id", "project_id"])
+        w.writerows([k, *known[k]] for k in sorted(known))
+    share = f"{len(known) / n_gt:.1%}" if n_gt else "n/a"
+    print(f"data row ids {before} -> {len(known)} ({share} of GT)  -> {path}")
+
+
+def report(base_gt, july, out, revised, new, gt_path):
+    """What the merge did, in the four counts that have to add up.
+
+    Agreed, revised and newly labelled sum to the export rows that landed in
+    the corpus, so a reader can see nothing went missing between the file and
+    the GT.
+    """
+    n_agree = len(july) - len(revised) - len(new)
+    print(f"export photos in corpus with a species label : {len(july)}")
+    print(f"  agreeing with existing GT                  : {n_agree}")
+    print(f"  revising existing GT                       : {len(revised)}")
+    print(f"  newly labelled (no prior GT)               : {len(new)}")
+    print(f"GT rows {len(base_gt)} -> {len(out)}  -> {gt_path}")
+    print(f"  distinct species {len(set(base_gt.values()))} -> "
+          f"{len({sp for _, sp in out})}")
+    top = Counter(g for g, _ in revised.values()).most_common(8)
+    print("  most-revised away from:")
+    for name, c in top:
+        print(f"    {c:4d}  {name}")
+
+
+def main() -> None:
+    """Merge one Labelbox export into the ground truth, the crown boxes and the
+    data row ids, then say what changed in each."""
+    args = parse_args()
 
     with open(args.splits, newline="", encoding="utf-8") as f:
         corpus = {r["global_key"] for r in csv.DictReader(f)}
@@ -134,69 +224,25 @@ def main() -> None:
         base_gt = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
 
     july, boxes, row_ids = export_dominants(Path(args.export))
+    write_boxes(boxes, args.boxes_out)
 
-    fields = ["base_image", "x_min", "y_min", "x_max", "y_max",
-              "width", "height", "lb_label"]
-    with open(args.boxes_out, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fields)
-        w.writeheader()
-        w.writerows(boxes)
-    print(f"export crown boxes {len(boxes)} on "
-          f"{len({b['base_image'] for b in boxes})} frames -> {args.boxes_out}")
-
+    # Only frames the corpus knows about. An export can carry photos from
+    # another project, and a GT row for a frame no page can score is dead weight.
     july = {GT_KEY_PREFIX + stem: sp for stem, sp in july.items()
             if GT_KEY_PREFIX + stem in corpus}
 
-    merged = dict(base_gt)
-    revised = {k: (base_gt[k], sp) for k, sp in july.items()
-               if k in base_gt and base_gt[k] != sp}
-    new = {k: sp for k, sp in july.items() if k not in base_gt}
-    merged.update(july)
-
-    out = sorted(merged.items())
-    with open(args.gt, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["global_key", "wcvp_canonical_name"])
-        w.writerows(out)
-
-    # Data row ids accumulate the same way the GT does. An export names only
-    # the project it came from, so a frame labelled in a legacy project has no
-    # id here until that project's rows are migrated and exported again. The
-    # pages report the coverage rather than guessing a link.
-    ids_path = Path(args.gt).with_name("data_row_ids.csv")
-    known: dict[str, tuple[str, str]] = {}
-    if ids_path.exists():
-        with open(ids_path, newline="", encoding="utf-8") as f:
-            known = {r["global_key"]: (r["data_row_id"], r["project_id"])
-                     for r in csv.DictReader(f)}
-    before = len(known)
-    known.update({GT_KEY_PREFIX + stem: pair for stem, pair in row_ids.items()
-                  if GT_KEY_PREFIX + stem in corpus})
-    with open(ids_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["global_key", "data_row_id", "project_id"])
-        w.writerows([k, *known[k]] for k in sorted(known))
-    share = f"{len(known) / len(merged):.1%}" if merged else "n/a"
-    print(f"data row ids {before} -> {len(known)} ({share} of GT)  -> {ids_path}")
+    out, revised, new = merge_gt(base_gt, july, args.gt)
+    merge_row_ids(row_ids, corpus, len(out),
+                  Path(args.gt).with_name("data_row_ids.csv"))
 
     note = args.note or (f"Ground truth merged from Labelbox export "
-                         f"{Path(args.export).name} on {datetime.now(timezone.utc).date().isoformat()}.")
+                         f"{Path(args.export).name} on "
+                         f"{datetime.now(timezone.utc).date().isoformat()}.")
     sidecar = Path(args.gt).with_suffix(".provenance.txt")
     sidecar.write_text(note + "\n", encoding="utf-8")
     print(f"provenance note                            -> {sidecar}")
 
-    n_agree = len(july) - len(revised) - len(new)
-    print(f"export photos in corpus with a species label : {len(july)}")
-    print(f"  agreeing with existing GT                  : {n_agree}")
-    print(f"  revising existing GT                       : {len(revised)}")
-    print(f"  newly labelled (no prior GT)               : {len(new)}")
-    print(f"GT rows {len(base_gt)} -> {len(out)}  -> {args.gt}")
-    print(f"  distinct species {len(set(base_gt.values()))} -> "
-          f"{len({sp for _, sp in out})}")
-    top = Counter(g for g, _ in revised.values()).most_common(8)
-    print("  most-revised away from:")
-    for name, c in top:
-        print(f"    {c:4d}  {name}")
+    report(base_gt, july, out, revised, new, args.gt)
 
 
 if __name__ == "__main__":

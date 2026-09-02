@@ -168,17 +168,29 @@ def test_filterable_table_with_no_statuses_ships_no_status_dropdown(assets):
     assert 'id="species-count"' in out
 
 
+def test_the_sort_headings_can_be_reached_without_a_mouse(style):
+    """The pages tell the reader to click any heading to sort. A control a page
+    names has to be reachable by whoever is reading it, so the headings carry a
+    tab stop, a role, Enter/Space activation and an aria-sort the row order can
+    be read off."""
+    js = style.JS
+    for needed in ("th.tabIndex=0", "role','button'", "aria-sort",
+                   "e.key==='Enter'", "e.key===' '"):
+        assert needed in js, f"keyboard sorting lost {needed!r}"
+    assert "th.sortable:focus-visible" in style.CSS, (
+        "a tab stop with no visible focus ring is a control a keyboard reader "
+        "cannot find")
+
+
+def test_an_empty_filter_result_says_so_in_words(style):
+    assert "No species matches that filter." in style.JS, (
+        "a bare '0 of 186' over an empty table reads as a broken page")
+
+
 def test_filterable_table_escapes_option_value_and_label(assets):
     out = assets.filterable_table([("Name", False)], [], options=[(INJECT, INJECT)])
     assert "<script>&" not in out
     assert "&lt;script&gt;" in out
-
-
-def test_info_tip_escapes_the_reason_in_both_attributes(assets):
-    out = assets.info_tip(INJECT)
-    assert "<script>" not in out
-    assert 'title="&lt;script&gt;&amp;&quot;&lt;/script&gt;"' in out
-    assert '<span class="info-tip"' in out
 
 
 def test_funnel_list_of_no_steps_is_an_empty_list(assets):
@@ -200,15 +212,63 @@ def test_funnel_list_escapes_the_label(assets):
     assert "<script>&" not in out
 
 
+def test_an_identified_table_aligns_its_numbers_by_column_not_by_cell(assets):
+    """class="num" on every cell of the 187-row species table was 9KB of the
+    same six characters. With an id there is a selector to say it once."""
+    out = assets.table([("Species", False), ("Frames", True), ("Right", True)],
+                       [["a", "1", "2"]], tid="t")
+    assert '<style>#t td:nth-child(2),#t td:nth-child(3){' in out
+    assert 'class="num"' not in out.split("<tbody>")[1]
+    # The heading keeps its class: the sort arrow and the alignment of the
+    # heading itself are styled off it.
+    assert '<th class="num sortable">Frames</th>' in out or '<th class="num">Frames</th>' in out
+
+
+def test_an_anonymous_table_still_marks_its_numeric_cells(assets):
+    """No id means no selector to write the rule against, and these tables are
+    a handful of rows, so the per-cell class is the cheaper of the two."""
+    out = assets.table([("Species", False), ("Frames", True)], [["a", "1"]])
+    assert "<style>" not in out
+    assert '<td class="num">1</td>' in out
+
+
+def test_num_cell_omits_the_sort_attribute_when_the_cell_text_already_sorts(assets):
+    """The sort falls back to the cell's own text, so an integer needs no
+    attribute. Shipping one anyway cost 5KB across the 186-row species table."""
+    assert assets.num_cell(392, "392") == ("392", "")
+
+
+def test_num_cell_keeps_the_sort_attribute_wherever_the_text_would_mislead(assets):
+    """Three cases the fallback gets wrong: a rounded percentage hides the
+    figure it was rounded from, a rounded decimal hides its tie-breaks, and
+    JavaScript reads "1,204" as 1."""
+    assert assets.num_cell("0.928571", "92.9%") == ("92.9%", ' data-sort="0.928571"')
+    assert assets.num_cell("0.859354", "0.86") == ("0.86", ' data-sort="0.859354"')
+    assert assets.num_cell(1204, "1,204") == ("1,204", ' data-sort="1204"')
+
+    # The attribute lands on the cell's own <td>, not on a span inside it.
+    headers = [("Species", False), ("First guess right", True)]
+    out = assets.table(headers, [["a", assets.num_cell("0.928571", "92.9%")]])
+    assert '<td class="num" data-sort="0.928571">92.9%</td>' in out
+
+
+def test_sort_key_carries_the_whole_number_and_nothing_idle(assets):
+    """Six decimals is the precision, so two species that round to the same
+    percentage still sort apart. Everything past the last non-zero digit is
+    dropped: the sort reads it with parseFloat, which cannot tell "0.5" from
+    "0.500000", and the page carries 558 of these."""
+    assert assets.sort_key(0.0) == "0"
+    assert assets.sort_key(0.5) == "0.5"
+    assert assets.sort_key(1.0) == "1"
+    assert assets.sort_key(0.9285714) == "0.928571"
+    assert assets.sort_key(0.9285716) == "0.928572"
+    assert assets.sort_key(1204) == "1204"
+    assert assets.sort_key("0.859354") == "0.859354"
+
+
 def test_status_tag_renders_class_and_label(assets):
     out = assets.status_tag("hard", "Hard")
-    assert out == '<span class="tag hard" data-sort="Hard">Hard</span>'
-
-
-def test_status_tag_sort_key_overrides_the_sort_attribute_only(assets):
-    out = assets.status_tag("hard", "Hard", sort_key="0-hard")
-    assert 'data-sort="0-hard"' in out
-    assert ">Hard<" in out
+    assert out == '<span class="tag hard">Hard</span>'
 
 
 def test_status_tag_escapes_class_and_label(assets):
@@ -305,3 +365,104 @@ def test_svg_weight_pair_escapes_the_axis_labels(assets):
     rows = [("a", 1.0, 1.0, "note", "#111111")]
     out = assets.svg_weight_pair(rows, label_a=INJECT, label_b="B")
     assert "<script>&" not in out
+
+
+def test_css_for_drops_only_the_rules_the_page_has_nothing_to_style(assets):
+    """One stylesheet covers every page and the pages are no longer alike. A
+    rule goes only when every selector in it names a class the page never
+    renders: element, id and state rules are none of this function's business,
+    and neither is a class the script adds at runtime."""
+    css = (".hero{a:1}\n.gone{b:2}\np{c:3}\n#id{d:4}\n"
+           ".hero .metric,.gone{e:5}\n.gone,.other{f:6}\n"
+           "tr.hidden{g:7}\n@media(max-width:640px){.gone{h:8}}")
+    kept = assets.css_for(css, '<div class="hero"><p class="metric"></p></div>'
+                               "<script>r.classList.toggle('hidden',x)</script>")
+    assert ".gone{b:2}" not in kept
+    assert ".hero{a:1}" in kept          # rendered
+    assert "p{c:3}" in kept              # an element, not a class
+    assert "#id{d:4}" in kept            # an id, not a class
+    assert ".hero .metric,.gone{e:5}" in kept   # one live selector keeps the rule
+    assert ".gone,.other{f:6}" not in kept      # neither selector is rendered
+    assert "tr.hidden{g:7}" in kept      # the script writes this one
+    assert "@media(max-width:640px){.gone{h:8}}" in kept  # kept whole
+
+
+def test_css_for_leaves_every_class_the_page_renders_styled(assets, pagemod):
+    """The point of the trim is bytes, so the failure to guard against is a
+    page that loses a rule it needed and quietly renders unstyled."""
+    body = '<div class="hero"><span class="tag reliable">x</span></div>'
+    kept = assets.css_for(assets.strip_comments(pagemod.CSS), body + pagemod.JS)
+    styled = set(re.findall(r"\.([A-Za-z][\w-]*)", kept))
+    for rendered in ("hero", "tag", "reliable"):
+        assert rendered in styled, f"the page renders .{rendered} and lost its rule"
+
+
+def _relative_luminance(hex_color):
+    """WCAG 2.1 relative luminance of an #rrggbb colour."""
+    h = hex_color.lstrip("#")
+    channels = []
+    for i in (0, 2, 4):
+        c = int(h[i:i + 2], 16) / 255
+        channels.append(c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4)
+    r, g, b = channels
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contrast(a, b):
+    la, lb = _relative_luminance(a), _relative_luminance(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+# Each row is a contrast ratio a comment states in prose, with the two colours
+# it was measured between. The comment is the only record of why a colour was
+# chosen, so a colour edit that does not move the comment leaves the reason
+# describing a shade that is no longer there.
+CONTRAST_CLAIMS = [
+    ("dashboard/assets.py", "stays faint at {r}:1 on the white panel", "#bdbdbd", "#ffffff"),
+    ("dashboard/style.py", "{r}:1 here against", "#6d6d6d", "#f5f5f5"),
+    ("dashboard/style.py", "against {r}:1 before", "#bdbdbd", "#f5f5f5"),
+]
+
+
+@pytest.mark.parametrize("where,phrase,fg,bg", CONTRAST_CLAIMS,
+                         ids=[f"{w.split('/')[1]}-{fg}" for w, _p, fg, _b in CONTRAST_CLAIMS])
+def test_a_stated_contrast_ratio_is_the_one_the_two_colours_have(where, phrase, fg, bg):
+    from conftest import REPO
+    text = (REPO / where).read_text(encoding="utf-8")
+    ratio = f"{_contrast(fg, bg):.2f}"
+    assert phrase.format(r=ratio) in text, (
+        f"{where} states a contrast for {fg} on {bg} that is not {ratio}:1, which "
+        f"is what those two colours measure.")
+
+
+def test_the_band_palette_is_as_readable_and_as_unordered_as_its_comment_says(explain):
+    """Both halves of the BAND_COLOR comment are measurements, not choices.
+
+    It promises every band clears 4.5:1 against white, which is what makes the
+    number inside the bar readable, and it admits the ramp carries no order by
+    listing the luminances and the closest pair. Swap one hex and the promise
+    can break while the admission keeps quoting the old palette.
+    """
+    import pathlib
+    import re
+
+    colors = list(explain.BAND_COLOR.values())
+    worst = min(_contrast(c, "#ffffff") for c in colors)
+    assert worst >= 4.5, (
+        f"the comment promises all {len(colors)} bands clear 4.5:1 against white; "
+        f"the weakest is {worst:.2f}:1.")
+
+    src = pathlib.Path(explain.__file__).read_text(encoding="utf-8")
+    said = re.search(r"luminance ([\d., \n#]+?);", src)
+    assert said, "explain.py no longer lists the band luminances"
+    listed = [x for x in re.findall(r"0\.\d+", said.group(1))]
+    assert listed == [f"{_relative_luminance(c):.3f}" for c in colors], (
+        f"the comment lists luminances {listed}, the palette measures "
+        f"{[f'{_relative_luminance(c):.3f}' for c in colors]}.")
+
+    ends = f"{_contrast(colors[0], colors[-1]):.2f}"
+    closest = min(_contrast(a, b) for i, a in enumerate(colors) for b in colors[i + 1:])
+    assert f"the two ends sit at {ends}:1" in src, (
+        f"the comment misstates the end-to-end contrast, which is {ends}:1.")
+    assert f"at {closest:.2f}:1" in src, (
+        f"the comment misstates the closest pair, which is {closest:.2f}:1.")

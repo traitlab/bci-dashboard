@@ -1,13 +1,8 @@
-"""
-Pl@ntNet-on-BCI model health -- data layer.
+"""The vocabulary every other module works in.
 
-Stdlib only (no pandas/numpy). Deterministic. No network calls.
-
-Loads GT + splits + cached Pl@ntNet API responses, joins them, reconciles GT
-names against the corpus vocabulary (with an optional local WCVP synonym
-crosswalk), builds the evaluable per-crown records and aggregates them to
-per-species health. Extracted from compute_model_health.py so the report
-script and other consumers (e.g. a dashboard) can share one code path.
+Input paths, thresholds, name normalisation, and the helpers that turn counts
+into page strings. Deterministic, no network. ``health.py`` joins those files
+into one ``Health``; ``queues.py`` decides what to send a botanist next.
 """
 
 from __future__ import annotations
@@ -18,14 +13,10 @@ import json
 import os
 import re
 import unicodedata
-from collections import Counter, defaultdict
-from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Optional
+from collections import defaultdict
 
 # --- INPUT PATHS ---
-# Every path is derived from the checkout, so a clone runs anywhere. Each one
-# takes an environment override for machines that keep the data elsewhere:
+# Derived from the checkout so a clone runs anywhere, each with an override:
 #   BCI_DASHBOARD_REPO      checkout root            (default: one level up)
 #   BCI_DASHBOARD_DATA      measurement inputs       (default: <repo>/data)
 #   BCI_DASHBOARD_SNAPSHOTS dated snapshot store     (default: <repo>/snapshots)
@@ -38,33 +29,23 @@ GT_CSV = os.path.join(BASE, "gt_dominant_taxon.csv")
 SPLITS_CSV = os.path.join(BASE, "splits.csv")
 CACHE_DIR = os.path.join(BASE, "predictions", "cache")
 
-# global_key -> (data_row_id, project_id), accumulated by
-# labelling/gt_from_export.py from the exports the GT was merged from. The one
-# offline source for a Labelbox deep link: a data row opens only inside a
-# project it belongs to, and the export states both halves. Absent, or missing
-# a frame labelled in a project that has not been exported since, the page
-# reports the gap rather than guessing a URL.
+# global_key -> (data_row_id, project_id), from labelling/gt_from_export.py: the
+# one offline source for a Labelbox deep link. Silent means the page says so.
 DATA_ROW_IDS_CSV = os.path.join(BASE, "data_row_ids.csv")
 LABELBOX_URL = "https://app.labelbox.com/projects/{project_id}/data-rows/{data_row_id}"
 
-# Botanist verdicts on frames the review queue raised. A confident disagreement
-# is either a label error or a model error, and offline nothing can tell which;
-# once a botanist has ruled, the frame must stop reappearing, because the
-# prediction never changes and the queue would otherwise raise it forever.
-# Tracked in git: an untracked verdict is lost on the next clone.
+# Botanist verdicts on frames the review queue raised. Without a recorded ruling
+# the queue raises the same frame forever. Tracked in git, or lost on a re-clone.
 ADJUDICATIONS_CSV = os.path.join(BASE, "adjudications.csv")
 # The one verdict that suppresses a frame. A label ruled wrong is fixed in
-# Labelbox instead, where the next export carries the correction, so it needs
-# no entry here.
+# Labelbox, where the next export carries the correction.
 LABEL_CONFIRMED = "label_confirmed_prediction_wrong"
 
-# Dated model-health-<date>/ folders: the trend history, kept beside the code
-# that reads it. Gitignored.
+# Dated model-health-<date>/ folders: the trend history. Gitignored.
 SNAPSHOT_DIR = os.environ.get("BCI_DASHBOARD_SNAPSHOTS") or os.path.join(REPO, "snapshots")
 
-# Local warm WCVP resolution cache (built earlier from the GBIF-hosted WCVP
-# dataset f382f0ce-323a-4091-bb9f-add557f3a9a2). Covers the ~249 BCI labels
-# only. None disables match tier (d).
+# Warm WCVP cache from GBIF dataset f382f0ce-323a-4091-bb9f-add557f3a9a2.
+# Covers the ~249 BCI labels only. None disables match tier (d).
 WCVP_CACHE_JSON = os.environ.get("BCI_WCVP_CACHE") or os.path.join(
     REPO, "data", "wcvp_cache.json")
 if not os.path.exists(WCVP_CACHE_JSON):
@@ -75,16 +56,9 @@ GT_KEY_PREFIX = "comb_"
 
 
 def gt_provenance(gt_csv: str = GT_CSV) -> str:
-    """One line saying which export the ground truth was merged from.
-
-    ``labelling/gt_from_export.py`` writes a sidecar next to the GT at merge
-    time, so a page describes the batch it was actually built over rather than
-    a batch baked into its prose. Without a sidecar, fall back to the file's
-    own date: vague, but never stale.
-
-    Lives here, not in a page module, so every page states the same provenance
-    for the same data (same reason ``diagnose`` lives here).
-    """
+    """One line naming the export the ground truth was merged from.
+    Reads the sidecar ``labelling/gt_from_export.py`` writes at merge, falling
+    back to the file's mtime, so every page agrees."""
     sidecar = os.path.splitext(gt_csv)[0] + ".provenance.txt"
     if os.path.exists(sidecar):
         with open(sidecar, encoding="utf-8") as f:
@@ -92,16 +66,23 @@ def gt_provenance(gt_csv: str = GT_CSV) -> str:
     mtime = _dt.date.fromtimestamp(os.path.getmtime(gt_csv)).isoformat()
     return f"Ground truth: {os.path.basename(gt_csv)}, dated {mtime}."
 
+# How many names we ask Pl@ntNet for per photo (config.yaml identify_nb_results).
+# A request setting, not a property of the model, and the number "the right name
+# is in the list" is measured at.
+N_CANDIDATES = 5
+
 CONF_BINS = [(0.0, 0.5), (0.5, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.01)]
 CONF_THRESHOLDS = [0.7, 0.8, 0.9]
+# The top band has no upper bound. Written as a number so the bands tile the
+# integers with plain comparisons; readers test this name, not the literal.
+NO_UPPER_BOUND = 10 ** 9
 SUPPORT_BUCKETS = [(1, 1, "1"), (2, 4, "2-4"), (5, 9, "5-9"),
-                   (10, 24, "10-24"), (25, 10 ** 9, "25+")]
+                   (10, 24, "10-24"), (25, NO_UPPER_BOUND, "25+")]
 BUCKET_ORDER = [lab for _, _, lab in SUPPORT_BUCKETS]
 WELL_SAMPLED_MIN_N = 10
 
-# Send-first queue thresholds. Labelling buys most on the long tail and on weak
-# guesses at usually-right species. Below LOW_CONF the calibration table puts
-# the first guess right only ~38% of the time.
+# Send-first queue thresholds, applied in ``queues.py``. Below LOW_CONF the
+# calibration table puts the first guess right only ~38% of the time.
 LOW_CONF = 0.5
 WAIT_CONF = 0.8
 # A species with at least this many labelled crowns and this measured top-1 is
@@ -112,33 +93,27 @@ HARD_MAX_TOP1 = 0.70
 # a second look: either the label or the model is wrong.
 REVIEW_CONF = 0.8
 
-# Predictions come from a fixed centre crop; labels come from boxes drawn anywhere
-# in the frame, so a label can lie outside what the model was sent. A frame is
-# admitted only when its dominant species fills this much of the crop.
-# Same value as crop_overlap.DEFAULT_MIN_COVERAGE.
+# Labels come from boxes drawn anywhere in the frame and predictions from a fixed
+# centre crop, so a label can lie outside what the model was sent. Admitted only
+# when the dominant species fills this much of the crop.
 MIN_CROP_COVERAGE = 0.50
-# Reported as a sweep, so the gate's effect on the headline is visible rather than
-# assumed from one threshold.
+# Reported as a sweep, so the gate's effect on the headline is visible.
 CROP_COVERAGE_SWEEP = (0.0, 0.3, 0.5, 0.8)
 
 
 # --- Name handling ---
 _BCI_CODE = re.compile(r"-[A-Z0-9]{5,7}$")
-# Same idea before case folding, and down to 4 characters: the second code on a
-# box label is short ('-ANAE', '-HURC', '-LUE1'). Upper case is what separates a
-# code from a hyphenated epithet, so this can only run on the raw string.
+# Same idea before case folding, down to 4 characters ('-ANAE', '-HURC'). Upper
+# case separates a code from a hyphenated epithet, so this needs the raw string.
 _BCI_CODE_RAW = re.compile(r"-[A-Z0-9]{4,7}$")
 _INFRA = re.compile(r"\b(var|subsp|ssp|f|cf|aff)\.?\s+\S+.*$", re.IGNORECASE)
 _WS = re.compile(r"\s+")
 
 
 def normalize(name: str) -> str:
-    """Tier (b): case/whitespace/punctuation-normalized name.
-
-    Strips accents, converts '_' separators to spaces, removes a trailing BCI
-    collection code ('-QUARAS'), removes infraspecific ranks ('var. grandiflora'),
-    collapses whitespace, lowercases. Does NOT resolve synonymy.
-    """
+    """Tier (b): normalized name, with no synonymy resolution.
+    Strips accents, '_' to spaces, a trailing BCI collection code and
+    infraspecific ranks ('var. grandiflora'), collapses whitespace, lowercases."""
     s = unicodedata.normalize("NFKD", name)
     s = "".join(c for c in s if not unicodedata.combining(c))
     s = s.replace("_", " ").strip()
@@ -149,11 +124,9 @@ def normalize(name: str) -> str:
 
 def canonical_binomial(name):
     """Bare 'Genus species' from an authored accepted name.
-
-    'Ocotea leptobotra (Ruiz & Pav.) Mez' -> 'Ocotea leptobotra'.
-    Returns None when the first two tokens are not a plain binomial.
-    (Same rule as speciesfirst.wcvp_export.canonical_binomial.)
-    """
+    'Ocotea leptobotra (Ruiz & Pav.) Mez' -> 'Ocotea leptobotra'. None if the
+    first two tokens are not a plain binomial. Same rule as
+    speciesfirst.wcvp_export.canonical_binomial."""
     if not name:
         return None
     tok = name.split()
@@ -175,18 +148,41 @@ def is_species_level(n: str) -> bool:
 
 
 # --- Loaders ---
+def summarise(doc: str) -> str:
+    """The first paragraph of a module docstring, as a terminal should read it.
+    The rest is for someone with the file open: ``double backticks`` argparse
+    prints literally, and a usage line it prints for itself."""
+    return " ".join(doc.strip().split("\n\n")[0].replace("``", "").split())
+
+
+# The four flags naming where the measurement inputs live. Names, defaults and
+# help live here, so every command that reads them words them the same way.
+INPUT_FLAGS = {
+    "--gt": (GT_CSV, "botanist labels, one row per frame"),
+    "--splits": (SPLITS_CSV, "which frames are held back for grading"),
+    "--cache-dir": (CACHE_DIR, "folder of cached Pl@ntNet answers, one file per photo"),
+    "--wcvp-cache": (WCVP_CACHE_JSON, "cached name crosswalk, used to match synonyms"),
+}
+
+
+def add_input_flags(p, *names: str, **help_overrides: str) -> None:
+    """Add the shared input-path flags to a parser, worded the same every time."""
+    for name in names or INPUT_FLAGS:
+        default, help_ = INPUT_FLAGS[name]
+        p.add_argument(name, default=default,
+                       help=help_overrides.get(name.lstrip("-").replace("-", "_"), help_)
+                            + f" (default: {os.path.relpath(default, REPO)})")
+
+
 def read_csv_rows(path: str) -> list[dict]:
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
 
 def labelbox_urls(path: str = DATA_ROW_IDS_CSV) -> dict[str, str]:
-    """global_key -> the Labelbox URL that opens that frame, where one is known.
-
-    Reads a file, never the API: building a page makes no network call and
-    reads no credential. A missing file is an empty map, not an error, so a
-    checkout without one still builds; the caller reports the coverage.
-    """
+    """global_key -> Labelbox URL, where known.
+    Reads a file, never the API: no network call, no credential. A missing file
+    is an empty map, and the caller reports coverage."""
     if not os.path.exists(path):
         return {}
     out = {}
@@ -198,13 +194,9 @@ def labelbox_urls(path: str = DATA_ROW_IDS_CSV) -> dict[str, str]:
 
 
 def adjudicated_keys(path: str = ADJUDICATIONS_CSV) -> set[str]:
-    """global_keys a botanist has ruled label-confirmed, so the review queue drops them.
-
-    Reads a file, never the API, on the same terms as ``labelbox_urls``: a
-    missing file is an empty set, not an error, so a checkout without one still
-    builds. Any other verdict is ignored here rather than rejected, so the file
-    can record a ruling the queue does not act on.
-    """
+    """global_keys a botanist ruled label-confirmed; the review queue drops them.
+    A missing file is an empty set. Other verdicts are ignored, not rejected, so
+    the file can record rulings this queue skips."""
     if not os.path.exists(path):
         return set()
     return {r["global_key"] for r in read_csv_rows(path)
@@ -253,11 +245,15 @@ def load_cache_entry(path: str):
 
 
 def load_wcvp_crosswalk(path):
-    """-> (mapping normalized_input -> normalized_accepted_binomial, raw_entries).
-    Only entries where the accepted binomial differs from the input are kept."""
+    """The WCVP name crosswalk, as ``(renames, every_entry)``.
+
+    ``renames`` maps a normalized input name to its normalized accepted binomial,
+    and holds only the names WCVP moves. ``every_entry`` is the cache unfiltered,
+    so the page can report how many were looked up."""
     if not path or not os.path.exists(path):
         return {}, {}
-    raw = json.load(open(path, encoding="utf-8"))
+    with open(path, encoding="utf-8") as fh:
+        raw = json.load(fh)
     mapping = {}
     for k, v in raw.items():
         acc = canonical_binomial(v.get("accepted_name"))
@@ -289,93 +285,23 @@ def bucket_label(n: int) -> str:
     return "?"
 
 
-# Queue names, in the order a botanist should work through them.
-QUEUE_ORDER = ["long_tail", "low_conf_known", "normal", "can_wait"]
+def canonicaliser(crosswalk: dict):
+    """Normalize a name and apply the WCVP crosswalk, as one callable.
+    The page builders and `score_confirmatory.py` both compare names from here:
+    two definitions of the same species would split the frozen experiment from
+    the pages without either being wrong."""
+    def canon(name: str) -> str:
+        nn = normalize(name or "")
+        return crosswalk.get(nn, nn)
 
-# Labelbox send batches: no more than this many crowns per batch, so a single
-# send stays inside what one botanist session can review.
-BATCH_SIZE = 100
-
-
-def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
-    """Species-grouped, priority-first batches over an already-ordered queue.
-
-    ``queue_rows`` is send_first_queue.csv's row order: queue priority first,
-    then weakest confidence first inside a queue (see measure.py). This
-    keeps that global priority order between species -- a species is only
-    visited once, at the point its first (highest-priority) row occurs -- and
-    groups every row for that species together, so the photos a botanist sees
-    side by side look alike.
-
-    A batch is filled to ``batch_size``, not left at whatever one species
-    happens to weigh: species groups are packed whole, in priority order,
-    until the next one would overflow. A species with more rows than
-    ``batch_size`` still splits into batches of its own. So a batch holds one
-    or more whole species groups, contiguously, and never more than
-    ``batch_size`` rows. Pure function of its input, so the same queue always
-    chunks the same way.
-    """
-    if batch_size < 1:
-        raise ValueError(f"batch_size must be at least 1, got {batch_size}")
-    order: list[str] = []
-    seen: set[str] = set()
-    by_species: dict[str, list] = defaultdict(list)
-    for row in queue_rows:
-        sp = row[3]  # predicted_species
-        by_species[sp].append(row)
-        if sp not in seen:
-            seen.add(sp)
-            order.append(sp)
-
-    # One group per species, split first so an oversized species cannot
-    # straddle a batch boundary; the trailing part packs like any other group.
-    groups = [(sp, by_species[sp][i:i + batch_size])
-              for sp in order
-              for i in range(0, len(by_species[sp]), batch_size)]
-
-    batches = []
-    batch_id = 0
-    held = batch_size  # rows already in the open batch; forces the first one open
-    for sp, rows in groups:
-        if held + len(rows) > batch_size:
-            batch_id += 1
-            held = 0
-        held += len(rows)
-        for row in rows:
-            batches.append([batch_id, sp, row[1], row[0]])
-    return batches
-
-
-def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> str:
-    """Which queue an unlabelled crown lands in, from its first guess alone.
-
-    ``support`` maps a GT species to its labelled-crown count, ``top1`` to its
-    measured first-guess accuracy; a predicted species absent from both has
-    never been labelled. First matching rule wins, so a weak guess on a rare
-    species stays with the long tail rather than the anomaly queue.
-    """
-    n = support.get(pred, 0)
-    a = top1.get(pred)
-    if n < WELL_SAMPLED_MIN_N or (a is not None and a < HARD_MAX_TOP1):
-        return "long_tail"
-    if a is not None and a >= RELIABLE_MIN_TOP1 and conf < LOW_CONF:
-        return "low_conf_known"
-    if conf >= WAIT_CONF and n >= WELL_SAMPLED_MIN_N:
-        return "can_wait"
-    return "normal"
+    return canon
 
 
 def diagnose(row: dict) -> str:
-    """Per-species status. First matching rule wins; the order is the point.
-
-    ``unreachable`` outranks everything because no amount of labelling moves it.
-    ``reliable`` outranks ``ranking`` because a species already at >=90% does not
-    need a re-rank. ``unmeasured`` sits below ``ranking`` so a thinly labelled
-    species whose answer is in the list is still the cheap win it is.
-
-    Lives here, not in a page module, so every dashboard renders the same
-    status for the same species (same reason queue_of_prediction lives here).
-    """
+    """Per-species status. First matching rule wins; order is the point.
+    ``unreachable`` outranks all; no labelling helps. ``reliable`` outranks
+    ``ranking``: >=90% needs no re-rank. ``unmeasured`` sits below ``ranking``,
+    so a thin species already in the list counts as cheap."""
     n, a1, a5 = row["n_labelled_crowns"], row["top1_accuracy"], row["top5_accuracy"]
     if not row["in_corpus_vocabulary"]:
         return "unreachable"
@@ -388,17 +314,16 @@ def diagnose(row: dict) -> str:
     return "hard" if a1 < HARD_MAX_TOP1 else "adequate"
 
 
+# The order above, as data, because the pages have to say it. The last two go by
+# accuracy alone, so the tuple stops where the ordering stops mattering.
+STATUS_PRECEDENCE = ("unreachable", "reliable", "ranking", "unmeasured")
+
+
 # --- Crop coverage gate ---
 def strip_collection_codes(name: str) -> str:
     """Drop every trailing BCI collection code, then normalize.
-
-    The box CSV labels carry two ('Apeiba membranacea-APEIME-APEM'), and the
-    second is often shorter than the code normalize() recognises ('-ANAE').
-    Stripping has to happen before normalize() lowercases, because the codes are
-    identified by being upper case and a lowered code can no longer be told from
-    a hyphenated epithet. Without this a box label never compares equal to a GT
-    species name.
-    """
+    Box labels carry two, the second shorter than normalize() recognizes
+    ('-ANAE'). Strip before lowering: a lowered code reads as an epithet."""
     s, prev = (name or "").strip(), None
     while s != prev:
         prev = s
@@ -408,11 +333,8 @@ def strip_collection_codes(name: str) -> str:
 
 def coverage_split(recs, min_coverage=MIN_CROP_COVERAGE):
     """(admitted, rejected) over records carrying a ``crop_coverage`` field.
-
-    A record whose frame has no measured box geometry carries None and is
-    rejected: the gate admits only frames measured to be covered, never assumed
-    ones. Rejected is therefore 'not admitted', which includes 'unknown'.
-    """
+    None means no measured geometry, and is rejected: the gate admits measured
+    coverage only, never assumed."""
     admitted, rejected = [], []
     for r in recs:
         c = r.get("crop_coverage")
@@ -422,12 +344,9 @@ def coverage_split(recs, min_coverage=MIN_CROP_COVERAGE):
 
 def coverage_gate_stats(recs, min_coverage=MIN_CROP_COVERAGE):
     """Headline numbers over the admitted subset of ``recs``.
-
-    ``macro_top1`` averages per-species top-1 over the admitted rows only, and
-    the species set shrinks with the threshold, so it is a different quantity
-    from the ungated macro average: report it beside that number, never in place
-    of it, and always with ``n_admitted``.
-    """
+    ``macro_top1`` averages per-species top-1 over admitted rows only, so its
+    species set shrinks with the threshold. Report it beside the ungated macro
+    average and ``n_admitted``."""
     admitted, rejected = coverage_split(recs, min_coverage)
     by_sp = defaultdict(list)
     for r in admitted:
@@ -444,335 +363,3 @@ def coverage_gate_stats(recs, min_coverage=MIN_CROP_COVERAGE):
         "macro_top1": (sum(per) / len(per)) if per else None,
         "n_species": len(by_sp),
     }
-
-
-# --------------------------------------------------------------------------
-@dataclass
-class Health:
-    gt_rows: list
-    split_rows: list
-    split_of: dict
-    predictions: dict
-    maxk: int
-    joined: list
-    missing_cache: list
-    crosswalk: dict
-    corpus_norm: set
-    corpus_canon: set
-    gt_names: Counter
-    tier_of_name: dict
-    tier_crowns: Counter
-    records: list
-    sp_recs: list
-    genus_recs: list
-    per_species: list
-    canon: Callable[[str], str]
-    crop_frames: dict
-    crop_suspect: list
-    crop_min_coverage: float
-    n_crop_joined: int
-    crop_admitted: list
-    crop_rejected: list
-
-
-def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
-                wcvp_cache=WCVP_CACHE_JSON, boxes_csv=None,
-                min_coverage=MIN_CROP_COVERAGE,
-                log: Optional[Callable[[str], None]] = None) -> Health:
-    def _log(msg: str = "") -> None:
-        if log is not None:
-            log(msg)
-
-    for p in (gt_csv, splits_csv, cache_dir):
-        if not os.path.exists(p):
-            raise FileNotFoundError(f"MISSING INPUT: {p}")
-        _log(f"  input ok : {p}")
-    _log(f"  wcvp cache: {wcvp_cache if wcvp_cache and os.path.exists(wcvp_cache) else 'ABSENT (tier d disabled)'}")
-    _log("")
-
-    # ---------------- 1. load GT + splits ----------------
-    gt_rows = read_csv_rows(gt_csv)
-    split_rows = read_csv_rows(splits_csv)
-    split_of = {r["global_key"]: r["split"] for r in split_rows}
-
-    _log("--- INPUTS ---")
-    _log(f"gt_dominant_taxon.csv rows            : {len(gt_rows)}")
-    _log(f"  distinct global_key                 : {len(set(r['global_key'] for r in gt_rows))}")
-    _log(f"  distinct wcvp_canonical_name        : {len(set(r['wcvp_canonical_name'] for r in gt_rows))}")
-    _log(f"splits.csv rows                       : {len(split_rows)}")
-    sc = Counter(r["split"] for r in split_rows)
-    for k in sorted(sc, key=lambda x: (-sc[x], x)):
-        _log(f"  split '{k}'{'':<{max(0, 16 - len(k))}}: {sc[k]}")
-    gt_split = Counter(split_of.get(r["global_key"], "<not in splits>") for r in gt_rows)
-    _log("  split values among GT crowns        : " +
-         ", ".join(f"{k or '<empty>'}={v}" for k, v in sorted(gt_split.items())))
-    _log(f"  GT coverage of the photo corpus     : {len(gt_rows)} / {len(split_rows)} "
-         f"= {pct(len(gt_rows), len(split_rows))} of photos carry a GT label.")
-    _log("  That labelled subset is the historical botanist labelling record, not a")
-    _log("  random draw, so per-species rates transfer to the unlabelled remainder only")
-    _log("  under an assumption that cannot be tested offline.")
-    _log("  NOTE: all evaluation below pools train+valid+test. The cached predictions")
-    _log("  come from a frozen third-party API that never saw these splits, so there is")
-    _log("  no train/test leakage to control for; splits are reported for traceability only.")
-    _log("")
-
-    # ---------------- 2. scan cache ----------------
-    cache_files = sorted(f for f in os.listdir(cache_dir) if f.endswith(".json"))
-    predictions, status_count, length_hist = {}, Counter(), Counter()
-    corpus_vocab = Counter()
-    n_entries = n_cov_ne_score = n_unsorted = 0
-
-    for fn in cache_files:
-        sp, status = load_cache_entry(os.path.join(cache_dir, fn))
-        status_count[status] += 1
-        ranked = []
-        prev = None
-        for e in sp:
-            n_entries += 1
-            if e.get("coverage") != e.get("max_score"):
-                n_cov_ne_score += 1
-            s = float(e.get("max_score") or 0.0)
-            if prev is not None and s > prev + 1e-12:
-                n_unsorted += 1
-            prev = s
-            b = (e.get("binomial") or "").strip()
-            if b:
-                ranked.append((b, s))
-        predictions[fn[:-5]] = ranked
-        length_hist[len(ranked)] += 1
-        for b, _ in ranked:
-            corpus_vocab[normalize(b)] += 1
-
-    _log("--- CACHED PREDICTIONS: PROVENANCE ---")
-    _log("  Read from predict/ingest_photos.py + config.yaml")
-    _log("  + bin/sbatch_ingest.sh (the run that filled this cache):")
-    _log("    endpoint : https://my-api.plantnet.org/v2/identify/k-central-america")
-    _log("               -> the CENTRAL AMERICA regional model, NOT the global Pl@ntNet model.")
-    _log("               The sbatch job passes no --survey-endpoint, so the 2-call")
-    _log("               identify+embeddings fallback ran, not /v2/survey/.")
-    _log("    model    : config.yaml single_model_run_name 'v7.4-2026-03-27'")
-    _log("    params   : nb-results=5, no-reject=true, organs=auto, include-related-images=false")
-    _log("    input    : 1280 px CENTRE CROP of each crown photo (CROP_SIZE=1280), not the full frame")
-    _log("    'coverage'/'max_score' in the cached JSON are BOTH the identify confidence")
-    _log("    score, copied twice by identify_to_survey_json(); there is no real coverage")
-    _log("    signal here. Pl@ntNet identify scores are normalised across returned results.")
-    _log("    No client-side score threshold is applied, so a list shorter than 5 came back")
-    _log("    short from the API itself.")
-    _log("")
-    _log("--- CACHED PREDICTIONS: PARSE ---")
-    _log(f"cache .json files                     : {len(cache_files)}")
-    for k in ("ok", "salvaged", "unreadable"):
-        _log(f"  parsed {k:<30}: {status_count.get(k, 0)}")
-    _log("  ('salvaged' = payload truncated inside per_tiles_embeddings; the ranked")
-    _log("   species array precedes it and was recovered by bracket-matching.)")
-    _log("  prediction-list length histogram    : " +
-         ", ".join(f"len={k}:{v}" for k, v in sorted(length_hist.items())))
-    maxk = max(length_hist)
-    _log(f"  MAX list length observed            : {maxk}")
-    _log(f"  => 'top-5' IS the full returned list. The cap is the client-side request")
-    _log("     parameter nb-results=5 (config.yaml plantnet.identify_nb_results), not a")
-    _log("     model limit: a re-ingest with a larger nb-results would return more. No")
-    _log("     deeper candidate exists in this cache and none can be recovered offline.")
-    _log(f"  total candidate entries             : {n_entries}")
-    _log(f"  entries where coverage != max_score : {n_cov_ne_score}  "
-         f"(0 confirms both fields hold the same identify score)")
-    _log(f"  entries breaking descending order   : {n_unsorted}  "
-         f"(0 confirms the list is ranked; index 0 is top-1)")
-    _log(f"  distinct predicted binomials        : {len(corpus_vocab)}")
-    _log("")
-
-    # ---------------- 3. join ----------------
-    joined, missing_cache = [], []
-    for r in gt_rows:
-        gk = r["global_key"]
-        stem = gk[len(GT_KEY_PREFIX):] if gk.startswith(GT_KEY_PREFIX) else gk
-        if stem in predictions:
-            joined.append((gk, stem, r["wcvp_canonical_name"]))
-        else:
-            missing_cache.append(gk)
-
-    _log("--- JOIN (global_key -> cache file) ---")
-    _log(f"  convention                          : GT '{GT_KEY_PREFIX}<stem>.JPG'  ->  cache '<stem>.JPG.json'")
-    _log(f"  byte-exact key join                 : 0 / {len(gt_rows)}   (GT keys carry the '{GT_KEY_PREFIX}' prefix; cache names do not)")
-    _log(f"  after stripping '{GT_KEY_PREFIX}'            : {len(joined)} / {len(gt_rows)}   ({pct(len(joined), len(gt_rows))})")
-    _log(f"  GT crowns with no cached response   : {len(missing_cache)}")
-    for gk in sorted(missing_cache):
-        _log(f"      {gk}")
-    _log(f"  joined but empty prediction list    : {sum(1 for _, s, _ in joined if not predictions[s])}")
-    _log("")
-
-    # ---------------- 4. name reconciliation tiers ----------------
-    crosswalk, wcvp_raw = load_wcvp_crosswalk(wcvp_cache)
-    corpus_norm = set(corpus_vocab)
-    corpus_genera = {genus_of(b) for b in corpus_norm if b}
-    # raw (un-normalized) predicted binomials, for the byte-exact tier (a)
-    corpus_raw = {b for ranked in predictions.values() for b, _ in ranked}
-
-    gt_names = Counter(r["wcvp_canonical_name"] for r in gt_rows)
-    tier_of_name, tier_names, tier_crowns = {}, Counter(), Counter()
-    applied_synonyms, absent_names, genus_in_corpus_only = [], [], []
-
-    for name, cnt in gt_names.items():
-        nn = normalize(name)
-        mapped = crosswalk.get(nn)
-        if not is_species_level(nn):
-            t = "c_gt_label_is_genus_only"
-        elif name in corpus_raw:
-            t = "a_exact_binomial"
-        elif nn in corpus_norm:
-            t = "b_normalized"
-        elif mapped and mapped in corpus_norm:
-            t = "d_wcvp_synonym"
-            applied_synonyms.append((name, mapped, cnt))
-        elif genus_of(mapped or nn) in corpus_genera:
-            t = "c_genus_only_in_corpus"
-            genus_in_corpus_only.append((name, mapped, cnt))
-        else:
-            t = "e_absent_from_corpus"
-            absent_names.append((name, mapped, cnt))
-        tier_of_name[name] = t
-        tier_names[t] += 1
-        tier_crowns[t] += cnt
-
-    _log("--- NAME RECONCILIATION ---")
-    _log("  GT column is called 'wcvp_canonical_name' but IS NOT WCVP-resolved: it is a")
-    _log("  string-strip of the Labelbox field label (see labelling/")
-    _log("  gt_from_export.py). Hence trailing collection codes ('-QUARAS')")
-    _log("  and pre-revision synonyms ('Arrabidaea candicans') survive in it.")
-    _log("")
-    _log("  'corpus vocabulary' = every distinct binomial appearing anywhere in the")
-    _log(f"  {len(cache_files)} cached top-{maxk} lists ({len(corpus_vocab)} names). It is NOT Pl@ntNet's full")
-    _log("  label set: a species the model knows but never ranked top-5 on any BCI photo")
-    _log("  is indistinguishable here from a species the model does not know at all.")
-    _log("")
-    _log(f"  {'tier':<28} {'distinct GT names':>18} {'GT crowns':>10}")
-    for t in ("a_exact_binomial", "b_normalized", "d_wcvp_synonym",
-              "c_gt_label_is_genus_only", "c_genus_only_in_corpus", "e_absent_from_corpus"):
-        _log(f"  {t:<28} {tier_names.get(t, 0):>18} {tier_crowns.get(t, 0):>10}")
-    _log(f"  crosswalk entries loaded            : {len(crosswalk)} name changes from "
-         f"{len(wcvp_raw)} WCVP cache records")
-    _log("")
-    _log("  (d) WCVP synonym mappings actually APPLIED (audit these):")
-    for name, mapped, cnt in sorted(applied_synonyms, key=lambda x: -x[2]):
-        _log(f"      {cnt:>4} crowns  {name}  ->  {mapped}")
-    _log("")
-    _log("  CEILING ON ACHIEVABLE SPECIES-LEVEL ACCURACY")
-    ceil_names = tier_names["e_absent_from_corpus"] + tier_names["c_genus_only_in_corpus"]
-    ceil_crowns = tier_crowns["e_absent_from_corpus"] + tier_crowns["c_genus_only_in_corpus"]
-    _log(f"      {ceil_crowns} GT crowns across {ceil_names} species can NEVER be scored correct from")
-    _log("      this cache: after normalization and WCVP synonym resolution their name")
-    _log(f"      still appears in no cached prediction list. ({ceil_crowns} is out of all {len(gt_rows)} GT")
-    _log("      rows; the subset falling inside the primary evaluation set is reported")
-    _log("      under HEADLINE as the 'restricted to reachable crowns' line.)")
-    _log("")
-    _log("  GT species whose genus IS in the corpus but the exact epithet is not:")
-    for name, mapped, cnt in sorted(genus_in_corpus_only, key=lambda x: -x[2]):
-        _log(f"      {cnt:>4} crowns  {name}" + (f"  (wcvp-> {mapped})" if mapped else ""))
-    _log("")
-    _log("  GT species absent from the corpus entirely (genus not seen either):")
-    for name, mapped, cnt in sorted(absent_names, key=lambda x: -x[2]):
-        _log(f"      {cnt:>4} crowns  {name}" + (f"  (wcvp-> {mapped})" if mapped else ""))
-    _log("")
-    _log(f"  GT labels the botanist left at genus level: {tier_names['c_gt_label_is_genus_only']} genera, "
-         f"{tier_crowns['c_gt_label_is_genus_only']} crowns.")
-    _log("      EXCLUDED from the species-level headline; scored separately at genus level.")
-    _log("")
-
-    # ---------------- 5. build evaluable records ----------------
-    def canon(name: str) -> str:
-        """Normalize + apply the local WCVP crosswalk (tiers a-d)."""
-        nn = normalize(name)
-        return crosswalk.get(nn, nn)
-
-    # Joined on base_image: GT keys carry GT_KEY_PREFIX and the box CSV does not, so
-    # the stem used for the cache join is the join key here too.
-    #
-    # Imported here because crop_overlap imports ``normalize`` from this module.
-    import crop_overlap
-    crop_frames, crop_suspect = crop_overlap.build(
-        **({"path": boxes_csv} if boxes_csv else {}))
-
-    records = []
-    for gk, stem, gt_name in joined:
-        gt_c = canon(gt_name)
-        cov = crop_frames.get(stem)
-        records.append({
-            "global_key": gk,
-            "split": split_of.get(gk, ""),
-            "gt_raw": gt_name,
-            "gt": gt_c,
-            "gt_strict": normalize(gt_name),
-            "species_level": is_species_level(gt_c),
-            "ranked": [(canon(b), s) for b, s in predictions[stem]],
-            "ranked_strict": [(normalize(b), s) for b, s in predictions[stem]],
-            # None means no box row at all, so coverage is unknown rather than
-            # zero. The dominant name is canonicalised like the GT label.
-            "crop_coverage": cov["coverage"] if cov else None,
-            "crop_dominant": (canon(cov["dominant"])
-                              if cov and cov["dominant"] else None),
-        })
-
-    sp_recs = [r for r in records if r["species_level"] and r["ranked"]]
-    genus_recs = [r for r in records if not r["species_level"] and r["ranked"]]
-
-    n_crop_joined = sum(1 for r in records if r["crop_coverage"] is not None)
-    crop_admitted, crop_rejected = coverage_split(sp_recs, min_coverage)
-    _log("--- CROP COVERAGE GATE ---")
-    _log("  Predictions were made from a fixed centre crop of each frame; ground truth")
-    _log("  boxes are drawn anywhere in the frame. A frame is admitted only when its")
-    _log("  dominant labelled species covers at least the threshold share of that crop.")
-    _log(f"  box geometry available for          : {len(crop_frames)} base frames "
-         f"({len(crop_suspect)} frames not trusted and excluded)")
-    _log(f"  joined to a GT record               : {n_crop_joined} / {len(records)} "
-         f"({pct(n_crop_joined, len(records))})")
-    n_sp_cov = sum(1 for r in sp_recs if r["crop_coverage"] is not None)
-    _log(f"  joined within the primary set       : {n_sp_cov} / {len(sp_recs)} "
-         f"({pct(n_sp_cov, len(sp_recs))})")
-    _log(f"  admitted at coverage >= {min_coverage:.2f}        : {len(crop_admitted)} "
-         f"(rejected {len(crop_rejected)}, of which "
-         f"{len(sp_recs) - n_sp_cov} for unknown geometry)")
-    _log("")
-
-    # ---------------- 7. per-species ----------------
-    def top1(r, key="ranked"):
-        return r[key][0][0]
-
-    def hit(r, k, key="ranked", gtkey="gt"):
-        return r[gtkey] in [b for b, _ in r[key][:k]]
-
-    by_sp = defaultdict(list)
-    for r in sp_recs:
-        by_sp[r["gt"]].append(r)
-
-    corpus_canon = {canon(b) for b in corpus_raw}
-    per_species = []
-    for sp, rs in by_sp.items():
-        m = len(rs)
-        k1 = sum(1 for r in rs if top1(r) == sp)
-        k5 = sum(1 for r in rs if hit(r, 5))
-        confs_ok = [r["ranked"][0][1] for r in rs if top1(r) == sp]
-        per_species.append({
-            "species": sp,
-            "gt_raw_labels": "|".join(sorted({r["gt_raw"] for r in rs})),
-            "n_labelled_crowns": m,
-            "n_correct_top1": k1,
-            "top1_accuracy": k1 / m,
-            "n_correct_top5": k5,
-            "top5_accuracy": k5 / m,
-            "mean_top1_confidence": sum(r["ranked"][0][1] for r in rs) / m,
-            "mean_top1_confidence_when_correct": (sum(confs_ok) / len(confs_ok)) if confs_ok else None,
-            "in_corpus_vocabulary": sp in corpus_norm or sp in corpus_canon,
-            "support_bucket": bucket_label(m),
-        })
-    per_species.sort(key=lambda d: (-d["n_labelled_crowns"], d["species"]))
-
-    return Health(
-        gt_rows=gt_rows, split_rows=split_rows, split_of=split_of, predictions=predictions,
-        maxk=maxk, joined=joined, missing_cache=missing_cache, crosswalk=crosswalk,
-        corpus_norm=corpus_norm, corpus_canon=corpus_canon, gt_names=gt_names,
-        tier_of_name=tier_of_name, tier_crowns=tier_crowns, records=records,
-        sp_recs=sp_recs, genus_recs=genus_recs, per_species=per_species, canon=canon,
-        crop_frames=crop_frames, crop_suspect=crop_suspect, crop_min_coverage=min_coverage,
-        n_crop_joined=n_crop_joined, crop_admitted=crop_admitted,
-        crop_rejected=crop_rejected,
-    )

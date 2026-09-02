@@ -1,4 +1,5 @@
 .env
+.DS_Store
 .venv/
 __pycache__/
 .pytest_cache/
@@ -12,10 +13,11 @@ data/*
 .ruff_cache/
 .claude-flow/
 
-# Generated dashboard tables. Regenerate with dashboard/measure.py; the numbers
-# are carried by the handoff, not by git, so a stale file cannot be mistaken for
-# a current run.
-dashboard/*.csv
-dashboard/run_log.txt
-
 specs/
+
+# Vendored Spec Kit scaffolding: re-created by `specify init --here`.
+# The constitution is project content and stays tracked.
+.specify/*
+!.specify/memory/
+.specify/memory/*
+!.specify/memory/constitution.md
