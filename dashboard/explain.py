@@ -189,9 +189,10 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
     return panel(
         f"Every labelled frame, scored on the centre crop: four rates, and why "
         f"{pctf(now['micro_top1'])} and {pctf(now['macro_top1'])} disagree",
-        "<b>Of the four rates in this panel, quote the per-species one.</b> The page\u2019s "
-        "own headline is still the number at the top; these four cover every labelled "
-        "frame instead of the frozen sample. Both rates here are right, and they answer "
+        "<b>Quote the number at the top of the page, not these four.</b> These cover "
+        "every labelled frame instead of the frozen sample, so they answer a different "
+        "question. If you cite one of them anyway, cite the per-species rate, never the "
+        "per-frame one. Both rates here are right, and they answer "
         "different questions. Per species asks how many kinds of tree the model can "
         "name, which is what a labelling programme moves. Per frame asks how often it "
         "is right on a photo picked at random, which the commonest species decide.",

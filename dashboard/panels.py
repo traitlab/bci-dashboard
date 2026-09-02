@@ -50,7 +50,12 @@ STATUS = {
              "More labels will not fix this one. Treat it as a model limit"),
     "adequate": ("Mixed", "Keep it in the normal review queue"),
     "reliable": ("Usually right", "Lowest priority. Spot-check a few and move on"),
-    "unreachable": ("Never named in five candidates",
+    # "in five candidates" described the wrong set. core.diagnose reads
+    # in_corpus_vocabulary, which is true when the name came back on ANY BCI
+    # photo, not only on this species' own frames. Rows showing 0.0% in the
+    # list column with a different status are the difference, and the old
+    # wording made those rows look like a contradiction.
+    "unreachable": ("Never returned on any BCI photo",
                     "Nothing to do until we know whether Pl@ntNet carries this "
                     "species at all"),
 }
@@ -62,8 +67,10 @@ STATUS_REASON = {
     "hard": "Enough frames, but the first guess is still weak, so more labels will not fix it.",
     "adequate": "Mixed results, so keep it in the normal review queue.",
     "reliable": "Usually right, so this species is low priority for extra work.",
-    "unreachable": "It never appears in the five candidates we asked for, so labelling will not "
-                   "recover it. Whether Pl@ntNet carries the species at all is not known from here.",
+    "unreachable": "Pl@ntNet never returned this name on any BCI photo, not just on this "
+                   "species\u2019 own frames. Labelling will not recover it. A row showing "
+                   "0.0% in the list column under some other status was returned on another "
+                   "species\u2019 photo, so the model can produce that name.",
 }
 
 def status_precedence_note():
@@ -317,10 +324,14 @@ def p_send(c):
     body += ('<p class="note"><b>Most-named species in the first queue.</b> '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
              + '.</p>'
-             f'<p class="note">Every frame, in order, is in <code>send_first_queue.csv</code> '
-             f'in the snapshot folder: queue, photo key, the guess and its confidence, and '
-             f'how well that species is already measured. Weakest confidence first inside '
-             f'each queue, so the top of the file is the next batch.</p>'
+             # Two CSVs sit in the snapshot folder and the page named both as the
+             # thing to work, 200 lines apart. This says which is which.
+             f'<p class="note"><code>send_first_queue.csv</code> in the snapshot folder is '
+             f'this same order with one row per frame: queue, photo key, the guess and its '
+             f'confidence, and how well that species is already measured. '
+             f'<code>send_batches.csv</code> is that list cut into batches of at most 100. '
+             f'<b>Work the batches file.</b> Open the queue file only to check the '
+             f'ordering.</p>'
              f'<p class="note"><strong>{c.n_no_answer} unlabelled photos got no answer at '
              f'all</strong>: the candidate list came back empty. Those are the photos most '
              f'likely to be junk or to show no plant (leaves in the water, bare trunks). '
