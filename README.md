@@ -63,6 +63,7 @@ Three analyses write output the pages never read: `predict/crown_accuracy.py`,
 | `dashboard/` | measure, score, build the pages. Stdlib only |
 | `predict/` | Pl@ntNet calls: per photo, per crown box, embeddings, checklist. The only side needing a key |
 | `labelling/` | Labelbox side: fold an export in, rank and send batches, fold results back |
+| `docs/adr/` | decisions taken and declined, with the reasoning. Read before splitting a module |
 | `bin/refresh.sh` | the full chain, above |
 | `input/boxes/` | crown boxes and the frame list. Tracked: the frame list defines the population |
 | `data/`, `snapshots/`, `build/` | generated, gitignored |
