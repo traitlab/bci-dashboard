@@ -380,46 +380,38 @@ def p_ceiling(c):
             f'frames and the few with no cached answer included. Counted that way, '
             f'{c.never_all} frames carry a name the model never returned to us.</p>'
             f'<div class="warn"><strong>This is a limit of the question we asked, not proof '
-            f'the model has never heard of these species.</strong> The only test we can run '
-            f'offline is whether a species name turns up somewhere in the cached answers, and '
-            f'we asked Pl@ntNet for its best five candidates per photo. A species Pl@ntNet '
-            f'knows perfectly well, but which never made anyone\'s top five on a BCI photo, '
-            f'is indistinguishable here from one it truly cannot return. The five-candidate '
-            f'cap is what hides the difference. It did not bite everywhere: on '
-            f'{c.short5:,} of the {c.n_pred:,} frames with a cached answer '
-            f'({pctf(c.short5 / c.n_pred)}) fewer than five candidates came back, so nothing '
-            f'was cut off. On the other {c.n_pred - c.short5:,} the list was full, and '
-            f'anything the model would have ranked sixth or lower is invisible to us. The way '
-            f'to find out is to re-run the predictions asking for more candidates per photo. '
-            f'More name cleaning will not help, because names are already matched as well as '
-            f'they can be.</div>'
+            f'the model has never heard of these species.</strong> Offline we can only check '
+            f'whether a name turns up in the cached answers, and we asked for five candidates '
+            f'per photo. A species Pl@ntNet knows well, but which never made a top five on a '
+            f'BCI photo, looks exactly like one it cannot return. The cap did not bite '
+            f'everywhere: on {c.short5:,} of the {c.n_pred:,} frames with a cached answer '
+            f'({pctf(c.short5 / c.n_pred)}) fewer than five came back, so nothing was cut '
+            f'off. On the other {c.n_pred - c.short5:,} anything ranked sixth or lower is '
+            f'invisible to us. Only re-running the predictions with more candidates can tell '
+            f'the two apart, and more name cleaning will not help.</div>'
             + table([("Species", False), ("Labelled frames", True)],
                     [[f'<span class="sp">{esc(cap(d["species"]))}</span>',
                       f'{d["n_labelled_crowns"]:,}'] for d in c.never])
-            + f'<p class="note"><strong>Spelling and renamed species are not costing us '
-              f'anything.</strong> Labels and predictions are put into the same standard form '
-              f'before they are compared, and old names are resolved to current ones. Scoring '
-              f'the raw names instead would give {pctf(c.strict1 / n)} rather than '
-              f'{pctf(c.c1 / n)} on the centre crop, so that matching is worth '
-              f'{100 * (c.c1 - c.strict1) / n:+.2f} points, or {c.c1 - c.strict1} frames. '
-              f'Treat it as a gain already banked, not as a source of error.</p>'
+            + f'<p class="note"><strong>Spelling and renamed species cost us '
+              f'nothing.</strong> Labels and predictions are put into the same standard form '
+              f'before comparison, and old names are resolved to current ones. Raw names '
+              f'would score {pctf(c.strict1 / n)} on the centre crop rather than '
+              f'{pctf(c.c1 / n)}. That matching is a gain of {c.c1 - c.strict1} frames '
+              f'already banked, not a source of error.</p>'
               f'<p class="note"><strong>{gn:,} further frames carry only a genus '
               f'name</strong> and are left out of every species number above. Scored at '
               f'genus level they reach {pctf(c.gg1 / gn) if gn else "n/a"}.</p>'
-              f'<p class="note">Of them, '
-              f'{c.gen_any:,} have at least one candidate in the right genus among the five, '
-              f'and <strong>{c.gen_one:,} have exactly one</strong>. That turns the question '
-              f'into a yes or no rather than an identification. Whether taking them down to '
-              f'species is worth expert time is a prioritisation question, not a model '
-              f'question.</p>'
-              f'<p class="note">A further {c.fam_n} frames are labelled to '
-              f'{c.fam_names} <em>families</em> rather than genera. They are left out of '
-              f'the genus rate above, and offline we cannot score them at all.</p>'
-              f'<p class="note">A family name '
-              f'can never match a predicted species name. Rolling the predictions up to '
-              f'family would need a list of which family every Pl@ntNet name belongs to, and '
-              f'we do not have one here. Counting them in would have reported '
-              f'{pctf(c.gg1 / (gn + c.fam_n))} instead of {pctf(c.gg1 / gn)}.</p>')
+              f'<p class="note">Of them, {c.gen_any:,} have at least one candidate in the '
+              f'right genus among the five, and <strong>{c.gen_one:,} have exactly '
+              f'one</strong>. That turns the question into a yes or no. Whether taking them '
+              f'down to species is worth expert time is a prioritisation question, not a '
+              f'model question.</p>'
+              f'<p class="note">A further {c.fam_n} frames are labelled to {c.fam_names} '
+              f'<em>families</em> rather than genera, and are left out of the genus rate. A '
+              f'family name can never match a predicted species name, and rolling the '
+              f'predictions up to family needs a list we do not have here. Counting them in '
+              f'would have reported {pctf(c.gg1 / (gn + c.fam_n))} instead of '
+              f'{pctf(c.gg1 / gn)}.</p>')
     # The cap clause used to hang off this title, at 119 characters the longest
     # on the page. The ask below already says the cap is one of the two
     # explanations, so the title only has to say what the panel is about.
@@ -511,16 +503,14 @@ def p_confirmatory(c):
 # Above each verbatim amendment block. The plan's words are kept for the record,
 # but the paragraph above each block already says the same thing in plain English,
 # so a reader who does not need the citation can move on.
-SKIPPABLE_QUOTE = ("The plan&rsquo;s own wording follows, quoted for the record. The "
-                   "plain-English paragraph above says the same thing, so you can skip "
-                   "the grey block.")
+SKIPPABLE_QUOTE = ("The plan&rsquo;s own wording follows, for the record. The paragraph "
+                   "above says the same thing, so you can skip the grey block.")
 
 
 def p_caveats(c):
     """The two caveats the design requires, quoted, plus what the rate is not.
 
-    Split out of ``p_confirmatory`` so the open panel above stays one screen. The
-    two amendment blocks are reproduced character-for-character from
+    The amendment blocks are reproduced character-for-character from
     ``hypothesis.md``, which requires the words rather than a summary.
     """
     cf = c.cf
@@ -537,22 +527,19 @@ def p_caveats(c):
         f'{int(cf["crown_only_hits"])} frames outlining got the name right where the centre '
         f'crop got it wrong; on {int(cf["photo_only_hits"])} it went the other way. A gap '
         f'that lopsided almost never happens by chance, so we are confident it is real.</p>'
-        f'<p class="note">For the record, the two tests the plan named. The site-aware '
-        f'resampling test, the one described above, gives '
-        f'p {pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}. A <b>p</b> is the '
-        f'chance of seeing a gap at least this big if outlining made no difference at all. '
-        f'A smaller p means a result less easily explained by luck.</p>'
-        f'<p class="note">The other test named in the plan, an exact McNemar test, '
-        f'gives p = {cf["p_mcnemar_exact"]:.5f}. McNemar assumes every frame is independent '
-        f'of every other, and frames from one site are not. So the plan named the resampling '
-        f'test as the answer where the two disagree.</p>'
+        f'<p class="note">The plan named two tests. The site-aware resampling test '
+        f'described above gives p {pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}; '
+        f'an exact McNemar test gives p = {cf["p_mcnemar_exact"]:.5f}. A <b>p</b> is the '
+        f'chance of a gap at least this big if outlining made no difference. Smaller means '
+        f'harder to explain by luck. McNemar assumes every frame is independent, and frames '
+        f'from one site are not. So the plan named the resampling test as the answer where '
+        f'the two disagree.</p>'
         # Its own paragraph: the range is a different claim from the two p-values,
         # and running them together made this the second-longest block on the page.
-        f'<p class="note">For contrast, the ordinary textbook '
-        f'range for the top number would read '
+        f'<p class="note">The ordinary textbook range for the top number would read '
         f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])}. It '
-        f'assumes every frame is independent, so it is narrower than the data supports. '
-        f'The two cards at the top of the page carry the site-resampled range instead.</p>'
+        f'assumes independence too, so it is narrower than the data supports, and the two '
+        f'cards at the top carry the site-resampled range instead.</p>'
         f'<div class="warn"><p><strong>The top number was not produced blind.</strong> '
         f'Before these frames were set aside, someone on the team had already seen how well '
         f'the outline-first method scored, on a different set of photos. That does not make '
@@ -560,11 +547,10 @@ def p_caveats(c):
         f'with this warning.</p>'
         # The warning, then the key to the quote. One block ran the two together,
         # so the reader met three glosses before reaching the words they gloss.
-        f'<p>The plan&rsquo;s own wording is below in full, from amendment '
-        f'A2 of <code>hypothesis.md</code>. '
-        f'Two of its words are the plan&rsquo;s, not this page&rsquo;s: <b>tiles</b> is the '
-        f'third way of asking, the one that was cut, and a <b>quadrat</b> is a marked-out '
-        f'ground plot.</p>'
+        f'<p>Below in full is amendment A2 of <code>hypothesis.md</code>, in the '
+        f'plan&rsquo;s words. Two of them are not this page&rsquo;s: <b>tiles</b> is a third '
+        f'way of asking, cut partway through, and a <b>quadrat</b> is a marked-out ground '
+        f'plot.</p>'
         # The plan's own "top-1" is left unglossed on purpose: the sentence below
         # says what its 85.4% counts, and repeating the term would put it in this
         # page's prose, which says "first guess" everywhere.
@@ -574,37 +560,33 @@ def p_caveats(c):
         f'whole frame on this fixed sample.</p>'
         f'<p class="note">{SKIPPABLE_QUOTE}</p>'
         f'{A2_PRIOR_EXPOSURE}</div>'
-        f'<div class="warn"><p><strong>A third way of asking was dropped after we had seen '
-        f'how it was doing.</strong> The study planned to test a third method, tiles, and '
-        f'cut it partway through. Dropping a method after glimpsing its result is the kind '
-        f'of choice that can flatter the methods that survive.</p>'
-        f'<p class="note">{SKIPPABLE_QUOTE}</p>'
+        f'<div class="warn"><p><strong>Tiles, the third way of asking, was dropped after '
+        f'we had seen how it was doing.</strong> Dropping a method after glimpsing its '
+        f'result is the kind of choice that can flatter the methods that survive. The '
+        f'plan&rsquo;s own wording, amendment A4, follows.</p>'
         f'{A4_WHAT_THIS_COSTS}</div>'
         f'<div class="warn"><p><strong>What this rate is not.</strong></p><ul>'
-        f'<li><strong>It does not measure a fully automatic pipeline.</strong> The '
-        f'outline-first method is handed the botanist&rsquo;s outlines and asked only to '
-        f'name what is inside them. The method that would have answered the question with no '
-        f'outlines at all, tiles, is the one that was dropped. Read '
-        f'{pctf(cf["crown_top1"])} as the cost of naming once the trees have been found.</li>'
+        f'<li><strong>It does not measure a fully automatic pipeline.</strong> The method '
+        f'is handed the botanist&rsquo;s outlines and asked only to name what is inside '
+        f'them. Tiles, which would have answered with no outlines at all, is the one that '
+        f'was dropped. Read {pctf(cf["crown_top1"])} as the cost of naming trees already '
+        f'found.</li>'
         f'<li><strong>It is per frame, not per species.</strong> The sample carries '
-        f'{int(cf["n_species"])} species, and the two commonest species are '
-        f'{pctf(cf["top2_species_share"])} of its {int(cf["n_frames"])} frames. So this '
-        f'rate is weighted '
-        f'towards the species the model already knows best. That is the same objection this '
-        f'page makes to the {pctf(c.now["micro_top1"])} figure below, and it applies here '
-        f'too. No per-species average for this sample was written into the plan, so none is '
-        f'published.</li>'
+        f'{int(cf["n_species"])} species, and the two commonest are '
+        f'{pctf(cf["top2_species_share"])} of its {int(cf["n_frames"])} frames. So the rate '
+        f'leans towards what the model already knows best. That is this page&rsquo;s own '
+        f'objection to the {pctf(c.now["micro_top1"])} figure below. The plan asked for no '
+        f'per-species average here, so none is published.</li>'
         f'<li><strong>It is one camera, and not every site.</strong> Every frame '
         f'was shot with {cam_phrase(cf["cameras"])}, at {int(cf["n_sites"])} of '
         f'the 17 field sites. The drone carries a second camera, and no mission in '
         f'this design flies both, so nothing here says how the model reads that one.'
         f'</li></ul></div>'
-        f'<p class="note">Every rule behind these numbers was written down in '
-        f'<code>bci-dashboard-docs/hypothesis.md</code> before the data existed. That means '
-        f'which frames, which test, what counts as right, and when we were allowed to look. '
-        f'The '
-        f'plan allows one look at the finished set, so this page prints the result the '
-        f'scorer wrote that once and never recomputes it.</p>')
+        f'<p class="note">Every rule behind these numbers predates the data, written down '
+        f'in <code>bci-dashboard-docs/hypothesis.md</code>. That is which frames, which '
+        f'test, what counts as right, and when we were allowed to look. The plan allows one '
+        f'look, so this page prints what the scorer wrote that once and never '
+        f'recomputes it.</p>')
     return panel(
         'Two warnings that must travel with the top number, and what it does not measure',
         "<b>Quoted, not summarised.</b> The grey blocks are the plan&rsquo;s own words, "
