@@ -1,24 +1,18 @@
 #!/usr/bin/env python3
 """What to label next: the labelling team's own page.
 
-The internal half of the 2026-08-27 split. Its job is to order the unlabelled
-pool and say why that order is the right one; the accuracy reporting moved to
-``build_external.py``, which is the page that leaves the lab.
-
-Deliberately thin, because the deliverable is not this page. It is
-``send_batches.csv`` in the snapshot folder, which the labelling script reads
-directly. The page exists so the order can be checked by eye and argued with
-before a batch goes out.
+Orders the unlabelled pool and says why that order is right. Deliberately thin,
+because the deliverable is ``send_batches.csv`` beside it, which the labelling
+script reads; the page exists so the order can be argued with first. Accuracy
+reporting is ``build_external.py``.
 
     python3 dashboard/build_internal.py [--out PATH]
 
-Numbers are recomputed here from source rather than read from the CSVs, then
-cross-checked against the CSVs measure.py wrote into the snapshot; a mismatch
-aborts the build. This page gates on the two send-queue CSVs, which the external
-page does not report and does not check.
+Every number is recomputed from source, then cross-checked against the CSVs
+``measure.py`` wrote into the snapshot; a mismatch aborts the build. It gates on
+the two send-queue CSVs, which the external page does not report.
 
-No network, no API key, no third-party package: the page opens from a file://
-URL with every style, script and chart inlined.
+No network, no key, no third-party package: one file that opens from file://.
 """
 
 from __future__ import annotations

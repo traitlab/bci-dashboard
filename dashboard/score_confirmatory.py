@@ -3,34 +3,25 @@
 Two arms, one label, two regions:
 
     crown   one identify call per labelled crown, aggregated to the frame
-    photo   the 1280 px centre square, 13.7% of the frame, carried as the
-            legacy reference and never described as region-aligned
+    photo   the 1280 px centre square, 13.7% of the frame, the legacy reference
 
-Ground truth names the species whose labelled crowns hold the largest summed
-raw box area over the whole frame. The crown rule below mirrors that criterion
-at its own unit; the photo rule does not, which is the defect the experiment
-exists to measure.
+The label names the species whose crowns hold the largest summed box area over
+the whole frame. The crown rule mirrors that criterion at its own unit; the
+photo rule does not, and that gap is what the experiment measures. A third arm,
+tiles, was dropped on 2026-08-27 before any read (deviation A4); P1 and P4 named
+it and die with it, leaving P3, crown beats photo, as the primary prediction.
 
-A third arm, tiles, was frozen alongside these two and dropped on 2026-08-27,
-before any confirmatory read. bci-dashboard-docs/hypothesis.md carries the
-reasons as deviation A4. P1 and P4 named tiles and die with it, so P3, crown
-beats photo, is the primary prediction from here.
+Nothing here chooses anything: every rule, cluster unit, test and stopping rule
+was fixed in hypothesis.md before the data existed, and this file applies them.
+A crown arm missing a frozen frame stamps the report EXPLORATORY, because the
+stopping rule allows one read, on the complete set.
 
-Nothing here chooses anything. Every rule, every threshold, the cluster unit,
-the test and the stopping rule were fixed in bci-dashboard-docs/hypothesis.md before the data
-existed. This file only applies them. If the region-aligned arm is missing a
-frozen frame the report is stamped EXPLORATORY, because the stopping rule says
-the confirmatory read happens once, on the complete set.
+    python dashboard/score_confirmatory.py [--adjudication out.csv] [--out CSV]
 
-    python dashboard/score_confirmatory.py
-    python dashboard/score_confirmatory.py --adjudication out.csv
-    python dashboard/score_confirmatory.py --out input/confirmatory_result_2026-08.csv
-
-``--out`` writes the numbers the external dashboard publishes. The page reads
-that file rather than re-running this script, which is deliberate: the stopping
-rule says the confirmatory read happens once, on the complete set, so a number
-that changed because a page was rebuilt would not be a confirmatory number. The
-file is tracked for the same reason the frozen frame list is.
+``--out`` writes the numbers the external page publishes. The page reads that
+file rather than re-running this script: a number that moved because a page was
+rebuilt would not be a confirmatory number. Tracked for the same reason the
+frozen frame list is.
 """
 
 import argparse

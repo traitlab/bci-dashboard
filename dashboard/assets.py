@@ -351,15 +351,11 @@ def slug(text: str) -> str:
     """A stable id from display text: the part before the first colon, lowercased,
     non-alphanumerics collapsed to hyphens, first eight words kept.
 
-    Derived from the text rather than passed in at the call site because every
-    summary and heading already stands alone as a label -- a hand-written id
-    would be a second name for the same thing, free to drift from the first.
-    The colon split keeps the id short: summaries read "What to send first:
-    412 frames in the long tail", and the count changes every snapshot while
-    the anchor must not.
-
-    A summary whose live numbers sit before any colon cannot be slugged safely,
-    so ``panel`` rejects a digit-bearing id and asks for an explicit ``anchor``.
+    Derived rather than hand-written, so an anchor cannot drift from its own
+    heading. The colon split is what keeps it stable: a summary reads "What to
+    send first: 412 frames in the long tail" and the count moves every
+    snapshot. Live numbers before the colon leave nothing safe to slug, so
+    ``panel`` rejects a digit-bearing id and asks for an explicit ``anchor``.
     """
     head = re.sub(r"<[^>]+>", "", str(text)).split(":")[0]
     words = re.sub(r"[^a-z0-9]+", " ", head.lower()).split()
@@ -386,11 +382,9 @@ def panel(summary, ask, body, *, open_=False, anchor=None):
 def section(title, lede, panels):
     """A named group of panels: a heading band, one orienting line, then the panels.
 
-    ``panels`` is already-rendered panel HTML. The band is what makes a long page
-    scannable when closed, so it carries the group's question, not a label.
-
-    No jump list: with every panel closed the summaries directly below are already
-    the contents, and a generated copy of them printed above was the same words twice.
+    ``panels`` is already-rendered panel HTML. The band carries the group's
+    question, not a label, because that is what makes a closed page scannable.
+    No jump list: the summaries below already are the contents.
     """
     return (f'<section class="grp" id="{slug(title)}"><h2>{title}</h2>'
             f'<p class="lede">{lede}</p>\n{panels}</section>')
@@ -439,14 +433,9 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
 def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None):
     """A search/filter strip followed by a sortable table.
 
-    ``table_id``/``input_id``/``select_id``/``count_id`` (the four element
-    ids the JS above looks up), ``placeholder``, ``input_label``,
-    ``select_label``, ``all_label`` and ``sortable_from`` used to be keyword
-    params here, but no caller had ever overridden any of them -- the page
-    has exactly one filterable table. Dropped and inlined; the four ids stay
-    as the shared ``_TABLE_ID``/etc. constants above so the JS coupling is
-    explicit rather than two copies of the same literal staying in sync by
-    accident.
+    The page has exactly one, so nothing here is parameterised. The element
+    ids stay as the ``_TABLE_ID`` constants above rather than literals, so the
+    coupling to the JS is visible from both ends.
     """
     # No options means no status to filter on, so no select: rendering one
     # holding nothing but "every status" offers the reader a control that
@@ -521,23 +510,16 @@ _WIDE = set("ABCDEFGHIJKLMNOPQRSTUVWXYZmw%@")
 def _text_w(text: str, font_px: float) -> float:
     """Upper bound on the rendered width of ``text`` at ``font_px``.
 
-    Nothing here can measure a glyph. The page ships as one file with no
-    library, and ``system-ui`` resolves to whatever the reader's machine has, so
-    the true width is unknowable at build time. Three character classes plus a
-    per-string 0.26em for side bearings, calibrated against
-    ``getComputedTextLength`` for 14 of this page's own labels under SF NS, with
-    a 1.06 factor that keeps the estimate above all 14.
+    Nothing here can measure a glyph: the page ships as one file with no
+    library, and ``system-ui`` is whatever the reader's machine has. Three
+    character classes plus 0.26em per string for side bearings, times 1.06,
+    calibrated against ``getComputedTextLength`` on 14 of this page's labels
+    under SF NS. Segoe UI and Roboto both run narrower, so they are covered.
 
-    Do not read that as a headroom figure for the page. The calibration set is 14
-    labels, not the 59 the page draws, and the margin on the rest is unmeasured
-    per label. Treat the factor as the thing that must not be spent, not as slack
-    with a known size.
-
-    The bound leans high on purpose. Overshooting spends whitespace,
-    undershooting clips the text, and a clipped label is the failure that ships:
-    every numeric check on this page passed while five of them read "1,856 cr".
-    Segoe UI and Roboto are the other likely resolutions and both run narrower
-    than SF NS at the same size, so the headroom covers them too.
+    The 1.06 is not measured headroom -- 14 labels were checked, not the 59
+    the page draws -- so it is not slack to spend. It leans high because
+    undershooting clips the label, and a clipped label ships: every numeric
+    check passed while five of them read "1,856 cr".
     """
     em = 0.26 + sum(0.28 if c in _NARROW else 0.72 if c in _WIDE else 0.60 for c in text)
     return 1.06 * em * font_px
@@ -546,15 +528,10 @@ def _text_w(text: str, font_px: float) -> float:
 def svg_hbar(rows, *, title=""):
     """Horizontal bars. ``rows`` = [(label, frac, right_text, color)].
 
-    ``right_w`` is the room reserved for the value label, and it grows to fit
-    the longest one rather than truncating it. Text past the viewBox is clipped
-    by the SVG viewport, no CSS reaches inside to rescue it, and every numeric
-    check on this page still passes while a label reads "1,856 cr". The bars
-    keep the length ``right_w`` asked for; only the chart gets wider.
-
-    Geometry (``width``/``row_h``/``label_w``/``right_w`` as starting values)
-    used to be keyword params; no caller has ever passed a non-default one,
-    so they are fixed constants below instead of unused knobs.
+    ``right_w`` is the room for the value label, and it grows to fit the
+    longest rather than truncating: the SVG viewport clips and no CSS reaches
+    inside to rescue it. The bars keep the length ``right_w`` asked for; only
+    the chart gets wider. Geometry is fixed below, not parameterised.
     """
     if not rows:
         return ""
@@ -603,16 +580,12 @@ def svg_weight_pair(rows, *, label_a, label_b):
     colours, so the reader sees the weight move from one bar to the other
     without doing any arithmetic.
 
-    Both columns have to sum to 1 or the bars stop being comparable, and a
-    wrong denominator would draw a short bar rather than a wrong number, which
-    no recompute-and-compare check can see. So it is asserted here.
+    Each column is asserted to sum to 1: a wrong denominator draws a short bar
+    rather than a wrong number, which no recompute-and-compare check can see.
 
-    ``pad_l`` is the room for the row labels, and it grows to fit the longer of
-    the two. The labels are right-anchored against the bars, so one that does
-    not fit runs off the left edge of the viewBox and loses its first character
-    with no warning from any check on this page. ``width``/``bar_h``/``pad_l``
-    (starting values) used to be keyword params; no caller has ever passed a
-    non-default one, so they are fixed constants below instead.
+    ``pad_l`` grows to fit the longer row label. They are right-anchored, so
+    one that does not fit runs off the left edge of the viewBox and silently
+    loses its first character. Geometry is fixed below, not parameterised.
     """
     if not rows:
         return ""

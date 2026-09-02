@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
 """How Pl@ntNet does against the labels: the page that leaves the lab.
 
-The external half of the 2026-08-27 split. It answers one question, for people
-outside the labelling team: how well does Pl@ntNet name BCI drone close-ups, per
-species, and what are the ceilings on that number. The queue panels moved to
-``build_internal.py``, which is the labelling team's own tool.
+For people outside the labelling team: how well Pl@ntNet names BCI drone
+close-ups, per species, and what the ceilings on that number are. What to label
+next is ``build_internal.py``.
 
     python3 dashboard/build_external.py [--out PATH]
 
-Numbers are recomputed here from source rather than read from the CSVs, then
-cross-checked against the CSVs measure.py wrote into the snapshot; a mismatch
-aborts the build, so the page cannot disagree with the measurement. This page
-gates on the measurement CSVs it actually reports and not on the send-queue
-ones, which belong to the other page. The page reports the latest snapshot only,
-no trend over the sibling folders.
+Every number is recomputed from source, then cross-checked against the CSVs
+``measure.py`` wrote into the snapshot; a mismatch aborts the build. It gates
+only on the CSVs behind a number it prints, so not on the send queue. Latest
+snapshot only, no trend.
 
-No network, no API key, no third-party package: the page opens from a file://
-URL with every style, script and chart inlined.
+No network, no key, no third-party package: one file that opens from file://.
 """
 
 from __future__ import annotations

@@ -1,28 +1,23 @@
 """What Pl@ntNet actually saw, and how much of the label it covered.
 
-The prediction scripts send Pl@ntNet a fixed CROP_SIZE square cut from the
-centre of each base drone frame, then discard the crop offsets. Ground truth,
-meanwhile, comes from crown bounding boxes drawn anywhere in the full frame. So
-a prediction made from 13.7% of the frame is scored against a label that may lie
-entirely outside it.
+The prediction scripts send a fixed CROP_SIZE square from the centre of the
+frame and discard the offsets, while the label comes from crown boxes drawn
+anywhere in the frame. So a prediction made from 13.7% of a frame is scored
+against a label that may lie entirely outside it. This module recomputes the
+crop rectangle offline and measures how much of it each labelled species
+covers, so downstream code can admit a frame only when one species covers at
+least T of what the model saw.
 
-This module recomputes the crop rectangle offline and measures, per frame, how
-much of that rectangle each labelled species covers. Downstream code uses the
-coverage fraction to admit or reject a frame: admit only if one species covers at
-least T of the region the model saw.
+No API call, no Labelbox. Crown geometry comes from two files, newer per frame
+wins. ``data/export_boxes.csv`` is the July 2026 botanist revision, from the
+Labelbox export. ``input/boxes/crop_bounding_boxes.csv`` predates it and is
+kept only for frames the export misses: where both describe a frame, the old
+file holds twice as many boxes, 35% match a current crown at IoU 0.5, and a
+fifth of even those name a superseded species.
 
-Nothing here calls an API or touches Labelbox. It reads crown geometry from
-two files and prefers the newer one per frame. ``data/export_boxes.csv`` comes
-from the Labelbox export (labelling/gt_from_export.py) and matches the July 2026
-botanist revision. ``input/boxes/crop_bounding_boxes.csv`` predates it and is
-kept only for the frames the export does not cover: where both describe a frame,
-the old file holds twice as many boxes, only 35% of them are the same crown at
-IoU 0.5, and a fifth of even those carry a superseded species.
-
-Frame geometry: all 16 randomly sampled base frames (2024-2026, zoom and tele)
-measured exactly FRAME_W x FRAME_H, so the crop rectangle is constant. Frames
-that contradict that are reported in `suspect_frames` rather than silently
-scored, because their crop rectangle would be wrong.
+All 16 sampled base frames (2024-2026, both cameras) measured exactly
+FRAME_W x FRAME_H, so the crop rectangle is constant. A frame whose boxes
+contradict that goes to `suspect_frames` rather than being scored wrong.
 """
 
 import collections
