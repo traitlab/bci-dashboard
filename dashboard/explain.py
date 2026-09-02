@@ -287,7 +287,9 @@ def method_panel(*, tag, n, n_sp, n_cand, checks):
             '<li>Rebuild: <code>python3 dashboard/measure.py</code> then '
             '<code>python3 dashboard/build_external.py</code>. Standard library '
             'only, same output every run, no network.</li></ul>')
-    return panel("How this was measured, and what it does not tell you",
+    # Two panels above already end "and what it does not measure"/"does not
+    # tell you". This one is provenance: which model, which frames, which files.
+    return panel("How this was measured: the model, the frames, the files",
                  "<b>Read this before quoting any number outside the team.</b> It names "
                  "the model, the request settings, and the one assumption that cannot be "
                  "checked offline.", body, anchor="how-this-was-measured")
