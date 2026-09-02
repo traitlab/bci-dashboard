@@ -290,8 +290,8 @@ def report(rows, missing, complete, stat, draws=BOOTSTRAP_DRAWS):
             f"[{w_lo:6.1%},{w_hi:6.1%}]  {stat[f'{a}_top5']:6.1%}")
     log("  Wilson is the unclustered interval the page already publishes. It is")
     log("  too narrow here, and is shown so the cost of clustering is visible.")
-    log("  crown top-5 is bounded by the number of distinct species its crowns")
-    log("  name, which is usually fewer than five, so it is not comparable.")
+    log("  crown right-name-in-list is bounded by the number of distinct species")
+    log(f"  its crowns name, usually fewer than {core.N_CANDIDATES}, so it is not comparable.")
     log("")
 
     log("P3, primary since tiles was dropped: crown against photo, paired on")

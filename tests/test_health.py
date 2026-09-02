@@ -56,6 +56,17 @@ def test_no_command_measures_a_list_of_five_by_a_literal(core):
         assert "[:5]" not in src, f"{name} slices a candidate list by a literal"
         assert ", 5)" not in src, f"{name} passes a list length as a literal"
         assert "nb-results=5" not in src, f"{name} prints the list length as a literal"
+        # Spelled out it is the same defect and harder to grep for. `hero_terms`
+        # says why: "a setting frozen into prose stops being true unnoticed",
+        # and the panel two screens below it had frozen the same setting four
+        # times. Only the count-of-candidates senses are listed; "the five
+        # panels below" is about something else, so the check is on the phrases
+        # that name a candidate list.
+        for phrase in ("five candidates", "top five", "in the five",
+                       "than five", "sixth or lower", "five names"):
+            assert phrase not in src, (
+                f"{name} spells the candidate-list length into prose ({phrase!r}); "
+                f"use core.N_CANDIDATES so the words follow the setting")
 
 
 def test_the_run_log_text_lives_in_run_log_py(core):

@@ -221,7 +221,7 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           # block below gives the same claim with its reason attached, which is
           # where a reader can weigh it.
           f'<p class="note">Misses differ at each end. On species with {THIN_MAX} frames '
-          f'or fewer, the right name is still in the five for {pctf(thin_in5)} of '
+          f'or fewer, the right name is still in the {hc.N_CANDIDATES} for {pctf(thin_in5)} of '
           f'{thin_n} misses. At {FAT_MIN}+ frames it is {pctf(fat_in5)} of {fat_n}. '
           f'Misses on common '
           f'species are near '

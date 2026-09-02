@@ -40,7 +40,8 @@ def uncap(label):
     return label[:1].lower() + label[1:]
 
 STATUS_REASON = {
-    "ranking": "The right name is already in the five, so this is the cheapest confirmation work.",
+    "ranking": f"The right name is already in the {hc.N_CANDIDATES}, so this is the "
+               f"cheapest confirmation work.",
     "unmeasured": f"Fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, so the score is "
                   f"too thin to trust yet.",
     "hard": "Enough frames, but the first guess is still weak, so more labels will not fix it.",
