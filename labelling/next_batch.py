@@ -357,6 +357,8 @@ def build_contradiction_queue(dataset_rows: list[dict], min_score: float,
 
 
 def main(argv=None) -> int:
+    """Everything printed here also lands in report.txt, because the reader of
+    this queue is usually not the person who ran it."""
     args = parse_args(argv)
     lines: list[str] = []
 

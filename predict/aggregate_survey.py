@@ -110,6 +110,12 @@ def aggregate_photo_embedding(parsed: dict) -> np.ndarray | None:
 
 
 def main() -> None:
+    """Turn a directory of survey answers into one embedding matrix and one
+    priority score per photo.
+
+    Both are written even when there is no GT file: the scores are then all
+    zero, which is the honest cold-start answer rather than an error.
+    """
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--survey-dir", type=Path, required=True,
