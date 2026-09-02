@@ -41,12 +41,13 @@ from pathlib import Path
 
 import pytest
 
-# The longest sentence either page carries today, so the ceiling is where the
+# The longest sentence any page carries today, so the ceiling is where the
 # prose actually is rather than somewhere comfortable above it. A sentence
 # that trips this is not necessarily wrong -- it is a sentence someone has to
 # read again -- so the fix is to split it, and moving the number up is a
-# decision to make out loud.
-MAX_SENTENCE_WORDS = 31
+# decision to make out loud. It has come down from 31: the one sentence that
+# needed 31 was a clause, and it reads as two.
+MAX_SENTENCE_WORDS = 30
 
 # The share of sentences allowed to run long. A hard per-sentence cap alone
 # lets the prose fill up with 25-word sentences, so this keeps the middle

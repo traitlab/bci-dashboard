@@ -1,8 +1,9 @@
 # BCI dashboard
 
 Two self-contained HTML pages, built from one measurement pass. Each is a single
-file you can open, email, or drop on a share, rebuilt offline from files already
-on disk: a Labelbox export of botanist labels, plus cached Pl@ntNet responses.
+file you can open, email, or drop on a share. Both are built offline from files
+already on disk: a Labelbox export of botanist labels, plus cached Pl@ntNet
+responses.
 
 1. **How well does Pl@ntNet name BCI trees?** `dashboard/build_external.py`: per
    species, how often the first guess is right, on how many labelled frames, and
