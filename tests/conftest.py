@@ -58,6 +58,15 @@ def core():
     return load("_core_under_test", REPO / "dashboard" / "core.py")
 
 
+@pytest.fixture(scope="session")
+def health():
+    """`health`, the load-and-join layer. On the path rather than loaded by
+    path like `core`, because it imports core as a sibling."""
+    with _on_path(REPO / "dashboard"):
+        import health
+        yield health
+
+
 def _require(*packages, who="predict"):
     """Skip rather than fail when a requirements.txt package is absent.
 

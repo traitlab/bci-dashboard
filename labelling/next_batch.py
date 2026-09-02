@@ -64,6 +64,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, "dashboard"))
 
 import core as hc
+import health as hl
 import settings
 
 DATASET_ROWS = "data/dataset_rows.jsonl"
@@ -404,7 +405,7 @@ def crop_verdict(rec: dict, top1_name: str, min_coverage: float) -> str:
 def build_contradiction_queue(dataset_rows: list[dict], min_score: float,
                               min_coverage: float, log) -> list[dict]:
     """Field label vs Pl@ntNet top-1, resolved onto live dataset global keys."""
-    health = hc.load_health()
+    health = hl.load_health()
     by_basename = {basename(r["global_key"]): r for r in dataset_rows}
 
     queue, unresolved = [], 0

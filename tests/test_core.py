@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_status_precedence_is_the_order_diagnose_actually_uses(core):
     """The pages print the precedence, so it has to be the real one. Each row
     below satisfies every rule from its position onward, so the status it gets
@@ -35,17 +32,3 @@ def test_summarise_gives_help_one_sentence_not_the_whole_module_docstring(core):
         python3 dashboard/thing.py [--out PATH]
     """
     assert core.summarise(doc) == "One line saying what this is."
-
-
-def test_a_missing_input_stops_the_run_with_one_readable_line(core, tmp_path):
-    """A first run on a fresh clone hits this, from any of the four commands.
-
-    It used to raise FileNotFoundError, which only measure.py caught, so the
-    three builders printed a traceback for the most ordinary failure there is.
-    """
-    with pytest.raises(SystemExit) as e:
-        core.load_health(gt_csv=str(tmp_path / "absent.csv"))
-    msg = str(e.value)
-    assert "the botanist labels" in msg          # what the file is, not its name
-    assert "absent.csv" in msg                   # where it looked
-    assert "bin/refresh.sh" in msg               # what to do about it

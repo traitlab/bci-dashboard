@@ -34,6 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc
 import figures
+import health as hl
 import page as pg
 from assets import (
     cap,
@@ -66,7 +67,7 @@ def _load_gt_from_export():
 
 def export_only_health(
     export_path: str, *, splits_csv: str, cache_dir: str, wcvp_cache: str
-) -> tuple[hc.Health, int]:
+) -> tuple[hl.Health, int]:
     """Load a ``Health`` computed only over this export's own labelled photos.
 
     Returns ``(health, n_ndjson_rows)``. Writes a throwaway GT CSV to a temp
@@ -87,7 +88,7 @@ def export_only_health(
             w.writerow([hc.GT_KEY_PREFIX + stem, sp])
         tmp_gt = tf.name
     try:
-        h = hc.load_health(
+        h = hl.load_health(
             gt_csv=tmp_gt,
             splits_csv=splits_csv,
             cache_dir=cache_dir,
@@ -98,7 +99,7 @@ def export_only_health(
     return h, n_rows
 
 
-def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str:
+def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str:
     sp_recs, per_species = h.sp_recs, h.per_species
     n, n_sp = len(sp_recs), len(per_species)
     n_labelled = len(h.gt_rows)  # rows export_dominants found a botanist name for

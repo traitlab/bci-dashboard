@@ -16,8 +16,9 @@ import csv
 import os
 from collections import Counter, defaultdict
 
+from health import load_health
 from core import (
-    add_input_flags, load_health, summarise,
+    add_input_flags, summarise,
     pct, ratio, fmt, genus_of, normalize, queue_of_prediction, chunk_send_batches,
     coverage_gate_stats, coverage_split, labelbox_urls, adjudicated_keys,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,

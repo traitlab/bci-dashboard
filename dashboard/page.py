@@ -16,6 +16,7 @@ import datetime as _dt
 import os
 
 import core as hc
+import health as hl
 from assets import section, strip_comments
 from style import CSS, JS
 from history import latest_snapshot_dir
@@ -162,7 +163,7 @@ def run(doc: str, out_name: str, build) -> None:
     """Load the data, build the page, write it. The whole of both builders'
     ``main()``, which were identical apart from the two module constants."""
     args = parse_args(doc, out_name)
-    h = hc.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
+    h = hl.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
                        wcvp_cache=args.wcvp_cache)
     page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),
                          verify_dir=args.verify_against or latest_snapshot_dir(),
