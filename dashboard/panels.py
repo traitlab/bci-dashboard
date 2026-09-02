@@ -290,6 +290,15 @@ def p_send(c):
                        f'<span class="sp">{esc(cap(pred))}</span>', f"{cf:.3f}",
                        f"{c.support.get(pred, 0):,}"]
                       for i, (_, stem, pred, cf) in enumerate(head, 1)]))
+    # How to read the confidence column, next to the column. The queue is ordered
+    # weakest first, so the first screen of it is full of 0.001s, and a reader who
+    # takes those as predictions sees expert time being spent on coin flips.
+    body += ('<p class="note"><b>Read the confidence column as how little the model '
+             'knows, not as how likely the named species is.</b> A frame lands in a queue '
+             'on which species was guessed, whatever the confidence. Inside a queue the '
+             'weakest guesses come first, because those are the frames our labels cover '
+             'worst. A guess near the bottom of the scale means Pl@ntNet recognised '
+             'almost nothing, which is itself the reason to look.</p>')
     top_lt = sorted(c.lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
     body += ('<p class="note"><b>Most-named species in the first queue.</b> '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
