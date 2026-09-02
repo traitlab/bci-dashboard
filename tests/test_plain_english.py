@@ -67,7 +67,18 @@ RETIRED = {
     r"\brevocable\b": "undone at the next model change",
     r"\b(un)?gated\b": "with, or without, the labelled-frames condition",
     r"\bthresholds?\b": "the confidence line",
+    r"\bhits?\b": "right, or a right first guess",
+    r"\bsupport\b": "labelled frames",
+    # The compound adjective is what CONTEXT.md itself uses ("the long-lens
+    # one"), so only the bare noun is retired.
+    r"(?<!-)\blens(es)?\b": "camera, or the long-lens camera",
 }
+
+# Every word CONTEXT.md puts in quotes after "never" has to be one of the
+# patterns above. Written as a set rather than derived from the file at import
+# time so the list above still reads as a list; the test below is what ties
+# the two together.
+BANNED_IN_CONTEXT = re.compile(r"[Nn]ever \W?[\"“]([a-z][a-z0-9 -]*)[\"”]")
 
 # Prose lives in these; everything else on the page is data or chrome.
 _PROSE_TAG = re.compile(
@@ -188,3 +199,25 @@ def test_neither_page_uses_a_word_context_md_retired(page_prose, pattern, instea
     assert not hits, (
         f"{name}: '{pattern}' is retired; say {instead}. In CONTEXT.md. Found in:\n"
         + "\n".join(f"  {block[:160]}" for block in hits[:5]))
+
+
+def test_every_word_context_md_bans_is_a_word_this_file_checks_for(core):
+    """RETIRED above is a hand-copy of CONTEXT.md, and a hand-copy drifts.
+
+    CONTEXT.md is the glossary; this file is the only thing that enforces it.
+    A term retired there and not added here is a rule nobody applies, which is
+    how "lens" survived on the queue page for a week after CONTEXT.md said the
+    pair are cameras.
+    """
+    import os
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    text = open(os.path.join(root, "CONTEXT.md"), encoding="utf-8").read()
+    banned = set(BANNED_IN_CONTEXT.findall(text))
+    assert banned, "CONTEXT.md no longer marks any word with never \"...\""
+
+    unchecked = [w for w in sorted(banned)
+                 if not any(re.fullmatch(p, w, re.IGNORECASE) for p in RETIRED)]
+    assert not unchecked, (
+        "CONTEXT.md retires these and nothing checks a page for them: "
+        f"{unchecked}. Add a pattern to RETIRED, with what a page says instead.")

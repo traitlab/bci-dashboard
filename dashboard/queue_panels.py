@@ -120,8 +120,9 @@ def p_send(c):
              f'show no plant, and no automatic rule for junk is reliable, so check that '
              f'handful by eye.</p>'
              # Kept because it names an unscored population, not because it is a fact
-             # about the drone: nothing on this page grades the long lens.
-             f'<p class="note"><b>The long lens is ungraded.</b> Every frame scored here came '
+             # about the drone: nothing on this page grades that camera. "Camera",
+             # not "lens", is the word CONTEXT.md settles on for the pair.
+             f'<p class="note"><b>The long-lens camera is ungraded.</b> Every frame scored here came '
              f'from the wide-angle camera (<i>zoom</i>), all {c.scored_cams["zoom"]:,}. No '
              f'botanist has labelled a <i>tele</i> frame, so this page says nothing about '
              f'them. Tele is {c.queue_cams["tele"]:,} of the queue '

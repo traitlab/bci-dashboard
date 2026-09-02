@@ -18,7 +18,7 @@ this file.
 | **labelled frame** | A frame that has a botanist's label. The count of these for one species is how much evidence we have about that species; on a page, "labelled frames", never "support". |
 | **unlabelled photo** | A frame with a Pl@ntNet guess and no botanist label. The pool the queue orders. |
 | **site** | One field location. There are 17; frames from the same site are alike, which is why a range is worked out by drawing whole sites. |
-| **camera** | The drone carries two: the wide-angle one, named `zoom` in the file names, and the long-lens one, named `tele`. Every scored frame so far is `zoom`. On a page they are cameras, never lenses, and the file-name word is introduced before it is used. |
+| **camera** | The drone carries two: the wide-angle one, named `zoom` in the file names, and the long-lens one, named `tele`. Every scored frame so far is `zoom`. On a page they are cameras, never "lenses", and the file-name word is introduced before it is used. |
 
 ## What the model does
 
@@ -34,7 +34,7 @@ this file.
 ## The two ways of asking
 
 The whole difference between the two headline numbers. A page names the way of
-asking, never calls it an **arm**: that word belongs in `hypothesis.md`.
+asking, never "arm": that word belongs in `hypothesis.md`.
 
 | Term | What it means, and how a page says it |
 |---|---|
@@ -52,7 +52,7 @@ asking, never calls it an **arm**: that word belongs in `hypothesis.md`.
 | **the frozen sample** | The 300 frames fixed on 2026-08-26, before any of these numbers existed. Was "the confirmatory sample". |
 | **fixed in advance** | Every rule was written down in `bci-dashboard-docs/hypothesis.md` before the data existed. Was "pre-registered". |
 | **already seen** | Someone had seen a number from the crown-by-crown way, at another unit, before the sample was frozen. Was "prior exposure". |
-| **gated / ungated** | With and without the crop-coverage condition. Reported side by side, always. On a page the condition is spelled out rather than named, never called gated or ungated. |
+| **gated / ungated** | With and without the crop-coverage condition. Reported side by side, always. On a page the condition is spelled out rather than named, never "gated" or "ungated". |
 
 ## Ordering the queue
 
