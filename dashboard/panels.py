@@ -761,14 +761,16 @@ def p_confirmatory(c):
     if cf is None:
         raise SystemExit("p_confirmatory needs the frozen result; see confirmatory_hero")
     body = (
-        f'<p class="note"><strong>What we did to each frame.</strong> For the top number we '
-        f'sent Pl@ntNet every tree crown a botanist had outlined, one at a time. Then we '
+        f'<p class="note"><strong>What we did for the top number.</strong> We sent '
+        f'Pl@ntNet every tree crown a botanist had outlined, one at a time. Then we '
         f'combined the answers into a single name for the frame. Each crown got a say in '
         f'proportion to how much of the frame it covered. So the number says what naming '
         f'costs once someone has already found the trees. It is not what a fully automatic '
-        f'pipeline would score. For the second number we sent one fixed square from the '
-        f'middle of the frame, {CROP_SIZE} px across, which is {CROP_SHARE} of the '
-        f'frame&rsquo;s area.</p>'
+        f'pipeline would score.</p>'
+        f'<p class="note"><strong>What we did for the second number.</strong> We sent one '
+        f'fixed square from the middle of the frame, {CROP_SIZE} px across, which is '
+        f'{CROP_SHARE} of the frame&rsquo;s area. Nothing chose that square; it lands where '
+        f'it lands.</p>'
         f'<p class="note"><strong>Which frames, and how many.</strong> '
         f'{int(cf["n_frames"])} frames from {int(cf["n_sites"])} sites and '
         f'{int(cf["n_days"])} flight days, set aside before any of these numbers existed. '
