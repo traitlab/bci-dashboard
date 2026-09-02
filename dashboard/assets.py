@@ -208,10 +208,11 @@ JS = Template("""\
   var q=document.getElementById('$input_id');
   var sel=document.getElementById('$select_id');
   var count=document.getElementById('$count_id');
-  // Rows a caller marked data-thin start hidden. A typed needle overrides that:
-  // a reader looking up one species by name must find it whether or not the
-  // checkbox is ticked. Absent checkbox means the caller marked nothing, so
-  // everything shows; that is the older behaviour.
+  // Rows a caller marked data-thin start hidden. Any deliberate filter
+  // overrides that -- a typed needle, or a chosen status. Otherwise picking
+  // "too few labels to judge", the status those rows mostly carry, would empty
+  // the table and read as a broken page. Absent checkbox means the caller
+  // marked nothing, so everything shows; that is the older behaviour.
   var thin=document.getElementById('$thin_id');
 
   function apply(){
@@ -227,7 +228,8 @@ JS = Template("""\
       if(hay===null) hay=(r.cells[0]?r.cells[0].textContent:'').toLowerCase();
       var ok=(!needle||hay.indexOf(needle)>=0)&&
              (want==='all'||(r.getAttribute('data-status')||'')===want)&&
-             (showThin||needle||r.getAttribute('data-thin')!=='1');
+             (showThin||needle||want!=='all'||
+              r.getAttribute('data-thin')!=='1');
       r.classList.toggle('hidden',!ok);
       if(ok) shown++;
     });

@@ -607,7 +607,8 @@ def p_species(c):
               f'They have fewer than {THIN_MIN_FRAMES} labelled frames each. On that few '
               f'frames a rate can only read 0%, 100%, or a couple of steps in between, so '
               f'it tells you nothing about the model. Type a name and the species appears '
-              f'anyway, or tick <i>show all {c.n_sp}</i> to keep them all on screen.</p>'
+              f'anyway, and so does picking a status. Tick <i>show all {c.n_sp}</i> to keep '
+              f'them all on screen.</p>'
             + '<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own score '
               'for its first guess, averaged over that species&rsquo; frames. Pl@ntNet '
               'splits one whole unit of confidence across every species it knows. So 0.86 '
@@ -623,7 +624,10 @@ def p_species(c):
         thin_label=f"show all {c.n_sp}",
     ))
     half, none_ = crop_mismatch(c)
-    return panel(f"Look up one species: all {c.n_sp}, sortable and filterable",
+    # "all 186" read as a promise the open table breaks: 97 rows start hidden.
+    # "any of" is what stays true, since a typed name reaches a hidden row. The
+    # colon stays: slug() cuts there, so the anchor keeps its old value.
+    return panel(f"Look up one species: any of the {c.n_sp}, sortable and filterable",
                  "<b>Find a species you care about and read its status.</b> Click any "
                  "heading to sort, type to filter. " + status_precedence_note()
                  # The caveat that changes how a row reads used to sit 1,200 lines
