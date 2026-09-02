@@ -117,16 +117,22 @@ HEADLINES = [
 # contradiction rather than as two questions.
 HERO_READING = (
     "Read down a column, not across. Both rates are right, and they answer different "
-    "questions. <b>Per species</b> asks how many kinds of tree the model can name, "
+    "questions."
+)
+
+# The two questions, one paragraph of their own: the sentence above says how to
+# read the grid, and these say which rate answers which question.
+HERO_WHICH_RATE = (
+    "<b>Per species</b> asks how many kinds of tree the model can name, "
     "which is what a labelling programme moves. Quote it for a species picked off the "
     "checklist. <b>Per frame</b> asks how often it is right on a photo picked at "
     "random, which the commonest species decide. Quote it for a photo picked off the "
     "drive."
 )
 
-# Why the two differ, kept out of HERO_READING so the instruction and the
+# Why the two differ, kept out of the two above so the instruction and the
 # explanation are separate paragraphs: a reader who only needs to know which
-# rate to quote can stop after the first.
+# rate to quote can stop before it.
 HERO_WHY_DIFFER = (
     "Per frame is the higher of the two because the species with many frames "
     "are the ones Pl@ntNet already knows."
@@ -929,6 +935,7 @@ def p_weighting(c):
               for metric, question, averaged, note in HEADLINES])
         + f'<div class="caveat">{hero_region(c)}</div>'
         + f'<p class="note">{HERO_READING}</p>'
+        + f'<p class="note">{HERO_WHICH_RATE}</p>'
         + f'<p class="note">{HERO_WHY_DIFFER}</p>'
         # One sentence, not the full caveat: the ceiling panel states the same numbers
         # with the reasoning, and twice made this the second dense paragraph up top.
