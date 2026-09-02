@@ -20,4 +20,7 @@ labelbox:
 
 folders:
   export_for_plantnet: input/boxes
-  single_predictions: data/photos
+  # Where predict/photo.py writes its per-photo cache. It has to be the folder
+  # dashboard/core.py reads, or a fetch spends a credit per photo into a
+  # directory no page opens. tests/test_shared_constants.py compares the two.
+  single_predictions: data/predictions

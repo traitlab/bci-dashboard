@@ -237,6 +237,28 @@ def test_every_input_boxes_path_a_script_names_is_a_file_that_is_there(source):
             f"{sorted(p.name for p in (REPO / 'input' / 'boxes').iterdir())}.")
 
 
+def test_the_fetch_writes_into_the_folder_the_dashboard_reads():
+    """`predict/photo.py` takes its output folder from config.yaml and every
+    page reads `core.CACHE_DIR`. Those were `data/photos` and
+    `data/predictions` for months, so a plain `python predict/photo.py` would
+    have spent a credit per photo writing 7,000 JSONs into a directory nothing
+    opens, and the pages would have gone on reporting the older numbers.
+
+    Nothing failed while it was wrong, which is why it needs a test rather than
+    a comment: the fetch is the one step nobody runs twice by accident."""
+    config = (REPO / "config.yaml").read_text(encoding="utf-8")
+    m = re.search(r"^\s*single_predictions:\s*(\S+)", config, re.MULTILINE)
+    assert m, "config.yaml no longer says where the single-photo fetch writes"
+    core = (REPO / "dashboard" / "core.py").read_text(encoding="utf-8")
+    parts = re.search(r"CACHE_DIR = os\.path\.join\(BASE,\s*(.+?)\)", core)
+    assert parts, "dashboard/core.py no longer builds CACHE_DIR from BASE"
+    folder = re.findall(r'"([^"]+)"', parts.group(1))[0]
+    assert m.group(1) == f"data/{folder}", (
+        f"config.yaml sends the fetch to {m.group(1)} and the pages read "
+        f"data/{folder}. A fetch into the wrong one is silent: it costs a "
+        f"Pl@ntNet credit per photo and changes no number on any page.")
+
+
 def test_the_tile_window_is_the_one_the_survey_call_documents():
     """`crown.py` counts sampled crowns smaller than Pl@ntNet's own tile
     window, and the only record of how wide that window is sits in

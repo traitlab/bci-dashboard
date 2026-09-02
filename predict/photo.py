@@ -17,10 +17,10 @@ Every one is required: the values live in config.yaml, not in a default here.
 Input:
   input/boxes/bci_images_for_plantnet_w_split.csv
 
-Output:
-  data/photos/cache/<global_key>.json:  per-image cache
-  data/photos/predictions.json:         all results combined
-  data/photos/predictions_summary.json: run statistics
+Output, into the folder config.yaml names and dashboard/core.py reads:
+  data/predictions/cache/<global_key>.json:  per-image cache
+  data/predictions/predictions.json:         all results combined
+  data/predictions/predictions_summary.json: run statistics
 
 Usage:
   python predict/photo.py --test
