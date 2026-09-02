@@ -95,3 +95,48 @@ def test_the_two_remaining_copies_of_the_crop_size_agree(ingest, photo, crop_ove
         f"{ingest.CROP_SIZE}, dashboard/crop_overlap.py {crop_overlap.CROP_SIZE}. "
         f"The dashboard reconstructs the crop from its own copy, so a mismatch "
         f"scores every prediction against the wrong rectangle.")
+
+
+def test_the_edge_tolerance_still_covers_what_the_boxes_actually_do(crop_overlap):
+    """EDGE_TOLERANCE is a judgement call, and its comment holds the evidence.
+
+    `crop_overlap.py` admits a box up to EDGE_TOLERANCE px outside the frame
+    because the comment above it measured the overhang: 286 of 3,280 frames in
+    the tracked box file overhang by 1 to 2 px, and the largest coordinate seen
+    is 4002 x 3002. Nothing recomputed any of that. Re-export the boxes at a
+    real second resolution and the comment keeps reporting the old corpus while
+    the tolerance quietly reclassifies frames as suspect.
+    """
+    import collections
+    import csv
+    import pathlib
+    import re
+
+    src = pathlib.Path(crop_overlap.__file__).read_text(encoding="utf-8")
+    said = re.search(r"# ([\d,]+) of ([\d,]+) frames have a box edge (\d)-(\d) px outside"
+                     r".*?largest coordinate is (\d+) x (\d+)", src, re.DOTALL)
+    assert said, "crop_overlap.py no longer records what the overhang measured"
+    n_over, n_frames, lo, hi, max_x, max_y = (int(g.replace(",", "")) for g in said.groups())
+
+    frames = collections.defaultdict(list)
+    with open(crop_overlap.BOXES_CSV, newline="") as fh:
+        for r in csv.DictReader(fh):
+            frames[r["base_image"]].append((int(r["x_max"]), int(r["y_max"])))
+    boxes = [b for bs in frames.values() for b in bs]
+    over = [f for f, bs in frames.items()
+            if any(x > crop_overlap.FRAME_W or y > crop_overlap.FRAME_H for x, y in bs)]
+    excess = {max(x - crop_overlap.FRAME_W, 0) for x, y in boxes} | \
+             {max(y - crop_overlap.FRAME_H, 0) for x, y in boxes}
+
+    assert (len(over), len(frames)) == (n_over, n_frames), (
+        f"the comment says {n_over} of {n_frames} frames overhang, the tracked "
+        f"box file has {len(over)} of {len(frames)}.")
+    assert (max(x for x, _ in boxes), max(y for _, y in boxes)) == (max_x, max_y), (
+        f"the comment says the largest coordinate is {max_x} x {max_y}.")
+    assert sorted(excess) == [0] + list(range(lo, hi + 1)), (
+        f"the comment says the overhang is {lo} to {hi} px, the file overhangs "
+        f"by {sorted(excess - {0})} px.")
+    assert max(excess) < crop_overlap.EDGE_TOLERANCE, (
+        f"EDGE_TOLERANCE is {crop_overlap.EDGE_TOLERANCE} and a box now hangs "
+        f"{max(excess)} px outside the frame, so the rounding artifact the "
+        f"tolerance was sized for is no longer what it is admitting.")
