@@ -3,6 +3,16 @@
 Every function returns a string of HTML and reads nothing: no file, no network,
 no CDN. The stylesheet, the script, and the element ids they share with
 ``filterable_table`` are in ``style.py``.
+
+Why one module, when sixteen of its seventeen functions are leaf renderers that
+never call each other: they share a stylesheet, a status vocabulary, and
+``_text_w``, the font metric the SVG geometry sizes against. Splitting them by
+kind of output, tables here, SVG there, layout and escaping elsewhere, hands
+four import lists to every caller and describes the same implementation with a
+wider interface. Leaf renderers over one stylesheet is what a rendering module
+looks like when it is working. The stylesheet itself did leave, to ``style.py``,
+under a condition: ``tests/test_style.py`` checks both directions of the class
+coupling that used to be held together only by living in one file.
 """
 
 from __future__ import annotations

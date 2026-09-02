@@ -1,4 +1,4 @@
-"""The page's stylesheet and its one script, and nothing else. See docs/adr/0003.
+"""The page's stylesheet and its one script, and nothing else.
 
 ``_BASE_CSS`` is vendored, not imported, to avoid pulling numpy/scipy/pandas in
 from labelfirst's report substrate
@@ -8,6 +8,13 @@ manual reapply. The JS is this page's own: client-side sort/filter, not charts.
 
 The element ids live here because the script looks them up and
 ``assets.filterable_table`` writes them, so the two cannot drift.
+
+Splitting a stylesheet from the renderers that write its classes is usually a
+mistake, since nothing then fails when the two drift. It is safe here only
+because ``tests/test_style.py`` holds both ends: every class a builder writes
+has a rule, and every rule matches something. The boundary also falls where the
+maintenance differs, ``_BASE_CSS`` being vendored text reapplied by hand while
+none of the renderers are.
 """
 
 from __future__ import annotations
