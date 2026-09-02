@@ -422,3 +422,18 @@ def test_the_frozen_sample_is_the_size_every_sentence_says_it_is(where, phrase):
         f"{where} no longer says {phrase.format(n=n)!r}. Either the draw size "
         f"moved and this sentence did not follow it, or the sentence was "
         f"reworded and this check has to follow it.")
+
+
+def test_the_dashboard_folder_holds_only_the_modules_that_build_the_pages():
+    """`measure.py` used to default to writing its ten output files into
+    `dashboard/`, so 700 KB of generated CSV sat among twenty modules and two
+    .gitignore rules existed to hide it. The default is `build/tables` now and
+    those rules are gone, which means a generated file written here again shows
+    up in `git status` rather than being swallowed. This says the same thing to
+    anyone who changes the default back.
+    """
+    strays = sorted(p.name for p in (REPO / "dashboard").iterdir()
+                    if p.is_file() and p.suffix != ".py")
+    assert not strays, (
+        f"dashboard/ holds {strays}, which are not modules. Generated tables "
+        f"belong in build/tables, where measure.py writes them.")

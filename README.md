@@ -10,7 +10,8 @@ responses.
    why the species carries its status. The page that leaves the lab.
 2. **What to label next.** `dashboard/build_internal.py`: a send-first queue and
    species-grouped batches. The page checks the order; the deliverable is
-   `send_batches.csv` beside it, which the labelling script reads.
+   `send_batches.csv`, one of the tables `measure.py` writes, which the
+   labelling script reads.
 
 `dashboard/build_export_only.py` scores one export on its own, so a new batch
 never mixes into the running total. A spot check, not a page anyone publishes.
