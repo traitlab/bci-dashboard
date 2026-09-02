@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 """What to label next: the labelling team's own page.
 
-Orders the unlabelled pool and says why that order is right. Deliberately thin,
-because the deliverable is ``send_batches.csv`` beside it, which the labelling
-script reads; the page exists so the order can be argued with first. Accuracy
-reporting is ``build_external.py``.
+Orders the unlabelled pool and says why that order is right. Thin on purpose:
+the deliverable is ``send_batches.csv`` beside it, and the page exists so the
+order can be argued with first. Accuracy reporting is ``build_external.py``.
 
     python3 dashboard/build_internal.py [--out PATH]
 
-Every number is recomputed from source, then cross-checked against the CSVs
-``measure.py`` wrote into the snapshot; a mismatch aborts the build. It gates on
-the two send-queue CSVs, which the external page does not report.
+Every number is recomputed from source, then cross-checked against the snapshot
+CSVs; a mismatch aborts the build. It gates on the two send-queue CSVs.
 
 No network, no key, no third-party package: one file that opens from file://.
 """
@@ -35,21 +33,17 @@ TITLE = "BCI labelling: what to label next"
 def build(h, *, generated, verify_dir, fallback_tag):
     """The queue page: which photos to label next, and why that order.
 
-    Gated on both queue CSVs in the snapshot, since the order is this page's
-    whole subject. The review queue belongs to the model-health page.
+    The review queue belongs to the model-health page, so it is not gated here.
     """
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
 
-    # The send queue is this page's whole subject, so it gates on both queue
-    # CSVs. The review queue belongs to the external page and is checked there.
     c.checks = verify_snapshot(
         verify_dir, per_species=c.per_species, buckets=c.buckets, bins_all=c.bins_all,
         never_all=c.never_all, unscoreable=c.unscoreable, strict_hits=c.strict1,
         queue_counts=c.queue_counts, n_no_answer=c.n_no_answer,
         queue_keys=c.queue_keys)
 
-    # Two counts and one line. The page is a check on the order, so the reasoning
-    # behind the order lives in the panels that state it, not above them.
+    # Two counts and one line: the reasoning lives in the panels that state it.
     send_now = c.queue_counts.get("long_tail", 0) + c.queue_counts.get("low_conf_known", 0)
     P = ['<h1>What to label next</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '

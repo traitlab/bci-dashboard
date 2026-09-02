@@ -27,8 +27,7 @@ QL = {"long_tail": ("Species we barely have, or barely get right",
                          "The species is normally identified well but the model is "
                          "unsure here, so the photo is either an odd one worth having "
                          "or a quiet miss"),
-      # Not "Everything else": the row below it is a further category, so a row
-      # named for the leftovers sitting third contradicts "work top to bottom".
+      # Not "Everything else": a further category follows it.
       "normal": ("The ordinary queue",
                  "Neither a cheap confirmation nor safe to leave, so these follow "
                  "the first two"),
@@ -46,17 +45,14 @@ UNGRADED_NOTE = (
 
 def p_todo(c):
     """The species statuses as a to-do list, cheapest useful work first."""
-    # The panel opened on a sentence about how the pool is ordered, which is not
-    # what this list is: these are species statuses, and the pool is the next
-    # panel's subject. The hero card already says the page puts the pool in an
-    # order, and the summary above already says these rows are cheapest first.
+    # These rows are species statuses. How the pool is ordered is the next
+    # panel's subject.
     body = ['<ul class="todo">']
     body += [f'<li><span class="n">{c.counts[k]}</span> species '
              f'<span class="tag {k}">{esc(lab)}</span> {esc(act)}</li>'
              for k, (lab, act) in STATUS.items()]
     body.append(f'</ul><p class="note">Each of the {c.n_sp} species sits in exactly one row. '
-                # There is no species table on this page: the sortable one is on the
-                # model-health page, named explicitly rather than as "below".
+                # The sortable species table is on the model-health page.
                 f'The frame counts and accuracy behind each status are in the species '
                 f'table on the model-health page, '
                 f'<code>model_health_dashboard.html</code>.</p>'
@@ -65,10 +61,8 @@ def p_todo(c):
                 f'candidates hold exactly one species from that genus, so the question is yes '
                 f'or no, not which of {c.n_sp}. No species was named on them, so they sit '
                 f'outside the {c.n_sp} scored here.</p>')
-    # The heading counted the "never returned" rows as the ones to skip, which
-    # is a third of what the lede says can be skipped. Two numbers for one fact,
-    # and the smaller one on top. The heading now names only the cheapest work
-    # and leaves the skipping to the sentence that lists all three rows.
+    # The heading names only the cheapest work; the lede lists all three
+    # skippable rows, so one fact does not arrive as two numbers.
     return panel(f"Where to spend botanist time next: {c.counts['ranking']} species "
                  f"are one confirmation away",
                  "<b>Work top to bottom.</b> Rows are ordered cheapest useful work "
@@ -98,15 +92,11 @@ def send_pool_table(c):
 def send_preview_table(c):
     """The head of the queue itself, not a pointer to the CSV that holds it.
 
-    The table above says how much work there is. This says which photo.
-    """
+    The table above says how much work there is. This says which photo."""
     body = ""
-    # The list itself, not a pointer to it: the counts above say how much work
-    # there is, and the CSV in the snapshot folder said which photo.
     head = c.queue_rows[:SEND_PREVIEW]
-    # Both notes sit above the table, not below it. The queue is ordered weakest
-    # first, so the first screen is full of 0.001s, and a reader who meets those
-    # before the gloss sees expert time being spent on coin flips.
+    # Both notes sit above the table: the queue is ordered weakest first, so the
+    # first screen is full of 0.001s and needs the gloss before it, not after.
     body += ('<h3 class="sub">The next ' + f'{len(head)}' + ' photos, in order</h3>'
              + UNGRADED_NOTE
              + '<p class="note"><b>Read the confidence column as how little the model '
@@ -123,10 +113,9 @@ def send_preview_table(c):
 
 
 def send_notes(c):
-    """Four questions a reader of the table above asks in this order: which
-    species fill the first queue, where the full list lives, what to do with
-    the photos that got no answer at all, and which camera none of this covers.
-    """
+    """The four questions a reader of the table above asks, in order: which
+    species fill the first queue, where the full list lives, what to do with the
+    photos that got no answer, and which camera none of this covers."""
     body = ""
     top_lt = sorted(c.lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
     body += ('<p class="note"><b>Most-named species in the first queue.</b> '
@@ -139,17 +128,15 @@ def send_notes(c):
              # reads as a measurement to one decimal place.
              f'on the other half of the rule, right less than {pctf(hc.HARD_MAX_TOP1, 0)} of '
              f'the time.</p>'
-             # Two CSVs sit in the snapshot folder and the page named both as the
-             # thing to work, 200 lines apart. This says which is which.
+             # Two CSVs sit in the snapshot folder; this says which is which.
              f'<p class="note"><code>send_first_queue.csv</code> in the snapshot folder '
              f'holds this same order, one row per frame.</p>'
              f'<p class="note"><strong>{c.n_no_answer} unlabelled photos got no answer at '
              f'all</strong>: the candidate list came back empty. Likeliest to be junk or to '
              f'show no plant, and no automatic rule for junk is reliable, so check that '
              f'handful by eye.</p>'
-             # Kept because it names an unscored population, not because it is a fact
-             # about the drone: nothing on this page grades that camera. "Camera",
-             # not "lens", is the word CONTEXT.md settles on for the pair.
+             # Names an unscored population: nothing on this page grades that
+             # camera. "Camera", not "lens", is CONTEXT.md's word for the pair.
              f'<p class="note"><b>The long-lens camera is ungraded.</b> Every frame scored '
              f'here came from {CAMERA_IS["zoom"]}: '
              f'all {c.scored_cams["zoom"]:,} of them. No botanist has labelled a frame from '
@@ -164,8 +151,7 @@ def p_send(c):
     """The page's answer to "what do I label next": queue sizes, the head of
     the queue, then the caveats that qualify both."""
     body = send_pool_table(c) + send_preview_table(c) + send_notes(c)
-    # The same two queues the hero counts, added the same way, so this number and
-    # the hero's agree.
+    # The same two queues the hero counts, added the same way, so both agree.
     send_now = (c.queue_counts.get("long_tail", 0)
                 + c.queue_counts.get("low_conf_known", 0))
     return panel(f"What to send to the botanist first: {send_now:,} "
@@ -176,10 +162,8 @@ def p_send(c):
                  f"{c.queue_counts.get('low_conf_known', 0):,} show a usually-right species "
                  f"the model is unsure of here. Both buy more per label than anything "
                  f"below.",
-                 # Open with the overview above it. This page is opened to answer
-                 # "what do I label next", and the answer is the queue table, not
-                 # a summary of the queue table. A reader who has to click to
-                 # reach the deliverable has been asked to guess where it is.
+                 # Open: the answer to "what do I label next" is the queue
+                 # table itself, not a summary of it.
                  body, open_=True, anchor="what-to-send-first")
 
 
@@ -192,8 +176,7 @@ def p_wait(c):
             f'{len(c.test_recs):,} frames held back for grading, that rule reaches '
             f'{best["n"]:,} of them ({pctf(best["share"])}), and the first guess is wrong '
             f'on {pctf(best["err"])} of those.</div>'
-            # What this count is: every share in the comparison table below is out
-            # of it, so a reader who cannot picture the set cannot audit the table.
+            # Every share in the comparison table below is out of this count.
             f'<p class="note"><strong>What those {len(c.test_recs):,} frames are.</strong> '
             f'The labelled frames marked <code>test</code> in <code>splits.csv</code>, an '
             f'input to this page. The rule was chosen on the other frames, so nothing here is '
@@ -223,8 +206,7 @@ def p_wait(c):
                f'heading above, which happens to be the same size.'
                if c.counts["ranking"] == len(c.eligible) else '')
             + '</p>')
-    # No "undone at the next model change" clause in this title: the ask below
-    # already says the ranking is recomputed whenever Pl@ntNet updates.
+    # The summary below already says the ranking is recomputed on model change.
     return panel(f"Which frames can wait: {best['n']:,} of the {len(c.test_recs):,} frames "
                  f"held back for grading",
                  "<b>Use this to order the queue, not to close frames.</b> These are the "
@@ -246,9 +228,8 @@ def p_rules(c):
              f'counts as rarely labelled: {len(c.rare)} of {c.n_sp} species, {c.n_rare_test} '
              f'of the {len(c.test_recs):,} held-out frames. The second half of the rule '
              f'leaves every one of them at the top of the queue.</p>')
-    # Four of the five rows describe rules that are not in force, so the summary
-    # carries the one that is and the other four open on request. The arithmetic
-    # below is unchanged; this is page weight, not evidence.
+    # Four of the five rows describe rules not in force, so the summary carries
+    # the one that is and the rest open on request.
     b = c.best
     return panel(f'The {len(c.ops)} rules we compared, and why the one in force won',
                  f'<b>Read this only if you want to move the confidence line.</b> The rule '

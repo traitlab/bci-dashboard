@@ -1,8 +1,8 @@
 """The HTML builders: panels, tables, hero cards, inline SVG.
 
-Every function here returns a string of HTML and reads nothing: no file, no
-network, no CDN. The stylesheet, the script, and the element ids they share
-with ``filterable_table``, are in ``style.py``.
+Every function returns a string of HTML and reads nothing: no file, no network,
+no CDN. The stylesheet, the script, and the element ids they share with
+``filterable_table`` are in ``style.py``.
 """
 
 from __future__ import annotations
@@ -31,14 +31,10 @@ def pctf(x, nd=1):
 
 # --- structure ---
 def slug(text: str) -> str:
-    """A stable id from display text: text before the first colon, lowercased,
-    non-alphanumerics to hyphens, first eight words.
-
-    Derived so an anchor cannot drift from its heading. Colon split matters:
-    summaries carry live numbers ("...: 412 frames") that change every
-    snapshot, so ``panel`` rejects a digit-bearing id and requires an
-    explicit ``anchor``.
-    """
+    """A stable id from display text, so an anchor cannot drift from its heading.
+    Text before the first colon, lowercased, non-alphanumerics to hyphens, first
+    eight words. The colon split matters: summaries carry live numbers ("...: 412
+    frames") that change every snapshot, so ``panel`` rejects a digit-bearing id."""
     head = re.sub(r"<[^>]+>", "", str(text)).split(":")[0]
     words = re.sub(r"[^a-z0-9]+", " ", head.lower()).split()
     return "-".join(words[:8])
@@ -46,9 +42,8 @@ def slug(text: str) -> str:
 
 def panel(summary, ask, body, *, open_=False, anchor=None):
     """A collapsible panel. ``summary`` must stand alone closed; ``ask`` says
-    what to do with what's inside. ``anchor`` overrides the derived id,
-    required when ``summary`` carries a live number.
-    """
+    what to do with what's inside. ``anchor`` overrides the derived id, and is
+    required when ``summary`` carries a live number."""
     pid = anchor or slug(summary)
     if not anchor and any(c.isdigit() for c in pid):
         raise SystemExit(
@@ -62,18 +57,15 @@ def panel(summary, ask, body, *, open_=False, anchor=None):
 def section(title, lede, panels):
     """A named group of panels: heading band, one orienting line, panels.
     ``panels`` is already-rendered HTML. The band carries the group's question,
-    not a label: that is what makes a closed page scannable. No jump list, the
-    summaries below are the contents.
-    """
+    not a label: that is what makes a closed page scannable."""
     return (f'<section class="grp" id="{slug(title)}"><h2>{title}</h2>'
             f'<p class="lede">{lede}</p>\n{panels}</section>')
 
 
 def hero(cards):
-    """The band of big numbers a page opens with. ``cards`` is
-    ``[(eyebrow, value, label, note), ...]``, leading card first. Grid CSS is
-    written against the ``.metric`` markup.
-    """
+    """The band of big numbers a page opens with, leading card first.
+    ``cards`` is ``[(eyebrow, value, label, note), ...]``, and the grid CSS is
+    written against the metric card markup."""
     out = ['<div class="hero">']
     for i, (eyebrow, value, label, note) in enumerate(cards):
         out.append(f'<div class="metric{" first" if i == 0 else ""}">'
@@ -87,10 +79,7 @@ def hero(cards):
 
 class Cell(NamedTuple):
     """Cell text plus the attributes its own ``<td>`` should carry.
-
-    The attribute goes on the ``<td>`` the table already builds, not on a span
-    inside it. Rows stay plain strings wherever a cell needs no attribute.
-    """
+    Rows stay plain strings wherever a cell needs no attribute."""
 
     html: str
     attrs: str = ""
@@ -101,11 +90,9 @@ class Cell(NamedTuple):
 
 def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
     """headers = [(text, is_numeric)]; rows = [[cell_html, ...]]."""
-    # A table with an id can say "these columns are numbers" once, as a rule of
-    # its own. Repeating class="num" on every cell of the 187-row species table
-    # was 9KB of the same six characters. A table with no id has no selector to
-    # write the rule against, and is short enough that the per-cell class costs
-    # less than an id would.
+    # A table with an id says "these columns are numbers" once, rather than
+    # class="num" on every cell of the 187-row species table. A table with no id
+    # has no selector, and is short enough not to need one.
     num_cols = [i + 1 for i, (_, num) in enumerate(headers) if num]
     by_column = bool(tid) and bool(num_cols)
     rule = ("<style>"
@@ -128,19 +115,15 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
             out.append(f"<td{c}{getattr(cell, 'attrs', '')}>{cell}</td>")
         out.append("</tr>")
     out.append("</tbody></table>")
-    # Scrolls inside its own box. Otherwise the 7-column table sets the page
-    # width on a phone and every paragraph scrolls sideways with it.
+    # Scrolls in its own box, or the 7-column table sets page width on a phone.
     return rule + '<div class="tscroll">' + "\n".join(out) + "</div>"
 
 
 def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None):
-    """A search/filter strip followed by a sortable table. The page has
-    exactly one; element ids use the ``TABLE_ID`` constants, not literals.
-    """
-    # No options means no status to filter on, so no select: rendering one
-    # holding nothing but "every status" offers the reader a control that
-    # cannot change what the table shows. The JS treats an absent select as
-    # "every status", which is the only thing it could have said anyway.
+    """A search/filter strip followed by a sortable table. The page has exactly
+    one; element ids use the ``TABLE_ID`` constants, not literals."""
+    # No options means no status to filter on, so no select: one holding nothing
+    # but "every status" cannot change the table, which is what the JS assumes.
     if options:
         opts = "".join(
             f'<option value="{esc(value)}">{esc(label)}</option>' for value, label in options
@@ -149,10 +132,8 @@ def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None)
                   f'<option value="all">every status</option>{opts}</select>')
     else:
         select = ""
-    # ``thin_label`` turns on the show-everything checkbox, and the caller marks
-    # the rows it hides with ``data-thin="1"`` in ``row_attrs``. Without a label
-    # no checkbox is rendered and no row is hidden, so a caller that marks
-    # nothing gets the table it always got.
+    # ``thin_label`` turns on the show-everything checkbox; the caller marks the
+    # rows it hides with ``data-thin="1"`` in ``row_attrs``. No label, no checkbox.
     if thin_label:
         toggle = (f'<label class="showall"><input type="checkbox" id="{THIN_ID}"> '
                   f'{thin_label}</label>')
@@ -164,20 +145,17 @@ def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None)
         f'aria-label="filter species">'
         f"{select}{toggle}<span class=\"count\" id=\"{COUNT_ID}\"></span></div>"
     )
-    # Every caller puts the species name in the first column, and the filter
-    # reads that column as the name it matches. So the italics are a fact about
-    # the column, said once here, rather than a <span class="sp"> repeated on
-    # all 187 rows.
+    # Every caller puts the species name in the first column and the filter
+    # matches on it, so italics are a column rule, not a span on all 187 rows.
     return (f'<style>#{TABLE_ID} td:nth-child(1){{font-style:italic}}</style>'
             + controls + table(headers, rows, tid=TABLE_ID, sortable_from=0,
                                row_attrs=row_attrs))
 
 
 def funnel_list(steps: list[tuple[int, str]]) -> str:
-    """A count-then-label list: ``steps`` is ``[(count, label), ...]``,
-    outermost first. Reuses the to-do-list markup (``.todo``/``.n``) so a
-    photo-to-frame funnel needs no CSS of its own.
-    """
+    """A count-then-label list: ``steps`` is ``[(count, label), ...]``, outermost
+    first. Reuses the to-do-list markup (``.todo``/``.n``), so a photo-to-frame
+    funnel needs no CSS of its own."""
     rows = "".join(f'<li><span class="n">{count:,}</span> {esc(label)}</li>'
                    for count, label in steps)
     return f'<ul class="todo">{rows}</ul>'
@@ -185,13 +163,10 @@ def funnel_list(steps: list[tuple[int, str]]) -> str:
 
 def sort_key(value) -> str:
     """The number as the sort reads it: full precision, no idle characters.
-
-    A rate is carried to six decimals, finer than any cell shows and enough
-    that two species never tie by rounding. Trailing zeros carry none of that:
-    "0.000000" and "0" sort alike and the longer one was costing 1.5KB of a
-    100KB page. The formatting lives here rather than at each call site, where
-    the same ``.6f`` was typed four times.
-    """
+    A rate is carried to six decimals, finer than any cell shows and enough that
+    two species never tie by rounding. Trailing zeros carry none of that:
+    "0.000000" and "0" sort alike, and the longer one costs 1.5KB of a 100KB
+    page. Formatted here rather than at each call site."""
     v = f"{value:.6f}" if isinstance(value, float) else str(value)
     if "." in v:
         v = v.rstrip("0").rstrip(".") or "0"
@@ -200,15 +175,10 @@ def sort_key(value) -> str:
 
 def num_cell(value, shown: str) -> str:
     """A table cell, carrying the number to sort on only when it differs.
-
     The sort reads ``data-sort`` and falls back to the cell's own text, so a
     plain integer needs no attribute: "392" already sorts as 392. A rounded
     percentage does ("92.9%" hides 0.928571), and so does any figure written
-    with thousands separators, since JavaScript reads "1,204" as 1.
-
-    Both species tables build their numeric cells here rather than each
-    repeating the attribute, which is how the two once drifted.
-    """
+    with thousands separators, since JavaScript reads "1,204" as 1."""
     v = sort_key(value)
     try:
         redundant = "," not in shown and float(shown) == float(v)
@@ -218,18 +188,16 @@ def num_cell(value, shown: str) -> str:
 
 
 def status_tag(cls: str, label: str) -> str:
-    """Render a status tag. The explanation is not repeated per row: a
-    former hover-icon ``title=`` duplicated ~40KB of markup across a
-    186-row table. Callers render each sentence once via ``status_legend``
-    instead."""
+    """Render a status tag. The explanation is not repeated per row: a hover-icon
+    ``title=`` shipped once here, ~40KB of duplicated markup across a 186-row
+    table. Callers render each sentence once via ``status_legend`` instead."""
     return f'<span class="tag {esc(cls)}">{esc(label)}</span>'
 
 
 def strip_comments(text: str) -> str:
     """CSS and JS with maintainer comments stripped, for the built page.
-    Inlining them uncut shipped 3.6 KB of notes to every reader. JS only
-    drops lines *starting* with ``//``, so ``//`` inside a string survives.
-    """
+    Uncut they ship 3.6 KB of notes to every reader. JS only drops lines
+    *starting* with ``//``, so ``//`` inside a string survives."""
     text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
     text = re.sub(r"^[ \t]*//.*$", "", text, flags=re.M)
     return re.sub(r"\n{2,}", "\n", text).strip()
@@ -238,14 +206,11 @@ def strip_comments(text: str) -> str:
 def css_for(css: str, page: str) -> str:
     """The stylesheet minus the rules for classes this page never renders.
 
-    One stylesheet covers pages that are no longer alike. A rule survives
-    unless every one of its selectors names a class the page never uses, so
-    anything selecting an element, an id or a state stays untouched.
-
-    ``page`` is the built HTML, script included: the script writes classes of
-    its own (``hidden``, ``asc``, ``desc``) that appear in no markup, so every
-    quoted word in it counts as a class.
-    """
+    A rule survives unless every one of its selectors names a class the page
+    never uses, so anything selecting an element, an id or a state stays
+    untouched. ``page`` is the built HTML, script included: the script writes
+    classes of its own (``hidden``, ``asc``, ``desc``), so every quoted word
+    counts as a class."""
     used = set()
     for group in re.findall(r'class="([^"]+)"', page):
         used |= set(group.split())
@@ -262,8 +227,7 @@ def css_for(css: str, page: str) -> str:
             depth += (css[end] == "{") - (css[end] == "}")
             end += 1
         selector = css[i:brace].strip()
-        # An @media block holds rules of its own. Its own selector names no
-        # class, so it is kept whole rather than picked apart.
+        # An @media block's own selector names no class, so it is kept whole.
         if selector.startswith("@") or not all(
                 unused(part) for part in selector.split(",")):
             kept.append(css[i:end])
@@ -272,8 +236,8 @@ def css_for(css: str, page: str) -> str:
 
 
 def status_legend(entries: list[tuple[str, str, str]]) -> str:
-    """The status explanations, once, instead of per row. ``entries`` is
-    ``[(css_class, label, reason), ...]``, in read order."""
+    """The status explanations, once, instead of per row.
+    ``entries`` is ``[(css_class, label, reason), ...]``, in read order."""
     items = "".join(
         f'<li><span class="tag {esc(cls)}">{esc(label)}</span> {esc(reason)}</li>'
         for cls, label, reason in entries
@@ -287,16 +251,15 @@ _WIDE = set("ABCDEFGHIJKLMNOPQRSTUVWXYZmw%@")
 
 
 def _text_w(text: str, font_px: float) -> float:
-    """Upper bound on the rendered width of ``text`` at ``font_px``. No glyph
-    measurement is possible: one file, no library, ``system-ui`` varies by
-    machine. Three character classes plus 0.26em per string for side
-    bearings, times 1.06, calibrated against ``getComputedTextLength`` on 14
-    of this page's labels under SF NS (Segoe UI/Roboto run narrower).
+    """Upper bound on the rendered width of ``text`` at ``font_px``.
 
-    1.06 is not measured headroom, only 14 of 59 labels were checked. It
-    leans high: undershooting clips silently, and a clipped label ships
-    (five once read "1,856 cr" despite passing every numeric check).
-    """
+    No glyph measurement is possible: one file, no library, ``system-ui`` varies
+    by machine. Three character classes plus 0.26em per string for side bearings,
+    times 1.06, calibrated against ``getComputedTextLength`` on 14 of this page's
+    labels under SF NS (Segoe UI/Roboto run narrower). 1.06 is not measured
+    headroom, only 14 of 59 labels were checked; it leans high because a clipped
+    label ships silently: five once read "1,856 cr" while passing every numeric
+    check."""
     em = 0.26 + sum(0.28 if c in _NARROW else 0.72 if c in _WIDE else 0.60 for c in text)
     return 1.06 * em * font_px
 
@@ -304,8 +267,7 @@ def _text_w(text: str, font_px: float) -> float:
 def svg_hbar(rows, *, title=""):
     """Horizontal bars. ``rows`` = [(label, frac, right_text, color)].
     ``right_w`` grows to fit the longest value label rather than truncating
-    (SVG clips, no CSS can rescue it). Geometry is fixed, not parameterised.
-    """
+    (SVG clips, no CSS can rescue it). Geometry is fixed, not parameterised."""
     if not rows:
         return ""
     width, row_h, label_w, right_w = 620, 30, 112, 140
@@ -335,9 +297,9 @@ def svg_hbar(rows, *, title=""):
                f'stroke="#e0e0e0"/>')
     for t in (0, 25, 50, 75, 100):
         x = label_w + bar_w * t / 100.0
-        # The tick carries nothing (every value is printed at its bar end), so it
-        # stays faint at 1.88:1 on the white panel. The number under it is read,
-        # so it clears 4.5:1 and is set at 11px.
+        # The tick carries nothing, every value being printed at its bar end, so
+        # it stays faint at 1.88:1 on the white panel. The number under it is
+        # read, so it clears 4.5:1 and is set at 11px.
         out.append(f'<line x1="{x:.1f}" y1="{axis_y}" x2="{x:.1f}" y2="{axis_y + 4}" '
                    f'stroke="#bdbdbd"/>'
                    f'<text x="{x:.1f}" y="{axis_y + 17}" font-size="11" fill="#6d6d6d" '
@@ -347,16 +309,13 @@ def svg_hbar(rows, *, title=""):
 
 
 def svg_weight_pair(rows, *, label_a, label_b):
-    """Two full-width bars over the same bands, split by a different weight
-    each. ``rows`` = ``[(band, share_a, share_b, note, colour)]``, shares
-    summing to 1 per column, so the reader sees the weight move without
-    arithmetic.
-
-    Each column asserts sum to 1: a wrong denominator draws a short bar, not
-    a wrong number, which no recompute check would catch. ``pad_l`` fits the
-    longer row label; labels are right-anchored, so an overlong one silently
-    loses its first character off the viewBox.
-    """
+    """Two full-width bars over the same bands, split by a different weight each.
+    ``rows`` = ``[(band, share_a, share_b, note, colour)]``, shares summing to 1
+    per column, so the reader sees the weight move without arithmetic. Each
+    column asserts that sum: a wrong denominator draws a short bar, not a wrong
+    number, which no recompute check would catch. ``pad_l`` fits the longer row
+    label; labels are right-anchored, so an overlong one silently loses its
+    first character off the viewBox."""
     if not rows:
         return ""
     width, bar_h, pad_l = 620, 28, 168
@@ -381,8 +340,7 @@ def svg_weight_pair(rows, *, label_a, label_b):
             w = bar_w * float(r[key])
             o.append(f'<rect x="{x:.1f}" y="{y}" width="{max(0.7, w):.1f}" '
                      f'height="{bar_h}" fill="{r[4]}"/>')
-            # Below this a two-character percentage collides with the band edges,
-            # so the number lives only in the key underneath.
+            # Below this a two-character percentage collides with the band edges.
             if w >= 25:
                 o.append(f'<text x="{x + w / 2:.1f}" y="{y + bar_h / 2 + 4:.0f}" '
                          f'font-size="11" fill="#fff" text-anchor="middle">'

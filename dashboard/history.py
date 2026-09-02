@@ -1,12 +1,9 @@
 """The model-health snapshot on disk: verify the build against it.
 
-Everything reading measure.py's output lives here, so the renderer only
-renders.
+Everything reading measure.py's output lives here, so the renderer only renders.
 
-Pages report the latest state only; a trend over dated folders was
-dropped 2026-08-27, since it cut points on cached-response mtime while
-predictions were bulk-fetched months before labelling finished. Recover
-from git history if a real label date exists.
+Pages report the latest state only. No trend over dated folders: the only date
+on disk is cached-response mtime, months before labelling finished.
 """
 
 from __future__ import annotations
@@ -26,8 +23,7 @@ SNAPSHOT_GLOB = "model-health-*"
 def latest_snapshot_dir() -> str:
     """Newest model-health-<date>/ folder in the snapshot store.
 
-    A gate on a fixed date would silently check today's numbers against an
-    old measurement; the date in the folder name keeps sorting unambiguous.
+    A gate on a fixed date would check today's numbers against an old one.
     """
     found = sorted(d for d in glob.glob(os.path.join(hc.SNAPSHOT_DIR, SNAPSHOT_GLOB))
                    if SNAPSHOT_DIR.search(d))
@@ -99,8 +95,7 @@ def check_confidence_bands(directory, bins_all):
 
 
 def check_run_log(log, path, never_all, unscoreable, strict_hits):
-    """Three figures that live in the run log's prose, on denominators no CSV
-    uses, so they need their own check."""
+    """Three figures on denominators no CSV uses, so read from the log's prose."""
     for pat, here, what in (
             (r"^\s*(\d+) GT (?:crowns|frames) across \d+ species can NEVER", never_all,
              "frames the model can never name, over every label"),
@@ -113,16 +108,15 @@ def check_run_log(log, path, never_all, unscoreable, strict_hits):
             fail(f"no line for {what} in {path}")
         if int(m.group(1)) != here:
             fail(f"{what}: {here} here vs {m.group(1)} in {path}")
-    # Named the way the headline names them, not "cannot be scored", so the check
-    # message and the page prose describe the same group.
+    # Named the way the headline names them, so the check message and the page
+    # prose describe the same group.
     return (f"run_log.txt: the {never_all:,}-frame ceiling, the {unscoreable:,} frames "
             f"whose species the model never names, and the {strict_hits:,} right "
             f"without name reconciliation, all match")
 
 
 def check_no_answer(log, path, n_no_answer):
-    """Unlabelled frames whose candidate list came back empty. The one figure no
-    CSV carries, so it is read back out of the run log."""
+    """Unlabelled frames with an empty candidate list, the one figure no CSV has."""
     m = re.search(r"unlabelled (?:crowns|frames) with NO answer\s*:\s*(\d+)", log)
     if m is None:
         fail(f"no no-answer line in {path}")
@@ -133,10 +127,9 @@ def check_no_answer(log, path, n_no_answer):
 def check_send_first(directory, queue_counts, queue_keys):
     """The send-first queue, by queue and then row for row.
 
-    The page prints the head of this file and tells the reader to open the rest,
-    so the two orders have to be one order. Counts alone would not notice:
-    measure.py and figures.py sort the same rows separately, and a changed
-    tie-break moves rows without moving any count.
+    The page prints the head of this file and points at the rest, so the two
+    orders have to be one. A changed tie-break moves no count, so counts alone
+    would not notice.
     """
     path = os.path.join(directory, "send_first_queue.csv")
     ref = Counter(r["queue"] for r in hc.read_csv_rows(path))
@@ -165,9 +158,8 @@ def check_send_first(directory, queue_counts, queue_keys):
 
 
 def check_send_batches(directory, queue_path, n_unlab):
-    """The batches must be a repartition of the queue and nothing else: same
-    rows, every batch at most BATCH_SIZE with its species groups contiguous, no
-    global_key skipped or duplicated."""
+    """The batches are a repartition of the queue: same rows, every batch at most
+    BATCH_SIZE with contiguous species groups, no global_key skipped or twice."""
     path = os.path.join(directory, "send_batches.csv")
     brows = hc.read_csv_rows(path)
     by_batch: dict = {}
@@ -212,10 +204,7 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
 
     One check per file the snapshot holds, each returning the line the page
     prints when it passes. ``queue_counts`` maps queue to frame count,
-    ``review_counts`` is (frames, distinct confusion pairs) and ``queue_keys``
-    is the page's send-first order: those three are checked against the queue
-    CSVs. ``n_no_answer`` counts unlabelled frames with an empty candidate list,
-    and is the one figure no CSV carries, so it is read back out of run_log.txt.
+    ``review_counts`` is (frames, confusion pairs), ``queue_keys`` the order.
     """
     checks = [check_per_species(directory, per_species),
               check_support_buckets(directory, buckets),
@@ -244,9 +233,8 @@ def model_tag_of(snap_dir: str, fallback: str) -> str:
     """Which Pl@ntNet model iteration produced a snapshot.
 
     Reads the endpoint and config.yaml's ``single_model_run_name`` from
-    run_log.txt -- the only things on disk distinguishing iterations. Tag
-    is ``<endpoint-slug>@<run-name>``; falls back to ``--model-tag`` if
-    neither is found.
+    run_log.txt, the only things on disk distinguishing iterations. Tag is
+    ``<endpoint-slug>@<run-name>``, else ``--model-tag``.
     """
     try:
         with open(os.path.join(snap_dir, "run_log.txt"), encoding="utf-8") as f:

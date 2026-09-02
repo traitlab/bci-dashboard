@@ -1,11 +1,9 @@
 """The model-health panels that are mostly explanation, not measurement.
 
-``weighting_panel`` answers how one model scores two rates far apart at
-once, counting species or counting frames; ``method_panel`` names the
-model, settings, and the untestable assumption. Every figure is verified
-from ``core`` or recomputed from the same records; nothing is hardcoded,
-which is why the two rates are not named here either. They were, and they
-went stale.
+``weighting_panel`` answers how one model scores two rates far apart at once,
+counting species or counting frames; ``method_panel`` names the model, settings,
+and the untestable assumption. Every figure is verified from ``core`` or
+recomputed from the same records, so no rate is hardcoded here.
 """
 
 from collections import Counter
@@ -15,10 +13,8 @@ import core as hc
 from assets import esc, panel, pctf, svg_hbar, svg_weight_pair
 from crop_overlap import CROP_SIZE
 
-# Said in two panels that a reader can open independently: the species table,
-# where it explains what a confidence column of 0.86 means, and the candidates
-# panel, where it explains why a short list holds nearly all of it. Written
-# once so the two cannot say it in two voices.
+# Said in two panels a reader can open independently, the species table and the
+# candidates panel. Written once so the two cannot say it in two voices.
 CONFIDENCE_IS_SHARED = ("Pl@ntNet spreads 100% of its confidence across every "
                         "species it knows.")
 
@@ -26,18 +22,17 @@ CONFIDENCE_IS_SHARED = ("Pl@ntNet spreads 100% of its confidence across every "
 # All 4.5:1 against white so the in-bar number is readable.
 #
 # Known limitation: the ramp does not order by lightness (luminance 0.110, 0.179,
-# 0.168, 0.175, 0.083; the two ends sit at 1.20:1 and the closest pair of all,
-# 2-4 against 10-24, at 1.02:1), so without hue it carries no order. Fixing that
-# is a new palette, not a contrast tweak.
+# 0.168, 0.175, 0.083; the two ends sit at 1.20:1 and the closest pair, 2-4
+# against 10-24, at 1.02:1), so without hue it carries no order. Fixing that is a
+# new palette, not a contrast tweak.
 BAND_COLOR = {"1": "#b71c1c", "2-4": "#d44215", "5-9": "#8d6e00",
               "10-24": "#4f812c", "25+": "#1b5e20"}
 def _band_words():
     """Each labelled-frame band in words, and short enough for a chart label.
 
-    Built from ``hc.SUPPORT_BUCKETS`` for the reason ``_conf_band_words``
-    below is: retyped, "2 to 4 frames" keeps saying 4 after the band moves.
-    The singular is the reason this is not ``f"{label} frames"`` throughout;
-    it would read "1 frames" for the band holding a third of the species.
+    Built from ``hc.SUPPORT_BUCKETS``: retyped, "2 to 4 frames" keeps saying 4
+    after the band moves. The singular keeps this off ``f"{label} frames"``,
+    which would read "1 frames".
     """
     long_, short = {}, {}
     for lo, hi, lab in hc.SUPPORT_BUCKETS:
@@ -52,10 +47,9 @@ def _band_words():
 BAND_WORD, BAND_SHORT = _band_words()
 
 def _conf_band_words():
-    """"0.7 to 0.8", not "[0.7,0.8)" (a botanist has no reason to know
-    interval notation). Built from ``hc.CONF_BINS`` so a changed band
-    cannot leave a stale phrase behind.
-    """
+    """"0.7 to 0.8", not "[0.7,0.8)": a botanist has no reason to know interval
+    notation. Built from ``hc.CONF_BINS`` so a changed band cannot leave a stale
+    phrase behind."""
     words = {}
     for lo, hi in hc.CONF_BINS:
         hi = min(hi, 1.0)
@@ -68,10 +62,8 @@ def _conf_band_words():
 
 CONF_BAND_WORDS = _conf_band_words()
 
-# The two ends of the near-miss comparison, read off the bands rather than
-# retyped: 4 and 25 are the upper edge of the second band and the lower edge of
-# the last, and the prose below prints both. Typed here they would keep saying
-# "4 frames or fewer" after the bands moved.
+# The two ends of the near-miss comparison, read off the bands: the upper edge
+# of the second band and the lower edge of the last. The prose below prints both.
 THIN_MAX = hc.SUPPORT_BUCKETS[1][1]
 FAT_MIN = hc.SUPPORT_BUCKETS[-1][0]
 
@@ -95,8 +87,7 @@ def candidates_panel(*, recs, n_scored, gen_n, gen_none):
     rows = [(f"{k} guess{'' if k == 1 else 'es'}", lens[k] / len(recs),
              f"{lens[k]:,} frames", "#1b5e20" if k == top else "#78909c")
             for k in range(1, top + 1) if lens[k]]
-    # Two cuts, one from each end: our nb-results, and Pl@ntNet's floor on a
-    # candidate worth returning, which is why a list can come back short.
+    # Two cuts, one from each end: our nb-results and Pl@ntNet's own floor.
     scores = [s for r in recs for _, s in r["ranked"]]
     floor = min(scores)
     # What makes it a floor rather than a coincidence: dense right above, stopping
@@ -135,8 +126,7 @@ def candidates_panel(*, recs, n_scored, gen_n, gen_none):
         + svg_hbar(rows, title=f"how long the returned list actually was, {len(recs):,} frames")
         + f'<p class="note">{full:,} of {len(recs):,} photos came back with a full {top} '
           f'({pctf(full / len(recs))}) and none came back with more. The shorter lists are '
-          # One notation only for the floor, so a reader is not left matching a
-          # percentage against a decimal to see they're the same cutoff.
+          # One notation only for the floor, not a percentage and a decimal.
           f'the other cut: <b>Pl@ntNet never returns a species it scores below '
           f'{floor:.3f}</b>. Of the {len(scores):,} guesses here, {at_floor} sit exactly on '
           f'{floor:.3f} and {just_above:,} more just above it, under {2 * floor:.3f}. '
@@ -171,10 +161,9 @@ def candidates_panel(*, recs, n_scored, gen_n, gen_none):
 
 def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
                     corpus_block):
-    """The four corpus-wide rates, and why per-species and per-frame ones
-    differ. ``corpus_block`` is page copy, passed in by the caller so
-    numbers and explanation stay together.
-    """
+    """The four corpus-wide rates, and why per-species and per-frame differ.
+    ``corpus_block`` is page copy, passed in by the caller so numbers and
+    explanation stay together."""
     rows = []
     for lab in hc.BUCKET_ORDER:
         b = buckets.get(lab)
@@ -193,24 +182,19 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
     gap = 100 * (now["micro_top1"] - now["macro_top1"])
     singles = buckets[thin]["n_species"]
     return panel(
-        # No "why X and Y disagree" clause here: the paragraph under the headline
-        # grid answers that once.
         "Every labelled frame, scored on the centre crop: four rates",
         "<b>Quote the number at the top of the page, not these four.</b> These cover "
         "every labelled frame instead of the frozen sample, so they answer a different "
         "question. If you cite one of them anyway, cite the per-species rate, never the "
-        # What the two rates each ask is said once, next to the headline cards
+        # What the two rates each ask is said once, next to the headline cards,
         # where a reader is looking at the numbers it explains.
         "per-frame one.",
-        # No note restating the two rates: the summary names both, the headline cards
-        # state the distinction, and the chart labels its own bars with it.
         corpus_block
         + svg_weight_pair(rows,
                           label_a=f"one vote per species ({n_sp} votes)",
                           label_b=f"one vote per frame ({n:,} votes)")
-          # Name the bars by their own labels, not by position: the second share is
-          # a sliver too thin to carry a printed label, so "2% of the bottom" sent a
-          # reader looking for a 2% they could not find.
+          # Name the bars by their own labels, not by position: the second share
+          # is a sliver too thin to carry a printed label.
         + f'<p class="note">The {singles} single-frame species are '
           f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the '
           f'one-vote-per-species bar but only '
@@ -219,10 +203,8 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           f'Pl@ntNet is right {pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} of the '
           f'time on species we labelled once, against '
           f'{pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at {BAND_WORD[fat]}.</p>'
-          # "Rare in our labels usually means rare in Pl@ntNet's photos too" sat
-          # here, asserting the cause before the page had shown it. The warning
-          # block below gives the same claim with its reason attached, which is
-          # where a reader can weigh it.
+          # No cause asserted here: the warning block below gives that claim
+          # with its reason attached, where a reader can weigh it.
           f'<p class="note">Misses differ at each end. On species with {THIN_MAX} frames '
           f'or fewer, the right name is still in the {hc.N_CANDIDATES} for {pctf(thin_in5)} of '
           f'{thin_n} misses. At {FAT_MIN}+ frames it is {pctf(fat_in5)} of {fat_n}. '
@@ -253,9 +235,7 @@ def method_panel(*, tag, n, n_sp, n_cand, checks):
     """Model, request settings, evaluated set, and the untestable assumption."""
     body = ('<ul class="prov">'
             # The tag is `<endpoint-slug>@<run-name>`, so it already carries the
-            # endpoint; printing `identify/k-central-america` beside it said the
-            # slug twice in one sentence, and the typed half could not follow a
-            # move to another regional endpoint.
+            # endpoint; a typed one could not follow a move to another endpoint.
             f'<li>Predictions: model run <code>{esc(tag)}</code>, the Central '
             f'America regional model and not the worldwide one, so a regional '
             f'restriction is already in place.</li>'
@@ -284,12 +264,10 @@ def method_panel(*, tag, n, n_sp, n_cand, checks):
             f'<li>Every number here is recomputed from the source data at build time. '
             f'It is then checked against the {len(checks)} CSVs the measurement pass '
             f'wrote into the snapshot folder. A mismatch aborts the build.</li>'
-            # Build provenance is a maintainer's question, not a reader's, and it
-            # lives in the README beside the source. One line stays so an archived
-            # copy of this page still says where to look.
+            # Build provenance is a maintainer's question, not a reader's. One
+            # line stays so an archived copy of this page says where to look.
             '<li>Rebuild: see the README beside this dashboard&rsquo;s source.</li></ul>')
-    # Two panels above already end "and what it does not measure"/"does not
-    # tell you". This one is provenance: which model, which frames, which files.
+    # This one is provenance: which model, which frames, which files.
     return panel("How this was measured: the model, the frames, the files",
                  "<b>Read this before quoting any number outside the team.</b> It names "
                  "the model, the request settings, and the one assumption that cannot be "

@@ -1,16 +1,13 @@
-"""The page's stylesheet and its one script, and nothing else.
+"""The page's stylesheet and its one script, and nothing else. See docs/adr/0003.
 
-``_BASE_CSS`` is vendored (not imported, to avoid pulling numpy/scipy/pandas)
+``_BASE_CSS`` is vendored, not imported, to avoid pulling numpy/scipy/pandas in
 from labelfirst's report substrate
 (``labelfirst/src/labelfirst/eval/report/_html.py``, ``_CSS``), extended by
-``_EXTRA_CSS``. Strict subset: retained rules are byte-identical, unused ones
-dropped, so an upstream change needs manual reapply, not copy-paste. The JS is
-not vendored: this page needs its own client-side sort/filter, not labelfirst's
-chart tooltips.
+``_EXTRA_CSS``. Retained rules are byte-identical, so an upstream change needs a
+manual reapply. The JS is this page's own: client-side sort/filter, not charts.
 
-The element ids live here too, because the script looks them up and
-``assets.filterable_table`` writes them. One definition, so the two cannot
-drift. The HTML builders that use them are in ``assets.py``.
+The element ids live here because the script looks them up and
+``assets.filterable_table`` writes them, so the two cannot drift.
 """
 
 from __future__ import annotations
@@ -62,16 +59,14 @@ body{max-width:1120px}
 h1{margin-bottom:2px}
 .intro{font-size:0.95rem;color:#424242;margin:10px 0 22px}
 /* Sits under the headline grid, not beside it: the region mismatch applies to
-   all four numbers at once, so a per-metric footnote would repeat it four times
-   and still read as optional. */
+   all four numbers at once. */
 .caveat{font-size:0.85rem;color:#5d4037;background:#fbf3ec;border-left:3px solid #bf6a34;
   border-radius:0 4px 4px 0;padding:11px 14px;margin:14px 0 0}
 .caveat strong{color:#3e2723}
 /* Second paragraph needs its own top margin: the reset above zeroes p margins. */
 .caveat p+p{margin-top:8px}
 /* Two fixed columns, not a wrapping flex row: the four headline numbers are a
-   2x2 grid of question x weighting, and a reader who sees them in one long row
-   reads them as four unrelated figures. Collapses to one column under 640px. */
+   2x2 grid of question x weighting. One column under 640px. */
 .hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:6px}
 .hero .metric{
   background:#fff;border:1px solid #e0e0e0;border-radius:8px;
@@ -82,9 +77,8 @@ h1{margin-bottom:2px}
   text-transform:uppercase;color:#1565c0;margin-bottom:6px}
 .hero .metric .v{font-size:2rem;font-weight:700;color:#212121;line-height:1.1}
 .hero .metric .l{font-size:0.86rem;font-weight:600;color:#37474f;margin-top:6px}
-/* #6d6d6d, not a lighter grey: this is the line that explains every headline
-   number, and it sits on white and on the tinted first card. It clears 4.5:1 on
-   both (5.17 and 4.88) and still reads a step quieter than the #616161 label. */
+/* #6d6d6d, not lighter: this line sits on white and on the tinted first card,
+   clearing 4.5:1 on both (5.17 and 4.88), a step quieter than #616161. */
 .hero .metric .n{font-size:0.72rem;color:#6d6d6d;margin-top:4px}
 .hero .metric .row{display:flex;align-items:center;gap:10px;justify-content:space-between}
 .note{font-size:0.82rem;color:#616161;margin-top:10px}
@@ -127,18 +121,17 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .tag.reliable{background:#e8f5e9;color:#2e7d32}
 .tag.adequate{background:#e3f2fd;color:#1565c0}
 .tag.ranking{background:#ede7f6;color:#5e35b1}
-/* The most common badge on the page, so its contrast matters most; #e65100 on this fill was 3.46:1, #bf360c is 5.11:1. */
+/* The most common badge, so contrast matters most: #bf360c is 5.11:1 here,
+   where #e65100 on this fill was 3.46:1. */
 .tag.unmeasured{background:#fff3e0;color:#bf360c}
 .tag.hard{background:#ffebee;color:#c62828}
 .tag.unreachable{background:#eceff1;color:#455a64}
 /* Sits directly above/below the table it explains, so a status stays legible
-   without leaving the table. Text colour matches .todo li, already used on
-   this card background elsewhere on the page. */
+   without leaving the table. Text colour matches .todo li. */
 .status-legend{list-style:none;font-size:0.82rem;color:#424242;
   margin:8px 0 14px;display:flex;flex-direction:column;gap:5px}
 .status-legend li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
-/* The vocabulary panel: one definition per row, so a reader looking up one
-   word does not read the other five to find it. */
+/* The vocabulary panel: one definition per row. */
 .terms{list-style:none;font-size:0.86rem;color:#424242}
 .terms li{margin:8px 0;padding-left:12px;border-left:2px solid #e0e0e0}
 .todo{list-style:none;font-size:0.86rem;color:#424242}
@@ -157,25 +150,20 @@ section.grp>h2{
   border-bottom:2px solid #d5dde5;padding-bottom:6px;margin-bottom:4px;
 }
 .lede{font-size:0.86rem;color:#546e7a;margin:0 0 14px}
-/* Contrast override, not a restyle. #757575 on this background is 4.37:1, under the
-   4.5:1 WCAG AA floor for text this size, and the subtitle is the only line on the
-   page carrying the snapshot date and the model tag. The rule it overrides is inside
-   the vendored block above, which stays byte-identical to labelfirst's. */
+/* Contrast override, not a restyle: #757575 here is 4.37:1, under the 4.5:1 WCAG
+   AA floor, and the vendored rule it overrides stays byte-identical. */
 .subtitle{color:#6d6d6d}
-/* A sub-heading inside a panel body, separating the count table from the photo
-   table since they answer different questions. */
+/* A sub-heading inside a panel body, count table apart from photo table. */
 h3.sub{font-size:0.95rem;font-weight:700;color:#37474f;margin:22px 0 8px}
 /* A photo key is long and only ever copied, never read as prose. */
 code.key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.72rem;
   color:#37474f;word-break:break-all}
 
 .tscroll{overflow-x:auto}
-/* Every panel carries an id, so a panel is linkable and has to be findable
-   once the browser scrolls to it. */
+/* Every panel carries an id, so it must be findable once scrolled to. */
 details.panel:target>summary{background:#e3f2fd}
 
-/* The 2x2 headline grid has no room for two columns on a phone. The vendored
-   block's own 640px query stays byte-identical, so the override lives here. */
+/* No room for two columns on a phone; the vendored 640px query stays as it is. */
 @media(max-width:640px){
   .hero{grid-template-columns:1fr}
 }
@@ -183,16 +171,14 @@ details.panel:target>summary{background:#e3f2fd}
 
 CSS = _BASE_CSS + _EXTRA_CSS
 
-# Named once so the JS and the Python that renders the elements cannot drift.
 TABLE_ID = "species-table"
 INPUT_ID = "species-filter"
 SELECT_ID = "status-filter"
 COUNT_ID = "species-count"
 THIN_ID = "show-thin"
 
-# Client-side sort + filter, vanilla. string.Template, not an f-string: the
-# body is mostly JS braces an f-string would need escaped. Only a page with the
-# species table gets it; see ``EVERY_PAGE_JS`` below.
+# Client-side sort + filter, vanilla. string.Template, not an f-string: the body
+# is mostly JS braces an f-string would need escaped. Table pages only.
 TABLE_JS = Template("""\
 (function(){
   var table=document.getElementById('$table_id');
@@ -202,16 +188,13 @@ TABLE_JS = Template("""\
   var q=document.getElementById('$input_id');
   var sel=document.getElementById('$select_id');
   var count=document.getElementById('$count_id');
-  // Rows a caller marked data-thin start hidden. Any deliberate filter
-  // overrides that -- a typed needle, or a chosen status. Otherwise picking
-  // "too few labels to judge", the status those rows mostly carry, would empty
-  // the table and read as a broken page. Absent checkbox means the caller
-  // marked nothing, so everything shows; that is the older behaviour.
+  // Rows a caller marked data-thin start hidden, unless a deliberate filter
+  // overrides that: a typed needle, or a chosen status. Without the override,
+  // picking "too few labels to judge" would empty the table and read as a
+  // broken page. No checkbox means the caller marked nothing, so all rows show.
   var thin=document.getElementById('$thin_id');
 
-  // A row's status is the class on its own status tag. It used to be repeated
-  // in a data-status attribute on every row, which shipped the same word twice
-  // per row for no reader.
+  // A row's status is the class on its own status tag.
   function statusOf(r){
     var tag=r.querySelector('.tag');
     return tag?tag.className.replace('tag','').trim():'';
@@ -223,8 +206,7 @@ TABLE_JS = Template("""\
     var showThin=thin?thin.checked:true;
     var shown=0;
     rows.forEach(function(r){
-      // The needle is matched against the first cell, the species name as it
-      // is shown. A row attribute repeating it shipped ~7KB of duplicate text.
+      // The needle is matched against the first cell, the species name as shown.
       var hay=(r.cells[0]?r.cells[0].textContent:'').toLowerCase();
       var ok=(!needle||hay.indexOf(needle)>=0)&&
              (want==='all'||statusOf(r)===want)&&
@@ -233,15 +215,13 @@ TABLE_JS = Template("""\
       r.classList.toggle('hidden',!ok);
       if(ok) shown++;
     });
-    // A bare "0 of 186" over an empty table leaves the reader wondering whether
-    // the page broke. Say what happened instead.
+    // A bare count over an empty table reads as a broken page. Say what happened.
     count.textContent=shown?(shown+' of '+rows.length+' species shown')
                            :'No species matches that filter.';
   }
 
   // A cell sorts on its own data-sort where it has one, and on what it shows
-  // where it does not: "392" already sorts as 392. There is no third case; the
-  // attribute used to sit on a span inside the cell and this looked there too.
+  // where it does not: "392" already sorts as 392.
   function key(cell){
     var v=cell.getAttribute('data-sort');
     return v===null?cell.textContent.trim():v;
@@ -282,15 +262,11 @@ TABLE_JS = Template("""\
 """).substitute(table_id=TABLE_ID, input_id=INPUT_ID, select_id=SELECT_ID,
                 count_id=COUNT_ID, thin_id=THIN_ID)
 
-# Printing and jump links, which every page needs. Kept apart from the block
-# above because that one is 2.4KB about a table two of the three pages have and
-# the queue page was carrying it to run `if(!table) return;`.
+# Printing and jump links, which every page needs, kept out of TABLE_JS.
 EVERY_PAGE_JS = """\
-// Printing. The model-health page opens nothing and the queue page opens two, so
-// printing either as it sits would hand someone a sheet of headings. Open everything for the print, then put
-// it back, and keep this out of the block above, which returns early when there is
-// no species table. A reader who prints from a browser without these events still
-// gets whatever they had open, which is the old behaviour, not a worse one.
+// Printing. Either page as it sits would print as a sheet of headings, so open
+// every panel for the print, then put it back. Keep this out of the block
+// above, which returns early when there is no species table.
 (function(){
   var forced=[];
   function expand(){
@@ -311,8 +287,7 @@ EVERY_PAGE_JS = """\
     if(mq.addEventListener) mq.addEventListener('change',onChange);
     else if(mq.addListener) mq.addListener(onChange);
   }
-  // A jump link lands on a closed panel otherwise: :target styles it but the
-  // body stays collapsed, so the reader arrives at a heading and nothing else.
+  // Otherwise a jump link lands on a panel :target styles but leaves collapsed.
   function openHash(){
     if(!location.hash) return;
     var el=null;

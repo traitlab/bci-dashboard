@@ -4,9 +4,8 @@ Deterministic, no network. Reads the three inputs, reconciles every label name
 against the prediction vocabulary (optionally through a WCVP crosswalk), and
 builds the per-frame records and per-species aggregates every page counts from.
 
-The vocabulary this works in, the paths, the thresholds and the name rules, is
-in ``core.py``. Nothing here decides what a number means; it decides which rows
-there are to measure.
+Paths, thresholds and name rules live in ``core.py``. Nothing here decides what
+a number means; it decides which rows there are to measure.
 """
 
 from __future__ import annotations
@@ -61,14 +60,13 @@ class Health:
 def scan_cache(cache_dir):
     """Every cached Pl@ntNet response, read once.
 
-    Returns the ranked list per photo stem, plus counts for the run log:
-    parse status, list-length histogram, and two invariants pages assume,
-    score fields match and lists descend.
+    Returns the ranked list per photo stem, plus run-log counts: parse status,
+    list-length histogram, and the two invariants pages assume, score fields
+    match and lists descend.
     """
     files = sorted(f for f in os.listdir(cache_dir) if f.endswith(".json"))
-    # SystemExit for the same reason load_health uses it below: every count
-    # here is over the files found, so with none `maxk` has no largest list and
-    # max() raises a bare ValueError four call sites from the empty directory.
+    # SystemExit like require_inputs below: with no files `maxk` has no largest
+    # list and max() raises a bare ValueError four call sites away.
     if not files:
         raise SystemExit(
             f"No cached Pl@ntNet answers in\n  {cache_dir}\nThe directory exists "
@@ -154,9 +152,7 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon):
     Two of them are not counts. ``in_corpus_vocabulary`` is true when the name
     came back on any BCI photo, not only on this species’ own frames, so a
     row can be 0.0% in the list column and still be in the vocabulary.
-    ``support_bucket`` is the labelled-frames band the species falls in.
-
-    ``top5_accuracy`` counts ``core.N_CANDIDATES`` names, the same constant
+    ``top5_accuracy`` counts ``core.N_CANDIDATES`` names, the constant
     ``figures.prepare`` aborts a build against when the cache carries more.
     """
     def top1(r):
@@ -192,9 +188,8 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon):
 def require_inputs(paths_and_names, log):
     """Fail on a missing input with one line a reader can act on.
 
-    SystemExit, not an exception: the three builders and measure.py all call
-    load_health, and a first run on a fresh clone hits this. One line beats a
-    ten-frame traceback in four places.
+    SystemExit, not an exception: a first run on a fresh clone hits this from
+    any of the four callers, and one line beats a ten-frame traceback.
     """
     for path, what in paths_and_names:
         if not os.path.exists(path):
@@ -209,10 +204,9 @@ def require_inputs(paths_and_names, log):
 def frame_records(joined, split_of, predictions, canon, crop_frames):
     """One record per frame that has both a label and a cached answer.
 
-    Names are canonicalised on both sides before they are ever compared, and
-    the raw forms are kept alongside so the run can say what canonicalising was
-    worth. Crop coverage rides along, because whether the labelled crown is
-    even inside the square the model saw decides which frames are scorable.
+    Raw name forms are kept alongside the canonicalised ones so the run can say
+    what canonicalising was worth. Crop coverage rides along: whether the
+    labelled crown is inside the square the model saw decides scorability.
     """
     records = []
     for gk, stem, gt_name in joined:
@@ -241,13 +235,9 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
                 log: Callable[[str], None] | None = None) -> Health:
     """Read the labels, the split and the cached answers into one ``Health``.
 
-    Six steps, in order: the two input CSVs, every cached Pl@ntNet answer, the
-    join between them, each label sorted into a name-matching tier, one record
-    per scorable frame, and one row per species. Everything downstream, both
-    pages and measure.py, reads what this returns rather than the files, so
-    they cannot disagree about what the corpus is.
-
-    ``log`` is optional: measure.py passes one and the page builders do not.
+    Everything downstream reads what this returns rather than the files, so the
+    pages and measure.py cannot disagree about what the corpus is. ``log`` is
+    optional; only measure.py passes one.
     """
     def _log(msg: str = "") -> None:
         if log is not None:
@@ -299,10 +289,9 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     # ---------------- 5. one record per frame we can score ----------------
     canon = canonicaliser(crosswalk)
 
-    # Joined on base_image: GT keys carry GT_KEY_PREFIX and the box CSV does not, so
-    # the stem used for the cache join is the join key here too.
-    #
-    # Imported here because crop_overlap imports ``normalize`` from this module.
+    # Joined on base_image: GT keys carry GT_KEY_PREFIX and the box CSV does not,
+    # so the stem used for the cache join is the join key here too. Local import
+    # for the same cycle reason as run_log above.
     import crop_overlap
     crop_frames, crop_suspect = crop_overlap.build()
 

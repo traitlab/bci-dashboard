@@ -1,17 +1,16 @@
 """What Pl@ntNet actually saw, and how much of the label it covered.
 
-Predictions use a fixed CROP_SIZE square at the frame centre; labels are
-boxes anywhere in the frame. Recomputes the rectangle offline and scores
-each label's share of it, admitting a frame only past threshold T.
+Predictions use a fixed CROP_SIZE square at the frame centre; labels are boxes
+anywhere in the frame. Recomputes the rectangle offline and scores each label's
+share of it, admitting a frame only past threshold T.
 
-No API, no Labelbox. ``export_boxes.csv`` (July 2026 revision) wins per
-frame over the older ``crop_bounding_boxes.csv``, which fills gaps; where
-both cover a frame, the old file has twice the boxes, only 35% matching a
-current crown at IoU 0.5, a fifth superseded.
+No API, no Labelbox. ``export_boxes.csv`` (July 2026 revision) wins per frame
+over the older ``crop_bounding_boxes.csv``, which fills gaps; where both cover a
+frame, the old file has twice the boxes, only 35% matching a current crown at
+IoU 0.5, a fifth superseded.
 
-All 16 sampled frames measured exactly FRAME_W x FRAME_H, so the
-rectangle is constant; contradicting boxes go to `suspect_frames` instead
-of being scored wrong.
+All 16 sampled frames measured exactly FRAME_W x FRAME_H, so the rectangle is
+constant; contradicting boxes go to `suspect_frames` rather than scored wrong.
 """
 
 import collections
@@ -20,14 +19,12 @@ import os
 
 from core import REPO, strip_collection_codes
 
-# Must match CROP_SIZE in predict/photo.py and predict/ingest_photos.py.
-# The second is the one that filled the cache the pages score.
-# tests/test_crop_geometry.py compares all three.
+# Must match CROP_SIZE in predict/photo.py and predict/ingest_photos.py, the
+# second of which filled the cache. tests/test_crop_geometry.py compares all three.
 CROP_SIZE = 1280
 
-# Verified constant across the sampled corpus. Used only when a frame's real
-# dimensions are unknown, which is the normal case: the cache written by
-# predict/ingest_photos.py stores no geometry.
+# Verified constant across the sampled corpus. Used whenever a frame's real
+# dimensions are unknown, the normal case: the cache stores no geometry.
 FRAME_W = 4000
 FRAME_H = 3000
 
@@ -42,8 +39,7 @@ EDGE_TOLERANCE = 4
 def crop_rect(frame_w=FRAME_W, frame_h=FRAME_H, crop_size=CROP_SIZE):
     """The rectangle the prediction scripts sent, as (x0, y0, x1, y1).
 
-    None when the frame is smaller than crop_size in either dimension:
-    center_crop_jpeg then sends the whole image untouched.
+    None below crop_size either way: center_crop_jpeg sends the image whole.
     """
     if frame_w < crop_size or frame_h < crop_size:
         return None
@@ -75,13 +71,11 @@ def _read_boxes(path):
 def load_boxes(path=BOXES_CSV, export_path=EXPORT_BOXES_CSV):
     """base_image -> list of (x0, y0, x1, y1, normalized_species).
 
-    Export geometry wins whole per frame, not merged box by box: that
-    would reintroduce crowns the revision removed. Frames absent from the
-    export keep their old boxes. ``export_path=None`` reads the old file
-    alone, for regression tests.
-
-    lb_label's trailing BCI collection codes are stripped here, since a
-    code is upper case and cannot be told from a hyphenated epithet once
+    Export geometry wins whole per frame, not merged box by box, which would
+    reintroduce crowns the revision removed. Frames absent from the export keep
+    their old boxes; ``export_path=None`` reads the old file alone, for
+    regression tests. lb_label's trailing BCI collection codes are stripped here,
+    being upper case and indistinguishable from a hyphenated epithet once
     normalize() lowers the string.
     """
     frames = _read_boxes(path)
@@ -109,12 +103,9 @@ def build():
 
     Returns (frames, suspect_frames): frames maps base_image to
     {"dominant": top species (or None), "coverage": its fraction}.
-    suspect_frames lists base_images whose boxes fall outside the frame
-    size, so their rectangle cannot be trusted.
-
-    The two box files and the frame geometry are the module constants above,
-    not parameters: a default is bound at definition, so pointing the module
-    at another file would not have moved them.
+    suspect_frames lists base_images whose boxes fall outside the frame size, so
+    their rectangle cannot be trusted. Box files and frame geometry are the
+    module constants above, read here rather than passed in.
     """
     rect = crop_rect()
     if rect is None:

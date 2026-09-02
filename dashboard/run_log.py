@@ -2,14 +2,11 @@
 
 These blocks are the provenance record: which Pl@ntNet endpoint filled the
 cache, which names could never be scored right and why, what the crop-coverage
-sweep saw. A page quotes two numbers from here; the rest is for whoever has to
-answer "where did this come from" a year from now.
+sweep saw. A page quotes two numbers from here.
 
-They print and return nothing, and they compute nothing a CSV also reports:
-every number arrives as an argument. ``health.load_health`` calls the first
-group only when a caller passes it a ``log``, which only measure.py does, and
-measure.py calls the rest itself, so the three page builders never reach this
-file.
+They print and return nothing, and compute nothing a CSV also reports: every
+number arrives as an argument. Only measure.py calls them, so no page builder
+reaches this file.
 """
 
 from __future__ import annotations
@@ -33,9 +30,8 @@ from core import (
 from crop_overlap import CROP_SIZE
 from queues import BATCH_SIZE, QUEUE_ORDER
 
-# The rule that opens and closes a block of run_log.txt. measure.py writes
-# the file's own banner and this module writes the rest, so both need the
-# same width or the log comes out ragged.
+# The rule that opens and closes a block of run_log.txt. measure.py writes the
+# file's banner at this width too, or the log comes out ragged.
 RULE = "=" * 84
 
 
@@ -83,8 +79,7 @@ def log_cache(_log, s):
 
 
 def log_reconciliation(_log, n, scan, gt_rows, crosswalk, wcvp_raw):
-    """Run-log block on name matching, including the ceiling line pages
-    quote. Text only; every number is in ``n``."""
+    """Run-log block on name matching, including the ceiling line pages quote."""
     _log("--- NAME RECONCILIATION ---")
     _log("  GT column is called 'wcvp_canonical_name' but IS NOT WCVP-resolved: it is a")
     _log("  string-strip of the Labelbox field label (see labelling/")
@@ -131,8 +126,7 @@ def log_reconciliation(_log, n, scan, gt_rows, crosswalk, wcvp_raw):
 
 
 def log_inputs(_log, gt_rows, split_rows, split_of):
-    """Run-log block on the two input CSVs, including the line pages
-    repeat: the labelled subset is a record, not a random draw."""
+    """Run-log block on the two input CSVs: the labelled subset is a record."""
     _log("--- INPUTS ---")
     _log(f"gt_dominant_taxon.csv rows            : {len(gt_rows)}")
     _log(f"  distinct global_key                 : {len(set(r['global_key'] for r in gt_rows))}")
@@ -156,8 +150,7 @@ def log_inputs(_log, gt_rows, split_rows, split_of):
 
 
 def log_join(_log, gt_rows, joined, missing_cache, predictions):
-    """Run-log block on matching a label row to its cached answer,
-    including every label with none."""
+    """Run-log block on matching a label row to its cached answer."""
     _log("--- JOIN (global_key -> cache file) ---")
     _log(f"  convention                          : GT '{GT_KEY_PREFIX}<stem>.JPG'  ->  cache '<stem>.JPG.json'")
     _log(f"  byte-exact key join                 : 0 / {len(gt_rows)}   (GT keys carry the '{GT_KEY_PREFIX}' prefix; cache names do not)")
@@ -171,8 +164,7 @@ def log_join(_log, gt_rows, joined, missing_cache, predictions):
 
 def log_crop_gate(_log, records, sp_recs, crop_frames, crop_suspect,
                    n_crop_joined, crop_admitted, crop_rejected, min_coverage):
-    """Run-log block on the crop-coverage gate. Pages report it as a
-    diagnostic sweep, never a filter behind a headline."""
+    """Run-log block on the crop-coverage gate, a sweep and never a filter."""
     _log("--- CROP COVERAGE GATE ---")
     _log("  Predictions were made from a fixed centre crop of each frame; ground truth")
     _log("  boxes are drawn anywhere in the frame. A frame is admitted only when its")
@@ -204,7 +196,6 @@ def log_evaluable_sets(_log, h):
 
 def log_headline(_log, n, n_sp, c1, c5, macro1, macro5, g1, g5, reachable, r1, r5, s1, s5, gn, gg1, gg5):
     """The headline block: every rate, each with the frames it was measured on."""
-    # ---------------- 11. report ----------------
     _log(RULE)
     _log(f"HEADLINE  (species-level GT, joined, >=1 cached prediction: n={n} frames, {n_sp} species)")
     _log(RULE)
@@ -256,9 +247,8 @@ def log_gate_comparison(_log, sp_recs, sweep, gate, n, n_sp, c1, macro1):
     n_unknown = sum(1 for r in sp_recs if r["crop_coverage"] is None)
     _log(f"  frames with no box geometry, rejected at every threshold : {n_unknown} "
         f"({pct(n_unknown, n)})")
-    # The gated N is smaller than the ungated N for two unrelated reasons, and only
-    # one of them is the gate doing its job. Splitting them keeps a missing-data
-    # count from reading as evidence about crop coverage.
+    # Two unrelated reasons shrink the gated N and only one is the gate working,
+    # so a missing-geometry count cannot read as evidence about crop coverage.
     n_low = n - n_unknown - gate["n_admitted"]
     _log(f"  so the {n - gate['n_admitted']} frames not admitted are {n_unknown} with no box "
         f"geometry to measure")

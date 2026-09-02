@@ -1,10 +1,9 @@
 """The model-health page's panels: one function per collapsible block.
 
-Every function here takes the figure namespace and returns HTML. A panel reads
-a figure, it never computes one -- the arithmetic is in ``figures.py``, the
-shared status vocabulary in ``status_words.py``, the queue page's own panels in
-``queue_panels.py``, the frozen experiment's two in ``confirmatory_panels.py``,
-and which page carries which panel in ``page.py``.
+Each takes the figure namespace and returns HTML. A panel reads a figure, it
+never computes one: the arithmetic is in ``figures.py``, the status vocabulary
+in ``status_words.py``, the other pages' panels in ``queue_panels.py`` and
+``confirmatory_panels.py``, and which page carries which panel in ``page.py``.
 """
 
 from __future__ import annotations
@@ -19,22 +18,13 @@ from figures import conf, top1
 from status_words import (STATUS, filter_options, legend_entries,
                           status_precedence_note)
 
-# The second-look list is read, not worked through, so it is shorter than the
-# send preview (which belongs to the queue page, in queue_panels.py).
+# Read, not worked through, so shorter than the queue page's send preview.
 REVIEW_PREVIEW = 15
 
 
-# A 2x2 grid: question asked (rows) by how it was averaged (columns). The two
-# averages of one question, printed side by side in a line, read as one
-# superseding the other. The rates are not named here: they move with the
-# corpus and this grid is what renders them.
-# (metric, question, averaged over, note).
-# What each drone camera is, as a noun phrase both pages can drop into their own
+# What each drone camera is, as a noun phrase both pages drop into their own
 # sentence. The file-name word contradicts the camera it names, so a reader who
-# did not know that stops on it assuming a typo. Said outright instead, and said
-# once: the queue page and the confirmatory panel had each written their own
-# version, and confirmatory_panels.cam_phrase claimed to name the camera "the
-# way the queue page names it" with nothing holding it to that.
+# did not know that stops on it assuming a typo. Said outright, and said once.
 CAMERA_IS = {
     "zoom": ("the drone&rsquo;s wide-angle camera, which confusingly is named "
              "<code>zoom</code> in the file names"),
@@ -42,12 +32,13 @@ CAMERA_IS = {
              "file names"),
 }
 
-# The species table's lede. Both the internal pages and the export-only page
-# put one in front of the same table, and the two had drifted into being the
-# same sentence typed twice.
+# The species table's lede, shared by the internal pages and the export-only one.
 SPECIES_LOOKUP_LEDE = ("<b>Find a species you care about and read its status.</b> "
                        "Click any heading to sort, type to filter.")
 
+# A 2x2 grid: question asked (rows) by how it was averaged (columns), as
+# (metric, question, averaged over, note). The rates move with the corpus, so
+# they are rendered from here rather than named.
 HEADLINES = [
     ("macro_top1", "First guess is right", "per species",
      "each of the {n_sp} species counts once, however few frames it has"),
@@ -60,52 +51,40 @@ HEADLINES = [
      "we only ever asked Pl@ntNet for {k} names"),
 ]
 
-# Sits directly under the grid. Without it the two columns read as a
-# contradiction. It used to add "and they answer different questions", which was
-# only an announcement of the paragraph below, where the two questions are named.
+# Sits under the grid. Without it the two columns read as a contradiction.
 HERO_READING = "Read down a column, not across. Both rates are right."
 
-# The two questions, one paragraph of their own: the sentence above says how to
-# read the grid, and these say which rate answers which question. Which one to
-# quote is said once, in the four-rates panel, and not here: saying it twice put
-# "quote per frame for a photo off the drive" on the same page as "cite the
-# per-species rate, never the per-frame one".
+# Which rate answers which question, one paragraph of its own. Which one to
+# quote is said once, in the four-rates panel, not here: said in both places the
+# two wordings contradicted each other.
 HERO_WHICH_RATE = (
     "<b>Per species</b> asks how many kinds of tree the model can name, "
     "which is what a labelling programme moves. <b>Per frame</b> asks how often it is "
     "right on a photo picked at random, which the commonest species decide."
 )
 
-# Why the two differ, kept out of the two above so the instruction and the
-# explanation are separate paragraphs: a reader who only needs to know which
+# Why the two differ, its own paragraph so a reader who only needs to know which
 # rate to quote can stop before it.
 HERO_WHY_DIFFER = (
     "Per frame is the higher of the two because the species with many frames "
     "are the ones Pl@ntNet already knows."
 )
 
-# The centre crop as a share of the frame, derived and formatted once so it cannot
-# be printed at two different roundings.
+# Derived and formatted once so it cannot be printed at two different roundings.
 CROP_SHARE = f"{100 * CROP_SIZE ** 2 / (FRAME_W * FRAME_H):.1f}%"
 
-# What the centre crop is, as a noun phrase both panels that need it can drop into
-# their own sentence. The glossary defines the term; the method panel says what we
-# sent. Written out twice, they had drifted into two shapes of the same square,
-# "1280x1280" in one and "1280 px across" in the other, which reads as two
-# different crops to anyone who opens both.
+# What the centre crop is, as a noun phrase both panels that need it drop into
+# their own sentence, so the one square cannot be written two ways.
 CENTRE_CROP_IS = (f"the fixed {CROP_SIZE}&times;{CROP_SIZE} square from the middle of "
                   f"a frame, {CROP_SHARE} of the frame&rsquo;s area")
 
-# What a reader has to know before any number on the page means anything. The
-# crown sentence is here rather than beside the headline because the headline is
-# the first thing on the page and a term defined under it is defined too late.
+# What a reader has to know before any number on the page means anything.
 def hero_terms(k):
     """The four words, and the request setting, in the wording the page uses.
 
-    A list, not a paragraph: six definitions run together made the first panel
-    the densest block on the page, and looking up one word meant reading all
-    six. A function, not a constant, because the number of names we ask for is
-    a setting, and a setting frozen into prose stops being true unnoticed.
+    A list, not a paragraph, so looking up one word does not mean reading six.
+    A function, not a constant: the number of names we ask for is a setting, and
+    a setting frozen into prose stops being true unnoticed.
     """
     items = [
         f"A <b>frame</b> is one {FRAME_W}&times;{FRAME_H} drone photo.",
@@ -129,16 +108,14 @@ def hero_terms(k):
             + "".join(f"<li>{t}</li>" for t in items) + "</ul>")
 
 
-# The two regions above are not the same region, and the numbers below compare
-# across them. Stated here rather than in a footnote because every figure on
-# this page inherits the mismatch.
+# The two regions above are not the same one, and every figure below inherits
+# the mismatch, so it is stated here rather than in a footnote.
 def crop_mismatch(c):
     """The one sentence that says how far the crop and the label disagree.
 
-    Two panels need it, the four corpus rates and the species table, so it is
-    written once and they cannot drift apart. Counted at build time, never a
-    module constant: a constant went stale here once, over the wrong
-    population.
+    The four corpus rates and the species table both need it, so it is written
+    once. Counted at build time, never a module constant: a constant goes stale
+    against the wrong population.
     """
     return (f"The two are not always looking at the same tree. On {c.crop_half:,} of "
             f"{len(c.sp_recs):,} scored frames the labelled species covers less than half "
@@ -151,8 +128,6 @@ def hero_region(c):
         "<p><strong>These four numbers judge a centre crop against a label for the whole "
         f"frame.</strong> {crop_mismatch(c)} A wrong answer here is therefore not "
         "always a wrong identification.</p>"
-        # The mismatch, then what to do about it, kept as two paragraphs rather than
-        # one.
         "<p>Read these four as a record of what the centre-crop "
         "path did, not as the model's accuracy.</p>"
     )
@@ -160,19 +135,17 @@ def hero_region(c):
 
 # ---------------------------------------------------------------------------
 # Panels. One function per panel, each reading only the prepared context, so a
-# page is a list of panel ids rather than 400 lines of interleaved rendering.
+# page is a list of panel ids rather than interleaved rendering.
 # ---------------------------------------------------------------------------
 
 
 def p_review(c):
     """Labelled frames worth a second look, by species and by confusable pair."""
     pair_rows = sorted(c.review_pairs.items(), key=lambda kv: -len(kv[1]))[:10]
-    # What a row on either table means comes first, before the tables themselves,
-    # so a reader is not left guessing what put a frame here.
+    # What a row on either table means comes before the tables themselves. The
+    # pairs table's rows are pairs, not frames, and the ten shown do not cover
+    # every frame, so the prose says how many they do cover.
     shown = sum(len(cs) for _, cs in pair_rows)
-    # "Each row is a frame" was wrong for the pairs table, whose rows are pairs and
-    # whose frames column reads 3, 2, 2, 1 -- and the ten rows shown cover 14 of the
-    # 51 frames, so a reader who added the column went looking for the other 37.
     body = (f'<p class="note">Every frame counted here is a labelled frame where the '
             f'model is at least {hc.REVIEW_CONF:.1f} confident in a <em>different</em> '
             f'species. A first guess this confident is right {pctf(c.confident_ok)} of '
@@ -194,9 +167,8 @@ def p_review(c):
                     f"{len(cs):,}", f"{sum(cs) / len(cs):.2f}"]
                    for (gt, pr), cs in pair_rows])
             if pair_rows else '<p class="note">None at this confidence.</p>')
-    # The frames themselves, most confident first, each linked into Labelbox where
-    # the link is known. Known means an export carried that data row: the URL is
-    # read from what a merge recorded, never guessed and never fetched.
+    # Most confident first, linked into Labelbox only where a merge recorded the
+    # data row. Never guessed, never fetched.
     urls = hc.labelbox_urls()
     top_review = sorted(c.review, key=lambda r: -conf(r))[:REVIEW_PREVIEW]
     linked = sum(1 for r in c.review if r["global_key"] in urls)
@@ -214,8 +186,6 @@ def p_review(c):
                     f'<span class="sp">{esc(cap(top1(r)))}</span>',
                     f"{conf(r):.2f}"]
                    for r in top_review])
-    # "label-and-guess pair" everywhere: the table above is introduced with that
-    # phrase, and "confusion pair" was the same thing under a second name.
     body += ('<p class="note">Not urgent: work this list after the queues on the label '
              'queue page. A '
              'label-and-guess pair that keeps recurring is a signal about the species, '
@@ -228,8 +198,6 @@ def p_review(c):
                  f'count against the {pctf(c.confident_ok)} above.</p>')
     return panel(f"Labels worth a second look: {c.review_counts[0]} frames where Pl@ntNet "
                  f"confidently disagrees",
-                 # No cross-page pointer here: this panel is on the model-health page,
-                 # and the send queues are on the other one.
                  f"<b>Put these {c.review_counts[0]} frames in front of a botanist.</b> "
                  f"Either the label is wrong or the model is, and one look settles "
                  f"which. They are the disagreements most worth an expert's minute.", body)
@@ -237,10 +205,8 @@ def p_review(c):
 
 # The rows that start hidden are exactly the ones the page already calls "too
 # few labels to judge", so this is hc.WELL_SAMPLED_MIN_N and not a second
-# threshold of its own: a table hiding rows at 5 while the status beside them
-# switches at 10 makes a reader hunt for a rule that was never there. Those
-# rows are not deleted -- a botanist looks up their own species by name -- they
-# start hidden so the table opens on the rows that can be read.
+# threshold: hiding at 5 while the status beside it switches at 10 sends a reader
+# hunting for a rule that was never there. Hidden, never deleted.
 THIN_MIN_FRAMES = hc.WELL_SAMPLED_MIN_N
 
 
@@ -248,9 +214,8 @@ def _starts_hidden(d, status):
     """A row starts hidden when its rate is too thin to read.
 
     "Never returned on any BCI photo" is exempt: it is the page's most actionable
-    status, it does not depend on the rate being readable, and all but one of the
-    species carrying it fall under the frame cut-off. Hiding them left the legend
-    describing a status no visible row had.
+    status, it does not depend on the rate being readable, and hiding it would
+    leave the legend describing a status no visible row carries.
     """
     return status != "unreachable" and d["n_labelled_crowns"] < THIN_MIN_FRAMES
 
@@ -269,20 +234,15 @@ def p_species(c):
             num_cell(d["mean_top1_confidence"],
                      f'{d["mean_top1_confidence"]:.2f}'),
             status_tag(st, STATUS[st][0])])
-        # No data-status here: the row's own status tag already says it,
-        # and the filter reads it from there. The attribute repeated the
-        # status on all 186 rows, about 4KB of markup saying it twice.
+        # No data-status: the row's status tag carries it and the filter reads
+        # it from there, rather than 4KB of markup saying it twice.
         attrs.append(' data-thin="1"' if _starts_hidden(d, st) else "")
-    # The prose below says how many rows start hidden. Counted off the marks
-    # just made rather than by walking the species a second time, so the
-    # sentence cannot name a different number from the table.
+    # Counted off the marks just made, so the prose below cannot name a
+    # different number from the table.
     n_thin = sum(1 for a in attrs if a)
-    # Three things a reader needs before the table, kept as separate paragraphs:
-    # how to work the table, how a status is chosen, and what the rates are
-    # scored on.
-    # The counts behind this are in the head panel, which says them once. Repeating
-    # the whole sentence here made a reader who had read the top of the page read
-    # it again; what they need at the table is what it means for a row.
+    # Three paragraphs before the table: how to work it, how a status is chosen,
+    # and what the rates are scored on. The counts themselves stay in the head
+    # panel, which says them once.
     body = ('<p class="note"><b>Every rate here is scored on the fixed centre square, '
             'not on outlined crowns.</b> So a low rate can mean the crop missed the tree '
             'rather than that the model missed the name. Read a row as a flag for a '
@@ -311,13 +271,9 @@ def p_species(c):
         row_attrs=attrs,
         thin_label=f"show all {c.n_sp}",
     ))
-    # "all 186" read as a promise the open table breaks: rows start hidden.
-    # "any of" is what stays true, since a typed name reaches a hidden row. The
-    # colon stays: slug() cuts there, so the anchor keeps its old value.
-    # Closed, unlike the two panels the queue page opens. Those are that page's
-    # deliverable; this one is a lookup tool, and open it is 40% of the page's
-    # words sitting fourth of nine, so the five panels below it were a long
-    # scroll away. Closed, every heading is readable at once.
+    # "any of", not "all": rows start hidden, and a typed name reaches them. The
+    # colon stays, since slug() cuts there and the anchor keeps its old value.
+    # Closed, because this is a lookup tool rather than the page's deliverable.
     return panel(f"Look up one species: any of the {c.n_sp}, sortable and filterable",
                  SPECIES_LOOKUP_LEDE, body)
 
@@ -367,8 +323,6 @@ def p_ceiling(c):
               f'predictions up to family needs a list we do not have here. Counting them in '
               f'would have reported {pctf(c.gg1 / (gn + c.fam_n))} instead of '
               f'{pctf(c.gg1 / gn)}.</p>')
-    # The cap clause is not on this title: the ask below already says the cap is
-    # one of the two explanations, so the title only says what the panel is about.
     return panel(f"What labelling cannot fix: {len(c.never)} species, {c.never_crowns} frames "
                  f"the model never named",
                  "<b>Do not spend expert time renaming or relabelling these.</b> Either "
@@ -380,9 +334,8 @@ def p_ceiling(c):
 def p_terms(c):
     """The vocabulary every number on the page rests on.
 
-    A panel rather than a paragraph under the headline: it is definitional, so a
-    reader who already has the vocabulary should not have to read past it, and a
-    reader who does not can open it once.
+    A panel, not a paragraph: definitional, so a reader who has the vocabulary
+    can skip it and one who does not can open it once.
     """
     return panel(
         'What the words mean: frame, label, crown, centre crop',
@@ -398,9 +351,8 @@ def p_candidates(c):
 
 
 def p_weighting(c):
-    # The four corpus rates and everything that qualifies them, in the one panel
-    # that explains them. The grid reuses the headline card markup, so a reader
-    # meets the same shape twice and no new CSS exists.
+    # The four corpus rates and their qualifiers, in the one panel that explains
+    # them. The grid reuses the headline card markup, so no new CSS exists.
     corpus = (
         hero([(averaged, pctf(c.now[metric]), question.format(k=c.n_cand),
                note.format(n_sp=c.n_sp, k=c.n_cand))
@@ -422,20 +374,12 @@ def p_method(c):
     return method_panel(tag=c.tag, n=c.n, n_sp=c.n_sp, n_cand=c.n_cand, checks=c.checks)
 
 
-# ---------------------------------------------------------------------------
-# The registry: which section a panel belongs to, and which page carries it.
-# ---------------------------------------------------------------------------
-
-# section key -> (heading, the one orienting line under it).
-
-
 def p_counts(c):
     """Why the page prints three different frame counts.
 
-    Nobody has this question on landing. It is what you want after meeting one
-    count in one panel and a larger one in another, so it is closed, with the
-    three numbers in the summary, and costs nothing until then. The counts are
-    rendered rather than named here: they move with the corpus.
+    Closed, with the three numbers in its summary: the question only arises
+    after meeting one count in one panel and a larger one in another. The counts
+    are rendered rather than named here, since they move with the corpus.
     """
     return panel(
         f"Why three different frame counts: {c.n:,}, {c.n_pred:,} and {c.n_gt:,}",

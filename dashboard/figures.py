@@ -1,8 +1,7 @@
 """Every figure a page shows, computed once off one ``Health``.
 
-One entry point: ``prepare``. Panels read what it returns and do no
-arithmetic of their own, so two panels cannot drift by recomputing the same
-figure differently.
+One entry point: ``prepare``. Panels read what it returns and do no arithmetic
+of their own, so two cannot drift by recomputing the same figure differently.
 """
 
 from __future__ import annotations
@@ -17,31 +16,26 @@ import queues
 from history import model_tag_of, snapshot_date_of
 
 # A species is "rarely labelled" below this many frames, and a frame can be
-# deprioritised only at or above it. Both read hc.WELL_SAMPLED_MIN_N, the
-# threshold hc.diagnose uses, so a page cannot render a status or a sentence
-# that disagrees with the rule the data layer applied.
+# deprioritised only at or above it. Both read hc.WELL_SAMPLED_MIN_N, so no page
+# can disagree with the rule hc.diagnose applied.
 RARE_MAX_SUPPORT = hc.WELL_SAMPLED_MIN_N
 WAIT_SUPPORT_MIN = hc.WELL_SAMPLED_MIN_N
 # The confidence the page recommends is the one the queue applies. Written as
 # 0.8 twice, the page could recommend a rule the queue does not implement.
 RECOMMENDED_CONF = hc.WAIT_CONF
 
-# The frozen confirmatory read, written by dashboard/score_confirmatory.py. The
-# page reads the file rather than re-running the scorer, because the stopping
-# rule in bci-dashboard-docs/hypothesis.md says that read happens once, on the
-# complete set: a number that moved because a page was rebuilt would not be a
-# confirmatory number. Tracked for the same reason the frozen frame list is.
+# The frozen confirmatory read, written by dashboard/score_confirmatory.py. Read
+# from the file, never re-scored: bci-dashboard-docs/hypothesis.md says that read
+# happens once, on the complete set. Tracked, like the frozen frame list.
 CONFIRMATORY_CSV = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "input", "confirmatory_result_2026-08.csv")
 
 
 def is_family(n: str) -> bool:
-    """A one-word label ending in -aceae is a family, not a genus (exact:
-    every family name carries that suffix). It can never match a predicted
-    genus, so scoring it in a genus rate counts a guaranteed miss as
-    measured.
-    """
+    """A one-word label ending in -aceae is a family, not a genus (exact: every
+    family name carries that suffix). It can never match a predicted genus, so
+    scoring it in a genus rate counts a guaranteed miss as measured."""
     return n.strip().lower().endswith("aceae")
 
 
@@ -54,10 +48,9 @@ def conf(r):
 
 
 def camera_of(key):
-    """Which drone camera shot a frame, read off its key: ``zoom``
-    (wide-angle) or ``tele`` (long-lens) in the file name. Counted, not
-    assumed: the two populations are not the same one.
-    """
+    """Which drone camera shot a frame, read off its key: ``zoom`` (wide-angle)
+    or ``tele`` (long-lens) in the file name. Counted, not assumed: the two
+    populations are not the same one."""
     low = key.lower()
     for c in ("zoom", "tele"):
         if c in low:
@@ -68,10 +61,9 @@ def camera_of(key):
 
 
 def load_confirmatory(path=CONFIRMATORY_CSV):
-    """The frozen confirmatory read as a dict, or None if absent. Numeric
-    values come back as floats, the rest as strings. Absent is not an error:
-    a fresh clone that has not run the scorer still builds its other page.
-    """
+    """The frozen confirmatory read as a dict, or None if absent. Numeric values
+    come back as floats, the rest as strings. Absent is not an error: a fresh
+    clone that has not run the scorer still builds its other page."""
     if not os.path.exists(path):
         return None
     out = {}
@@ -84,19 +76,15 @@ def load_confirmatory(path=CONFIRMATORY_CSV):
     return out
 
 
-# Both pages state the list length in prose, and prose that disagrees with the
-# metric is the defect this file exists to prevent. Aliased from core rather than
-# restated, like RARE_MAX_SUPPORT above. prepare() checks the cache against it.
+# Both pages state the list length in prose, so it is aliased from core rather
+# than restated, like RARE_MAX_SUPPORT above. prepare() checks the cache too.
 N_CANDIDATES = hc.N_CANDIDATES
 
 
 def _rates(sp_recs, per_species):
     """The four corpus rates, and the two counts they are over.
-
-    One question asked two ways: counting species, so a rare one weighs as much
-    as a common one, and counting frames, so every frame weighs the same. Both
-    are reported because neither alone says how the model does.
-    """
+    One question two ways: per species, so a rare one weighs as much as a common
+    one, and per frame. Both, because neither alone says how the model does."""
     n, n_sp = len(sp_recs), len(per_species)
     c1 = sum(1 for r in sp_recs if top1(r) == r["gt"])
     c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:N_CANDIDATES]])
@@ -140,17 +128,14 @@ def _confidence_bands(sp_recs):
 
 def _out_of_reach(h, sp_recs, per_species):
     """What this evaluation cannot score, and what name matching is worth.
-
     "Never named" means the species is in no cached candidate list, so no
-    threshold scores it. Counted over the evaluated set and over every label:
-    the run log uses the second.
-    """
+    threshold scores it. Counted over the evaluated set and over every label,
+    and the run log uses the second."""
     never = sorted((d for d in per_species if not d["in_corpus_vocabulary"]),
                    key=lambda d: -d["n_labelled_crowns"])
     never_sp = {d["species"] for d in never}
     reach = [r for r in sp_recs if r["gt"] not in never_sp]
-    # Labels and predictions are canonicalised the same way before matching. Scoring
-    # the raw names says what that is worth, and it is a gain, never a source of error.
+    # Scoring the raw names says what canonicalisation is worth: always a gain.
     strict1 = sum(1 for r in sp_recs
                   if r["ranked_strict"] and r["ranked_strict"][0][0] == r["gt_strict"])
     return {
@@ -169,11 +154,8 @@ def _out_of_reach(h, sp_recs, per_species):
 
 def _queue(h, support, per_species):
     """The send-first queue over the unlabelled pool.
-
-    The ordering lives in ``queues``, and this is the same call measure.py
-    makes, so the page and send_first_queue.csv are one list read twice rather
-    than two lists that have to be reconciled.
-    """
+    The ordering lives in ``queues``, and this is the same call measure.py makes,
+    so the page and send_first_queue.csv are one list read twice."""
     acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     joined_stems = {stem for _, stem, _ in h.joined}
     rows, n_no_answer = queues.send_first_rows(h.predictions, joined_stems,
@@ -184,27 +166,22 @@ def _queue(h, support, per_species):
         "n_unlab": sum(counts.values()),
         "lt_species": Counter(pred for q, _, pred, _ in rows if q == "long_tail"),
         "queue_cams": Counter(camera_of(stem) for _, stem, _, _ in rows),
-        # In the form send_first_queue.csv writes them, so verify_snapshot can
-        # compare the two lists row for row.
+        # In the form send_first_queue.csv writes them, for verify_snapshot.
         "queue_keys": [hc.GT_KEY_PREFIX + stem for _, stem, _, _ in rows]}
 
 
 def _review(sp_recs):
     """Labels worth a second look: the model is sure and disagrees with the label.
-
     The same filter as measure.py's label_review_queue.csv, or verify_snapshot
-    aborts the build on the count mismatch. That check is the guard.
-    """
+    aborts the build on the count mismatch."""
     confident = [r for r in sp_recs if conf(r) >= hc.REVIEW_CONF]
     raised = [r for r in confident if top1(r) != r["gt"]]
     review = [r for r in raised if r["global_key"] not in hc.adjudicated_keys()]
     pairs = defaultdict(list)
     for r in review:
         pairs[(r["gt"], top1(r))].append(conf(r))
-    # The claim the review panel rests on. Measured, not asserted: it moves with
-    # every batch, and stale it argues for spending expert time on the wrong list.
-    # Counted over every disagreement, adjudicated or not: a botanist confirming
-    # the label makes the model's guess wrong, not right.
+    # The claim the review panel rests on, measured not asserted. Counted over
+    # every disagreement, since a confirmed label still leaves the guess wrong.
     hits = len(confident) - len(raised)
     return {"confident": confident, "review": review, "confident_hits": hits,
             "confident_ok": hits / len(confident),
@@ -213,10 +190,9 @@ def _review(sp_recs):
 
 
 def _error_by_support(sp_recs, support):
-    """Why being sure is not enough: error by labelled frames, at the lowest
-    band core.CONF_THRESHOLDS names. The queue page writes this threshold into
-    its own column header, so it reads it from here rather than typing it.
-    """
+    """Why being sure is not enough: error by labelled frames, at the lowest band
+    core.CONF_THRESHOLDS names. The queue page writes this threshold into its own
+    column header, so it reads it from here rather than typing it."""
     thr = hc.CONF_THRESHOLDS[0]
     flat = {}
     for r in sp_recs:
@@ -229,10 +205,8 @@ def _error_by_support(sp_recs, support):
 
 def _wait_rules(sp_recs, support):
     """Every queue-ordering rule the page compares, and the one it recommends.
-
     Which species clear the gate is decided from train frames only, then scored
-    on test only, so no rule is graded on the frames that defined it.
-    """
+    on test only, so no rule is graded on the frames that defined it."""
     train_support = defaultdict(int)
     for r in sp_recs:
         if r["split"] == "train":
@@ -265,15 +239,11 @@ def _wait_rules(sp_recs, support):
 
 
 def _genus_and_family(h):
-    """Frames labelled only to genus, and only to family, kept apart.
-
-    A family name can never equal a predicted genus, so mixing the two scores
-    guaranteed misses as measured ones.
-    """
+    """Frames labelled only to genus, and only to family, kept apart."""
     fam_recs = [r for r in h.genus_recs if is_family(r["gt"])]
     gen_recs = [r for r in h.genus_recs if not is_family(r["gt"])]
-    # Genus-only frames whose right answer is narrowed to one in-genus candidate:
-    # the cheapest confirmation on the page, a yes/no rather than an identification.
+    # Genus-only frames narrowed to one in-genus candidate: the cheapest
+    # confirmation on the page, a yes/no rather than an identification.
     in_gen = [sum(1 for b, _ in r["ranked"][:N_CANDIDATES] if hc.genus_of(b) == r["gt"])
               for r in gen_recs]
     gen_any = sum(1 for k in in_gen if k)
@@ -287,12 +257,9 @@ def _genus_and_family(h):
 
 def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     """Every figure both pages draw from, computed once off one ``Health``.
-
-    Each helper below owns one question and hands back the fields answering it;
-    this assembles them into the one object panels read. Read-only for builders
-    except ``checks``, filled in by the page after its own slice of
-    ``history.verify_snapshot`` runs.
-    """
+    Each helper owns one question and hands back the fields answering it; this
+    assembles them into the one object panels read. Read-only for builders except
+    ``checks``, filled in by the page after ``history.verify_snapshot`` runs."""
     sp_recs, per_species = h.sp_recs, h.per_species
     longest = max(len(r["ranked"]) for r in sp_recs + h.genus_recs)
     if longest > N_CANDIDATES:
@@ -306,17 +273,13 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
            "tag": model_tag_of(verify_dir, fallback_tag),
            "snap_date": snapshot_date_of(verify_dir),
            "scored_cams": Counter(camera_of(r["global_key"]) for r in sp_recs),
-           # How many scored frames the centre crop mostly misses. Read under
-           # the species table and again under the four corpus rates. The line
-           # is core.MIN_CROP_COVERAGE, the same split the coverage gate makes,
-           # not a 0.5 typed here: the page says "less than half the crop" and
-           # has to mean the threshold the rest of the page reports on.
+           # How many scored frames the centre crop mostly misses, split at
+           # core.MIN_CROP_COVERAGE rather than a 0.5 typed here.
            "crop_half": len(hc.coverage_split(sp_recs)[1]),
            "crop_none": sum(1 for r in sp_recs
                             if (r.get("crop_coverage") or 0) == 0),
-           # Every frame a botanist has labelled at all, whatever rank the
-           # name stops at and whether or not a Pl@ntNet answer was cached
-           # for it. The widest of the three frame counts the page reconciles.
+           # Every frame a botanist has labelled at all, whatever rank the name
+           # stops at and cached answer or not. The widest of the three counts.
            "n_gt": len(h.gt_rows)}
 
     fig.update(_rates(sp_recs, per_species))

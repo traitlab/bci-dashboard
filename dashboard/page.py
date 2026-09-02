@@ -1,12 +1,10 @@
 """How a page is put together: which panels it carries, and the plumbing.
 
-``PANELS`` names every panel on either page and ``EXTERNAL_PANELS`` /
-``INTERNAL_PANELS`` say which page carries which, so a panel names its audience
-here once instead of each builder keeping a list. ``render`` groups the chosen
-panels into sections; ``run`` is the whole of both builders' ``main()``.
+``PANELS`` names every panel and ``EXTERNAL_PANELS`` / ``INTERNAL_PANELS`` say
+which page carries which, so a panel names its audience once. ``render`` groups
+the chosen panels into sections; ``run`` is both builders' ``main()``.
 
-The panels themselves are elsewhere: the model-health ones in ``panels.py``,
-the queue page's in ``queue_panels.py``, the frozen experiment's in
+The panels themselves live in ``panels.py``, ``queue_panels.py`` and
 ``confirmatory_panels.py``. This module knows what a page is made of, never
 what a panel says.
 """
@@ -29,29 +27,26 @@ from queue_panels import p_conf, p_rules, p_send, p_todo, p_wait
 
 
 SECTIONS = {
-    # The headline band has no heading of its own: it sits directly under the cards
-    # and belongs to them. render() emits its panels bare when the title is None.
+    # The headline band belongs to the cards above it, so no heading of its own:
+    # render() emits its panels bare when the title is None.
     "headline": (None, None),
     "label-first": (
         "What to label first",
         "Which frames to send, which can wait, and the evidence behind the wait rule."),
     "model-health": (
         "How Pl@ntNet is doing against the labels",
-        # No live figure in a lede: SECTIONS is a constant, so a number written
-        # here would not move with the snapshot and nothing would catch it.
+        # No live figure in a lede: SECTIONS is a constant, so a number here
+        # would not move with the snapshot and nothing would catch it.
         "Which species it handles well, and which labels look worth a second look. "
         "Also why two fair ways of averaging the same frames disagree."),
     "limits": (
         "What this cannot tell you",
-        # The method panel sits here too, and it is provenance rather than a
-        # ceiling, so the lede says both instead of describing two-thirds of
-        # what the reader is about to open.
+        # The method panel sits here too and is provenance, not a ceiling.
         "The ceilings on every number above, and where the numbers came from."),
 }
 
 # panel id -> (section key, builder). A panel belongs to the goal it serves, so
-# the confidence evidence sits with the queue rule it justifies and the species
-# lookup sits with the scores it reports.
+# the confidence evidence sits with the queue rule it justifies.
 PANELS = {
     "confirmatory": ("headline", p_confirmatory),
     "caveats": ("headline", p_caveats),
@@ -70,15 +65,13 @@ PANELS = {
     "method": ("limits", p_method),
 }
 
-# The 2026-08-27 split. Internal is the labelling team's tool and stays thin;
-# its real deliverable is send_batches.csv. External is what leaves the lab, and
-# the confident disagreements go with it so they can be worked in Labelbox.
+# Internal is the labelling team's tool and stays thin, its deliverable being
+# send_batches.csv. External leaves the lab, carrying the confident
+# disagreements so they can be worked in Labelbox.
 INTERNAL_PANELS = ("todo", "send", "wait", "rules", "conf")
-# Order inside a section is the order these ids are listed in. A reader arrives to
-# look up a species, so the lookup comes before the averaging argument.
-# "terms" leads: frame, crown, label and centre crop are load-bearing from the
-# first card down, and a reader who met them third had already been through two
-# sections that used them.
+# Order inside a section is the order these ids are listed in. "terms" leads
+# because frame, crown, label and centre crop are load-bearing from the first
+# card down; the species lookup comes before the averaging argument.
 EXTERNAL_PANELS = ("terms", "counts", "confirmatory", "caveats", "species", "review",
                    "weighting", "candidates", "ceiling", "method")
 
@@ -91,8 +84,7 @@ if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
 def render(c, ids) -> str:
     """The chosen panels, grouped into their sections, in SECTIONS order.
 
-    A section with no chosen panel is not emitted at all, so a page never shows
-    a heading and a jump list over nothing.
+    A section with no chosen panel is not emitted, so no heading over nothing.
     """
     unknown = [i for i in ids if i not in PANELS]
     if unknown:
@@ -103,16 +95,12 @@ def render(c, ids) -> str:
         if not chosen:
             continue
         body = "\n".join(chosen)
-        # A titleless section is the headline band: its panels belong to the cards
-        # above them, so wrapping them in a heading would announce a second subject.
         out.append(body if title is None else section(title, lede, body))
     return "\n".join(out)
 
 
 # ---------------------------------------------------------------------------
-# The bits of a page that are not a panel: the command line, the document
-# wrapper, and writing the file. Both pages do these identically, and a second
-# copy is a second place for the verify flags to drift.
+# The bits of a page that are not a panel: command line, wrapper, file write.
 # ---------------------------------------------------------------------------
 
 def parse_args(doc: str, default_out: str):
@@ -138,8 +126,7 @@ def parse_args(doc: str, default_out: str):
 def document(title: str, body: str) -> str:
     """One self-contained file: every style and script inlined, nothing fetched.
 
-    No footer: the subtitle already carries the build date, the snapshot and the
-    model tag, and a second copy at the foot said nothing new.
+    No footer: the subtitle already carries build date, snapshot and model tag.
     """
     return ("<!DOCTYPE html>\n"
             '<html lang="en"><head><meta charset="utf-8">'
@@ -150,13 +137,10 @@ def document(title: str, body: str) -> str:
 
 
 def script_for(body: str) -> str:
-    """The script a page needs. The sort-and-filter half is 2.4KB about the
-    species table, and the queue page has no such table: it was shipping the
-    whole block to run its own `if(!table) return;`. Printing and jump links
-    are on every page.
+    """The script a page needs, the table half only where there is a table.
 
-    The table is written with the id the script looks up, so the id appearing
-    anywhere in the body is the page saying it has one. The CSS is trimmed
+    The sort-and-filter half is 2.4KB about the species table; the queue page
+    has none, so it gets printing and jump links alone. The CSS is trimmed
     against every class the whole script could write, not just this half.
     """
     return JS if TABLE_ID in body else EVERY_PAGE_JS
@@ -164,8 +148,8 @@ def script_for(body: str) -> str:
 
 def write_page(page: str, checks, out: str) -> None:
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
-    # Encoded here so the reported size is the size on disk: accented species names
-    # cost more than a byte each, and len(page) undercounts by ten.
+    # Encoded here so the reported size is the size on disk: accented species
+    # names cost more than a byte each and len(page) undercounts.
     blob = page.encode("utf-8")
     with open(out, "wb") as f:
         f.write(blob)
@@ -175,8 +159,7 @@ def write_page(page: str, checks, out: str) -> None:
 
 
 def run(doc: str, out_name: str, build) -> None:
-    """Load the data, build the page, write it. The whole of both builders'
-    ``main()``, which were identical apart from the two module constants."""
+    """Load the data, build the page, write it: both builders' ``main()``."""
     args = parse_args(doc, out_name)
     h = hl.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
                        wcvp_cache=args.wcvp_cache)

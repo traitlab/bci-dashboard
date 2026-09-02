@@ -1,19 +1,13 @@
 #!/usr/bin/env python3
 """A dashboard scoped to one Labelbox export, nothing else.
 
-The other two pages answer "how good is the model right now" from the
-*cumulative* record: every label collected across every past batch, merged.
-That is the right question for the labelling programme and a different question
-from "how did this one export do", which merging makes unanswerable from either
-page.
+The other two pages score the cumulative record, every batch merged, which
+makes "how did this one export do" unanswerable from either. This page reads
+one NDJSON export and scores Pl@ntNet on the crowns it labels, opening neither
+``gt_dominant_taxon.csv``, the photo corpus nor the send-first queues.
 
-This page answers only the second. It reads one NDJSON export directly and
-evaluates Pl@ntNet only on the crowns that export labels. It never opens
-``gt_dominant_taxon.csv``, the photo corpus, the send-first queues or the
-history trend: none of that is "this export".
-
-Read-only against Labelbox data: the export is parsed, never written back,
-and the cumulative GT file on disk is never touched (see CLAUDE.md).
+Read-only against Labelbox data: the export is parsed, never written back, and
+the cumulative GT file on disk is never touched (see CLAUDE.md).
 
     python3 dashboard/build_export_only.py \\
         --export "/path/to/Export  project - 2024_bci - 8_6_2026.ndjson" \\
@@ -55,12 +49,10 @@ from status_words import (STATUS, filter_options, legend_entries,
 
 
 def _load_gt_from_export():
-    """Import the merge script's ``export_dominants`` without duplicating its
-    NDJSON parse.
+    """Import the merge script's ``export_dominants``, no second NDJSON parse.
 
-    Loaded by path, not by package import: labelling/ is not a package on the
-    normal path, and this is the one function this page needs from it
-    (module-level only; ``main()`` is never called).
+    Loaded by path: labelling/ is not a package on the normal path, and only
+    its module level runs, never its ``main()``.
     """
     path = os.path.join(hc.REPO, "labelling", "gt_from_export.py")
     spec = importlib.util.spec_from_file_location("_gt_from_export", path)
@@ -74,9 +66,8 @@ def export_only_health(
 ) -> tuple[hl.Health, int]:
     """Load a ``Health`` computed only over this export's own labelled photos.
 
-    Returns ``(health, n_ndjson_rows)``. Writes a throwaway GT CSV to a temp
-    file so the existing, already-verified ``load_health`` join/scoring logic
-    can be reused unchanged; nothing is written under the repo.
+    Returns ``(health, n_ndjson_rows)``. The throwaway GT CSV goes to a temp
+    file so ``load_health`` is reused unchanged, nothing under the repo.
     """
     mod = _load_gt_from_export()
     with open(export_path, encoding="utf-8") as f:
@@ -103,18 +94,15 @@ def export_only_health(
     return h, n_rows
 
 
-# The heading and the browser tab say the same thing, so they say it once.
 TITLE = "Pl@ntNet on BCI: this export only"
 
 
 def export_counts(h, n_rows):
     """Where every row of the export ended up, and the rates over what is left.
 
-    The counts sum to the rows in the file, which is the point: a reader
-    seeing an accuracy over 31 photos should be able to see the other rows go
-    somewhere rather than wonder where they went. A cached answer can also be
-    an empty list of names, so that is a step of its own; without it the steps
-    stop summing the moment an export contains one.
+    The counts sum to the rows in the file: a reader seeing an accuracy over 31
+    photos can see where the other rows went. An empty list of names is a step
+    of its own, without it the steps stop summing.
     """
     sp_recs, per_species = h.sp_recs, h.per_species
     n, n_sp = len(sp_recs), len(per_species)
@@ -135,8 +123,7 @@ def export_counts(h, n_rows):
 
 
 def funnel_panel(k):
-    """Every row of the export ends in exactly one of these steps, so the counts
-    sum to the rows in the file."""
+    """Every row of the export ends in exactly one of these steps."""
     body = funnel_list([
         (k.n_rows, "rows in this NDJSON export"),
         (k.n_labelled,
@@ -159,9 +146,8 @@ def funnel_panel(k):
 def headline_panels(k):
     """The one big number, and the same question averaged the other way.
 
-    Both the wording and the markup come from ``assets.hero`` and HEADLINES,
-    which is what the model-health page renders: two pages calling one number
-    two things is a reader's problem before it is a maintenance one.
+    Wording and markup come from ``assets.hero`` and HEADLINES, so this page
+    and the model-health page cannot call one number two things.
     """
     _, question, averaged, _ = HEADLINES[0]
     out = [hero([(averaged, pctf(k.macro1),
@@ -187,9 +173,8 @@ def headline_panels(k):
 def species_panel(per_species):
     """The same table the model-health page renders, status column included.
 
-    Without the status a row says 40% and nothing says whether that is a species
-    the model gets wrong or one with too few labels to judge, which is the first
-    thing a reader of a single export wants to know.
+    Without the status, a row saying 40% does not say whether the model gets
+    that species wrong or has too few labels to judge it.
     """
     rows = []
     for d in per_species:
@@ -210,8 +195,7 @@ def species_panel(per_species):
 
 
 def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str:
-    """The page, top to bottom: what this export is, how it scored, and why the
-    rows that are not in that score are not in it."""
+    """The page, top to bottom: what this export is and how it scored."""
     k = export_counts(h, n_rows)
     P = [
         f"<h1>{esc(TITLE)}</h1>",
@@ -264,8 +248,7 @@ def main() -> None:
     print(f"  labelled (species) rows     : {len(h.gt_rows):,}")
     print(f"  joined to cached prediction : {len(h.sp_recs) + len(h.genus_recs):,}")
     print(f"  species-level, scoreable    : {len(h.sp_recs):,}")
-    # No verify list: this page is scoped to one export and has no snapshot to
-    # reconcile against, so it passes an empty one.
+    # No verify list: no snapshot to reconcile one export against.
     pg.write_page(page, [], args.out)
 
 

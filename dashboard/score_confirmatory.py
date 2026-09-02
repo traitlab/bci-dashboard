@@ -7,20 +7,18 @@ Two arms, one label:
 
 The label names the species whose crowns hold the largest summed box area over
 the frame. The crown rule mirrors that criterion at its own unit and the photo
-rule does not, which is the gap the experiment measures. A third arm, tiles, was
+rule does not, which is the gap the experiment measures. Tiles, a third arm, was
 dropped before any read (deviation A4), taking P1 and P4 with it and leaving P3,
 crown beats photo, as the primary prediction.
 
-Nothing here chooses anything: hypothesis.md fixed every rule, cluster unit, test
-and stopping rule before the data existed. A crown arm missing a frozen frame
-stamps the report EXPLORATORY, because the stopping rule allows one read on the
-complete set.
+hypothesis.md fixed every rule, cluster unit, test and stopping rule before the
+data existed. A crown arm missing a frozen frame stamps the report EXPLORATORY,
+because the stopping rule allows one read on the complete set.
 
     python dashboard/score_confirmatory.py [--adjudication out.csv] [--out CSV]
 
 ``--out`` writes the numbers the external page publishes. The page reads that
-file rather than re-running this script: a number that moved because a page was
-rebuilt would not be a confirmatory number.
+file rather than re-running this script: a rebuilt number is not confirmatory.
 """
 
 import argparse
@@ -35,9 +33,8 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import core
 from crop_overlap import FRAME_H, FRAME_W
 
-# The frame is a fixed size across the corpus, and crop_overlap is where that
-# is written down and checked. Typed here as 4000 * 3000 it was a second copy
-# in the one script whose numbers are frozen and never recomputed.
+# The frame is a fixed size across the corpus, written down and checked in
+# crop_overlap. Typed here it would be a second copy of a frozen number.
 FRAME_AREA = FRAME_W * FRAME_H
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
@@ -348,9 +345,8 @@ def result_rows(rows, complete, draws=BOOTSTRAP_DRAWS):
     copies of it.
     """
     # Composition, not a result: a rate over 300 frames is weighted by whatever
-    # those frames happen to hold, and a page that prints the rate without the
-    # weighting invites the same per-frame-average mistake the dashboard already
-    # argues against for the corpus numbers.
+    # those frames hold, the per-frame-average trap the dashboard argues against
+    # for the corpus numbers.
     by_species = {}
     for r in rows:
         by_species[r["gt"]] = by_species.get(r["gt"], 0) + 1

@@ -3,12 +3,9 @@
 One question, asked once on a set-aside sample and read once: does outlining
 the trees first beat sending the middle of the photo. ``confirmatory_hero``
 draws the two rates, ``p_confirmatory`` says what was done to each frame, and
-``p_caveats`` carries the two warnings the plan says must travel with the top
-number, in the plan's own words.
+``p_caveats`` carries the plan's two warnings in the plan's own words.
 
-Separate from ``panels.py`` because it is the one part of the page that quotes
-a pre-registered document rather than describing a measurement, and because
-those quotes are stored as literals nobody should reword here.
+Separate from ``panels.py`` because the quotes are literals nobody reworks.
 """
 
 from __future__ import annotations
@@ -18,11 +15,10 @@ from figures import CONFIRMATORY_CSV
 from panels import CAMERA_IS, CENTRE_CROP_IS
 
 def cam_phrase(cameras):
-    """Name the camera in the queue page's words, which are now the same words.
+    """Name the camera in the queue page's words.
 
-    The frozen sample is single-camera by design, but the field is read from the
-    frame keys rather than assumed, so a future sample carrying both must not
-    render as one camera with two names.
+    Read from the frame keys rather than assumed, so a future sample carrying
+    both cameras does not render as one camera with two names.
     """
     return (CAMERA_IS.get(cameras)
             or f"these cameras: <code>{esc(cameras)}</code>")
@@ -40,9 +36,8 @@ def confirmatory_hero(cf):
     """The two ways of asking, side by side, outline-first leading.
 
     Outline-first leads because it names the same thing the label names. The
-    centre-crop number stays beside it rather than being retired, because every
-    other number on this page is still measured that way and a reader needs the
-    two in the same field of view to know what the gap costs.
+    centre crop stays beside it because every other number on this page is
+    measured that way, and the gap only reads with both in view.
     """
     if cf is None:
         raise SystemExit(
@@ -54,12 +49,8 @@ def confirmatory_hero(cf):
             f"the confirmatory result is stamped {cf.get('stamp')!r}, not "
             f"'CONFIRMATORY'. The stopping rule says the read happens once on the "
             f"complete set, so an exploratory number must not be published here.")
-    # The card says what was done to the photo, not what the design calls it. A
-    # reader has to be able to tell the two numbers apart without opening a
-    # panel; "region-aligned" and "legacy" did not do that. What each way of
-    # asking did in detail is the panel below. The card keeps the rate, its
-    # support and its range, which is the whole of what a number needs to
-    # travel with.
+    # The card says what was done to the photo, not what the design calls it, so
+    # the two numbers can be told apart without opening the panel below.
     ways = (("crown", "A botanist outlined the trees first"),
             ("photo", "We sent the middle of the photo"))
     return hero([
@@ -70,24 +61,19 @@ def confirmatory_hero(cf):
          f'{pctf(cf[f"{way}_top1_site_lo"])} and {pctf(cf[f"{way}_top1_site_hi"])}.')
         for way, label in ways])
 
-# Quoted, not summarised, from bci-dashboard-docs/hypothesis.md. Both
-# amendments say in their own text that the writeup must carry these words
-# rather than a paraphrase, so they are stored as literals and rendered whole.
-# If either changes there, change it here in the same session.
-# The plan's three words, glossed so the quote below can be read. This is the
-# one place a page prints them: the words are retired from the page's own
-# prose in CONTEXT.md, and a glossary of somebody else's vocabulary is not the
-# page's own prose. `tests/test_plain_english.py` drops this block for the same
-# reason it drops the quote it introduces.
+# Quoted, not summarised, from bci-dashboard-docs/hypothesis.md: both amendments
+# require their own words, so they are literals rendered whole. If either changes
+# there, change it here in the same session. A2_GLOSS is the one place a page
+# prints vocabulary CONTEXT.md retires, which is why
+# `tests/test_plain_english.py` drops this block along with the quote.
 A2_GLOSS = (
     "<p>Three of the plan&rsquo;s words are not this page&rsquo;s. An <b>arm</b> is one "
     "way of asking. <b>Tiles</b> is a third way of asking, cut partway through. A "
     "<b>quadrat</b> is a marked-out ground plot.</p>")
 
-# The plan's own figure for the crown arm. It is quoted inside amendment A2
-# and named again in the sentence that glosses A2, so the gloss cannot end up
-# explaining a number the quote no longer carries. The quote itself is held to
-# hypothesis.md word for word by tests/test_pages.py.
+# The plan's own figure for the crown arm, named once so the gloss cannot end up
+# explaining a number the quote no longer carries. tests/test_pages.py holds the
+# quote to hypothesis.md word for word.
 A2_CROWN_TOP1 = "85.4%"
 
 A2_PRIOR_EXPOSURE = (
@@ -118,10 +104,9 @@ def p_confirmatory(c):
 
     Separate from the method panel because nothing here comes from the
     snapshot: it is a one-time read of frames fixed before the data existed,
-    and mixing it with the corpus numbers reports a rate on frames nobody
-    measured. Closed, like its neighbours -- a reader arrives to look something
-    up, not to read a method. What they must not miss is the line above the
-    band telling them to carry the warnings.
+    and mixing it with corpus numbers reports a rate on frames nobody measured.
+    Ships collapsed: a reader arrives to look something up, not to read a
+    method.
     """
     cf = c.cf
     if cf is None:
@@ -151,8 +136,7 @@ def p_confirmatory(c):
     return panel(
         'Where these two numbers come from, and what we did to each frame',
         # A pointer, not a second copy of the warning: the next panel gives the
-        # mechanism in full, and stating it twice made the pointer read as the
-        # whole story.
+        # mechanism in full.
         "<b>The top number is real but it was not produced blind.</b> It was measured on "
         "frames that were fixed before anyone looked.", body,
         # An explicit id, pinned by a test, so a saved link outlives the wording
@@ -162,18 +146,16 @@ def p_confirmatory(c):
 def p_caveats(c):
     """The two caveats the design requires, quoted, plus what the rate is not.
 
-    The amendment blocks are reproduced character-for-character from
-    ``hypothesis.md``, which requires the words rather than a summary.
+    The amendment blocks reproduce ``hypothesis.md`` character for character,
+    which is what it requires.
     """
     cf = c.cf
     if cf is None:
         raise SystemExit("p_caveats needs the frozen result; see confirmatory_hero")
     lo, hi = cf["crown_minus_photo_site_lo"], cf["crown_minus_photo_site_hi"]
     body = (
-        # The gap itself is stated in the always-visible note above this panel.
-        # Repeating it here said the same number twice within fifteen words, and
-        # said it with a different name for the centre crop each time. This panel
-        # adds the range, which is the part the note leaves out.
+        # The always-visible note above states the gap. This panel adds the
+        # range, which is the part the note leaves out.
         f'<p class="note"><strong>The gap between the two numbers is the finding, not '
         f'either number on its own.</strong> We are 95% sure the true gain is between '
         f'{100 * lo:+.1f} and {100 * hi:+.1f} points.</p>'
@@ -181,9 +163,7 @@ def p_caveats(c):
         f'{int(cf["crown_only_hits"])} frames outlining got the name right where the centre '
         f'crop got it wrong; on {int(cf["photo_only_hits"])} it went the other way. A gap '
         f'that lopsided almost never happens by chance, so we are confident it is real.</p>'
-        # "site-aware resampling" and "site-resampled" were the page's own words,
-        # not the plan's, and nothing on the page said what they meant. Said as
-        # what the test does instead.
+        # Named by what the test does, not by a term the page never defines.
         f'<p class="note">The plan named two tests, and both report a <b>p</b>: the chance '
         f'of a gap at least this big if outlining made no difference. Smaller means harder '
         f'to explain by luck. Re-drawing whole sites at random, rather than single frames, '
@@ -191,8 +171,7 @@ def p_caveats(c):
         f'McNemar test gives p = {cf["p_mcnemar_exact"]:.5f}. McNemar treats every frame as its own independent draw, and frames from '
         f'one site are not. So the plan named the re-drawing test as the answer where the '
         f'two disagree.</p>'
-        # Its own paragraph: the range is a different claim from the two p-values,
-        # not the same one restated.
+        # Its own paragraph: the range is a different claim from the p-values.
         f'<p class="note">The ordinary textbook range for the top number would read '
         f'{pctf(cf["crown_top1_wilson_lo"])} to {pctf(cf["crown_top1_wilson_hi"])}. It '
         f'treats every frame as its own independent draw too, so it is narrower than the '
@@ -202,14 +181,12 @@ def p_caveats(c):
         f'the outline-first method scored, on a different set of photos. That does not make '
         f'the number wrong and it does not touch the gap above, but the number has to travel '
         f'with this warning.</p>'
-        # The warning comes first, then the glossary key, then the quoted text --
-        # kept in that order rather than run together.
+        # Warning first, then the glossary key, then the quoted text.
         f'<p>Below in full is amendment A2 of <code>hypothesis.md</code>, in the '
         f'plan&rsquo;s words.</p>'
         + A2_GLOSS +
-        # The plan's own "top-1" is left unglossed on purpose: the sentence below
-        # says what A2_CROWN_TOP1 counts, and repeating the term would put it in
-        # this page's prose, which says "first guess" everywhere.
+        # The plan's "top-1" is left unglossed: the sentence below says what it
+        # counts, and this page's own prose says "first guess" everywhere.
         f'<p>The {A2_CROWN_TOP1} it names counts only a first guess, per crown, over '
         f'every labelled photo. '
         f'Do not read it against the {pctf(cf["crown_top1"])} at the top, which scores a '

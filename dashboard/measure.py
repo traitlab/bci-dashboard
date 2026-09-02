@@ -33,24 +33,22 @@ from queues import (
     chunk_send_batches, send_first_rows,
 )
 
-# Generated tables go where the repo's other generated files go. Writing them
-# beside the source left 700 KB of stale CSV in the module folder and needed
-# two ignore rules of its own to keep it out of git.
+# Generated tables go where the repo's other generated files go, not beside the
+# source, which needs ignore rules of its own to stay out of git.
 OUT_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "build", "tables")
 
-# Every file a run produces, in the order it reports them. Named once, so
-# nothing else can drift out of sync.
+# Every file a run produces, in the order it reports them, named once.
 OUTPUTS = ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
            "confidence_calibration.csv", "name_reconciliation.csv",
            "send_first_queue.csv", "send_batches.csv", "label_review_queue.csv",
            "coverage_gate.csv", "run_log.txt")
 
-# Three of those no build reads back. They are evidence a person opens, not
-# input to a page: what restricting candidates to the BCI list is worth, which
-# tier matched every label name, and the coverage threshold labelling/ shares
-# rather than a page input. Everything else is recomputed and compared on every
-# build, so a page cannot drift from the snapshot it was built against.
+# Three of those no build reads back. They are evidence a person opens: what
+# restricting candidates to the BCI list is worth, which tier matched every label
+# name, and the coverage threshold labelling/ shares. Everything else is
+# recomputed and compared on every build, so a page cannot drift from its
+# snapshot.
 NOT_READ_BACK_BY_A_BUILD = ("filter_gain.csv", "name_reconciliation.csv",
                             "coverage_gate.csv")
 
@@ -232,9 +230,8 @@ def bci_list_filter(h):
     """What restricting the model's candidates to the BCI species list buys.
 
     Re-ranking can only promote a species already in the returned list, so
-    reachability is tested on the canonicalised names the accuracy is scored
-    on. ``corpus_norm`` alone understates it and disagrees with
-    per_species_health.csv.
+    reachability is tested on the canonicalised names accuracy is scored on.
+    ``corpus_norm`` alone understates it and disagrees with the CSV.
     """
     sp_recs = h.sp_recs
     bci_list = {d["species"] for d in h.per_species}
@@ -293,9 +290,8 @@ def calibration_scopes(h):
     """The three populations the calibration table is computed over.
 
     The third is the species the proposed triage rule would whitelist: measured
-    well AND measured accurate. NOTE that whitelist is chosen on the same frames
-    it is then scored on, an optimistic, selection-biased number rather than an
-    out-of-sample estimate.
+    well AND measured accurate. That whitelist is chosen on the same frames it
+    is then scored on, so it is optimistic, not an out-of-sample estimate.
     """
     per_species, sp_recs = h.per_species, h.sp_recs
     well = {d["species"] for d in per_species
@@ -315,10 +311,9 @@ def calibration_scopes(h):
 def send_queue(h):
     """Which unlabelled frames reach the botanist first, as CSV rows.
 
-    Every cached response whose stem no GT row joined to is an unlabelled photo
-    with a prediction. The queue decision and its order live in ``queues``,
-    because figures.py builds the same list for the page. The columns are this
-    file's own.
+    A cached response whose stem no GT row joined to is an unlabelled photo with
+    a prediction. The queue decision and its order live in ``queues``, which
+    figures.py reads too; the columns are this file's own.
     """
     per_species = h.per_species
     support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
@@ -397,9 +392,8 @@ def main() -> None:
 
     queue_rows, q_counts, n_no_answer = send_queue(h)
     write_send_first_queue(out_dir, queue_rows)
-    # Species-grouped Labelbox send batches over the same priority order, capped
-    # at BATCH_SIZE rows each: the CSV policy is priority-first globally, then
-    # one species per batch so a send is never a mixed bag.
+    # Send batches over the same priority order, capped at BATCH_SIZE rows:
+    # priority-first globally, one species per batch, never a mixed bag.
     batch_rows = chunk_send_batches(queue_rows, batch_size=BATCH_SIZE)
     write_send_batches(out_dir, batch_rows)
     rl.log_send_queue(log, q_counts, batch_rows, n_no_answer)
