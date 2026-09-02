@@ -217,3 +217,28 @@ def test_the_quadrat_endpoint_is_the_same_project_as_the_identify_calls(ingest, 
     api, project = settings_project(settings)
     assert ingest.survey_tiles_url() == f"{api}/survey/tiles/{project}"
 
+
+
+def test_the_env_example_offers_every_key_a_script_reads():
+    """`.env.example` is the whole setup instruction for a new checkout.
+
+    The README says `.env` is the only place a key belongs and points at this
+    file to copy. Nothing compared the two lists, so adding a third service
+    would leave a new run failing on a missing variable with no hint that the
+    example never mentioned it. The `.env` itself cannot be read here, and does
+    not need to be: the example is what a new checkout starts from.
+    """
+    import re
+
+    example = (REPO / ".env.example").read_text(encoding="utf-8")
+    wanted = set()
+    for folder in ("predict", "labelling", "dashboard"):
+        for path in sorted((REPO / folder).glob("*.py")):
+            wanted |= set(re.findall(r'environ(?:\.get\(|\[)"([A-Z_]+_API_KEY)"',
+                                     path.read_text(encoding="utf-8")))
+    assert wanted, "no script reads an API key any more; this check has nothing to do"
+    missing = sorted(k for k in wanted if k not in example)
+    assert not missing, (
+        f".env.example does not offer {missing}, and a script reads it. A new "
+        f"checkout copying the example gets a run that stops on a name it was "
+        f"never told to set.")
