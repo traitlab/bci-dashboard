@@ -174,18 +174,19 @@ def test_the_docs_still_state_the_numbers_the_code_holds(what, doc, build):
         f"has to follow it.")
 
 
-def test_context_counts_the_sites_the_frame_list_actually_holds():
-    """CONTEXT.md tells a reader there are 17 sites, and the confirmatory draw
-    works its range out by drawing whole sites, so the number is the size of
-    the thing being sampled. It is not written down in any constant: it falls
-    out of `input/boxes/...csv`, the tracked file that defines the population.
-    Add a flight over an eighteenth site and every sentence about the draw is
-    off by one, with nothing failing.
+def frame_list_sites() -> set:
+    """The field sites the tracked frame list covers.
+
+    Not written down in any constant: it falls out of `input/boxes/...csv`, the
+    file that defines the population. Anything saying how many sites there are,
+    on a page or in CONTEXT.md, is held to this. Add a flight over an
+    eighteenth site and every sentence about the draw is off by one.
 
     The site is pulled out of the frame URL the way draw_confirmatory pulls it,
     by that file's own MISSION_RE, read as text: draw_confirmatory imports
     requests, and a check that needs the fetch stack installed is a check that
-    stops running."""
+    stops running.
+    """
     pattern = value_of("MISSION_RE", "predict/draw_confirmatory.py")
     assert pattern.startswith("re.compile(r\"") and pattern.endswith("\")"), (
         f"draw_confirmatory's MISSION_RE is no longer a plain compiled literal "
@@ -196,11 +197,18 @@ def test_context_counts_the_sites_the_frame_list_actually_holds():
     urls = csv.DictReader(frames.read_text(encoding="utf-8").splitlines())
     sites = {found.group(2) for row in urls
              if (found := mission.search(row["image_url"]))}
-
     assert sites, f"no site name matched {mission.pattern} in {frames.name}"
+    return sites
+
+
+def test_context_counts_the_sites_the_frame_list_actually_holds():
+    """CONTEXT.md tells a reader there are 17 sites, and the confirmatory draw
+    works its range out by drawing whole sites, so the number is the size of
+    the thing being sampled."""
+    sites = frame_list_sites()
     context = (REPO / "CONTEXT.md").read_text(encoding="utf-8")
     assert f"There are {len(sites)};" in context, (
-        f"{frames.name} covers {len(sites)} sites and CONTEXT.md says otherwise. "
+        f"the frame list covers {len(sites)} sites and CONTEXT.md says otherwise. "
         f"The sites are {sorted(sites)}.")
 
 

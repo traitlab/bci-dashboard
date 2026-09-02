@@ -43,6 +43,9 @@ from conftest import (
     species_rows,
     write_export_ndjson,
 )
+# The frame list is the one file that says how many field sites there are, and
+# reading it lives with the other checks that hold a number to its source.
+from test_shared_constants import frame_list_sites
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
@@ -496,3 +499,21 @@ def test_a_page_styles_every_class_it_renders(page):
     styled = set(re.findall(r"\.([A-Za-z][\w-]*)", css))
     assert not rendered - styled, (
         f"the page renders {sorted(rendered - styled)} with no rule for them")
+
+
+def test_a_page_counting_the_field_sites_counts_the_ones_the_frame_list_holds(page):
+    """A page saying "at 12 of the 17 field sites" gives two numbers of
+    different kinds. The 12
+    is measured, read off the frozen sample. The 17 is typed, and it is the
+    size of the whole corpus, which no CSV behind the page carries: the
+    builders never open the frame list. So it can only go stale, and the
+    sentence it sits in is the page's own statement of what it does not cover.
+    """
+    html, _, _ = page
+    named = re.search(r"of the (\d+) field sites", html)
+    if named is None:
+        return
+    sites = frame_list_sites()
+    assert int(named.group(1)) == len(sites), (
+        f"the page says {named.group(1)} field sites and the frame list covers "
+        f"{len(sites)}: {sorted(sites)}")
