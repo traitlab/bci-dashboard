@@ -273,8 +273,10 @@ def p_species(c):
         # and the filter reads it from there. The attribute repeated the
         # status on all 186 rows, about 4KB of markup saying it twice.
         attrs.append(' data-thin="1"' if _starts_hidden(d, st) else "")
-    n_thin = sum(1 for d in c.per_species
-                 if _starts_hidden(d, c.status[d["species"]]))
+    # The prose below says how many rows start hidden. Counted off the marks
+    # just made rather than by walking the species a second time, so the
+    # sentence cannot name a different number from the table.
+    n_thin = sum(1 for a in attrs if a)
     # Three things a reader needs before the table, kept as separate paragraphs:
     # how to work the table, how a status is chosen, and what the rates are
     # scored on.
