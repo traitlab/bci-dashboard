@@ -313,3 +313,22 @@ def test_the_crop_coverage_table_in_metrics_md_still_recomputes(core):
         assert printed == got[what], (
             f"metrics.md prints {printed} for {what}; recomputing from the "
             f"boxes gives {got[what]}.")
+
+
+def test_readme_names_the_csvs_no_build_reads_back(readme, measure):
+    """The README lists by name the CSVs that are evidence, not page input.
+
+    The count was guarded and the names were not, so the sentence could go on
+    naming a file a build had started reading back. Prose that names files is
+    only worth reading if it tracks the constant it cites.
+    """
+    named = measure.NOT_READ_BACK_BY_A_BUILD
+    block = readme[readme.index("evidence a person opens"):]
+    block = block[:block.index("\n\n")]
+    for name in named:
+        assert f"`{name}`" in block, (
+            f"measure.NOT_READ_BACK_BY_A_BUILD holds {name} and the README no "
+            f"longer names it among the CSVs no build reads back.")
+    words = {2: "Two", 3: "Three", 4: "Four", 5: "Five"}
+    assert readme.count(f"{words[len(named)]} of the nine CSVs") == 1, (
+        f"{len(named)} CSVs go unread and the README counts a different number.")
