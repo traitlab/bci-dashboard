@@ -17,7 +17,7 @@ import core as hc
 from assets import (CSS, JS, cap, esc, filterable_table, hero, num_cell, panel, pctf,
                     section, status_legend, status_tag, strip_comments, table)
 from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
-from explain import (candidates_panel, method_panel,
+from explain import (CONFIDENCE_IS_SHARED, candidates_panel, method_panel,
                      weighting_panel)
 from figures import (CONFIRMATORY_CSV, conf, top1)
 from history import latest_snapshot_dir
@@ -338,11 +338,10 @@ def p_species(c):
             + f'<p class="note">Hidden rows are still reachable: type a name, or pick a '
               f'status, and they appear. Tick <i>show all {c.n_sp}</i> to keep them all '
               f'on screen.</p>'
-            + '<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own score '
-              'for its first guess, averaged over that species&rsquo; frames. Pl@ntNet '
-              'spreads 100% of its confidence across every species it knows. So 0.86 '
-              'means it put nearly all of that on one name, and 0.32 means it was spread '
-              'thin.</p>'
+            + f'<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own '
+              f'score for its first guess, averaged over that species&rsquo; frames. '
+              f'{CONFIDENCE_IS_SHARED} So 0.86 means it put nearly all of that on one '
+              f'name, and 0.32 means it was spread thin.</p>'
             + filterable_table(
         [("Species", False), ("Labelled frames", True),
          ("First guess right", True), ("Right name in the list", True),
@@ -501,13 +500,15 @@ def p_caveats(c):
     cf = c.cf
     if cf is None:
         raise SystemExit("p_caveats needs the frozen result; see confirmatory_hero")
-    d, lo, hi = (cf["crown_minus_photo"], cf["crown_minus_photo_site_lo"],
-                 cf["crown_minus_photo_site_hi"])
+    lo, hi = cf["crown_minus_photo_site_lo"], cf["crown_minus_photo_site_hi"]
     body = (
+        # The gap itself is stated in the always-visible note above this panel.
+        # Repeating it here said the same number twice within fifteen words, and
+        # said it with a different name for the centre crop each time. This panel
+        # adds the range, which is the part the note leaves out.
         f'<p class="note"><strong>The gap between the two numbers is the finding, not '
-        f'either number on its own.</strong> Outlining the trees first is worth '
-        f'{100 * d:+.1f} points over sending the middle of the frame. We are 95% sure the '
-        f'true gain is between {100 * lo:+.1f} and {100 * hi:+.1f} points.</p>'
+        f'either number on its own.</strong> We are 95% sure the true gain is between '
+        f'{100 * lo:+.1f} and {100 * hi:+.1f} points.</p>'
         f'<p class="note">On '
         f'{int(cf["crown_only_hits"])} frames outlining got the name right where the centre '
         f'crop got it wrong; on {int(cf["photo_only_hits"])} it went the other way. A gap '

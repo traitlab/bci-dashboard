@@ -13,6 +13,13 @@ import core as hc
 from assets import esc, panel, pctf, svg_hbar, svg_weight_pair
 from crop_overlap import CROP_SIZE
 
+# Said in two panels that a reader can open independently: the species table,
+# where it explains what a confidence column of 0.86 means, and the candidates
+# panel, where it explains why a short list holds nearly all of it. Written
+# once so the two cannot say it in two voices.
+CONFIDENCE_IS_SHARED = ("Pl@ntNet spreads 100% of its confidence across every "
+                        "species it knows.")
+
 # One colour and name per labelled-frame band, both bars of the weighting chart.
 # All 4.5:1 against white so the in-bar number is readable.
 #
@@ -116,8 +123,8 @@ def candidates_panel(*, recs, n_scored, gen_n, gen_none):
           f'Nothing goes lower, and a model with no smaller numbers would not stop dead on '
           f'a round one, so the floor is a rule. A short list means fewer than {top} '
           f'species cleared it.</p>'
-          f'<p class="note">Pl@ntNet spreads 100% of its confidence across every species it '
-          f'knows. When it returns only {shortest}, that species holds '
+          f'<p class="note">{CONFIDENCE_IS_SHARED} When it returns only {shortest}, '
+          f'that species holds '
           f'{pctf(1 - hidden[shortest])} of the whole{mid_clause}. <b>When it returns a full '
           f'{top}, those {top} hold only {pctf(1 - hidden[top])} between them</b>, so a '
           f'typical {pctf(hidden[top])} sits on species we never received. On {half:,} of '
