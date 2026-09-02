@@ -1,18 +1,17 @@
 """Fold a Labelbox project export into the dominant-taxon GT.
 
-An earlier script no longer in the repo,
-``15a_export_gt_dominant_taxon.py``, derived the ground truth offline from
-``input/boxes/crop_bounding_boxes.csv``. On 2026-08-06 the botanists' July 2026
-revision pass was exported from the Labelbox project ``2024_bci`` as NDJSON:
-per-crown ``Planta`` boxes with a nested Radio ``Taxon``. Those labels are the
-revised record, so where the export covers a photo its label wins; photos the
-export does not cover keep the offline label, and photos newly labelled in the
-export are added.
+The botanists' July 2026 revision was exported from the Labelbox project
+``2024_bci`` as NDJSON on 2026-08-06: per-crown ``Planta`` boxes with a nested
+Radio ``Taxon``. Those labels are the revised record, so where the export
+covers a photo its label wins. Photos it does not cover keep the label an
+earlier script (``15a_export_gt_dominant_taxon.py``, no longer in the repo)
+derived offline from ``input/boxes/crop_bounding_boxes.csv``, and photos
+newly labelled in the export are added.
 
-Dominant taxon per photo is by summed box area, the same rule that script
-used on the crop CSV. Taxon option names carry trailing ALL-CAPS code tokens
-(``Mascagnia divaricata-MAS2DI`` / ``-MASCDI``); one or two trailing codes are
-stripped so name variants of one species collapse to the same string.
+Dominant taxon per photo is by summed box area, the rule that script used.
+Taxon option names carry trailing ALL-CAPS code tokens
+(``Mascagnia divaricata-MAS2DI`` / ``-MASCDI``); one or two are stripped so
+name variants of one species collapse to the same string.
 
 Rows outside the photo corpus (``splits.csv``) are dropped: the 2026-04-02
 mission's tele photos have no cached prediction and would only pad the
