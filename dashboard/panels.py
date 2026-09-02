@@ -578,11 +578,13 @@ def p_conf(c):
                  anchor="can-we-trust-the-confidence")
 
 
-# Below this many labelled frames a per-species rate has too few steps to
-# carry information: two frames can only read 0%, 50% or 100%. Those rows are
-# not deleted -- a botanist looks up their own species by name -- they start
-# hidden so the table opens on the rows that can be read.
-THIN_MIN_FRAMES = 5
+# The rows that start hidden are exactly the ones the page already calls "too
+# few labels to judge", so this is hc.WELL_SAMPLED_MIN_N and not a second
+# threshold of its own: a table hiding rows at 5 while the status beside them
+# switches at 10 makes a reader hunt for a rule that was never there. Those
+# rows are not deleted -- a botanist looks up their own species by name -- they
+# start hidden so the table opens on the rows that can be read.
+THIN_MIN_FRAMES = hc.WELL_SAMPLED_MIN_N
 
 
 def p_species(c):
@@ -604,11 +606,12 @@ def p_species(c):
                  if d["n_labelled_crowns"] < THIN_MIN_FRAMES)
     body = (status_legend([(st, STATUS[st][0], STATUS_REASON[st]) for st in STATUS])
             + f'<p class="note"><b>{n_thin} of these {c.n_sp} species start hidden.</b> '
-              f'They have fewer than {THIN_MIN_FRAMES} labelled frames each. On that few '
-              f'frames a rate can only read 0%, 100%, or a couple of steps in between, so '
-              f'it tells you nothing about the model. Type a name and the species appears '
-              f'anyway, and so does picking a status. Tick <i>show all {c.n_sp}</i> to keep '
-              f'them all on screen.</p>'
+              f'They carry fewer than {THIN_MIN_FRAMES} labelled frames each, the same '
+              f'cut-off as the &ldquo;too few labels to judge&rdquo; status. On that few '
+              f'frames a rate can only land on a handful of values, so it says little '
+              f'about the model. Type a name and the species appears anyway, and so does '
+              f'picking a status. Tick <i>show all {c.n_sp}</i> to keep them all on '
+              f'screen.</p>'
             + '<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own score '
               'for its first guess, averaged over that species&rsquo; frames. Pl@ntNet '
               'splits one whole unit of confidence across every species it knows. So 0.86 '
