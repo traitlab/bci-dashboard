@@ -23,7 +23,8 @@ def rows(*counts):
     out = []
     for i, n in enumerate(counts):
         for k in range(n):
-            out.append(["long_tail", f"s{i}_{k}.JPG", "train", f"species {i}", 0.5, 0, 0.0])
+            out.append(["long_tail", f"s{i}_{k}.JPG", "train", f"species {i}", 0.5, 0, 0.0,
+                        k + 1])
     return out
 
 
@@ -89,7 +90,7 @@ def test_the_batches_are_a_repartition_of_the_queue(queues):
 def test_a_species_keeps_the_place_its_first_row_earned(queues):
     # Species 1 reappears after species 2. It must not open a third group: the
     # queue's priority order is between species, and a species is visited once.
-    queue = rows(2, 2) + [["normal", "late.JPG", "train", "species 0", 0.9, 0, 0.0]]
+    queue = rows(2, 2) + [["normal", "late.JPG", "train", "species 0", 0.9, 0, 0.0, 9]]
     batches = queues.chunk_send_batches(queue, batch_size=100)
     assert groups_of(batches, 1) == ["species 0", "species 1"]
     assert [b[2] for b in batches][:3] == ["s0_0.JPG", "s0_1.JPG", "late.JPG"]
@@ -102,3 +103,18 @@ def test_an_empty_queue_makes_no_batches(queues):
 def test_a_batch_size_below_one_is_refused(queues):
     with pytest.raises(ValueError):
         queues.chunk_send_batches(rows(3), batch_size=0)
+
+
+def test_a_test_row_is_as_wide_as_the_file_the_chunker_reads(queues):
+    """The helper indexes by position, which is why it carries every column and
+    not just the three that are read. A column added to the file and not here
+    would shift the species out from under the chunker with nothing failing."""
+    assert len(rows(1)[0]) == len(queues.SEND_FIRST_COLUMNS)
+
+
+def test_the_order_a_photo_looks_new_in_does_not_reach_the_batches(queues):
+    """`send_first_rows` has already applied it. The batcher takes the queue in
+    the order it is given, so the new column is carried, never read."""
+    plain = queues.chunk_send_batches(rows(3, 2), batch_size=100)
+    shuffled = [r[:-1] + [100 - r[-1]] for r in rows(3, 2)]
+    assert queues.chunk_send_batches(shuffled, batch_size=100) == plain

@@ -26,11 +26,11 @@ from core import (
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
     REVIEW_CONF, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
-    GT_KEY_PREFIX, N_CANDIDATES,
+    GT_KEY_PREFIX, N_CANDIDATES, QUEUE_NOVELTY_CSV,
 )
 from queues import (
-    BATCH_SIZE, SEND_BATCH_COLUMNS, SEND_FIRST_COLUMNS,
-    chunk_send_batches, send_first_rows,
+    BATCH_SIZE, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_FIRST_COLUMNS,
+    chunk_send_batches, load_novelty, send_first_rows,
 )
 
 # Generated tables go where the repo's other generated files go, not beside the
@@ -317,17 +317,23 @@ def send_queue(h):
     A cached response whose stem no GT row joined to is an unlabelled photo with
     a prediction. The queue decision and its order live in ``queues``, which
     figures.py reads too; the columns are this file's own.
+
+    Also returns how many of those frames carried a novelty rank, so the run log
+    can say how much of the queue the ordering file actually reaches.
     """
     per_species = h.per_species
     support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
     top1_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     decided, n_no_answer = send_first_rows(
-        h.predictions, {stem for _, stem, _ in h.joined}, h.canon, support, top1_of)
+        h.predictions, {stem for _, stem, _ in h.joined}, h.canon, support, top1_of,
+        novelty=load_novelty(QUEUE_NOVELTY_CSV), key_prefix=GT_KEY_PREFIX)
     rows = [[q, GT_KEY_PREFIX + stem, h.split_of.get(GT_KEY_PREFIX + stem, ""),
              pred, f"{conf:.6f}", support.get(pred, 0),
-             fmt(top1_of.get(pred)) if pred in top1_of else ""]
-            for q, stem, pred, conf in decided]
-    return rows, Counter(q for q, _, _, _ in decided), n_no_answer
+             fmt(top1_of.get(pred)) if pred in top1_of else "",
+             "" if rank == NO_NOVELTY else rank]
+            for q, stem, pred, conf, rank in decided]
+    n_ranked = sum(1 for r in decided if r[4] != NO_NOVELTY)
+    return rows, Counter(r[0] for r in decided), n_no_answer, n_ranked
 
 
 def review_queue(h):
@@ -393,13 +399,13 @@ def main() -> None:
                        gain.sw_short, gain.sw_full_unreachable)
     rl.log_calibration(log, scopes, top1, head.n, good, good_recs)
 
-    queue_rows, q_counts, n_no_answer = send_queue(h)
+    queue_rows, q_counts, n_no_answer, n_ranked = send_queue(h)
     write_send_first_queue(out_dir, queue_rows)
     # Send batches over the same priority order, capped at BATCH_SIZE rows:
     # priority-first globally, one species per batch, never a mixed bag.
     batch_rows = chunk_send_batches(queue_rows, batch_size=BATCH_SIZE)
     write_send_batches(out_dir, batch_rows)
-    rl.log_send_queue(log, q_counts, batch_rows, n_no_answer)
+    rl.log_send_queue(log, q_counts, batch_rows, n_no_answer, n_ranked)
 
     review_rows, n_adjudicated = review_queue(h)
     write_label_review_queue(out_dir, review_rows)

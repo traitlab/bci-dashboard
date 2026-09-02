@@ -24,7 +24,7 @@ from confirmatory_panels import p_floor
 from panels import (
     p_ceiling, p_counts, p_method, p_review, p_species, p_terms,
     p_weighting)
-from queue_panels import p_evidence, p_send, p_todo
+from queue_panels import p_evidence, p_look, p_send, p_todo
 
 
 SECTIONS = {
@@ -54,6 +54,7 @@ PANELS = {
     "counts": ("headline", p_counts),
     "todo": ("label-first", p_todo),
     "send": ("label-first", p_send),
+    "look": ("label-first", p_look),
     "evidence": ("label-first", p_evidence),
     "weighting": ("model-health", p_weighting),
     "species": ("model-health", p_species),
@@ -65,7 +66,7 @@ PANELS = {
 # Internal is the labelling team's tool and stays thin, its deliverable being
 # send_batches.csv. External leaves the lab, carrying the confident
 # disagreements so they can be worked in Labelbox.
-INTERNAL_PANELS = ("todo", "send", "evidence")
+INTERNAL_PANELS = ("todo", "send", "look", "evidence")
 # Order inside a section is the order these ids are listed in. "terms" leads
 # because frame, crown, label and centre crop are load-bearing from the first
 # card down; the species lookup comes before the averaging argument.

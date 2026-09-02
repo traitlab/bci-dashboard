@@ -6,6 +6,7 @@ of their own, so two cannot drift by recomputing the same figure differently.
 
 from __future__ import annotations
 
+import base64
 import csv
 import os
 from collections import Counter, defaultdict
@@ -158,9 +159,13 @@ def _queue(h, support, per_species):
     so the page and send_first_queue.csv are one list read twice."""
     acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     joined_stems = {stem for _, stem, _ in h.joined}
-    rows, n_no_answer = queues.send_first_rows(h.predictions, joined_stems,
-                                               h.canon, support, acc_of)
-    counts = Counter(q for q, _, _, _ in rows)
+    # The same file measure.py reads, through the same loader. Two readings
+    # would order the page and send_first_queue.csv differently, and
+    # verify_snapshot aborts the build on the first row where they diverge.
+    rows, n_no_answer = queues.send_first_rows(
+        h.predictions, joined_stems, h.canon, support, acc_of,
+        novelty=queues.load_novelty(hc.QUEUE_NOVELTY_CSV), key_prefix=hc.GT_KEY_PREFIX)
+    counts = Counter(r[0] for r in rows)
     # The batch count the note quotes, from the same call measure.py makes, so
     # the number on the page is the number of batches in send_batches.csv.
     # chunk_send_batches reads send_first_queue.csv rows by position, and these
@@ -169,7 +174,7 @@ def _queue(h, support, per_species):
     at = {c: queues.SEND_FIRST_COLUMNS.index(c)
           for c in ("queue", "global_key", "predicted_species")}
     packable = []
-    for q, stem, pred, _conf in rows:
+    for q, stem, pred, _conf, _rank in rows:
         row = [""] * len(queues.SEND_FIRST_COLUMNS)
         row[at["queue"]] = q
         row[at["global_key"]] = hc.GT_KEY_PREFIX + stem
@@ -180,10 +185,102 @@ def _queue(h, support, per_species):
         "queue_rows": rows, "queue_counts": counts, "n_no_answer": n_no_answer,
         "n_unlab": sum(counts.values()),
         "n_batches": batch_rows[-1][0] if batch_rows else 0,
-        "lt_species": Counter(pred for q, _, pred, _ in rows if q == "long_tail"),
-        "queue_cams": Counter(camera_of(stem) for _, stem, _, _ in rows),
+        "lt_species": Counter(r[2] for r in rows if r[0] == "long_tail"),
+        "queue_cams": Counter(camera_of(r[1]) for r in rows),
+        # How much of the queue the ordering file reaches. A frame with no
+        # vector keeps its old place, so the page must not claim otherwise.
+        "n_ranked": sum(1 for r in rows if r[4] != queues.NO_NOVELTY),
         # In the form send_first_queue.csv writes them, for verify_snapshot.
-        "queue_keys": [hc.GT_KEY_PREFIX + stem for _, stem, _, _ in rows]}
+        "queue_keys": [hc.GT_KEY_PREFIX + r[1] for r in rows]}
+
+
+def _read_curve(path, columns):
+    """A curve file as a list of float tuples, or ``[]`` when it is not there.
+
+    The two curve files are written by hand, outside ``bin/refresh.sh``, so a
+    fresh clone has neither. Missing is a normal state and the panel says so; a
+    file whose columns have been renamed is not, and raises here rather than
+    drawing a chart that is quietly one column short.
+    """
+    if not os.path.exists(path):
+        return []
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        missing = set(columns) - set(reader.fieldnames or [])
+        if missing:
+            raise ValueError(f"{path}: missing column(s) {sorted(missing)}")
+        return [tuple(float(row[c]) for c in columns) for row in reader]
+
+
+def _first_reaching(points, level):
+    """The x of the first point at or above ``level``, or None if none is.
+
+    Both lines are read against the same level, so this runs twice on the same
+    number: how many photos each order needed to reach it.
+    """
+    for x, y in points:
+        if y >= level:
+            return x
+    return None
+
+
+def _thumbs(rows, per_queue):
+    """Small pictures for the head of each queue, as data: URIs.
+
+    Read off disk and encoded here so the panel does no file work. A frame with
+    no thumbnail is dropped rather than drawn as a gap: the fetch is a separate,
+    resumable step and a half-finished run must not put holes in the sheet.
+    """
+    out, seen = defaultdict(list), Counter()
+    for q, stem, pred, _conf, _rank in rows:
+        if seen[q] >= per_queue:
+            continue
+        path = os.path.join(hc.THUMB_DIR, f"{hc.GT_KEY_PREFIX}{stem}.jpg")
+        if not os.path.exists(path):
+            continue
+        seen[q] += 1
+        with open(path, "rb") as f:
+            uri = "data:image/jpeg;base64," + base64.b64encode(f.read()).decode("ascii")
+        out[q].append((stem, pred, uri))
+    return dict(out)
+
+
+def _look(rows, queue_cams, n_ranked):
+    """What the ordering by look did, in the two shapes a page can show it.
+
+    The discovery curve is scored on the frames that already carry a name, not
+    on the queue, so its population is carried alongside it and printed on the
+    chart. The novelty curve is the queue itself.
+    """
+    discovery = _read_curve(hc.DISCOVERY_CURVE_CSV,
+                            ("photos_named", "species_directed", "species_random"))
+    directed = [(x, y) for x, y, _ in discovery]
+    random_order = [(x, z) for x, _, z in discovery]
+    half = directed[-1][1] / 2 if directed else 0.0
+
+    novelty = _read_curve(hc.NOVELTY_CURVE_CSV,
+                          ("novelty_rank", "mean_distance_to_nearest_labelled"))
+
+    # The frames the ordering puts first, and their cameras. The labelled frames
+    # are all one camera, so a photo can read as new because of the lens. The
+    # same decile the ranker prints, so the page and the run agree.
+    ranked = sorted((r for r in rows if r[4] != queues.NO_NOVELTY), key=lambda r: r[4])
+    head = ranked[:max(1, int(n_ranked * hc.QUEUE_HEAD_SHARE))] if ranked else []
+    n_queue = sum(queue_cams.values()) or 1
+    return {
+        "discovery": directed, "discovery_random": random_order,
+        "discovery_half": half,
+        "discovery_half_directed": _first_reaching(directed, half),
+        "discovery_half_random": _first_reaching(random_order, half),
+        "discovery_species": directed[-1][1] if directed else 0,
+        "discovery_photos": directed[-1][0] if directed else 0,
+        "novelty_curve": novelty,
+        "head_n": len(head),
+        "head_tele": sum(1 for r in head if camera_of(r[1]) == "tele"),
+        "head_tele_share": hc.ratio(sum(1 for r in head if camera_of(r[1]) == "tele"),
+                                    len(head)),
+        "queue_tele_share": hc.ratio(queue_cams.get("tele", 0), n_queue),
+        "thumbs": _thumbs(rows, hc.THUMBS_PER_QUEUE)}
 
 
 def _review(sp_recs):
@@ -306,6 +403,7 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     fig.update(_confidence_bands(sp_recs))
     fig.update(_out_of_reach(h, sp_recs, per_species))
     fig.update(_queue(h, fig["support"], per_species))
+    fig.update(_look(fig["queue_rows"], fig["queue_cams"], fig["n_ranked"]))
     fig.update(_review(sp_recs))
     fig.update(_error_by_support(sp_recs, fig["support"]))
     fig.update(_wait_rules(sp_recs, fig["support"]))

@@ -274,6 +274,17 @@ def _text_w(text: str, font_px: float) -> float:
     return 1.06 * em * font_px
 
 
+def _axis_num(value: float) -> str:
+    """An axis tick a reader can take in at a glance.
+
+    Whole counts get a thousands separator; a fraction under one gets two
+    decimals, which is as fine as any distance on this page is ever read.
+    """
+    if abs(value) >= 10:
+        return f"{round(value):,}"
+    return f"{value:.2f}".rstrip("0").rstrip(".")
+
+
 def svg_hbar(rows, *, title=""):
     """Horizontal bars. ``rows`` = [(label, frac, right_text, color)].
     ``right_w`` grows to fit the longest value label rather than truncating
@@ -362,5 +373,100 @@ def svg_weight_pair(rows, *, label_a, label_b):
                  f'fill="{r[4]}" rx="2"/>'
                  f'<text x="{pad_l + 6}" y="{y + i * leg_h}" font-size="11" fill="#616161">'
                  f'{esc(r[0])}: {esc(r[3])}</text>')
+    o.append("</svg>")
+    return "\n".join(o)
+
+
+def svg_curve(series, *, title="", x_title="", y_title="", rules=(), marks=()):
+    """Lines over a shared pair of axes. ``series`` = ``[(label, points, colour)]``
+    with ``points`` = ``[(x, y), ...]`` in data units, read in x order.
+
+    The first continuous chart on this page. Every other one here is categorical,
+    because until now every published number was a share of a population. A curve
+    earns its place only when the *shape* is the finding: where two lines separate,
+    and where one of them flattens.
+
+    ``rules`` = ``[(y, label)]`` draws a dashed horizontal line, for the level a
+    reader is asked to compare against. ``marks`` = ``[(x, label)]`` drops a thin
+    vertical at a named position. Both take their values in data units and neither
+    is computed here: this function draws, it does not decide what is worth marking.
+
+    Scaling starts at zero on both axes. A curve on a cropped axis exaggerates,
+    and the whole point of the chart is that the gap between two lines is honest.
+    """
+    series = [s for s in series if s[1]]
+    if not series:
+        return ""
+    width, height = 620, 250
+    pad_l, pad_t, pad_b = 54, 26 if title else 10, 42
+    pad_r = max(12, math.ceil(_text_w(max((s[0] for s in series), key=len), 11) + 16))
+    x_max = max(float(x) for s in series for x, _ in s[1]) or 1.0
+    y_max = max(float(y) for s in series for _, y in s[1])
+    y_max = max(y_max, *(float(r[0]) for r in rules)) if rules else y_max
+    y_max = y_max or 1.0
+    plot_w, plot_h = width - pad_l - pad_r, height - pad_t - pad_b
+
+    def px(x):
+        return pad_l + plot_w * float(x) / x_max
+
+    def py(y):
+        return pad_t + plot_h * (1.0 - float(y) / y_max)
+
+    o = [f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
+         f'role="img" aria-label="{esc(title or "line chart")}">']
+    if title:
+        o.append(f'<text x="{pad_l}" y="16" font-size="12" fill="#616161">'
+                 f'{esc(title)}</text>')
+    # Frame first, so every line and label paints over it.
+    o.append(f'<line x1="{pad_l}" y1="{pad_t + plot_h}" x2="{pad_l + plot_w}" '
+             f'y2="{pad_t + plot_h}" stroke="#e0e0e0"/>'
+             f'<line x1="{pad_l}" y1="{pad_t}" x2="{pad_l}" y2="{pad_t + plot_h}" '
+             f'stroke="#e0e0e0"/>')
+    for frac in (0.0, 0.5, 1.0):
+        y = py(y_max * frac)
+        o.append(f'<text x="{pad_l - 8}" y="{y + 4:.1f}" font-size="11" fill="#6d6d6d" '
+                 f'text-anchor="end">{_axis_num(y_max * frac)}</text>')
+    for frac in (0.0, 0.5, 1.0):
+        x = px(x_max * frac)
+        anchor = "start" if frac == 0.0 else "end" if frac == 1.0 else "middle"
+        o.append(f'<text x="{x:.1f}" y="{pad_t + plot_h + 16}" font-size="11" '
+                 f'fill="#6d6d6d" text-anchor="{anchor}">{_axis_num(x_max * frac)}</text>')
+    for y_val, label in rules:
+        y = py(y_val)
+        o.append(f'<line x1="{pad_l}" y1="{y:.1f}" x2="{pad_l + plot_w}" y2="{y:.1f}" '
+                 f'stroke="#bdbdbd" stroke-dasharray="3 3"/>'
+                 # Right-anchored: a rule is drawn where a curve is heading, so
+                 # the left of it is the busiest part of the plot.
+                 f'<text x="{pad_l + plot_w - 4}" y="{y - 5:.1f}" font-size="11" '
+                 f'fill="#6d6d6d" text-anchor="end">{esc(label)}</text>')
+    for x_val, label in marks:
+        x = px(x_val)
+        o.append(f'<line x1="{x:.1f}" y1="{pad_t}" x2="{x:.1f}" y2="{pad_t + plot_h}" '
+                 f'stroke="#bdbdbd" stroke-dasharray="2 3"/>'
+                 f'<text x="{x + 4:.1f}" y="{pad_t + 11}" font-size="11" fill="#6d6d6d">'
+                 f'{esc(label)}</text>')
+    # Two lines that finish at the same value would print their labels on top of
+    # each other, which is exactly what happens when one order catches the other
+    # up. Push them apart, in the order they end, before anything is drawn.
+    ends = sorted(range(len(series)), key=lambda i: py(series[i][1][-1][1]))
+    label_y, floor = {}, None
+    for i in ends:
+        y = py(series[i][1][-1][1]) + 4
+        y = y if floor is None else max(y, floor + 13)
+        label_y[i], floor = y, y
+    for i, (label, points, colour) in enumerate(series):
+        d = " ".join(f"{'M' if j == 0 else 'L'}{px(x):.1f},{py(y):.1f}"
+                     for j, (x, y) in enumerate(points))
+        o.append(f'<path d="{d}" fill="none" stroke="{colour}" stroke-width="2" '
+                 f'stroke-linejoin="round"/>'
+                 f'<text x="{px(points[-1][0]) + 6:.1f}" y="{label_y[i]:.1f}" '
+                 f'font-size="11" fill="{colour}">{esc(label)}</text>')
+    if x_title:
+        o.append(f'<text x="{pad_l + plot_w / 2:.0f}" y="{height - 6}" font-size="11" '
+                 f'fill="#616161" text-anchor="middle">{esc(x_title)}</text>')
+    if y_title:
+        o.append(f'<text x="12" y="{pad_t + plot_h / 2:.0f}" font-size="11" fill="#616161" '
+                 f'text-anchor="middle" transform="rotate(-90 12 '
+                 f'{pad_t + plot_h / 2:.0f})">{esc(y_title)}</text>')
     o.append("</svg>")
     return "\n".join(o)
