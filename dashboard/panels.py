@@ -198,7 +198,8 @@ def p_review(c):
                    for r in top_review])
     # "label-and-guess pair" everywhere: the table above is introduced with that
     # phrase, and "confusion pair" was the same thing under a second name.
-    body += ('<p class="note">Not urgent: work this list after the send-first queues. A '
+    body += ('<p class="note">Not urgent: work this list after the queues on the label '
+             'queue page. A '
              'label-and-guess pair that keeps recurring is a signal about the species, '
              'not just the photo.</p>')
     if c.n_adjudicated:
@@ -299,9 +300,9 @@ def p_species(c):
 
 def p_ceiling(c):
     n, gn = c.n, c.gn
-    body = (f'<p class="note"><strong>{len(c.never)} species ({c.never_crowns} of the {n:,} '
-            f'evaluated frames) never appear in any answer the model gave us.</strong> '
-            f'Leaving them out raises the per-frame rate from {pctf(c.c1 / n)} to '
+    body = (f'<p class="note"><strong>Those {c.never_crowns} frames are '
+            f'{pctf(c.never_crowns / n)} of the {n:,} evaluated, and no answer the model '
+            f'gave us named their species.</strong> Leaving them out raises the per-frame rate from {pctf(c.c1 / n)} to '
             f'{pctf(c.reach1)} on {len(c.reach):,} centre crops.</p>'
             f'<p class="note">A wider count uses every one of the {len(c.h.gt_rows):,} '
             f'frames carrying a botanist label, genus-only frames and the few with no '
@@ -331,8 +332,8 @@ def p_ceiling(c):
               f'<p class="note">Of them, {c.gen_any:,} have at least one candidate in the '
               f'right genus among the five, and <strong>{c.gen_one:,} have exactly '
               f'one</strong>. That turns the question into a yes or no. Whether taking them '
-              f'down to species is worth expert time is a prioritisation question, not a '
-              f'model question.</p>'
+              f'down to species is worth expert time is a question for the label queue '
+              f'page, not a model question.</p>'
               f'<p class="note">A further {c.fam_n} frames are labelled to {c.fam_names} '
               f'<em>families</em> rather than genera, and are left out of the genus rate. A '
               f'family name can never match a predicted species name, and rolling the '

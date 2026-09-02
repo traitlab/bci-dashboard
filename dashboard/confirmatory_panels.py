@@ -24,8 +24,10 @@ def cam_phrase(cameras):
     frame keys rather than assumed, so a future sample carrying both must not
     render as one camera with two names.
     """
-    return ({"zoom": "the drone&rsquo;s wide-angle camera, named <code>zoom</code> in the "
-                     "file names",
+    # The file-name word contradicts the camera it names, so a reader who did
+    # not know that stops here assuming a typo. Said outright instead.
+    return ({"zoom": "the drone&rsquo;s wide-angle camera, which confusingly is named "
+                     "<code>zoom</code> in the file names",
              "tele": "the drone&rsquo;s long-lens camera, named <code>tele</code> in the "
                      "file names"}.get(cameras)
             or f"these cameras: <code>{esc(cameras)}</code>")
@@ -77,6 +79,16 @@ def confirmatory_hero(cf):
 # amendments say in their own text that the writeup must carry these words
 # rather than a paraphrase, so they are stored as literals and rendered whole.
 # If either changes there, change it here in the same session.
+# The plan's three words, glossed so the quote below can be read. This is the
+# one place a page prints them: the words are retired from the page's own
+# prose in CONTEXT.md, and a glossary of somebody else's vocabulary is not the
+# page's own prose. `tests/test_plain_english.py` drops this block for the same
+# reason it drops the quote it introduces.
+A2_GLOSS = (
+    "<p>Three of the plan&rsquo;s words are not this page&rsquo;s. An <b>arm</b> is one "
+    "way of asking. <b>Tiles</b> is a third way of asking, cut partway through. A "
+    "<b>quadrat</b> is a marked-out ground plot.</p>")
+
 A2_PRIOR_EXPOSURE = (
     "<p>What that does and does not undermine:</p><ul>"
     "<li><strong>The tiles arm is blind.</strong> Condition 4 excludes every frame with a "
@@ -130,8 +142,9 @@ def p_confirmatory(c):
         f'<p class="note"><strong>Where the range comes from.</strong> Frames shot at the '
         f'same site look alike, so treating them as {int(cf["n_frames"])} independent tries '
         f'would make us look surer than we are. Instead we re-ran the whole count '
-        f'{int(cf["bootstrap_draws"]):,} times. Each time we drew {int(cf["n_sites"])} whole '
-        f'sites at random, allowing repeats, and kept the middle 95% of the answers. That '
+        f'{int(cf["bootstrap_draws"]):,} times. Each time we drew {int(cf["n_sites"])} sites '
+        f'at random out of the same {int(cf["n_sites"])}, so some got picked twice and others '
+        f'not at all. We kept the middle 95% of the answers. That '
         f'is the range on each card above.</p>')
     return panel(
         'Where these two numbers come from, and what we did to each frame',
@@ -169,12 +182,11 @@ def p_caveats(c):
         # "site-aware resampling" and "site-resampled" were the page's own words,
         # not the plan's, and nothing on the page said what they meant. Said as
         # what the test does instead.
-        f'<p class="note">The plan named two tests. Re-drawing whole sites at random, '
-        f'rather than single frames, gives p '
-        f'{pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}; an exact McNemar test '
-        f'gives p = {cf["p_mcnemar_exact"]:.5f}. A <b>p</b> is the chance of a gap at '
-        f'least this big if outlining made no difference. Smaller means harder to explain '
-        f'by luck. McNemar treats every frame as its own independent draw, and frames from '
+        f'<p class="note">The plan named two tests, and both report a <b>p</b>: the chance '
+        f'of a gap at least this big if outlining made no difference. Smaller means harder '
+        f'to explain by luck. Re-drawing whole sites at random, rather than single frames, '
+        f'gives p {pfmt(cf["p_cluster_bootstrap"], cf["bootstrap_draws"])}. An exact '
+        f'McNemar test gives p = {cf["p_mcnemar_exact"]:.5f}. McNemar treats every frame as its own independent draw, and frames from '
         f'one site are not. So the plan named the re-drawing test as the answer where the '
         f'two disagree.</p>'
         # Its own paragraph: the range is a different claim from the two p-values,
@@ -191,9 +203,8 @@ def p_caveats(c):
         # The warning comes first, then the glossary key, then the quoted text --
         # kept in that order rather than run together.
         f'<p>Below in full is amendment A2 of <code>hypothesis.md</code>, in the '
-        f'plan&rsquo;s words. Two of them are not this page&rsquo;s: <b>tiles</b> is a third '
-        f'way of asking, cut partway through, and a <b>quadrat</b> is a marked-out ground '
-        f'plot.</p>'
+        f'plan&rsquo;s words.</p>'
+        + A2_GLOSS +
         # The plan's own "top-1" is left unglossed on purpose: the sentence below
         # says what its 85.4% counts, and repeating the term would put it in this
         # page's prose, which says "first guess" everywhere.
@@ -218,7 +229,7 @@ def p_caveats(c):
         f'{pctf(cf["top2_species_share"])} of its {int(cf["n_frames"])} frames. So the rate '
         f'leans towards what the model already knows best. That is this page&rsquo;s own '
         f'objection to the <a href="#why-the-two-headline-scores-differ">'
-        f'{pctf(c.now["micro_top1"])} figure below</a>. The plan asked for no '
+        f'per-frame figure below</a>. The plan asked for no '
         f'per-species average here, so none is published.</li>'
         f'<li><strong>It is one camera, and not every site.</strong> Every frame '
         f'was shot with {cam_phrase(cf["cameras"])}, at {int(cf["n_sites"])} of '
