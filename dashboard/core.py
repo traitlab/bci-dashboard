@@ -99,8 +99,8 @@ BUCKET_ORDER = [lab for _, _, lab in SUPPORT_BUCKETS]
 WELL_SAMPLED_MIN_N = 10
 
 # Send-first queue thresholds, applied in ``queues.py``. Labelling buys most on
-# the long tail and on weak guesses at usually-right species. Below LOW_CONF the calibration table puts
-# the first guess right only ~38% of the time.
+# the long tail and on weak guesses at usually-right species. Below LOW_CONF
+# the calibration table puts the first guess right only ~38% of the time.
 LOW_CONF = 0.5
 WAIT_CONF = 0.8
 # A species with at least this many labelled crowns and this measured top-1 is

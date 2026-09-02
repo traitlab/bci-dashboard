@@ -208,8 +208,8 @@ def p_caveats(c):
         f'plan&rsquo;s words.</p>'
         + A2_GLOSS +
         # The plan's own "top-1" is left unglossed on purpose: the sentence below
-        # says what its 85.4% counts, and repeating the term would put it in this
-        # page's prose, which says "first guess" everywhere.
+        # says what A2_CROWN_TOP1 counts, and repeating the term would put it in
+        # this page's prose, which says "first guess" everywhere.
         f'<p>The {A2_CROWN_TOP1} it names counts only a first guess, per crown, over '
         f'every labelled photo. '
         f'Do not read it against the {pctf(cf["crown_top1"])} at the top, which scores a '

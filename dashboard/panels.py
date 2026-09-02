@@ -24,8 +24,10 @@ from status_words import (STATUS, filter_options, legend_entries,
 REVIEW_PREVIEW = 15
 
 
-# A 2x2 grid: question asked (rows) by how it was averaged (columns), because
-# 50.3% / 79.5% side by side reads as one superseding the other.
+# A 2x2 grid: question asked (rows) by how it was averaged (columns). The two
+# averages of one question, printed side by side in a line, read as one
+# superseding the other. The rates are not named here: they move with the
+# corpus and this grid is what renders them.
 # (metric, question, averaged over, note).
 # What each drone camera is, as a noun phrase both pages can drop into their own
 # sentence. The file-name word contradicts the camera it names, so a reader who
