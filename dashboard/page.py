@@ -19,7 +19,7 @@ import os
 import core as hc
 import health as hl
 from assets import css_for, section, strip_comments
-from style import CSS, JS
+from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
 from history import latest_snapshot_dir
 from confirmatory_panels import p_caveats, p_confirmatory
 from panels import (
@@ -146,7 +146,20 @@ def document(title: str, body: str) -> str:
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             f"<title>{title}</title>"
             f"<style>{css_for(strip_comments(CSS), body + JS)}</style></head><body>" + body
-            + f"<script>{strip_comments(JS)}</script></body></html>")
+            + f"<script>{strip_comments(script_for(body))}</script></body></html>")
+
+
+def script_for(body: str) -> str:
+    """The script a page needs. The sort-and-filter half is 2.4KB about the
+    species table, and the queue page has no such table: it was shipping the
+    whole block to run its own `if(!table) return;`. Printing and jump links
+    are on every page.
+
+    The table is written with the id the script looks up, so the id appearing
+    anywhere in the body is the page saying it has one. The CSS is trimmed
+    against every class the whole script could write, not just this half.
+    """
+    return JS if TABLE_ID in body else EVERY_PAGE_JS
 
 
 def write_page(page: str, checks, out: str) -> None:

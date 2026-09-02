@@ -191,8 +191,9 @@ COUNT_ID = "species-count"
 THIN_ID = "show-thin"
 
 # Client-side sort + filter, vanilla. string.Template, not an f-string: the
-# body is mostly JS braces an f-string would need escaped.
-JS = Template("""\
+# body is mostly JS braces an f-string would need escaped. Only a page with the
+# species table gets it; see ``EVERY_PAGE_JS`` below.
+TABLE_JS = Template("""\
 (function(){
   var table=document.getElementById('$table_id');
   if(!table) return;
@@ -278,7 +279,13 @@ JS = Template("""\
   if(thin) thin.addEventListener('change',apply);
   apply();
 })();
+""").substitute(table_id=TABLE_ID, input_id=INPUT_ID, select_id=SELECT_ID,
+                count_id=COUNT_ID, thin_id=THIN_ID)
 
+# Printing and jump links, which every page needs. Kept apart from the block
+# above because that one is 2.4KB about a table two of the three pages have and
+# the queue page was carrying it to run `if(!table) return;`.
+EVERY_PAGE_JS = """\
 // Printing. The model-health page opens nothing and the queue page opens two, so
 // printing either as it sits would hand someone a sheet of headings. Open everything for the print, then put
 // it back, and keep this out of the block above, which returns early when there is
@@ -315,5 +322,6 @@ JS = Template("""\
   window.addEventListener('hashchange',openHash);
   openHash();
 })();
-""").substitute(table_id=TABLE_ID, input_id=INPUT_ID, select_id=SELECT_ID,
-                count_id=COUNT_ID, thin_id=THIN_ID)
+"""
+
+JS = TABLE_JS + EVERY_PAGE_JS

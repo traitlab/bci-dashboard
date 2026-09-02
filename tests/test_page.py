@@ -194,7 +194,11 @@ def test_document_embeds_css_and_js_inline_with_no_external_reference(assets, pa
     # the CSS also drops the rules for classes this body never renders.
     css = assets.css_for(strip_comments(pagemod.CSS), "<p>body</p>" + pagemod.JS)
     assert f"<style>{css}</style>" in html
-    assert f"<script>{strip_comments(pagemod.JS)}</script>" in html
+    # This body has no species table, so it gets the half of the script every
+    # page needs and not the 2.4KB that drives one.
+    assert f"<script>{strip_comments(pagemod.EVERY_PAGE_JS)}</script>" in html
+    with_table = pagemod.document("T", f"<table id={pagemod.TABLE_ID!r}></table>")
+    assert strip_comments(pagemod.JS) in with_table
     # Stripping is comments only: no rule and no statement may go with them.
     assert "box-sizing:border-box" in html and "addEventListener" in html
     assert "/*" not in html.split("</style>")[0]

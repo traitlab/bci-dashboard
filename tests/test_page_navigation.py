@@ -40,28 +40,29 @@ def test_every_id_the_js_looks_up_exists_exactly_once(page):
     script = _SCRIPT_BODY.search(html)
     assert script, "no inline <script> block -- JS was not embedded"
     ids = _GETELEMENTBYID.findall(script.group(1))
+    if "species" not in carries:
+        # A page with no species table is not sent the block that drives one,
+        # so it looks nothing up. That is the whole of the claim below for
+        # such a page: no half-wired filter, because no filter.
+        assert not ids, (
+            f"page carries no species table and was still sent the script that "
+            f"reaches for {ids}")
+        return
     assert ids, "no getElementById calls found in the inline script"
     counts = {}
     for m in _ID_ATTR.finditer(html):
         counts[m.group(1)] = counts.get(m.group(1), 0) + 1
     found = {eid: counts.get(eid, 0) for eid in ids}
-    if "species" in carries:
-        for eid, k in found.items():
-            # Two lookups are guarded in the JS: the status select, absent on a
-            # page with no statuses to offer, and the show-all checkbox, absent
-            # on a page that hides no rows. Every other id is dereferenced
-            # straight away and has to be there exactly once.
-            flag = GUARDED_IDS.get(eid)
-            want = 1 if (flag is None or flag in carries) else 0
-            assert k == want, (
-                f"id {eid!r} (looked up by the inline JS) appears {k} times in the "
-                f"page, not {want}")
-    else:
-        # The whole block guards on the species table and returns early without
-        # one, so every id it reaches for has to be absent together. Half of
-        # them present is a page that throws on the first keystroke.
-        assert set(found.values()) == {0}, (
-            f"page carries no species table but wires up part of the filter: {found}")
+    for eid, k in found.items():
+        # Two lookups are guarded in the JS: the status select, absent on a
+        # page with no statuses to offer, and the show-all checkbox, absent on
+        # a page that hides no rows. Every other id is dereferenced straight
+        # away and has to be there exactly once.
+        flag = GUARDED_IDS.get(eid)
+        want = 1 if (flag is None or flag in carries) else 0
+        assert k == want, (
+            f"id {eid!r} (looked up by the inline JS) appears {k} times in the "
+            f"page, not {want}")
 
 
 # ---------------------------------------------------------------------------
