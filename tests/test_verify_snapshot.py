@@ -1,11 +1,10 @@
 """Direct tests for dashboard/history.py's verify_snapshot.
 
 verify_snapshot is the single gate that aborts every page build when the
-freshly computed numbers disagree with the committed model-health snapshot,
-and it had no tests at all before this file (tests/test_snapshot_gate.py only
-covers latest_snapshot_dir). These tests build a synthetic snapshot directory
-directly, against the synthetic snapshot directory `snapshot_harness.py`
-writes. No real snapshots/ folder is read and no page is built.
+freshly computed numbers disagree with the committed model-health snapshot.
+These tests call it directly, against the synthetic snapshot directory
+`snapshot_harness.py` writes under tmp_path. No real snapshots/ folder is read
+and no page is built.
 
     .venv/bin/pytest tests/test_verify_snapshot.py
 """
