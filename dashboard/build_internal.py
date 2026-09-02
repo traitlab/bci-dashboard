@@ -23,17 +23,15 @@ URL with every style, script and chart inlined.
 
 from __future__ import annotations
 
-import datetime as _dt
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import core as hc
 import figures
 import panels as pn
 from assets import esc, hero
-from history import latest_snapshot_dir, verify_snapshot
+from history import verify_snapshot
 
 OUT_NAME = "label_queue_dashboard.html"
 TITLE = "BCI labelling: what to label next"
@@ -73,13 +71,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
 
 
 def main() -> None:
-    args = pn.parse_args(__doc__, OUT_NAME)
-    h = hc.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
-                       wcvp_cache=args.wcvp_cache)
-    page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),
-                         verify_dir=args.verify_against or latest_snapshot_dir(),
-                         fallback_tag=args.model_tag)
-    pn.write_page(page, checks, args.out)
+    pn.run(__doc__, OUT_NAME, build)
 
 
 if __name__ == "__main__":

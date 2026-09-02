@@ -22,6 +22,7 @@ Stdlib only, like the rest of ``dashboard/``.
 
 from __future__ import annotations
 
+import datetime as _dt
 import os
 import sys
 
@@ -34,6 +35,7 @@ from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
 from explain import (candidates_panel, method_panel,
                      weighting_panel)
 from figures import (CONFIRMATORY_CSV, conf, top1)
+from history import latest_snapshot_dir
 from queue_panels import p_conf, p_rules, p_send, p_todo, p_wait
 from status_words import STATUS, STATUS_REASON, status_precedence_note
 
@@ -809,3 +811,15 @@ def write_page(page: str, checks, out: str) -> None:
     for c in checks:
         print(f"  verified  {c}")
     print(f"  wrote     {out}  ({len(blob):,} bytes)")
+
+
+def run(doc: str, out_name: str, build) -> None:
+    """Load the data, build the page, write it. The whole of both builders'
+    ``main()``, which were identical apart from the two module constants."""
+    args = parse_args(doc, out_name)
+    h = hc.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
+                       wcvp_cache=args.wcvp_cache)
+    page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),
+                         verify_dir=args.verify_against or latest_snapshot_dir(),
+                         fallback_tag=args.model_tag)
+    write_page(page, checks, args.out)
