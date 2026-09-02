@@ -1,11 +1,12 @@
-"""One number, written down in two files, with nothing comparing the copies.
+"""One number, written down in two files or three, with nothing comparing
+the copies.
 
-Each pair below is a fact two scripts have to agree on. Where one of them
-already imports the other, the copy was deleted instead and no pair appears
+Each row below is a fact several scripts have to agree on. Where one of them
+already imports the other, the copy was deleted instead and no row appears
 here: `labelling/next_batch.py` and `predict/crown.py` both read
-`core.GT_KEY_PREFIX`. What is left are pairs across
-directories that share no import, where deleting a copy would cost an import
-edge for one integer. So the copies stay and this file holds them level.
+`core.GT_KEY_PREFIX`. What is left are copies across directories that share no
+import, where deleting one would cost an import edge for one integer. So the
+copies stay and this file holds them level.
 
 The comparison is on the source text, not on imported modules: these scripts
 pull in requests, numpy and pandas, and a test that needs the fetch stack
@@ -23,19 +24,22 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 
-# (constant, file, file, what breaks when the two drift apart)
-PAIRS = [
-    ("MIN_BOX_SIDE", "predict/crown.py", "predict/draw_confirmatory.py",
+# (constant, the files that write it down, what breaks when they drift apart)
+COPIES = [
+    ("MIN_BOX_SIDE", ["predict/crown.py", "predict/draw_confirmatory.py",
+                      "dashboard/score_confirmatory.py"],
      "the frozen sample's stated rule is 'a labelled crown at least this many "
-     "pixels on both sides'. If the fetcher and the draw disagree, the sample "
-     "holds crowns the frozen manifest never certified, and --verify does not "
-     "catch it: it compares the draw against the committed CSV, not against "
-     "the rule that produced the pool."),
-    ("DEFAULT_MAX_CALLS", "predict/crown.py", "predict/photo.py",
+     "pixels on both sides'. The three files fetch the crowns, draw the sample "
+     "and score it. If they disagree, the sample holds crowns the frozen "
+     "manifest never certified, or the score reads a different set of crowns "
+     "than the draw certified, and --verify does not catch it: it compares the "
+     "draw against the committed CSV, not against the rule that produced the "
+     "pool."),
+    ("DEFAULT_MAX_CALLS", ["predict/crown.py", "predict/photo.py"],
      "both scripts spend from one 10,000/day identify quota. Raise the cap in "
      "one and the pair can cross it, so the second run dies on HTTP 429 partway "
      "through the corpus."),
-    ("EMBEDDING_DIMS", "predict/embed.py", "predict/aggregate_survey.py",
+    ("EMBEDDING_DIMS", ["predict/embed.py", "predict/aggregate_survey.py"],
      "both use it as an equality filter, not an assertion. If Pl@ntNet's vector "
      "width moves and one file follows, aggregate_survey collects nothing, "
      "prints 'Embeddings: 0 photos' and exits 0."),
@@ -56,11 +60,12 @@ def value_of(name: str, relative: str) -> str:
     return found.group(1).strip()
 
 
-@pytest.mark.parametrize("name,left,right,breaks", PAIRS,
-                         ids=[p[0] for p in PAIRS])
-def test_the_two_copies_say_the_same_thing(name, left, right, breaks):
-    assert value_of(name, left) == value_of(name, right), (
-        f"{left} and {right} disagree about {name}. Because {breaks}")
+@pytest.mark.parametrize("name,files,breaks", COPIES,
+                         ids=[c[0] for c in COPIES])
+def test_every_copy_says_the_same_thing(name, files, breaks):
+    written = {f: value_of(name, f) for f in files}
+    assert len(set(written.values())) == 1, (
+        f"the files disagree about {name}: {written}. Because {breaks}")
 
 
 def test_the_calibration_and_the_queue_use_one_confidence_cut():
@@ -72,3 +77,35 @@ def test_the_calibration_and_the_queue_use_one_confidence_cut():
     assert value_of(name_a, file_a) == value_of(name_b, file_b), (
         f"{file_a}'s {name_a} and {file_b}'s {name_b} are the same cut written "
         f"twice, and they no longer agree.")
+
+
+# The function is nine words of string formatting, but it is the name of a file
+# on disk: predict/crown.py writes data/crowns/cache/<crown_id>.json, and
+# dashboard/score_confirmatory.py reads it back. dashboard/ is stdlib only and
+# crown.py imports requests, so the reader cannot import the writer.
+CROWN_ID = ["predict/crown.py", "dashboard/score_confirmatory.py"]
+
+
+def body_of(name: str, relative: str) -> str:
+    """A function's body, comments and docstring dropped, blank lines dropped."""
+    source = (REPO / relative).read_text(encoding="utf-8").splitlines()
+    starts = [i for i, line in enumerate(source) if line.startswith(f"def {name}(")]
+    assert starts, f"{relative} no longer defines {name}"
+    body = []
+    for line in source[starts[0] + 1:]:
+        if line and not line.startswith((" ", "\t")):
+            break
+        stripped = line.strip()
+        if stripped and not stripped.startswith(("#", '"""')):
+            body.append(stripped)
+    return "\n".join(body)
+
+
+def test_the_writer_and_the_reader_spell_the_crown_cache_name_alike():
+    """One drifted character and score_confirmatory finds no file for any
+    crown. It counts those as absent and reports the frame on the frames that
+    are left, so the run stays green and the crown arm quietly thins out."""
+    writer, reader = CROWN_ID
+    assert body_of("crown_id", writer) == body_of("crown_id", reader), (
+        f"{writer} names the crown cache files and {reader} looks them up. "
+        f"They no longer build the name the same way.")
