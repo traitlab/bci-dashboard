@@ -49,6 +49,9 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 # The status dropdown is the only element the inline JS tolerates missing, so
 # the id-presence check below has to know which one it is.
 STATUS_SELECT_ID = "status-filter"
+# id -> the flag a page must carry for that element to be rendered. Both are
+# looked up behind a guard in the JS, so their absence is correct, not a break.
+GUARDED_IDS = {STATUS_SELECT_ID: "species_status", "show-thin": "species_thin"}
 
 
 
@@ -230,10 +233,12 @@ def test_every_id_the_js_looks_up_exists_exactly_once(page):
     found = {eid: counts.get(eid, 0) for eid in ids}
     if "species" in carries:
         for eid, k in found.items():
-            # The status select is the one lookup the JS guards, because a page
-            # with no statuses to offer ships no select. Every other id is
-            # dereferenced straight away and has to be there exactly once.
-            want = 1 if (eid != STATUS_SELECT_ID or "species_status" in carries) else 0
+            # Two lookups are guarded in the JS: the status select, absent on a
+            # page with no statuses to offer, and the show-all checkbox, absent
+            # on a page that hides no rows. Every other id is dereferenced
+            # straight away and has to be there exactly once.
+            flag = GUARDED_IDS.get(eid)
+            want = 1 if (flag is None or flag in carries) else 0
             assert k == want, (
                 f"id {eid!r} (looked up by the inline JS) appears {k} times in the "
                 f"page, not {want}")

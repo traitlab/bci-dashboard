@@ -578,6 +578,13 @@ def p_conf(c):
                  anchor="can-we-trust-the-confidence")
 
 
+# Below this many labelled frames a per-species rate has too few steps to
+# carry information: two frames can only read 0%, 50% or 100%. Those rows are
+# not deleted -- a botanist looks up their own species by name -- they start
+# hidden so the table opens on the rows that can be read.
+THIN_MIN_FRAMES = 5
+
+
 def p_species(c):
     sp_rows, attrs = [], []
     for d in sorted(c.per_species, key=lambda x: (-x["n_labelled_crowns"], x["species"])):
@@ -590,8 +597,17 @@ def p_species(c):
             f'<span data-sort="{d["mean_top1_confidence"]:.6f}">'
             f'{d["mean_top1_confidence"]:.2f}</span>',
             status_tag(st, STATUS[st][0])])
-        attrs.append(f' data-species="{esc(sp)}" data-status="{st}"')
+        attrs.append(f' data-species="{esc(sp)}" data-status="{st}"'
+                     + (' data-thin="1"'
+                        if d["n_labelled_crowns"] < THIN_MIN_FRAMES else ""))
+    n_thin = sum(1 for d in c.per_species
+                 if d["n_labelled_crowns"] < THIN_MIN_FRAMES)
     body = (status_legend([(st, STATUS[st][0], STATUS_REASON[st]) for st in STATUS])
+            + f'<p class="note"><b>{n_thin} of these {c.n_sp} species start hidden.</b> '
+              f'They have fewer than {THIN_MIN_FRAMES} labelled frames each. On that few '
+              f'frames a rate can only read 0%, 100%, or a couple of steps in between, so '
+              f'it tells you nothing about the model. Type a name and the species appears '
+              f'anyway, or tick <i>show all {c.n_sp}</i> to keep them all on screen.</p>'
             + '<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own score '
               'for its first guess, averaged over that species&rsquo; frames. Pl@ntNet '
               'splits one whole unit of confidence across every species it knows. So 0.86 '
@@ -604,6 +620,7 @@ def p_species(c):
         sp_rows,
         options=[(k, v[0]) for k, v in STATUS.items()],
         row_attrs=attrs,
+        thin_label=f"show all {c.n_sp}",
     ))
     half, none_ = crop_mismatch(c)
     return panel(f"Look up one species: all {c.n_sp}, sortable and filterable",

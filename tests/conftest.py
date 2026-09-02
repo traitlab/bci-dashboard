@@ -208,13 +208,19 @@ GENERATED = "2026-08-25-test"
 # species the model gets wrong or one with too few labels to judge; it now
 # renders the same status column and legend as the other two.
 #
+# `species_thin` is narrower again: the show-all checkbox that `p_species`
+# renders over rows with fewer than `panels.THIN_MIN_FRAMES` labelled frames.
+# Only the model-health page hides rows that way; the export page shows every
+# species it labelled, however few frames each has.
+#
 # Each flag now names exactly one page, so a flag no longer distinguishes
 # between pages the way it did while a third page carried `species` and
 # `queue_counts` together. The flags stay because they say what a page is
 # expected to carry, which is the claim the assertions need.
 PAGES = {
     "external_page": ("build_external.py", "model_health_dashboard.html",
-                      {"species", "species_status", "confirmatory", "snapshot"}),
+                      {"species", "species_status", "species_thin",
+                       "confirmatory", "snapshot"}),
     "internal_page": ("build_internal.py", "label_queue_dashboard.html",
                       {"queue_counts", "queue_keys", "snapshot"}),
     "export_only_page": ("build_export_only.py", "export_only_dashboard.html",

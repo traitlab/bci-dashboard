@@ -118,6 +118,7 @@ details.panel[open]>summary{border-bottom:1px solid #f0f0f0;margin-bottom:4px}
   border:1px solid #cfd8dc;border-radius:6px;background:#fff;
 }
 .controls .count{font-size:0.8rem;color:#757575}
+.controls .showall{font-size:0.85rem;color:#37474f;display:flex;align-items:center;gap:6px}
 th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
 th.sortable:focus-visible{outline:2px solid #1565c0;outline-offset:-2px}
 /* The arrow is the only thing telling the reader these headings sort, so it has
@@ -194,6 +195,7 @@ _TABLE_ID = "species-table"
 _INPUT_ID = "species-filter"
 _SELECT_ID = "status-filter"
 _COUNT_ID = "species-count"
+_THIN_ID = "show-thin"
 
 # Client-side sort + filter, vanilla. string.Template, not an f-string: the
 # body is mostly JS braces an f-string would need escaped.
@@ -206,10 +208,16 @@ JS = Template("""\
   var q=document.getElementById('$input_id');
   var sel=document.getElementById('$select_id');
   var count=document.getElementById('$count_id');
+  // Rows a caller marked data-thin start hidden. A typed needle overrides that:
+  // a reader looking up one species by name must find it whether or not the
+  // checkbox is ticked. Absent checkbox means the caller marked nothing, so
+  // everything shows; that is the older behaviour.
+  var thin=document.getElementById('$thin_id');
 
   function apply(){
     var needle=(q.value||'').trim().toLowerCase();
     var want=sel?sel.value:'all';
+    var showThin=thin?thin.checked:true;
     var shown=0;
     rows.forEach(function(r){
       // Fall back to the first cell when a caller ships no data-species: an
@@ -218,7 +226,8 @@ JS = Template("""\
       var hay=r.getAttribute('data-species');
       if(hay===null) hay=(r.cells[0]?r.cells[0].textContent:'').toLowerCase();
       var ok=(!needle||hay.indexOf(needle)>=0)&&
-             (want==='all'||(r.getAttribute('data-status')||'')===want);
+             (want==='all'||(r.getAttribute('data-status')||'')===want)&&
+             (showThin||needle||r.getAttribute('data-thin')!=='1');
       r.classList.toggle('hidden',!ok);
       if(ok) shown++;
     });
@@ -268,6 +277,7 @@ JS = Template("""\
 
   q.addEventListener('input',apply);
   if(sel) sel.addEventListener('change',apply);
+  if(thin) thin.addEventListener('change',apply);
   apply();
 })();
 
@@ -308,7 +318,7 @@ JS = Template("""\
   openHash();
 })();
 """).substitute(table_id=_TABLE_ID, input_id=_INPUT_ID, select_id=_SELECT_ID,
-                count_id=_COUNT_ID)
+                count_id=_COUNT_ID, thin_id=_THIN_ID)
 
 
 def esc(s: object) -> str:
@@ -418,7 +428,7 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
     return '<div class="tscroll">' + "\n".join(out) + "</div>"
 
 
-def filterable_table(headers, rows, *, options, row_attrs=None):
+def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None):
     """A search/filter strip followed by a sortable table.
 
     ``table_id``/``input_id``/``select_id``/``count_id`` (the four element
@@ -442,11 +452,20 @@ def filterable_table(headers, rows, *, options, row_attrs=None):
                   f'<option value="all">every status</option>{opts}</select>')
     else:
         select = ""
+    # ``thin_label`` turns on the show-everything checkbox, and the caller marks
+    # the rows it hides with ``data-thin="1"`` in ``row_attrs``. Without a label
+    # no checkbox is rendered and no row is hidden, so a caller that marks
+    # nothing gets the table it always got.
+    if thin_label:
+        toggle = (f'<label class="showall"><input type="checkbox" id="{_THIN_ID}"> '
+                  f'{thin_label}</label>')
+    else:
+        toggle = ""
     controls = (
         '<div class="controls">'
         f'<input id="{_INPUT_ID}" type="search" placeholder="filter species&hellip;" size="28" '
         f'aria-label="filter species">'
-        f"{select}<span class=\"count\" id=\"{_COUNT_ID}\"></span></div>"
+        f"{select}{toggle}<span class=\"count\" id=\"{_COUNT_ID}\"></span></div>"
     )
     return controls + table(headers, rows, tid=_TABLE_ID, sortable_from=0,
                             row_attrs=row_attrs)
