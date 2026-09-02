@@ -197,8 +197,11 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           f'That slice is too thin to label there. '
           f'Pl@ntNet is right {pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} of the '
           f'time on species we labelled once, against '
-          f'{pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at {BAND_WORD[fat]}. Rare in '
-          f'our labels usually means rare in Pl@ntNet\'s photos too.</p>'
+          f'{pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at {BAND_WORD[fat]}.</p>'
+          # "Rare in our labels usually means rare in Pl@ntNet's photos too" sat
+          # here, asserting the cause before the page had shown it. The warning
+          # block below gives the same claim with its reason attached, which is
+          # where a reader can weigh it.
           f'<p class="note">Misses differ at each end. The right name is still in the five '
           f'for {pctf(thin_in5)} of misses on species with {THIN_MAX} frames or fewer '
           f'({thin_n} misses), against {pctf(fat_in5)} of the {fat_n} misses at '
