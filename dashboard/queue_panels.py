@@ -43,12 +43,11 @@ UNGRADED_NOTE = (
 
 
 def p_todo(c):
-    # This is the open panel, so it is the first thing a reader lands in either
-    # way -- the orientation belongs here, not above the panels.
-    body = ['<p class="note">Every unlabelled photo has a Pl@ntNet guess and every species '
-            'has a measured record. Those two put the pool in an order: the frames that buy '
-            'the most per label first.</p>',
-            '<ul class="todo">']
+    # The panel opened on a sentence about how the pool is ordered, which is not
+    # what this list is: these are species statuses, and the pool is the next
+    # panel's subject. The hero card already says the page puts the pool in an
+    # order, and the summary above already says these rows are cheapest first.
+    body = ['<ul class="todo">']
     body += [f'<li><span class="n">{c.counts[k]}</span> species '
              f'<span class="tag {k}">{esc(lab)}</span> {esc(act)}</li>'
              for k, (lab, act) in STATUS.items()]
