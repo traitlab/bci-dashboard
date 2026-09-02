@@ -1,7 +1,7 @@
 """The HTML builders: panels, tables, hero cards, inline SVG.
 
-Every function returns a string of HTML and reads nothing: no file, no network,
-no CDN. The stylesheet, the script, and the element ids they share with
+Every function returns a string of HTML built from its arguments alone. The
+stylesheet, the script, and the element ids they share with
 ``filterable_table`` are in ``style.py``.
 
 Why one module, when sixteen of its seventeen functions are leaf renderers that
@@ -255,7 +255,7 @@ def status_legend(entries: list[tuple[str, str, str]]) -> str:
     return f'<ul class="status-legend">{items}</ul>'
 
 
-# --- inline SVG (hand-written in labelfirst's report idiom: no library, no CDN) ---
+# --- inline SVG (hand-written in labelfirst's report idiom) ---
 _NARROW = set(" .,;:'!|iljtfr()[]·")
 _WIDE = set("ABCDEFGHIJKLMNOPQRSTUVWXYZmw%@")
 
@@ -263,8 +263,8 @@ _WIDE = set("ABCDEFGHIJKLMNOPQRSTUVWXYZmw%@")
 def _text_w(text: str, font_px: float) -> float:
     """Upper bound on the rendered width of ``text`` at ``font_px``.
 
-    No glyph measurement is possible: one file, no library, ``system-ui`` varies
-    by machine. Three character classes plus 0.26em per string for side bearings,
+    The width has to be estimated: ``system-ui`` varies by machine, and the page
+    ships as one file. Three character classes plus 0.26em per string for side bearings,
     times 1.06, calibrated against ``getComputedTextLength`` on 14 of this page's
     labels under SF NS (Segoe UI/Roboto run narrower). 1.06 is not measured
     headroom, only 14 of 59 labels were checked; it leans high because a clipped

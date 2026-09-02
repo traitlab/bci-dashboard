@@ -11,7 +11,7 @@ Every number is recomputed from source, then cross-checked against the snapshot
 CSVs; a mismatch aborts the build. It gates only on the CSVs behind a number it
 prints, so not on the send queue.
 
-No network, no key, no third-party package: one file that opens from file://.
+One file that opens from file://.
 """
 
 from __future__ import annotations

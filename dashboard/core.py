@@ -1,7 +1,7 @@
 """The vocabulary every other module works in.
 
 Input paths, thresholds, name normalisation, and the helpers that turn counts
-into page strings. Deterministic, no network. ``health.py`` joins those files
+into page strings. Deterministic. ``health.py`` joins those files
 into one ``Health``; ``queues.py`` decides what to send a botanist next.
 """
 
@@ -188,8 +188,8 @@ def read_csv_rows(path: str) -> list[dict]:
 
 def labelbox_urls(path: str = DATA_ROW_IDS_CSV) -> dict[str, str]:
     """global_key -> Labelbox URL, where known.
-    Reads a file, never the API: no network call, no credential. A missing file
-    is an empty map, and the caller reports coverage."""
+    Reads the file the fetch step recorded. A missing file is an empty map, and
+    the caller reports coverage."""
     if not os.path.exists(path):
         return {}
     out = {}
