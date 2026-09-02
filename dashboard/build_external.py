@@ -45,7 +45,8 @@ def build(h, *, generated, verify_dir, fallback_tag):
     # The head is two numbers and one line saying which to quote. Everything that
     # qualifies them is a panel below: the glossary, the caveats the design requires,
     # and the four corpus-wide rates with the region mismatch they inherit.
-    P = ['<h1>How well does Pl@ntNet name BCI trees?</h1>',
+    # The heading is the tab title. They were the same sentence typed twice.
+    P = [f'<h1>{esc(TITLE)}</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
          f'&middot; {c.n:,} labelled frames &middot; {c.n_sp} species</div>',

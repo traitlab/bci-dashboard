@@ -102,6 +102,10 @@ def export_only_health(
     return h, n_rows
 
 
+# The heading and the browser tab say the same thing, so they say it once.
+TITLE = "Pl@ntNet on BCI: this export only"
+
+
 def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str:
     sp_recs, per_species = h.sp_recs, h.per_species
     n, n_sp = len(sp_recs), len(per_species)
@@ -118,7 +122,7 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
     macro5 = (sum(d["top5_accuracy"] for d in per_species) / n_sp) if n_sp else None
 
     P = [
-        "<h1>Pl@ntNet on BCI: this export only</h1>",
+        f"<h1>{esc(TITLE)}</h1>",
         f'<div class="subtitle">built {esc(generated)} &middot; '
         f"<code>{esc(export_name)}</code></div>",
         ('<p class="intro">This page scores one Labelbox export on its own. It asks '
@@ -216,7 +220,7 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
             SPECIES_LOOKUP_LEDE + " " + status_precedence_note(),
             body, open_=True))
 
-    return pg.document("Pl@ntNet on BCI - this export only", "\n".join(P))
+    return pg.document(TITLE, "\n".join(P))
 
 
 def main() -> None:
