@@ -64,6 +64,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, "dashboard"))
 
 import core as hc
+import crop_overlap as co
 import health as hl
 import settings
 
@@ -74,12 +75,15 @@ OUT_DIR = "data/next_batch"
 # it. Below this the model is hedging and the "contradiction" is noise.
 CONTRADICTION_MIN_SCORE = 0.5
 
-# Pl@ntNet was sent a fixed 1280x1280 centre crop, which is 13.7% of the 4000x3000
-# frame, while the field label comes from a crown box drawn anywhere in that frame.
-# So a "contradiction" can mean the model named a *different* tree correctly. A
-# row is only a real contradiction when the field label is the species that
-# dominates the crop the model was actually sent.
-CONTRADICTION_MIN_COVERAGE = 0.5
+# Pl@ntNet was sent a fixed centre crop of each frame, while the field label
+# comes from a crown box drawn anywhere in that frame. So a "contradiction" can
+# mean the model named a *different* tree correctly. A row is only a real
+# contradiction when the field label is the species that dominates the crop the
+# model was actually sent.
+#
+# Same threshold as the one dashboard/ reports in coverage_gate.csv, and it is
+# the same question, so it is the same constant rather than a second 0.5.
+CONTRADICTION_MIN_COVERAGE = hc.MIN_CROP_COVERAGE
 
 # Verdicts assigned by build_contradiction_queue, best first. Only ``send`` rows
 # are a disagreement about one tree; the rest are crop artifacts or unprovable.
@@ -460,7 +464,9 @@ def build_contradiction_queue(dataset_rows: list[dict], min_score: float,
         f"{sum(1 for r in queue if r['field_label_absent_from_top5'])} have the field")
     log("  label nowhere in the model's top 5, which is the sharper disagreement.")
     log("")
-    log("  Pl@ntNet saw a 1280x1280 centre crop, 13.7% of the 4000x3000 frame.")
+    log(f"  Pl@ntNet saw a {co.CROP_SIZE}x{co.CROP_SIZE} centre crop, "
+        f"{100 * co.CROP_SIZE ** 2 / (co.FRAME_W * co.FRAME_H):.1f}% of the "
+        f"{co.FRAME_W}x{co.FRAME_H} frame.")
     log("  The field label comes from a crown box drawn anywhere in that frame,")
     log("  so a disagreement can mean the model named a different tree correctly.")
     log(f"  send             : {tally['send']:3d}  field label dominates the crop, "

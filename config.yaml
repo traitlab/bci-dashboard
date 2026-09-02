@@ -4,9 +4,10 @@ plantnet:
   identify_nb_results: 5
   identify_organs: auto
   identify_lang: en
-  # Recorded in run_log.txt and quoted on the pages, so the model behind a
-  # snapshot stays identifiable after Pl@ntNet ships a new version.
-  single_model_name: Pl@ntNet Single - Central America
+  # The model behind a snapshot, so it stays identifiable after Pl@ntNet ships
+  # a new version. dashboard/run_log.py prints the run name into run_log.txt,
+  # history.model_tag_of reads it back, and it is the model tag on the pages.
+  # tests/test_settings.py compares the two copies.
   single_model_run_name: v7.4-2026-03-27
 
 labelbox:

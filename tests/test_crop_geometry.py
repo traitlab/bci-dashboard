@@ -70,3 +70,20 @@ class TestStampGeometry:
         payload = {"results": {"species": [{"binomial": "Hura crepitans"}]}}
         out = ingest.stamp_geometry(payload, 4000, 3000, (0, 0, 4000, 3000))
         assert out["results"]["species"][0]["binomial"] == "Hura crepitans"
+
+
+def test_the_three_copies_of_the_crop_size_agree(ingest, photo, crop_overlap):
+    """1280 is written down three times, and the comment names one of them.
+
+    `predict/photo.py` and `predict/ingest_photos.py` each cut the square, and
+    `dashboard/crop_overlap.py` reconstructs it to decide how much of the crop
+    a labelled crown covers. `crop_overlap.py:23` says "Must match CROP_SIZE in
+    predict/photo.py" and does not mention the third, which is the one that
+    actually filled the cache the pages score. `predict/` needs PIL and a key,
+    so it cannot import from `dashboard/`; this compares them instead.
+    """
+    assert photo.CROP_SIZE == ingest.CROP_SIZE == crop_overlap.CROP_SIZE, (
+        f"predict/photo.py {photo.CROP_SIZE}, predict/ingest_photos.py "
+        f"{ingest.CROP_SIZE}, dashboard/crop_overlap.py {crop_overlap.CROP_SIZE}. "
+        f"The dashboard reconstructs the crop from its own copy, so a mismatch "
+        f"scores every prediction against the wrong rectangle.")

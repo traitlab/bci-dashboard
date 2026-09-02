@@ -1,4 +1,4 @@
-"""Panels used only by the queue page. ``panels.PANELS`` still names every
+"""Panels used only by the queue page. ``page.PANELS`` still names every
 panel on both pages.
 """
 

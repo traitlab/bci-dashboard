@@ -84,6 +84,12 @@ def ingest():
 
 
 @pytest.fixture(scope="session")
+def photo():
+    _require("PIL", "requests", "yaml", "dotenv")
+    return load("_photo_under_test", REPO / "predict" / "photo.py")
+
+
+@pytest.fixture(scope="session")
 def crown():
     _require("PIL", "yaml", "dotenv")
     return load("_crown_under_test", REPO / "predict" / "crown.py")

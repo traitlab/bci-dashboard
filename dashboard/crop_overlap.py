@@ -20,7 +20,9 @@ import os
 
 from core import REPO, strip_collection_codes
 
-# Must match CROP_SIZE in predict/photo.py
+# Must match CROP_SIZE in predict/photo.py and predict/ingest_photos.py.
+# The second is the one that filled the cache the pages score.
+# tests/test_crop_geometry.py compares all three.
 CROP_SIZE = 1280
 
 # Verified constant across the sampled corpus. Used only when a frame's real
