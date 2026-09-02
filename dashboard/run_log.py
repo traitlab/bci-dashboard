@@ -194,6 +194,17 @@ def log_evaluable_sets(_log, h):
     _log("")
 
 
+def _macro(x, width: int) -> str:
+    """A macro average as a right-aligned percentage, or ``n/a``.
+
+    Both producers report absent over an empty population: ``headline_counts``
+    when no species is scored, ``core.coverage_gate_stats`` when the gate admits
+    nothing. Column width is passed in so the "n/a" lands under the same heading
+    the number would have, the trailing "%" included.
+    """
+    return f"{'n/a':>{width + 1}}" if x is None else f"{x * 100:>{width}.2f}%"
+
+
 def log_headline(_log, n, n_sp, c1, c5, macro1, macro5, g1, g5, reachable, r1, r5, s1, s5, gn, gg1, gg5):
     """The headline block: every rate, each with the frames it was measured on."""
     _log(RULE)
@@ -201,8 +212,8 @@ def log_headline(_log, n, n_sp, c1, c5, macro1, macro5, g1, g5, reachable, r1, r
     _log(RULE)
     _log(f"  top-1 accuracy                      : {pct(c1, n)}   ({c1}/{n})")
     _log(f"  top-{N_CANDIDATES} accuracy  (= full list)       : {pct(c5, n)}   ({c5}/{n})")
-    _log(f"  macro-avg per-species recall @1     : {macro1 * 100:.2f}%   (unweighted over {n_sp} species)")
-    _log(f"  macro-avg per-species recall @{N_CANDIDATES}     : {macro5 * 100:.2f}%")
+    _log(f"  macro-avg per-species recall @1     : {_macro(macro1, 0)}   (unweighted over {n_sp} species)")
+    _log(f"  macro-avg per-species recall @{N_CANDIDATES}     : {_macro(macro5, 0)}")
     _log(f"  genus-level top-1                   : {pct(g1, n)}   ({g1}/{n})")
     _log(f"  genus-level top-{N_CANDIDATES}                   : {pct(g5, n)}   ({g5}/{n})")
     _log("")
@@ -219,17 +230,6 @@ def log_headline(_log, n, n_sp, c1, c5, macro1, macro5, g1, g5, reachable, r1, r
     _log(f"    genus top-1                       : {pct(gg1, gn)}   ({gg1}/{gn})")
     _log(f"    genus top-{N_CANDIDATES}                       : {pct(gg5, gn)}   ({gg5}/{gn})")
     _log("")
-
-
-def _macro(x, width: int) -> str:
-    """A macro average as a right-aligned percentage, or ``n/a``.
-
-    ``core.coverage_gate_stats`` returns ``macro_top1: None`` when its subset is
-    empty, and the sweep runs a threshold high enough to admit nothing. Column
-    width is passed in so the "n/a" lands under the same heading the number
-    would have, the trailing "%" included.
-    """
-    return f"{'n/a':>{width + 1}}" if x is None else f"{x * 100:>{width}.2f}%"
 
 
 def log_gate_comparison(_log, sp_recs, sweep, gate, n, n_sp, c1, macro1):

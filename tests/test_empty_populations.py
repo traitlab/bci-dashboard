@@ -1,8 +1,8 @@
-"""Three rates that have no value when the population behind them is empty.
+"""Four rates that have no value when the population behind them is empty.
 
 Every one of them divides by a count that today is comfortably non-zero, so
 none of these has ever fired. Each becomes reachable for a different reason,
-and none of the three is a hypothetical:
+and none of the four is a hypothetical:
 
 - The crop-coverage sweep runs a threshold high enough to admit nothing, and
   `core.coverage_gate_stats` answers `macro_top1: None` for an empty subset.
@@ -12,8 +12,11 @@ and none of the three is a hypothetical:
 - The unlabelled pool empties when every photo has a botanist label, which is
   the labelling programme finishing. `queue_panels.send_notes` divided the
   long-lens share by it.
+- A corpus can carry genus-only labels and no species-level ones, scoring no
+  species at all. `measure.headline_counts` divided by that count, and the two
+  macro averages it produces are read again by `log_headline`.
 
-A rate over nothing is not zero, it is absent, so all three now answer `None`
+A rate over nothing is not zero, it is absent, so all four now answer `None`
 and every reader prints "n/a".
 
     .venv/bin/pytest tests/test_empty_populations.py
@@ -22,6 +25,7 @@ and every reader prints "n/a".
 from __future__ import annotations
 
 import re
+from types import SimpleNamespace
 
 # ---------------------------------------------------------------------------
 # The gated macro average, when the gate admits nothing
@@ -54,6 +58,20 @@ def test_the_na_column_is_as_wide_as_the_number_it_stands_in_for(run_log):
     number = rl._macro(0.5, 12)
     absent = rl._macro(None, 12)
     assert len(number) == len(absent) == 13
+
+
+def test_the_headline_macro_averages_survive_a_genus_only_corpus(measure):
+    """A corpus whose labels all stop at the genus scores no species, so there
+    is nothing to average over. The genus rates beside it are still measured,
+    which is why this reports absent rather than aborting the pass."""
+    gen = [{"gt": "Inga", "ranked": [("Inga edulis", 0.9)]},
+           {"gt": "Inga", "ranked": [("Ficus insipida", 0.7)]}]
+    h = SimpleNamespace(sp_recs=[], genus_recs=gen, per_species=[])
+    counts = measure.headline_counts(h)
+    assert counts.macro1 is None
+    assert counts.macro5 is None
+    # The measurement that does exist is still reported.
+    assert (counts.gn, counts.gg1) == (2, 1)
 
 
 # ---------------------------------------------------------------------------
