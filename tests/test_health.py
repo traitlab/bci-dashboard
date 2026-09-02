@@ -1,5 +1,7 @@
 """The load-and-join layer's own failures, which every command hits first."""
 
+import re
+
 import pytest
 
 
@@ -82,3 +84,32 @@ def test_the_run_log_text_lives_in_run_log_py(core):
     root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
     src = open(os.path.join(root, "dashboard", "measure.py"), encoding="utf-8").read()
     assert 'log("---' not in src and 'log(f"---' not in src
+
+
+def test_the_checklist_note_counts_the_names_rank_five_alone_brings_in(health):
+    """`predict/fetch_checklist.py` opens by arguing that absence from the
+    cached lists is inference, not a membership test, and puts a number on how
+    unsaturated the sample is: 143 names in the primary evaluation set are
+    visible only because rank 5 was included. That is a measurement over the
+    corpus, and nothing recomputed it. Fetch more photos, or ask for more
+    candidates, and the sentence keeps quoting a figure from an older corpus
+    while making an argument about the current one.
+    """
+    from conftest import REPO, require_buildable
+    require_buildable()
+
+    said = re.search(r"set, (\d+) names are visible only because rank (\d+)",
+                     (REPO / "predict" / "fetch_checklist.py").read_text(encoding="utf-8"))
+    assert said, "fetch_checklist.py no longer states how many names rank 5 alone brings in"
+    rank = int(said.group(2))
+
+    h = health.load_health(log=lambda *a, **k: None)
+    above, at = set(), set()
+    for r in h.sp_recs:
+        names = [name for name, _ in r["ranked"]]
+        above |= set(names[:rank - 1])
+        at |= set(names[rank - 1:rank])
+    only = at - above
+    assert int(said.group(1)) == len(only), (
+        f"the note says {said.group(1)} names appear only at rank {rank} over the "
+        f"{len(h.sp_recs):,} species-level frames, and the cache now gives {len(only)}")
