@@ -231,7 +231,16 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           f'species</b>, '
           f'{100 * (well_micro - well_macro):.0f} points apart instead of {gap:.0f}. A '
           f'one-frame species scores only 0% or 100%, so those {singles} votes are coin '
-          f'flips.</p>',
+          f'flips.</p>'
+          # From the deleted accuracy-by-support panel, which was this panel's own
+          # key redrawn as a bar chart plus this one paragraph.
+          f'<div class="warn"><strong>Read the bands as how common a species is, not as '
+          f'training data.</strong> These predictions come from a frozen Pl@ntNet regional '
+          f'model that has never seen a single BCI label, so labelling a species does not '
+          f'make Pl@ntNet better at it. Common species simply have more reference photos '
+          f'inside Pl@ntNet already. What extra labels buy is knowledge: below about '
+          f'{hc.WELL_SAMPLED_MIN_N} frames a per-species accuracy jumps around too much to '
+          f'act on, and above it the species can enter the queue-ordering rule.</div>',
         # Both headline rates are in the summary and both move every snapshot.
         anchor="why-the-two-headline-scores-differ")
 

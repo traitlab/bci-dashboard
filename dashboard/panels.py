@@ -345,7 +345,9 @@ def p_send(c):
              'on which species was guessed, whatever the confidence. Inside a queue the '
              'weakest guesses come first, because those are the frames our labels cover '
              'worst. A guess near the bottom of the scale means Pl@ntNet recognised '
-             'almost nothing, which is itself the reason to look.</p>')
+             'almost nothing, which is itself the reason to look. A first guess this low '
+             'means the model had no candidate it liked, not that the named species is '
+             'unlikely.</p>')
     top_lt = sorted(c.lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
     body += ('<p class="note"><b>Most-named species in the first queue.</b> '
              + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
@@ -414,7 +416,8 @@ def p_review(c):
     body = (f'<p class="note">The {c.review_counts[0]} frames fall into '
             f'{len(c.review_pairs)} label-and-guess pairs. The '
             f'{len(pair_rows)} commonest pairs are first, then the '
-            f'{REVIEW_PREVIEW} single frames the model is surest about. All '
+            f'{REVIEW_PREVIEW} individual frames the model is surest about, some of '
+            f'which are also single-frame pairs above. All '
             f'{c.review_counts[0]} are in <code>label_review_queue.csv</code> in the '
             f'snapshot folder.</p>'
             + table([("botanist label", False), ("Pl@ntNet's first guess", False),
@@ -573,31 +576,6 @@ def p_conf(c):
                  "<b>This is the evidence behind the two-part rule above.</b> Read it if "
                  "someone proposes ordering the queue on confidence alone.", body,
                  anchor="can-we-trust-the-confidence")
-
-
-def p_labels(c):
-    buckets = c.buckets
-    body = (svg_hbar([(BAND_SHORT[lab], buckets[lab]["c1"] / buckets[lab]["n_crowns"],
-                       f'{pctf(buckets[lab]["c1"] / buckets[lab]["n_crowns"])}  ·  '
-                       f'{buckets[lab]["n_species"]} spp, {buckets[lab]["n_crowns"]:,} '
-                       f'frames', "#1565c0")
-                      for lab in hc.BUCKET_ORDER
-                      if buckets.get(lab) and buckets[lab]["n_crowns"]],
-                     title="how often the first guess is right, by how many frames that "
-                           "species has")
-            + '<div class="warn"><strong>Read this as how common the species is, not as '
-              'training data.</strong> These predictions come from a frozen Pl@ntNet '
-              'regional model that has never seen a single BCI label, so labelling a species '
-              'does not make Pl@ntNet better at it. What this axis really tracks is how '
-              'common a species is on the plot, and common species also have more reference '
-              'photos inside Pl@ntNet. What extra labels buy is knowledge: below about '
-              f'{WAIT_SUPPORT_MIN} frames a per-species accuracy jumps around too much to '
-              f'act on, and above it the species can enter the queue-ordering rule.</div>')
-    return panel("Does accuracy rise with more labels? It rises with abundance, and the "
-                 "model is frozen",
-                 "<b>Use this to see where the measurement is solid enough to act on.</b> "
-                 "Do not use it to argue that labelling raises accuracy.", body,
-                 anchor="accuracy-and-labels")
 
 
 def p_species(c):
@@ -941,7 +919,6 @@ PANELS = {
     "rules": ("label-first", p_rules),
     "conf": ("label-first", p_conf),
     "weighting": ("model-health", p_weighting),
-    "labels": ("model-health", p_labels),
     "species": ("model-health", p_species),
     "review": ("model-health", p_review),
     "candidates": ("limits", p_candidates),
@@ -959,7 +936,7 @@ INTERNAL_PANELS = ("todo", "send", "wait", "rules", "conf")
 # first card down, and a reader who met them third had already been through two
 # sections that used them.
 EXTERNAL_PANELS = ("terms", "confirmatory", "caveats", "species", "review",
-                   "weighting", "labels", "candidates", "ceiling", "method")
+                   "weighting", "candidates", "ceiling", "method")
 
 if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
     raise SystemExit(f"every panel belongs to a page: "
