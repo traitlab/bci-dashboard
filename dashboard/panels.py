@@ -432,6 +432,13 @@ def p_wait(c):
             f'it computes. The species side of the rule was decided from the other frames, '
             f'so nothing here is graded on the frames that chose it. Every count in the '
             f'comparison table below is out of those {len(c.test_recs):,}.</p>'
+            # Two hold-outs, described in almost the same words on two pages that
+            # link to each other. A reader assumes one is a subset of the other.
+            f'<p class="note">This is not the set the model-health page reports its two '
+            f'headline numbers on. That one is a separate draw of '
+            f'{int(c.cf["n_frames"])} frames, taken from '
+            f'every labelled frame rather than from this column, and some frames fall in '
+            f'both. Neither set is a subset of the other.</p>'
             '<p class="note"><strong>Nothing here is a label.</strong> A frame that can wait '
             'keeps whatever label it already has, or none at all. No guess is ever written '
             'in as a label by this rule. It only pushes frames down the '
