@@ -47,15 +47,17 @@ import time
 from pathlib import Path
 
 import requests
-import yaml
 from dotenv import load_dotenv
-from PIL import Image
+from photo import (
+    CROP_SIZE,
+    QuotaExceededError,
+    center_crop_jpeg_box,
+    load_config,
+)
 
 REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "data"
 
-CROP_SIZE = 1280
-JPEG_QUALITY = 90
 MAX_RETRIES = 3
 BACKOFF = [1, 5, 10]
 API_TIMEOUT = 60
@@ -67,15 +69,6 @@ SURVEY_TILES_URL = "https://my-api.plantnet.org/v2/survey/tiles/k-central-americ
 # One call runs 140 sub-queries over a 4000x3000 frame, so it is not a 60s job.
 SURVEY_TIMEOUT = 300
 IMG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
-
-
-class QuotaExceededError(Exception):
-    pass
-
-
-def load_config() -> dict:
-    with open(REPO / "config.yaml") as f:
-        return yaml.safe_load(f)
 
 
 def load_csv_urls(csv_path: Path) -> list[tuple[str, str]]:
@@ -96,26 +89,9 @@ def download_image_bytes(url: str) -> bytes:
     return resp.content
 
 
-def center_crop_jpeg_from_bytes(raw: bytes) -> tuple[bytes, int, int, tuple]:
-    """-> (jpeg, frame_w, frame_h, box) where box is the rectangle that was sent.
-
-    The box is returned rather than recomputed downstream. A prediction is only
-    interpretable against the region the model saw, and that region used to be
-    reconstructed afterwards from the frame size and CROP_SIZE, which works only
-    while every frame is the same shape. A frame smaller than the crop is sent
-    whole, and its box is the whole frame.
-    """
-    img = Image.open(io.BytesIO(raw)).convert("RGB")
-    w, h = img.size
-    box = (0, 0, w, h)
-    if w >= CROP_SIZE and h >= CROP_SIZE:
-        left = (w - CROP_SIZE) // 2
-        top = (h - CROP_SIZE) // 2
-        box = (left, top, left + CROP_SIZE, top + CROP_SIZE)
-        img = img.crop(box)
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=JPEG_QUALITY)
-    return buf.getvalue(), w, h, box
+# The crop lives in photo.py, so both fetch paths send the model the same
+# pixels and record the same rectangle.
+center_crop_jpeg_from_bytes = center_crop_jpeg_box
 
 
 def center_crop_jpeg(image_path: Path) -> tuple[bytes, int, int, tuple]:

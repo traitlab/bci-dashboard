@@ -88,8 +88,12 @@ def _require(*packages, who="predict"):
 
 @pytest.fixture(scope="session")
 def ingest():
+    """Imported with `predict/` on the path: it takes the crop, the quota
+    error and config loading from photo.py as a sibling, the way the script
+    does when it is run."""
     _require("PIL", "requests", "yaml", "dotenv")
-    return load("_ingest_under_test", REPO / "predict" / "ingest_photos.py")
+    with _on_path(REPO / "predict"):
+        yield load("_ingest_under_test", REPO / "predict" / "ingest_photos.py")
 
 
 @pytest.fixture(scope="session")

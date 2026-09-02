@@ -72,15 +72,38 @@ class TestStampGeometry:
         assert out["results"]["species"][0]["binomial"] == "Hura crepitans"
 
 
-def test_the_three_copies_of_the_crop_size_agree(ingest, photo, crop_overlap):
-    """1280 is written down three times, and the comment names one of them.
+def test_both_fetch_paths_cut_the_same_square(ingest, photo, jpeg):
+    """The two fetchers used to hold a centre crop each, one returning the
+    rectangle it sent and one returning the crop size, at the same quality by
+    coincidence rather than by construction. They are one function now, and a
+    second copy would mean the model sees different pixels depending on which
+    script fetched the photo."""
+    # Compared by where the code lives, not by identity: the fixtures load
+    # photo.py twice, once by path and once as ingest_photos' sibling.
+    took_from = ingest.center_crop_jpeg_from_bytes.__code__.co_filename
+    assert took_from.endswith("predict/photo.py"), (
+        f"ingest_photos.py crops with code from {took_from}. There is one "
+        f"centre crop, in photo.py, and both fetch paths call it.")
+    for size in ((4000, 3000), (1279, 2000)):
+        raw = jpeg(*size)
+        sent, w, h, box = photo.center_crop_jpeg_box(raw)
+        also, w2, h2, crop_s = photo.center_crop_jpeg(raw)
+        assert (sent, w, h) == (also, w2, h2)
+        # The two return shapes have to describe one rectangle: the crop size
+        # is set exactly when the box is the centre square.
+        assert crop_s == (photo.CROP_SIZE
+                          if box[2] - box[0] == photo.CROP_SIZE else None)
 
-    `predict/photo.py` and `predict/ingest_photos.py` each cut the square, and
+
+def test_the_two_remaining_copies_of_the_crop_size_agree(ingest, photo, crop_overlap):
+    """1280 is written down twice now, and the comment names one of them.
+
+    `predict/photo.py` cuts the square for both fetch paths, and
     `dashboard/crop_overlap.py` reconstructs it to decide how much of the crop
     a labelled crown covers. `crop_overlap.py:23` says "Must match CROP_SIZE in
-    predict/photo.py" and does not mention the third, which is the one that
-    actually filled the cache the pages score. `predict/` needs PIL and a key,
-    so it cannot import from `dashboard/`; this compares them instead.
+    predict/photo.py", which is the copy that filled the cache the pages score.
+    `predict/` needs PIL and a key, so it cannot import from `dashboard/`; this
+    compares them instead.
     """
     assert photo.CROP_SIZE == ingest.CROP_SIZE == crop_overlap.CROP_SIZE, (
         f"predict/photo.py {photo.CROP_SIZE}, predict/ingest_photos.py "

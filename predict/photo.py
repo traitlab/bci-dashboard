@@ -42,7 +42,10 @@ import yaml
 from dotenv import load_dotenv
 from PIL import Image
 
+REPO = Path(__file__).resolve().parents[1]
+
 CROP_SIZE     = 1280
+JPEG_QUALITY  = 90
 DEFAULT_DELAY = 0.5
 DEFAULT_MAX_CALLS = 9500
 MAX_RETRIES   = 3
@@ -55,7 +58,9 @@ class QuotaExceededError(Exception):
 
 
 def load_config():
-    with open("config.yaml") as f:
+    """config.yaml, found from this file rather than from the working
+    directory, so a run started anywhere reads the settings the repo ships."""
+    with open(REPO / "config.yaml") as f:
         return yaml.safe_load(f)
 
 
@@ -74,25 +79,37 @@ def cache_name(global_key: str) -> str:
     return global_key.replace("/", "__")
 
 
-def center_crop_jpeg(image_bytes: bytes) -> tuple[bytes, int, int, int | None]:
-    """
-    Center-crop to CROP_SIZE × CROP_SIZE and encode as JPEG.
-    Returns (jpeg_bytes, orig_width, orig_height, crop_size_or_None).
-    If image is smaller than CROP_SIZE in either dimension, returns as-is.
+def center_crop_jpeg_box(image_bytes: bytes) -> tuple[bytes, int, int, tuple]:
+    """-> (jpeg, frame_w, frame_h, box), box being the rectangle that was sent.
+
+    The box is returned rather than recomputed downstream. A prediction is only
+    interpretable against the region the model saw, and that region used to be
+    reconstructed afterwards from the frame size and CROP_SIZE, which works only
+    while every frame is the same shape. A frame smaller than the crop is sent
+    whole, and its box is the whole frame.
+
+    This is the one centre crop in the repo. predict/ingest_photos.py calls it
+    too, so the two fetch paths cannot send the model different pixels.
     """
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     w, h = img.size
+    box = (0, 0, w, h)
     if w >= CROP_SIZE and h >= CROP_SIZE:
-        left   = (w - CROP_SIZE) // 2
-        top    = (h - CROP_SIZE) // 2
-        img    = img.crop((left, top, left + CROP_SIZE, top + CROP_SIZE))
-        crop_s = CROP_SIZE
-    else:
-        crop_s = None  # image smaller than crop target — send as-is
-
+        left = (w - CROP_SIZE) // 2
+        top = (h - CROP_SIZE) // 2
+        box = (left, top, left + CROP_SIZE, top + CROP_SIZE)
+        img = img.crop(box)
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=90)
-    return buf.getvalue(), w, h, crop_s
+    img.save(buf, format="JPEG", quality=JPEG_QUALITY)
+    return buf.getvalue(), w, h, box
+
+
+def center_crop_jpeg(image_bytes: bytes) -> tuple[bytes, int, int, int | None]:
+    """The same crop, reported the way the per-photo cache records it:
+    the crop size when one was taken, and None when the frame went whole."""
+    jpeg, w, h, box = center_crop_jpeg_box(image_bytes)
+    cropped = (box[2] - box[0], box[3] - box[1]) == (CROP_SIZE, CROP_SIZE)
+    return jpeg, w, h, CROP_SIZE if cropped else None
 
 
 def download_image(url: str, timeout: int = 30) -> bytes:
