@@ -128,9 +128,6 @@ def send_notes(c):
              # reads as a measurement to one decimal place.
              f'on the other half of the rule, right less than {pctf(hc.HARD_MAX_TOP1, 0)} of '
              f'the time.</p>'
-             # Two CSVs sit in the snapshot folder; this says which is which.
-             f'<p class="note"><code>send_first_queue.csv</code> in the snapshot folder '
-             f'holds this same order, one row per frame.</p>'
              f'<p class="note"><strong>{c.n_no_answer} unlabelled photos got no answer at '
              f'all</strong>: the candidate list came back empty. Likeliest to be junk or to '
              f'show no plant, and no automatic rule for junk is reliable, so check that '
@@ -161,7 +158,9 @@ def p_send(c):
                  f"barely have, or barely get right; "
                  f"{c.queue_counts.get('low_conf_known', 0):,} show a usually-right species "
                  f"the model is unsure of here. Both buy more per label than anything "
-                 f"below.",
+                 f"below. "
+                 f'<a href="send_first_queue.csv">send_first_queue.csv</a> holds this same '
+                 f"order, one row per frame.",
                  # Open: the answer to "what do I label next" is the queue
                  # table itself, not a summary of it.
                  body, open_=True, anchor="what-to-send-first")

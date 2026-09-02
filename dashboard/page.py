@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import datetime as _dt
 import os
+import re
+import shutil
 
 import core as hc
 import health as hl
@@ -158,12 +160,37 @@ def write_page(page: str, checks, out: str) -> None:
     print(f"  wrote     {out}  ({len(blob):,} bytes)")
 
 
+_LINKED_CSV = re.compile(r'href="([A-Za-z0-9_]+\.csv)"')
+
+
+def copy_linked_csvs(page: str, verify_dir: str, out: str) -> None:
+    """Put every CSV the page links next to the page itself.
+
+    A panel that says "put these frames in front of a botanist" links the
+    queue rather than naming it, so the file has to travel with the HTML. The
+    list is read out of the rendered page, not declared beside it, because a
+    declared list drifts the moment a panel adds a link.
+
+    A missing file aborts: a link that 404s is worse than a filename in prose,
+    and it fails here rather than in front of the reader.
+    """
+    dest = os.path.dirname(os.path.abspath(out))
+    for name in sorted(set(_LINKED_CSV.findall(page))):
+        src = os.path.join(verify_dir, name)
+        if not os.path.exists(src):
+            raise SystemExit(f"VERIFY FAIL: the page links {name}, absent from {verify_dir}")
+        if os.path.abspath(src) != os.path.join(dest, name):
+            shutil.copyfile(src, os.path.join(dest, name))
+        print(f"  copied    {name}  beside the page")
+
+
 def run(doc: str, out_name: str, build) -> None:
     """Load the data, build the page, write it: both builders' ``main()``."""
     args = parse_args(doc, out_name)
+    verify_dir = args.verify_against or latest_snapshot_dir()
     h = hl.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
                        wcvp_cache=args.wcvp_cache)
     page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),
-                         verify_dir=args.verify_against or latest_snapshot_dir(),
-                         fallback_tag=args.model_tag)
+                         verify_dir=verify_dir, fallback_tag=args.model_tag)
     write_page(page, checks, args.out)
+    copy_linked_csvs(page, verify_dir, args.out)

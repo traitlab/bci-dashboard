@@ -139,3 +139,15 @@ def _keys_whose_cached_answer_names_nothing(keys):
     import health as hl
     predictions = hl.scan_cache(str(REPO / "data" / "predictions" / "cache")).predictions
     return [gk for gk in keys if not predictions.get(gk[len(GT_KEY_PREFIX):])]
+
+
+def test_the_export_only_page_links_no_csv(export_only_page):
+    """It scores one export and has no snapshot, so nothing could be copied.
+
+    The other two builders put every CSV they link next to the page they
+    write. This one runs its own main(), with no --verify-against and no
+    folder to copy from, so a panel that starts linking a CSV would ship a
+    dead link here while both other pages stayed correct.
+    """
+    html, _ = export_only_page
+    assert not re.findall(r'href="([A-Za-z0-9_]+\.csv)"', html)

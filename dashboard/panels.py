@@ -157,9 +157,7 @@ def p_review(c):
             f'{len(pair_rows)} commonest are first, and they cover {shown} of the '
             f'{c.review_counts[0]} frames. Then come the '
             f'{REVIEW_PREVIEW} individual frames the model is surest about, some of '
-            f'which are also single-frame pairs above. All '
-            f'{c.review_counts[0]} are in <code>label_review_queue.csv</code> in the '
-            f'snapshot folder, most confident first.</p>'
+            f'which are also single-frame pairs above.</p>'
             + table([("botanist label", False), ("Pl@ntNet's first guess", False),
                    ("frames", True), ("mean confidence", True)],
                   [[f'<span class="sp">{esc(cap(gt))}</span>',
@@ -200,7 +198,10 @@ def p_review(c):
                  f"confidently disagrees",
                  f"<b>Put these {c.review_counts[0]} frames in front of a botanist.</b> "
                  f"Either the label is wrong or the model is, and one look settles "
-                 f"which. They are the disagreements most worth an expert's minute.", body)
+                 f"which. They are the disagreements most worth an expert's minute. "
+                 f"All {c.review_counts[0]} are in "
+                 f'<a href="label_review_queue.csv">label_review_queue.csv</a>, '
+                 f"most confident first.", body)
 
 
 # The rows that start hidden are exactly the ones the page already calls "too

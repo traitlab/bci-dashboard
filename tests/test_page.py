@@ -211,3 +211,58 @@ def test_document_is_one_self_contained_html_document(pagemod):
     assert html.startswith("<!DOCTYPE html>")
     assert html.count("<html") == 1
     assert html.rstrip().endswith("</html>")
+
+
+# ---------------------------------------------------------------------------
+# The CSVs a page links have to travel with it.
+# ---------------------------------------------------------------------------
+
+def test_a_linked_csv_is_copied_next_to_the_page(pagemod, tmp_path):
+    """The link resolves wherever the page lands, build/ or a snapshot.
+
+    bin/refresh.sh used to be the only thing putting a page beside its CSVs,
+    and the two newest snapshots on the machine this was written on hold CSVs
+    and no page, because those builds bypassed the script. Doing the copy in
+    the build is what makes the two arrive together every time.
+    """
+    snap, out = tmp_path / "snap", tmp_path / "build" / "page.html"
+    snap.mkdir()
+    (snap / "label_review_queue.csv").write_text("global_key\nk1\n", encoding="utf-8")
+    (snap / "unlinked.csv").write_text("nobody links this\n", encoding="utf-8")
+    out.parent.mkdir()
+
+    page = '<a href="label_review_queue.csv">label_review_queue.csv</a>'
+    pagemod.copy_linked_csvs(page, str(snap), str(out))
+
+    assert (out.parent / "label_review_queue.csv").read_text(encoding="utf-8") == \
+        "global_key\nk1\n"
+    assert not (out.parent / "unlinked.csv").exists(), \
+        "only the CSVs the page links travel with it"
+
+
+def test_a_link_to_a_csv_the_snapshot_does_not_hold_aborts_the_build(pagemod, tmp_path):
+    """A 404 in front of the reader is worse than a filename in prose."""
+    snap, out = tmp_path / "snap", tmp_path / "build" / "page.html"
+    snap.mkdir()
+    out.parent.mkdir()
+
+    with pytest.raises(SystemExit) as e:
+        pagemod.copy_linked_csvs('<a href="send_first_queue.csv">q</a>',
+                                 str(snap), str(out))
+    assert "send_first_queue.csv" in str(e.value)
+
+
+def test_every_csv_a_panel_links_is_one_measure_writes(pagemod, measure):
+    """A link is only as good as the name in it, and the name is typed by hand.
+
+    Reads the panel sources rather than a built page so it runs on a fresh
+    clone, where no snapshot exists to build one from.
+    """
+    import glob
+    linked = set()
+    for path in glob.glob(os.path.join(os.path.dirname(pagemod.__file__), "*.py")):
+        with open(path, encoding="utf-8") as f:
+            linked |= set(pagemod._LINKED_CSV.findall(f.read()))
+    assert linked, "no panel links a CSV; this test has stopped covering anything"
+    unknown = linked - set(measure.OUTPUTS)
+    assert not unknown, f"linked CSVs that measure.py never writes: {sorted(unknown)}"
