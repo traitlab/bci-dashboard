@@ -133,8 +133,8 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
             (n_rows, "rows in this NDJSON export"),
             (
                 n_labelled,
-                "of those rows carry a botanist name in the Planta/Taxon field "
-                "\u2014 the rest have no annotation in this export",
+                "of those rows carry a botanist name in the Planta/Taxon field, "
+                "and the rest have no annotation in this export",
             ),
             (
                 n_joined,
@@ -142,8 +142,8 @@ def build(h: hl.Health, *, export_name: str, n_rows: int, generated: str) -> str
             ),
             (
                 n,
-                "of those name a species rather than stopping at the genus \u2014 every "
-                "accuracy figure below is measured on this set",
+                "of those name a species rather than stopping at the genus, and "
+                "every accuracy figure below is measured on this set",
             ),
             (
                 n_genus,

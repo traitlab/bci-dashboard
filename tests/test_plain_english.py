@@ -322,3 +322,20 @@ def test_the_readme_uses_no_word_context_md_retired(readme_prose, pattern, inste
     assert not hits, (
         f"README.md: '{pattern}' is retired; say {instead}. In CONTEXT.md. Found in:\n"
         + "\n".join(f"  {block[:160]}" for block in hits[:5]))
+
+
+# The pages set a dash off with " -- " or rewrite it as a comma, everywhere
+# except one funnel line in build_export_only.py, which used an em dash for
+# months because nothing looked. A page is read next to the other two, and a
+# reader notices the typography before they notice why.
+LONG_DASHES = ("—", "–", "&mdash;", "&ndash;")
+
+
+def test_no_page_sets_a_phrase_off_with_a_long_dash(page):
+    """Punctuation is part of reading level: a dash a reader has to decide the
+    weight of is a pause, and the same pause is available as a comma."""
+    html, _stdout, _panels = page
+    found = [dash for dash in LONG_DASHES if dash in html]
+    assert not found, (
+        f"a page carries {found}. Use ' -- ', a comma or two sentences; the "
+        f"other pages do.")
