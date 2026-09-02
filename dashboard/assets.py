@@ -385,6 +385,18 @@ def hero(cards):
 
 def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
     """headers = [(text, is_numeric)]; rows = [[cell_html, ...]]."""
+    # A table with an id can say "these columns are numbers" once, as a rule of
+    # its own. Repeating class="num" on every cell of the 187-row species table
+    # was 9KB of the same six characters. A table with no id has no selector to
+    # write the rule against, and is short enough that the per-cell class costs
+    # less than an id would.
+    num_cols = [i + 1 for i, (_, num) in enumerate(headers) if num]
+    by_column = bool(tid) and bool(num_cols)
+    rule = ("<style>"
+            + ",".join(f"#{tid} td:nth-child({i})" for i in num_cols)
+            + "{text-align:right;font-variant-numeric:tabular-nums}</style>"
+            ) if by_column else ""
+
     out = [f'<table{f" id={tid!r}" if tid else ""}>', "<thead><tr>"]
     for i, (text, num) in enumerate(headers):
         cls = ["num"] if num else []
@@ -396,13 +408,13 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
     for j, r in enumerate(rows):
         out.append(f"<tr{row_attrs[j] if row_attrs else ''}>")
         for i, cell in enumerate(r):
-            c = ' class="num"' if headers[i][1] else ""
+            c = ' class="num"' if headers[i][1] and not by_column else ""
             out.append(f"<td{c}>{cell}</td>")
         out.append("</tr>")
     out.append("</tbody></table>")
     # Scrolls inside its own box. Otherwise the 7-column table sets the page
     # width on a phone and every paragraph scrolls sideways with it.
-    return '<div class="tscroll">' + "\n".join(out) + "</div>"
+    return rule + '<div class="tscroll">' + "\n".join(out) + "</div>"
 
 
 def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None):

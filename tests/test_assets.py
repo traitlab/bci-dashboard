@@ -212,6 +212,26 @@ def test_funnel_list_escapes_the_label(assets):
     assert "<script>&" not in out
 
 
+def test_an_identified_table_aligns_its_numbers_by_column_not_by_cell(assets):
+    """class="num" on every cell of the 187-row species table was 9KB of the
+    same six characters. With an id there is a selector to say it once."""
+    out = assets.table([("Species", False), ("Frames", True), ("Right", True)],
+                       [["a", "1", "2"]], tid="t")
+    assert '<style>#t td:nth-child(2),#t td:nth-child(3){' in out
+    assert 'class="num"' not in out.split("<tbody>")[1]
+    # The heading keeps its class: the sort arrow and the alignment of the
+    # heading itself are styled off it.
+    assert '<th class="num sortable">Frames</th>' in out or '<th class="num">Frames</th>' in out
+
+
+def test_an_anonymous_table_still_marks_its_numeric_cells(assets):
+    """No id means no selector to write the rule against, and these tables are
+    a handful of rows, so the per-cell class is the cheaper of the two."""
+    out = assets.table([("Species", False), ("Frames", True)], [["a", "1"]])
+    assert "<style>" not in out
+    assert '<td class="num">1</td>' in out
+
+
 def test_num_cell_omits_the_sort_attribute_when_the_cell_text_already_sorts(assets):
     """The sort falls back to the cell's own text, so an integer needs no
     attribute. Shipping one anyway cost 5KB across the 186-row species table."""
