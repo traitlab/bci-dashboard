@@ -617,7 +617,18 @@ def p_species(c):
                         if d["n_labelled_crowns"] < THIN_MIN_FRAMES else ""))
     n_thin = sum(1 for d in c.per_species
                  if d["n_labelled_crowns"] < THIN_MIN_FRAMES)
-    body = (status_legend([(st, STATUS[st][0], STATUS_REASON[st]) for st in STATUS])
+    half, none_ = crop_mismatch(c)
+    # Three things a reader needs before the table, one paragraph each. They used
+    # to be a single 159-word ask above the panel body: how to work the table,
+    # how a status is chosen, and what the rates are scored on, run together.
+    body = (f'<p class="note"><b>Every rate here is scored on the fixed centre square, '
+            f'not on outlined crowns.</b> On {half:,} of these {len(c.sp_recs):,} frames '
+            f'the labelled species covers less than half that square, and on {none_:,} it '
+            f'covers none of it. So a low rate can mean the crop missed the tree rather '
+            f'than that the model missed the name. Read a row as a flag for a second look, '
+            f'not as that species&rsquo; identification accuracy.</p>'
+            + status_legend([(st, STATUS[st][0], STATUS_REASON[st]) for st in STATUS])
+            + f'<p class="note">{status_precedence_note()}</p>'
             + f'<p class="note"><b>{n_thin} of these {c.n_sp} species start hidden.</b> '
               f'They carry fewer than {THIN_MIN_FRAMES} labelled frames each, the same '
               f'cut-off as the &ldquo;too few labels to judge&rdquo; status. On that few '
@@ -639,21 +650,12 @@ def p_species(c):
         row_attrs=attrs,
         thin_label=f"show all {c.n_sp}",
     ))
-    half, none_ = crop_mismatch(c)
-    # "all 186" read as a promise the open table breaks: 97 rows start hidden.
+    # "all 186" read as a promise the open table breaks: rows start hidden.
     # "any of" is what stays true, since a typed name reaches a hidden row. The
     # colon stays: slug() cuts there, so the anchor keeps its old value.
     return panel(f"Look up one species: any of the {c.n_sp}, sortable and filterable",
                  "<b>Find a species you care about and read its status.</b> Click any "
-                 "heading to sort, type to filter. " + status_precedence_note()
-                 # The caveat that changes how a row reads used to sit 1,200 lines
-                 # below the table. A reader had already judged a species by then.
-                 + f' Every rate here is scored on the fixed centre square, not on '
-                   f'outlined crowns. On {half:,} of these {len(c.sp_recs):,} frames the '
-                   f'labelled species covers less than half that square, and on {none_:,} '
-                   f'it covers none of it. So a low rate can mean the crop missed the '
-                   f'tree rather than that the model missed the name. Read a row as a flag '
-                   f'for a second look, not as that species&rsquo; identification accuracy.',
+                 "heading to sort, type to filter.",
                  body, open_=True)
 
 
