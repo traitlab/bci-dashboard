@@ -534,7 +534,7 @@ def p_wait(c):
             + (f' It is also a different set from the {c.counts["ranking"]} species named in '
                f'the panel heading above, which happens to be the same size.'
                if c.counts["ranking"] == len(c.eligible) else '')
-            + f' The error rate '
+            + f'</p><p class="note">The error rate '
             f'above is measured on the {len(c.test_recs):,} frames held back from that. So '
             f'no rule is graded on the frames that chose it.</p>')
     return panel(f"Which frames can wait: {best['n']:,} of the {len(c.test_recs):,} frames "
