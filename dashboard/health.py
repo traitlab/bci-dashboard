@@ -27,6 +27,7 @@ from core import (
     SPLITS_CSV,
     WCVP_CACHE_JSON,
     bucket_label,
+    canonicaliser,
     coverage_split,
     genus_of,
     is_species_level,
@@ -249,10 +250,7 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     rl.log_reconciliation(_log, names, scan, gt_rows, crosswalk, wcvp_raw)
 
     # ---------------- 5. one record per frame we can score ----------------
-    def canon(name: str) -> str:
-        """Normalize + apply the local WCVP crosswalk (tiers a-d)."""
-        nn = normalize(name)
-        return crosswalk.get(nn, nn)
+    canon = canonicaliser(crosswalk)
 
     # Joined on base_image: GT keys carry GT_KEY_PREFIX and the box CSV does not, so
     # the stem used for the cache join is the join key here too.

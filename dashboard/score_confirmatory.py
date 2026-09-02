@@ -60,14 +60,9 @@ def log(msg=""):
 # --- names -------------------------------------------------------------------
 
 def canonicaliser():
-    """The dashboard's own normalisation, as one callable."""
+    """The dashboard's own normalisation, over the cached crosswalk."""
     crosswalk, _ = core.load_wcvp_crosswalk(core.WCVP_CACHE_JSON)
-
-    def canon(name):
-        n = core.normalize(name or "")
-        return crosswalk.get(n, n)
-
-    return canon
+    return core.canonicaliser(crosswalk)
 
 
 # --- the two aggregation rules, as committed -------------------------------

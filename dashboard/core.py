@@ -384,6 +384,21 @@ def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> st
     return "normal"
 
 
+def canonicaliser(crosswalk: dict):
+    """Normalize a name and apply the WCVP crosswalk, as one callable.
+
+    Both the page builders and `score_confirmatory.py` compare names this way,
+    and each used to define the closure itself. Two definitions of what counts
+    as the same species is the one difference that would make the frozen
+    experiment and the pages disagree without either being wrong.
+    """
+    def canon(name: str) -> str:
+        nn = normalize(name or "")
+        return crosswalk.get(nn, nn)
+
+    return canon
+
+
 def send_first_rows(predictions, joined_stems, canon, support, top1) -> tuple:
     """Every unlabelled frame's queue, in the order send_first_queue.csv writes.
 
