@@ -16,7 +16,8 @@ import datetime as _dt
 import os
 
 import core as hc
-from assets import CSS, JS, section, strip_comments
+from assets import section, strip_comments
+from style import CSS, JS
 from history import latest_snapshot_dir
 from panels import (
     p_candidates, p_caveats, p_ceiling, p_confirmatory, p_counts, p_method,

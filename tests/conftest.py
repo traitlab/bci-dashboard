@@ -112,6 +112,16 @@ def assets():
 
 
 @pytest.fixture(scope="session")
+def style():
+    """The stylesheet, the script and the element ids they share with
+    `assets.filterable_table`. Separate from `assets` because they are literal
+    text a test greps, not functions it calls."""
+    with _on_path(REPO / "dashboard"):
+        import style
+        yield style
+
+
+@pytest.fixture(scope="session")
 def panels():
     """The model-health page's panel functions. `dashboard/` on the path,
     because panels imports core and assets as siblings. Every function here
