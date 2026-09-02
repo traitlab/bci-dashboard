@@ -135,15 +135,10 @@ def hero_terms(k):
 def crop_mismatch(c):
     """The one sentence that says how far the crop and the label disagree.
 
-    Two panels need it: the four corpus rates and the species table. It was
-    written out twice, in different words, with the same two counts. Once here,
-    so the two panels cannot drift apart and a reader who opens both is not
-    told the same thing twice in two voices.
-
-    Counted, never a module constant. It was a constant once, with the counts
-    in the prose; they went stale and were measured over the wrong population,
-    which is the failure the rest of this file avoids by recomputing every
-    figure at build time.
+    Two panels need it, the four corpus rates and the species table, so it is
+    written once and they cannot drift apart. Counted at build time, never a
+    module constant: a constant went stale here once, over the wrong
+    population.
     """
     return (f"The two are not always looking at the same tree. On {c.crop_half:,} of "
             f"{len(c.sp_recs):,} scored frames the labelled species covers less than half "
@@ -437,13 +432,10 @@ def p_method(c):
 def p_counts(c):
     """Why the page prints three different frame counts.
 
-    Was always-visible prose under the hero cards, and at 89 words it was a
-    fifth of everything a reader saw before clicking. It answers a question
-    nobody has yet on landing: it is what you want when you have met one count
-    in one panel and a larger one in another and cannot tell whether the page
-    contradicts itself. Closed, with the three numbers in the summary, it is
-    there the moment that happens and costs nothing until then. The counts
-    themselves are not named here, only rendered: they move with the corpus.
+    Nobody has this question on landing. It is what you want after meeting one
+    count in one panel and a larger one in another, so it is closed, with the
+    three numbers in the summary, and costs nothing until then. The counts are
+    rendered rather than named here: they move with the corpus.
     """
     return panel(
         f"Why three different frame counts: {c.n:,}, {c.n_pred:,} and {c.n_gt:,}",
