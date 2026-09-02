@@ -21,7 +21,9 @@ from history import model_tag_of, snapshot_date_of
 # that disagrees with the rule the data layer applied.
 RARE_MAX_SUPPORT = hc.WELL_SAMPLED_MIN_N
 WAIT_SUPPORT_MIN = hc.WELL_SAMPLED_MIN_N
-RECOMMENDED_CONF = 0.8
+# The confidence the page recommends is the one the queue applies. Written as
+# 0.8 twice, the page could recommend a rule the queue does not implement.
+RECOMMENDED_CONF = hc.WAIT_CONF
 
 # The frozen confirmatory read, written by dashboard/score_confirmatory.py. The
 # page reads the file rather than re-running the scorer, because the stopping
@@ -176,6 +178,9 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     # send_first_queue.csv's own order. The page prints the head of that file and
     # tells the reader to open the rest, so two sorts would be two lists.
     queue_rows.sort(key=lambda r: (hc.QUEUE_ORDER.index(r[0]), r[3], r[1]))
+    # The same order in the form send_first_queue.csv writes it, so
+    # verify_snapshot can compare the two lists row for row.
+    queue_keys = [hc.GT_KEY_PREFIX + stem for _, stem, _, _ in queue_rows]
 
     # How many scored frames the centre crop mostly misses. Read under the species
     # table and again under the four corpus rates, so it is computed here once.
@@ -260,6 +265,7 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
         never_all=never_all, reach=reach, reach1=reach1, unscoreable=n - len(reach),
         strict1=strict1, short5=short5, n_pred=n_pred, tag=tag, snap_date=snap_date,
         queue_counts=queue_counts, lt_species=lt_species, queue_rows=queue_rows,
+        queue_keys=queue_keys,
         n_no_answer=n_no_answer, n_unlab=n_unlab, scored_cams=scored_cams,
         queue_cams=queue_cams, confident=confident, review=review,
         confident_ok=confident_ok, confident_hits=confident_hits,
