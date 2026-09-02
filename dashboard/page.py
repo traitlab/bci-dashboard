@@ -18,7 +18,7 @@ import os
 
 import core as hc
 import health as hl
-from assets import section, strip_comments
+from assets import css_for, section, strip_comments
 from style import CSS, JS
 from history import latest_snapshot_dir
 from confirmatory_panels import p_caveats, p_confirmatory
@@ -145,7 +145,7 @@ def document(title: str, body: str) -> str:
             '<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             f"<title>{title}</title>"
-            f"<style>{strip_comments(CSS)}</style></head><body>" + body
+            f"<style>{css_for(strip_comments(CSS), body + JS)}</style></head><body>" + body
             + f"<script>{strip_comments(JS)}</script></body></html>")
 
 

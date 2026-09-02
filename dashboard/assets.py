@@ -237,6 +237,45 @@ def strip_comments(text: str) -> str:
     return re.sub(r"\n{2,}", "\n", text).strip()
 
 
+def css_for(css: str, page: str) -> str:
+    """The stylesheet minus the rules for classes this page never renders.
+
+    One stylesheet covers every page, and the pages stopped being alike: the
+    queue page carried the sortable-header arrows, the filter strip, the status
+    legend and the four caveat boxes, none of which it has, at 1.3KB of a 29KB
+    file. A rule survives unless every one of its selectors names a class the
+    page never uses, so anything selecting an element, an id or a state stays
+    untouched.
+
+    ``page`` is the built HTML, script included: the script writes classes of
+    its own (``hidden``, ``asc``, ``desc``) that appear in no markup, and every
+    quoted word in it counts as one rather than listing them here.
+    """
+    used = set()
+    for group in re.findall(r'class="([^"]+)"', page):
+        used |= set(group.split())
+    used |= set(re.findall(r"'([A-Za-z][\w-]*)'", page))
+
+    def unused(selector: str) -> bool:
+        named = re.findall(r"\.([A-Za-z][\w-]*)", selector)
+        return bool(named) and not set(named) <= used
+
+    kept, i = [], 0
+    while (brace := css.find("{", i)) >= 0:
+        depth, end = 1, brace + 1
+        while depth and end < len(css):
+            depth += (css[end] == "{") - (css[end] == "}")
+            end += 1
+        selector = css[i:brace].strip()
+        # An @media block holds rules of its own. Its own selector names no
+        # class, so it is kept whole rather than picked apart.
+        if selector.startswith("@") or not all(
+                unused(part) for part in selector.split(",")):
+            kept.append(css[i:end])
+        i = end
+    return "".join(kept).strip()
+
+
 def status_legend(entries: list[tuple[str, str, str]]) -> str:
     """The status explanations, once, instead of per row. ``entries`` is
     ``[(css_class, label, reason), ...]``, in read order."""

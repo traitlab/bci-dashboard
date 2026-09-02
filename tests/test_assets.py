@@ -365,3 +365,33 @@ def test_svg_weight_pair_escapes_the_axis_labels(assets):
     rows = [("a", 1.0, 1.0, "note", "#111111")]
     out = assets.svg_weight_pair(rows, label_a=INJECT, label_b="B")
     assert "<script>&" not in out
+
+
+def test_css_for_drops_only_the_rules_the_page_has_nothing_to_style(assets):
+    """One stylesheet covers every page and the pages are no longer alike. A
+    rule goes only when every selector in it names a class the page never
+    renders: element, id and state rules are none of this function's business,
+    and neither is a class the script adds at runtime."""
+    css = (".hero{a:1}\n.gone{b:2}\np{c:3}\n#id{d:4}\n"
+           ".hero .metric,.gone{e:5}\n.gone,.other{f:6}\n"
+           "tr.hidden{g:7}\n@media(max-width:640px){.gone{h:8}}")
+    kept = assets.css_for(css, '<div class="hero"><p class="metric"></p></div>'
+                               "<script>r.classList.toggle('hidden',x)</script>")
+    assert ".gone{b:2}" not in kept
+    assert ".hero{a:1}" in kept          # rendered
+    assert "p{c:3}" in kept              # an element, not a class
+    assert "#id{d:4}" in kept            # an id, not a class
+    assert ".hero .metric,.gone{e:5}" in kept   # one live selector keeps the rule
+    assert ".gone,.other{f:6}" not in kept      # neither selector is rendered
+    assert "tr.hidden{g:7}" in kept      # the script writes this one
+    assert "@media(max-width:640px){.gone{h:8}}" in kept  # kept whole
+
+
+def test_css_for_leaves_every_class_the_page_renders_styled(assets, pagemod):
+    """The point of the trim is bytes, so the failure to guard against is a
+    page that loses a rule it needed and quietly renders unstyled."""
+    body = '<div class="hero"><span class="tag reliable">x</span></div>'
+    kept = assets.css_for(assets.strip_comments(pagemod.CSS), body + pagemod.JS)
+    styled = set(re.findall(r"\.([A-Za-z][\w-]*)", kept))
+    for rendered in ("hero", "tag", "reliable"):
+        assert rendered in styled, f"the page renders .{rendered} and lost its rule"

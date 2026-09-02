@@ -481,3 +481,18 @@ def test_the_crop_mismatch_note_says_half_only_while_the_gate_means_half(
         f"MIN_CROP_COVERAGE is {core.MIN_CROP_COVERAGE}, so the page's "
         f"'less than half the crop' names a line the gate no longer draws")
 
+
+
+def test_a_page_styles_every_class_it_renders(page):
+    """The stylesheet is trimmed to the rules a page has something to style, so
+    the failure to guard against is a page that loses a rule it needed and
+    comes out unstyled. `assets.css_for` is what does the trimming and
+    `test_assets.py` holds it to the other direction, the bytes."""
+    html, _, _ = page
+    css = "\n".join(re.findall(r"<style[^>]*>(.*?)</style>", html, re.DOTALL))
+    body = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL)
+    rendered = {name for group in re.findall(r'class="([^"]+)"', body)
+                for name in group.split()}
+    styled = set(re.findall(r"\.([A-Za-z][\w-]*)", css))
+    assert not rendered - styled, (
+        f"the page renders {sorted(rendered - styled)} with no rule for them")
