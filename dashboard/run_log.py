@@ -5,16 +5,32 @@ cache, which names could never be scored right and why, what the crop-coverage
 sweep saw. A page quotes two numbers from here; the rest is for whoever has to
 answer "where did this come from" a year from now.
 
-They print and return nothing. ``health.load_health`` calls them only when a
-caller passes it a ``log``, which only measure.py does, so the three page
-builders never reach this file.
+They print and return nothing, and they compute nothing a CSV also reports:
+every number arrives as an argument. ``health.load_health`` calls the first
+group only when a caller passes it a ``log``, which only measure.py does, and
+measure.py calls the rest itself, so the three page builders never reach this
+file.
 """
 
 from __future__ import annotations
 
+import os
 from collections import Counter
 
-from core import GT_KEY_PREFIX, pct
+from core import (
+    BATCH_SIZE,
+    BUCKET_ORDER,
+    CONF_BINS,
+    CONF_THRESHOLDS,
+    GT_KEY_PREFIX,
+    MIN_CROP_COVERAGE,
+    N_CANDIDATES,
+    QUEUE_ORDER,
+    REVIEW_CONF,
+    WELL_SAMPLED_MIN_N,
+    coverage_split,
+    pct,
+)
 
 
 def log_cache(_log, s):
@@ -163,3 +179,193 @@ def log_crop_gate(_log, records, sp_recs, crop_frames, crop_suspect,
          f"(rejected {len(crop_rejected)}, of which "
          f"{len(sp_recs) - n_sp_cov} for unknown geometry)")
     _log("")
+
+
+def log_evaluable_sets(_log, h):
+    """Which frames the headline is computed over, and which were set aside."""
+    _log("--- EVALUABLE SETS ---")
+    _log(f"  GT frames joined to a cache file    : {len(h.records)}")
+    _log(f"  ... with >=1 prediction             : {sum(1 for r in h.records if r['ranked'])}")
+    _log(f"  species-level GT + >=1 prediction   : {len(h.sp_recs)}   <-- PRIMARY EVALUATION SET")
+    _log(f"  genus-only GT + >=1 prediction      : {len(h.genus_recs)}   (scored separately, genus level)")
+    short = sum(1 for r in h.sp_recs if len(r["ranked"]) < N_CANDIDATES)
+    _log(f"  primary set with <{N_CANDIDATES} candidates      : {short} ({pct(short, len(h.sp_recs))})")
+    _log("")
+
+
+def log_headline(_log, n, n_sp, c1, c5, macro1, macro5, g1, g5, reachable, r1, r5, s1, s5, gn, gg1, gg5):
+    """The headline block: every rate, each with the frames it was measured on."""
+    # ---------------- 11. report ----------------
+    _log("=" * 84)
+    _log(f"HEADLINE  (species-level GT, joined, >=1 cached prediction: n={n} frames, {n_sp} species)")
+    _log("=" * 84)
+    _log(f"  top-1 accuracy                      : {pct(c1, n)}   ({c1}/{n})")
+    _log(f"  top-{N_CANDIDATES} accuracy  (= full list)       : {pct(c5, n)}   ({c5}/{n})")
+    _log(f"  macro-avg per-species recall @1     : {macro1 * 100:.2f}%   (unweighted over {n_sp} species)")
+    _log(f"  macro-avg per-species recall @{N_CANDIDATES}     : {macro5 * 100:.2f}%")
+    _log(f"  genus-level top-1                   : {pct(g1, n)}   ({g1}/{n})")
+    _log(f"  genus-level top-{N_CANDIDATES}                   : {pct(g5, n)}   ({g5}/{n})")
+    _log("")
+    _log("  restricted to frames whose GT species appears somewhere in the corpus at all")
+    _log(f"  (n={len(reachable)}; excludes the {n - len(reachable)} frames that are unscoreable by construction):")
+    _log(f"    top-1                             : {pct(r1, len(reachable))}   ({r1}/{len(reachable)})")
+    _log(f"    top-{N_CANDIDATES}                             : {pct(r5, len(reachable))}   ({r5}/{len(reachable)})")
+    _log("")
+    _log("  sensitivity to name reconciliation (same frames, no WCVP synonym tier):")
+    _log(f"    strict top-1                      : {pct(s1, n)}   ({s1}/{n})   [{100.0 * (c1 - s1) / n:+.2f} pp from tier d]")
+    _log(f"    strict top-{N_CANDIDATES}                      : {pct(s5, n)}   ({s5}/{n})   [{100.0 * (c5 - s5) / n:+.2f} pp from tier d]")
+    _log("")
+    _log(f"  genus-only GT frames (n={gn}), scored at genus level:")
+    _log(f"    genus top-1                       : {pct(gg1, gn)}   ({gg1}/{gn})")
+    _log(f"    genus top-{N_CANDIDATES}                       : {pct(gg5, gn)}   ({gg5}/{gn})")
+    _log("")
+
+
+def log_gate_comparison(_log, sp_recs, sweep, gate, n, n_sp, c1, macro1):
+    """Gated and ungated side by side, then the sweep behind the threshold."""
+    _log("--- CROP-COVERAGE GATE: GATED AND UNGATED, SIDE BY SIDE ---")
+    _log("  Ungated scores every evaluated frame. Gated scores only the frames whose")
+    _log("  dominant labelled species covers at least the threshold share of the centre")
+    _log("  crop the model was actually sent, so the label was inside the model's view.")
+    _log("  The two are different populations. Neither replaces the other.")
+    _log(f"  {'quantity':<34} {'ungated':>12} {'gated':>12}")
+    _log(f"  {'frames (N)':<34} {n:>12} {gate['n_admitted']:>12}")
+    _log(f"  {'frame top-1':<34} {pct(c1, n):>12} {pct(gate['n_correct_top1'], gate['n_admitted']):>12}"
+        f"   (N_admitted={gate['n_admitted']})")
+    _log(f"  {'macro per-species top-1':<34} {macro1 * 100:>11.2f}% "
+        f"{gate['macro_top1'] * 100:>11.2f}%   (N_admitted={gate['n_admitted']}, "
+        f"{gate['n_species']} species)")
+    _log(f"  {'species':<34} {n_sp:>12} {gate['n_species']:>12}")
+    _log(f"  threshold in force                  : {MIN_CROP_COVERAGE:.2f} "
+        f"(core.MIN_CROP_COVERAGE)")
+    _log(f"  {'min_coverage':>12} {'N_admitted':>12} {'frame top-1':>13} "
+        f"{'macro top-1':>13} {'species':>9}")
+    for g in sweep:
+        _log(f"  {g['min_coverage']:>12.2f} {g['n_admitted']:>12} "
+            f"{pct(g['n_correct_top1'], g['n_admitted']):>13} "
+            f"{(g['macro_top1'] * 100):>12.2f}% {g['n_species']:>9}")
+    n_unknown = sum(1 for r in sp_recs if r["crop_coverage"] is None)
+    _log(f"  frames with no box geometry, rejected at every threshold : {n_unknown} "
+        f"({pct(n_unknown, n)})")
+    # The gated N is smaller than the ungated N for two unrelated reasons, and only
+    # one of them is the gate doing its job. Splitting them keeps a missing-data
+    # count from reading as evidence about crop coverage.
+    n_low = n - n_unknown - gate["n_admitted"]
+    _log(f"  so the {n - gate['n_admitted']} frames not admitted are {n_unknown} with no box "
+        f"geometry to measure")
+    _log(f"  and {n_low} measured below the {MIN_CROP_COVERAGE:.2f} threshold.")
+    admitted, _ = coverage_split(sp_recs, MIN_CROP_COVERAGE)
+    mism = sum(1 for r in admitted if r["crop_dominant"] != r["gt"])
+    _log(f"  admitted frames whose crop-dominant species differs from the GT label : "
+        f"{mism}")
+    _log("  A difference there means the crop is filled by a species other than the one")
+    _log("  the frame is labelled with, so admission alone does not make the label the")
+    _log("  right answer for what the model saw.")
+    _log("")
+
+
+def log_support_buckets(_log, B):
+    """Accuracy by how many labelled frames a species has."""
+    _log("--- SUPPORT BUCKETS (species-level GT) ---")
+    _log(f"  {'bucket':<8} {'species':>8} {'frames':>8} {'top-1':>9} {f'top-{N_CANDIDATES}':>9}")
+    for lab in BUCKET_ORDER:
+        b = B[lab]
+        if not b["n_crowns"]:
+            continue
+        _log(f"  {lab:<8} {b['n_species']:>8} {b['n_crowns']:>8} "
+            f"{pct(b['c1'], b['n_crowns']):>9} {pct(b['c5'], b['n_crowns']):>9}")
+    _log("")
+
+
+def log_filter_gain(_log, B, bci_list, n, c1, f1, f_abstain, still_wrong, maxk, sw_full, sw_short, sw_full_unreachable):
+    """What restricting candidates to the BCI list is worth, and why it is a lower bound."""
+    _log(f"--- BCI SPECIES-LIST FILTER (proxy list = {len(bci_list)} distinct GT species) ---")
+    _log(f"  top-1 before filter                 : {pct(c1, n)}   ({c1}/{n})")
+    _log(f"  top-1 after  filter                 : {pct(f1, n)}   ({f1}/{n})")
+    _log(f"  delta                               : {100.0 * (f1 - c1) / n:+.2f} pp")
+    _log(f"  frames with no surviving candidate  : {f_abstain} ({pct(f_abstain, n)})")
+    _log(f"  {'bucket':<8} {'frames':>8} {'before':>9} {'after':>9} {'delta':>10} {'no-cand':>8}")
+    for lab in BUCKET_ORDER:
+        b = B[lab]
+        if not b["n_crowns"]:
+            continue
+        _log(f"  {lab:<8} {b['n_crowns']:>8} {pct(b['c1'], b['n_crowns']):>9} "
+            f"{pct(b['f1'], b['n_crowns']):>9} "
+            f"{100.0 * (b['f1'] - b['c1']) / b['n_crowns']:>+9.2f}p {b['fab']:>8}")
+    _log("")
+    _log("  THIS DELTA IS A LOWER BOUND. Re-ranking can only promote a species already")
+    _log("  present in the returned list, and the list was capped at nb-results=5.")
+    _log(f"    frames still wrong after filtering  : {len(still_wrong)}")
+    _log(f"      ... whose list was full (len={maxk})     : {sw_full}  <- cap could be binding;")
+    _log("            a correct candidate may exist at rank 6+ and was never returned")
+    _log(f"      ... whose list was short (len<{maxk})    : {sw_short}  <- cap NOT binding; the API")
+    _log("            returned everything it had, so no re-ranking could have helped")
+    _log(f"      ... full list AND GT name absent from the whole corpus : {sw_full_unreachable}")
+    _log("  Sizing the real gain requires a re-ingest with a larger nb-results, or the")
+    _log("  actual curated Pl@ntNet BCI micro-project. It cannot be estimated offline.")
+    _log("")
+    _log("  The proxy list is also OPTIMISTIC in the opposite direction: it is built from")
+    _log("  the GT labels themselves, so by construction it contains every species that")
+    _log("  can be correct and no distractor the real curated list might carry.")
+    _log("")
+
+
+def log_calibration(_log, scopes, top1, n, good, good_recs):
+    """Accuracy by confidence band and threshold, per scope."""
+    _log("--- CONFIDENCE CALIBRATION / TRIAGE FEASIBILITY ---")
+    _log(f"  third scope = the {len(good)} species the proposed rule would whitelist "
+        f"(n>={WELL_SAMPLED_MIN_N} labelled frames AND")
+    _log(f"  measured top-1 >= 90%), covering {len(good_recs)} of the {n} primary frames "
+        f"({pct(len(good_recs), n)}).")
+    _log("  Its accuracy is OPTIMISTIC: the whitelist is selected on the very frames it is")
+    _log("  then scored on. Treat it as an upper bound until validated on held-out frames.")
+    _log("")
+    for scope, rs in scopes:
+        _log(f"  scope: {scope}   (n={len(rs)})")
+        _log(f"    {'conf band':<12} {'n':>7} {'top-1 acc':>11}")
+        for lo, hi in CONF_BINS:
+            sub = [r for r in rs if lo <= r["ranked"][0][1] < hi]
+            k = sum(1 for r in sub if top1(r) == r["gt"])
+            _log(f"    {f'[{lo:.1f},{min(hi, 1.0):.1f})':<12} {len(sub):>7} {pct(k, len(sub)):>11}")
+        _log(f"    {'threshold':<12} {'n auto':>7} {'% of scope':>11} {'error rate':>11}")
+        for t in CONF_THRESHOLDS:
+            sub = [r for r in rs if r["ranked"][0][1] >= t]
+            k = sum(1 for r in sub if top1(r) == r["gt"])
+            _log(f"    {'>=' + str(t):<12} {len(sub):>7} {pct(len(sub), len(rs)):>11} "
+                f"{pct(len(sub) - k, len(sub)):>11}")
+        _log("")
+
+
+def log_send_queue(_log, q_counts, batch_rows, n_no_answer):
+    """The unlabelled pool, by queue, and how it was batched."""
+    n_unlab = sum(q_counts.values())
+    n_batches = batch_rows[-1][0] if batch_rows else 0
+    _log("--- SEND-FIRST QUEUE (cached predictions with no GT label) ---")
+    _log(f"  unlabelled frames with a prediction : {n_unlab}")
+    for q in QUEUE_ORDER:
+        _log(f"    {q:<16}: {q_counts[q]}")
+    _log(f"  send_batches.csv                    : {len(batch_rows)} rows in {n_batches} "
+        f"batches, max {BATCH_SIZE}/batch, species groups packed whole")
+    _log(f"  unlabelled frames with NO answer    : {n_no_answer}  (empty candidate list;")
+    _log("    possible junk or non-plant photos; check a sample")
+    _log("    by eye before queueing, no automatic rule)")
+    _log("")
+
+
+def log_review_queue(_log, review_rows, n, n_adjudicated):
+    """Confident disagreements between the model and a label."""
+    pairs = Counter((r[2], r[3]) for r in review_rows)
+    _log("--- LABELS WORTH A SECOND LOOK ---")
+    _log(f"  first guess wrong at confidence >= {REVIEW_CONF} : {len(review_rows)} "
+        f"of {n} evaluated frames ({pct(len(review_rows), n)})")
+    _log(f"  distinct species-to-species confusions  : {len(pairs)}")
+    # Printed even at zero: a queue that silently shrank is worse than a long one.
+    _log(f"  suppressed, botanist confirmed the label : {n_adjudicated}")
+    _log("")
+
+
+def log_files_written(_log, out_dir, outputs):
+    """Where the run put everything, in the order OUTPUTS names them."""
+    _log("--- FILES WRITTEN ---")
+    for fn in outputs:
+        _log(f"  {os.path.join(out_dir, fn)}")

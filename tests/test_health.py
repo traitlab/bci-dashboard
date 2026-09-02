@@ -30,3 +30,34 @@ def test_the_list_length_health_measures_is_the_one_the_pages_state(health, core
     src = open(health.__file__, encoding="utf-8").read()
     assert '"ranked"][:N_CANDIDATES]' in src
     assert '"ranked"][:5]' not in src, "the list length is a literal again"
+
+
+def test_no_command_measures_a_list_of_five_by_a_literal(core):
+    """The same drift, in the two other places that slice a candidate list.
+
+    `measure.py` computes every top-5 rate in run_log.txt, and both pages quote
+    numbers from that file, so a literal here would disagree with the CSV
+    column the test above pins.
+    """
+    import os
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    for name in ("measure.py", "health.py"):
+        src = open(os.path.join(root, "dashboard", name), encoding="utf-8").read()
+        assert "[:5]" not in src, f"{name} slices a candidate list by a literal"
+        assert ", 5)" not in src, f"{name} passes a list length as a literal"
+
+
+def test_the_run_log_text_lives_in_run_log_py(core):
+    """run_log.py says it holds "every line measure.py writes into run_log.txt".
+
+    It did not: measure.main carried about 150 lines of report printing mixed
+    into the computation, which is what put measure.py over the 500-line limit.
+    The claim is now true, and this keeps it true: a section header printed
+    from measure.py means the report has started leaking back.
+    """
+    import os
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    src = open(os.path.join(root, "dashboard", "measure.py"), encoding="utf-8").read()
+    assert 'log("---' not in src and 'log(f"---' not in src

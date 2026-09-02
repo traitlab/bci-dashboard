@@ -16,15 +16,16 @@ import csv
 import os
 from collections import Counter, defaultdict
 
+import run_log as rl
 from health import load_health
 from core import (
     add_input_flags, summarise,
-    pct, ratio, fmt, genus_of, normalize, queue_of_prediction, chunk_send_batches,
-    coverage_gate_stats, coverage_split, labelbox_urls, adjudicated_keys,
+    ratio, fmt, genus_of, normalize, queue_of_prediction, chunk_send_batches,
+    coverage_gate_stats, labelbox_urls, adjudicated_keys,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
     QUEUE_ORDER, REVIEW_CONF, BATCH_SIZE, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
-    GT_KEY_PREFIX,
+    GT_KEY_PREFIX, N_CANDIDATES,
 )
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -190,14 +191,7 @@ def main() -> None:
 
     write_name_reconciliation(out_dir, h)
 
-    log("--- EVALUABLE SETS ---")
-    log(f"  GT frames joined to a cache file    : {len(h.records)}")
-    log(f"  ... with >=1 prediction             : {sum(1 for r in h.records if r['ranked'])}")
-    log(f"  species-level GT + >=1 prediction   : {len(h.sp_recs)}   <-- PRIMARY EVALUATION SET")
-    log(f"  genus-only GT + >=1 prediction      : {len(h.genus_recs)}   (scored separately, genus level)")
-    short = sum(1 for r in h.sp_recs if len(r["ranked"]) < 5)
-    log(f"  primary set with <5 candidates      : {short} ({pct(short, len(h.sp_recs))})")
-    log("")
+    rl.log_evaluable_sets(log, h)
 
     # ---------------- 6. headline ----------------
     def top1(r, key="ranked"):
@@ -211,16 +205,16 @@ def main() -> None:
 
     n = len(sp_recs)
     c1 = sum(1 for r in sp_recs if top1(r) == r["gt"])
-    c5 = sum(1 for r in sp_recs if hit(r, 5))
+    c5 = sum(1 for r in sp_recs if hit(r, N_CANDIDATES))
     s1 = sum(1 for r in sp_recs if top1(r, "ranked_strict") == r["gt_strict"])
-    s5 = sum(1 for r in sp_recs if hit(r, 5, "ranked_strict", "gt_strict"))
+    s5 = sum(1 for r in sp_recs if hit(r, N_CANDIDATES, "ranked_strict", "gt_strict"))
     g1 = sum(1 for r in sp_recs if genus_of(top1(r)) == genus_of(r["gt"]))
     g5 = sum(1 for r in sp_recs
-             if genus_of(r["gt"]) in [genus_of(b) for b, _ in r["ranked"][:5]])
+             if genus_of(r["gt"]) in [genus_of(b) for b, _ in r["ranked"][:N_CANDIDATES]])
     gn = len(genus_recs)
     gg1 = sum(1 for r in genus_recs if genus_of(top1(r)) == r["gt"])
     gg5 = sum(1 for r in genus_recs
-              if r["gt"] in [genus_of(b) for b, _ in r["ranked"][:5]])
+              if r["gt"] in [genus_of(b) for b, _ in r["ranked"][:N_CANDIDATES]])
 
     per_species = h.per_species
     n_sp = len(per_species)
@@ -257,7 +251,7 @@ def main() -> None:
     # Attainable ceiling: frames whose GT name exists somewhere in the corpus at all.
     reachable = [r for r in sp_recs if reachable_gt(r["gt"])]
     r1 = sum(1 for r in reachable if top1(r) == r["gt"])
-    r5 = sum(1 for r in reachable if hit(r, 5))
+    r5 = sum(1 for r in reachable if hit(r, N_CANDIDATES))
 
     # ---------------- 9. support buckets ----------------
     b_of = {d["species"]: d["support_bucket"] for d in per_species}
@@ -268,7 +262,7 @@ def main() -> None:
         b = B[b_of[r["gt"]]]
         b["n_crowns"] += 1
         b["c1"] += top1(r) == r["gt"]
-        b["c5"] += hit(r, 5)
+        b["c5"] += hit(r, N_CANDIDATES)
         ft = filt[r["global_key"]]
         if ft is None:
             b["fab"] += 1
@@ -304,129 +298,16 @@ def main() -> None:
     gate = coverage_gate_stats(sp_recs, MIN_CROP_COVERAGE)
     write_coverage_gate(out_dir, sweep)
 
-    # ---------------- 11. report ----------------
-    log("=" * 84)
-    log(f"HEADLINE  (species-level GT, joined, >=1 cached prediction: n={n} frames, {n_sp} species)")
-    log("=" * 84)
-    log(f"  top-1 accuracy                      : {pct(c1, n)}   ({c1}/{n})")
-    log(f"  top-5 accuracy  (= full list)       : {pct(c5, n)}   ({c5}/{n})")
-    log(f"  macro-avg per-species recall @1     : {macro1 * 100:.2f}%   (unweighted over {n_sp} species)")
-    log(f"  macro-avg per-species recall @5     : {macro5 * 100:.2f}%")
-    log(f"  genus-level top-1                   : {pct(g1, n)}   ({g1}/{n})")
-    log(f"  genus-level top-5                   : {pct(g5, n)}   ({g5}/{n})")
-    log("")
-    log("  restricted to frames whose GT species appears somewhere in the corpus at all")
-    log(f"  (n={len(reachable)}; excludes the {n - len(reachable)} frames that are unscoreable by construction):")
-    log(f"    top-1                             : {pct(r1, len(reachable))}   ({r1}/{len(reachable)})")
-    log(f"    top-5                             : {pct(r5, len(reachable))}   ({r5}/{len(reachable)})")
-    log("")
-    log("  sensitivity to name reconciliation (same frames, no WCVP synonym tier):")
-    log(f"    strict top-1                      : {pct(s1, n)}   ({s1}/{n})   [{100.0 * (c1 - s1) / n:+.2f} pp from tier d]")
-    log(f"    strict top-5                      : {pct(s5, n)}   ({s5}/{n})   [{100.0 * (c5 - s5) / n:+.2f} pp from tier d]")
-    log("")
-    log(f"  genus-only GT frames (n={gn}), scored at genus level:")
-    log(f"    genus top-1                       : {pct(gg1, gn)}   ({gg1}/{gn})")
-    log(f"    genus top-5                       : {pct(gg5, gn)}   ({gg5}/{gn})")
-    log("")
-    log("--- CROP-COVERAGE GATE: GATED AND UNGATED, SIDE BY SIDE ---")
-    log("  Ungated scores every evaluated frame. Gated scores only the frames whose")
-    log("  dominant labelled species covers at least the threshold share of the centre")
-    log("  crop the model was actually sent, so the label was inside the model's view.")
-    log("  The two are different populations. Neither replaces the other.")
-    log(f"  {'quantity':<34} {'ungated':>12} {'gated':>12}")
-    log(f"  {'frames (N)':<34} {n:>12} {gate['n_admitted']:>12}")
-    log(f"  {'frame top-1':<34} {pct(c1, n):>12} {pct(gate['n_correct_top1'], gate['n_admitted']):>12}"
-        f"   (N_admitted={gate['n_admitted']})")
-    log(f"  {'macro per-species top-1':<34} {macro1 * 100:>11.2f}% "
-        f"{gate['macro_top1'] * 100:>11.2f}%   (N_admitted={gate['n_admitted']}, "
-        f"{gate['n_species']} species)")
-    log(f"  {'species':<34} {n_sp:>12} {gate['n_species']:>12}")
-    log(f"  threshold in force                  : {MIN_CROP_COVERAGE:.2f} "
-        f"(core.MIN_CROP_COVERAGE)")
-    log(f"  {'min_coverage':>12} {'N_admitted':>12} {'frame top-1':>13} "
-        f"{'macro top-1':>13} {'species':>9}")
-    for g in sweep:
-        log(f"  {g['min_coverage']:>12.2f} {g['n_admitted']:>12} "
-            f"{pct(g['n_correct_top1'], g['n_admitted']):>13} "
-            f"{(g['macro_top1'] * 100):>12.2f}% {g['n_species']:>9}")
-    n_unknown = sum(1 for r in sp_recs if r["crop_coverage"] is None)
-    log(f"  frames with no box geometry, rejected at every threshold : {n_unknown} "
-        f"({pct(n_unknown, n)})")
-    # The gated N is smaller than the ungated N for two unrelated reasons, and only
-    # one of them is the gate doing its job. Splitting them keeps a missing-data
-    # count from reading as evidence about crop coverage.
-    n_low = n - n_unknown - gate["n_admitted"]
-    log(f"  so the {n - gate['n_admitted']} frames not admitted are {n_unknown} with no box "
-        f"geometry to measure")
-    log(f"  and {n_low} measured below the {MIN_CROP_COVERAGE:.2f} threshold.")
-    admitted, _ = coverage_split(sp_recs, MIN_CROP_COVERAGE)
-    mism = sum(1 for r in admitted if r["crop_dominant"] != r["gt"])
-    log(f"  admitted frames whose crop-dominant species differs from the GT label : "
-        f"{mism}")
-    log("  A difference there means the crop is filled by a species other than the one")
-    log("  the frame is labelled with, so admission alone does not make the label the")
-    log("  right answer for what the model saw.")
-    log("")
-    log("--- SUPPORT BUCKETS (species-level GT) ---")
-    log(f"  {'bucket':<8} {'species':>8} {'frames':>8} {'top-1':>9} {'top-5':>9}")
-    for lab in BUCKET_ORDER:
-        b = B[lab]
-        if not b["n_crowns"]:
-            continue
-        log(f"  {lab:<8} {b['n_species']:>8} {b['n_crowns']:>8} "
-            f"{pct(b['c1'], b['n_crowns']):>9} {pct(b['c5'], b['n_crowns']):>9}")
-    log("")
-    log(f"--- BCI SPECIES-LIST FILTER (proxy list = {len(bci_list)} distinct GT species) ---")
-    log(f"  top-1 before filter                 : {pct(c1, n)}   ({c1}/{n})")
-    log(f"  top-1 after  filter                 : {pct(f1, n)}   ({f1}/{n})")
-    log(f"  delta                               : {100.0 * (f1 - c1) / n:+.2f} pp")
-    log(f"  frames with no surviving candidate  : {f_abstain} ({pct(f_abstain, n)})")
-    log(f"  {'bucket':<8} {'frames':>8} {'before':>9} {'after':>9} {'delta':>10} {'no-cand':>8}")
-    for lab in BUCKET_ORDER:
-        b = B[lab]
-        if not b["n_crowns"]:
-            continue
-        log(f"  {lab:<8} {b['n_crowns']:>8} {pct(b['c1'], b['n_crowns']):>9} "
-            f"{pct(b['f1'], b['n_crowns']):>9} "
-            f"{100.0 * (b['f1'] - b['c1']) / b['n_crowns']:>+9.2f}p {b['fab']:>8}")
-    log("")
-    log("  THIS DELTA IS A LOWER BOUND. Re-ranking can only promote a species already")
-    log("  present in the returned list, and the list was capped at nb-results=5.")
-    log(f"    frames still wrong after filtering  : {len(still_wrong)}")
-    log(f"      ... whose list was full (len={h.maxk})     : {sw_full}  <- cap could be binding;")
-    log("            a correct candidate may exist at rank 6+ and was never returned")
-    log(f"      ... whose list was short (len<{h.maxk})    : {sw_short}  <- cap NOT binding; the API")
-    log("            returned everything it had, so no re-ranking could have helped")
-    log(f"      ... full list AND GT name absent from the whole corpus : {sw_full_unreachable}")
-    log("  Sizing the real gain requires a re-ingest with a larger nb-results, or the")
-    log("  actual curated Pl@ntNet BCI micro-project. It cannot be estimated offline.")
-    log("")
-    log("  The proxy list is also OPTIMISTIC in the opposite direction: it is built from")
-    log("  the GT labels themselves, so by construction it contains every species that")
-    log("  can be correct and no distractor the real curated list might carry.")
-    log("")
-    log("--- CONFIDENCE CALIBRATION / TRIAGE FEASIBILITY ---")
-    log(f"  third scope = the {len(good)} species the proposed rule would whitelist "
-        f"(n>={WELL_SAMPLED_MIN_N} labelled frames AND")
-    log(f"  measured top-1 >= 90%), covering {len(good_recs)} of the {n} primary frames "
-        f"({pct(len(good_recs), n)}).")
-    log("  Its accuracy is OPTIMISTIC: the whitelist is selected on the very frames it is")
-    log("  then scored on. Treat it as an upper bound until validated on held-out frames.")
-    log("")
-    for scope, rs in scopes:
-        log(f"  scope: {scope}   (n={len(rs)})")
-        log(f"    {'conf band':<12} {'n':>7} {'top-1 acc':>11}")
-        for lo, hi in CONF_BINS:
-            sub = [r for r in rs if lo <= r["ranked"][0][1] < hi]
-            k = sum(1 for r in sub if top1(r) == r["gt"])
-            log(f"    {f'[{lo:.1f},{min(hi, 1.0):.1f})':<12} {len(sub):>7} {pct(k, len(sub)):>11}")
-        log(f"    {'threshold':<12} {'n auto':>7} {'% of scope':>11} {'error rate':>11}")
-        for t in CONF_THRESHOLDS:
-            sub = [r for r in rs if r["ranked"][0][1] >= t]
-            k = sum(1 for r in sub if top1(r) == r["gt"])
-            log(f"    {'>=' + str(t):<12} {len(sub):>7} {pct(len(sub), len(rs)):>11} "
-                f"{pct(len(sub) - k, len(sub)):>11}")
-        log("")
+    rl.log_headline(log, n, n_sp, c1, c5, macro1, macro5, g1, g5, reachable, r1, r5, s1, s5, gn, gg1, gg5)
+
+    rl.log_gate_comparison(log, sp_recs, sweep, gate, n, n_sp, c1, macro1)
+
+    rl.log_support_buckets(log, B)
+
+    rl.log_filter_gain(log, B, bci_list, n, c1, f1, f_abstain, still_wrong,
+                       h.maxk, sw_full, sw_short, sw_full_unreachable)
+
+    rl.log_calibration(log, scopes, top1, n, good, good_recs)
 
     # ---------------- 12. send-first queue over the unlabelled pool ----------------
     # Which unlabelled frames reach the botanist first. Every cached response whose
@@ -465,18 +346,7 @@ def main() -> None:
     batch_rows = chunk_send_batches(queue_rows, batch_size=BATCH_SIZE)
     write_send_batches(out_dir, batch_rows)
 
-    n_unlab = sum(q_counts.values())
-    n_batches = batch_rows[-1][0] if batch_rows else 0
-    log("--- SEND-FIRST QUEUE (cached predictions with no GT label) ---")
-    log(f"  unlabelled frames with a prediction : {n_unlab}")
-    for q in QUEUE_ORDER:
-        log(f"    {q:<16}: {q_counts[q]}")
-    log(f"  send_batches.csv                    : {len(batch_rows)} rows in {n_batches} "
-        f"batches, max {BATCH_SIZE}/batch, species groups packed whole")
-    log(f"  unlabelled frames with NO answer    : {n_no_answer}  (empty candidate list;")
-    log("    possible junk or non-plant photos; check a sample")
-    log("    by eye before queueing, no automatic rule)")
-    log("")
+    rl.log_send_queue(log, q_counts, batch_rows, n_no_answer)
 
     # ---------------- 13. labels worth a second look ----------------
     # First guess wrong at high confidence: either the label or the model is wrong.
@@ -492,18 +362,9 @@ def main() -> None:
     review_rows.sort(key=lambda r: (-float(r[4]), r[1], r[0]))
     write_label_review_queue(out_dir, review_rows)
 
-    pairs = Counter((r[2], r[3]) for r in review_rows)
-    log("--- LABELS WORTH A SECOND LOOK ---")
-    log(f"  first guess wrong at confidence >= {REVIEW_CONF} : {len(review_rows)} "
-        f"of {n} evaluated frames ({pct(len(review_rows), n)})")
-    log(f"  distinct species-to-species confusions  : {len(pairs)}")
-    # Printed even at zero: a queue that silently shrank is worse than a long one.
-    log(f"  suppressed, botanist confirmed the label : {n_adjudicated}")
-    log("")
+    rl.log_review_queue(log, review_rows, n, n_adjudicated)
 
-    log("--- FILES WRITTEN ---")
-    for fn in OUTPUTS:
-        log(f"  {os.path.join(out_dir, fn)}")
+    rl.log_files_written(log, out_dir, OUTPUTS)
 
     with open(os.path.join(out_dir, "run_log.txt"), "w", encoding="utf-8") as f:
         f.write("\n".join(LOG_LINES) + "\n")
