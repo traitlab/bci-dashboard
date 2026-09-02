@@ -68,6 +68,14 @@ HERO_WHY_DIFFER = (
 # be printed at two different roundings.
 CROP_SHARE = f"{100 * CROP_SIZE ** 2 / (FRAME_W * FRAME_H):.1f}%"
 
+# What the centre crop is, as a noun phrase both panels that need it can drop into
+# their own sentence. The glossary defines the term; the method panel says what we
+# sent. Written out twice, they had drifted into two shapes of the same square,
+# "1280x1280" in one and "1280 px across" in the other, which reads as two
+# different crops to anyone who opens both.
+CENTRE_CROP_IS = (f"the fixed {CROP_SIZE}&times;{CROP_SIZE} square from the middle of "
+                  f"a frame, {CROP_SHARE} of the frame&rsquo;s area")
+
 # What a reader has to know before any number on the page means anything. The
 # crown sentence is here rather than beside the headline because the headline is
 # the first thing on the page and a term defined under it is defined too late.
@@ -84,8 +92,7 @@ def hero_terms(k):
         "A <b>crown</b> is one tree canopy a botanist outlined inside a frame.",
         "A frame's <b>label</b> is the species whose outlined crowns cover the most "
         "area in the <i>whole</i> frame.",
-        f"The <b>centre crop</b> is the fixed {CROP_SIZE}&times;{CROP_SIZE} square from "
-        f"the middle of a frame, which is {CROP_SHARE} of the frame&rsquo;s area. Every "
+        f"The <b>centre crop</b> is {CENTRE_CROP_IS}. Every "
         f"number below that covers all the labelled frames was scored on that square. "
         f"We ask Pl@ntNet for {k} "
         f"names per photo (<code>nb-results={k}</code>). That is our request setting, "
@@ -457,10 +464,8 @@ def p_confirmatory(c):
         f'says what naming '
         f'costs once someone has found the trees, not what a fully automatic pipeline '
         f'would score.</p>'
-        f'<p class="note"><strong>What we did for the second number.</strong> We sent one '
-        f'fixed square from the middle of the frame, {CROP_SIZE} px across, which is '
-        f'{CROP_SHARE} of the frame&rsquo;s area. Nothing chose that square; it lands where '
-        f'it lands.</p>'
+        f'<p class="note"><strong>What we did for the second number.</strong> We sent '
+        f'{CENTRE_CROP_IS}. Nothing chose that square; it lands where it lands.</p>'
         f'<p class="note"><strong>Which frames, and how many.</strong> '
         f'{int(cf["n_frames"])} frames from {int(cf["n_sites"])} sites and '
         f'{int(cf["n_days"])} flight days, set aside before any of these numbers existed. '
