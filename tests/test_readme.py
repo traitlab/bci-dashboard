@@ -136,3 +136,53 @@ def test_every_path_the_docs_point_at_is_there(doc, least, core):
         f"{doc} points at {missing}, which is not in the checkout. Either the "
         f"file moved and {doc} did not, or it is generated and belongs under one "
         f"of the GENERATED prefixes with the reason.")
+
+
+# The claim in metrics.md, and the column of per_species_health.csv that
+# settles it. Both files are outside the tracked tree in a fresh clone, so
+# this skips rather than fails when either is missing.
+METRICS_CLAIMS = (
+    (r"\*\*79\.46%\*\* \| per \*\*frame\*\*", "per_frame_top1", 0.7946),
+    (r"\*\*50\.28%\*\* \| per \*\*species\*\*", "macro_top1", 0.5028),
+    (r"scores\s+([\d,]+) frames over ([\d,]+) species", "frames_and_species", None),
+)
+
+
+def test_the_headline_rates_metrics_md_quotes_are_the_ones_the_snapshot_holds(core):
+    """`metrics.md` is the sibling file that says what each number means.
+
+    It leads with 79.46% per frame and 50.28% per species over 3,277 frames
+    and 186 species, all quoted from the 2026-08-24 snapshot. Prose cannot
+    import a CSV, so those four figures are copies. This recomputes them from
+    `per_species_health.csv` the way the measurement does: micro is correct
+    top-1 over labelled crowns, macro is the mean of the per-species rates.
+    """
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    doc = os.path.join(os.path.dirname(root), "bci-dashboard-docs", "metrics.md")
+    table = os.path.join(root, "snapshots", "model-health-2026-08-24",
+                         "per_species_health.csv")
+    for path, what in ((doc, "sibling bci-dashboard-docs/metrics.md"),
+                       (table, "the 2026-08-24 snapshot")):
+        if not os.path.exists(path):
+            pytest.skip(f"{what} not present")
+    with open(doc, encoding="utf-8") as fh:
+        text = fh.read()
+    with open(table, newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+
+    crowns = sum(int(r["n_labelled_crowns"]) for r in rows)
+    micro = sum(int(r["n_correct_top1"]) for r in rows) / crowns
+    macro = sum(float(r["top1_accuracy"]) for r in rows) / len(rows)
+    for pattern, what, expected in METRICS_CLAIMS[:2]:
+        assert re.search(pattern, text), (
+            f"metrics.md no longer quotes {expected:.2%} as the {what} rate; "
+            f"the snapshot gives {micro if 'frame' in what else macro:.4f}.")
+    assert round(micro, 4) == 0.7946, f"per-frame top-1 is now {micro:.4f}"
+    assert round(macro, 4) == 0.5028, f"per-species top-1 is now {macro:.4f}"
+
+    said = re.search(METRICS_CLAIMS[2][0], text)
+    assert said, "metrics.md no longer says how many frames and species it scores"
+    assert int(said.group(1).replace(",", "")) == crowns, (
+        f"metrics.md says {said.group(1)} frames, the snapshot holds {crowns}.")
+    assert int(said.group(2).replace(",", "")) == len(rows), (
+        f"metrics.md says {said.group(2)} species, the snapshot holds {len(rows)}.")
