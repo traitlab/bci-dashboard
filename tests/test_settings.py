@@ -242,3 +242,35 @@ def test_the_env_example_offers_every_key_a_script_reads():
         f".env.example does not offer {missing}, and a script reads it. A new "
         f"checkout copying the example gets a run that stops on a name it was "
         f"never told to set.")
+
+
+def test_each_labelbox_setting_names_the_scripts_that_read_it():
+    """config.yaml is the file somebody opens before pointing a run somewhere.
+
+    Every id under `labelbox:` carries a comment naming the scripts that read
+    it, which is how a reader knows what a change is about to affect. Nothing
+    checked those names. `combined_dataset_name` claimed close_round read it
+    and close_round never has, so the comment overstated the blast radius of
+    the one setting that names a dataset.
+    """
+    import re
+
+    config = (REPO / "config.yaml").read_text(encoding="utf-8")
+    block = config[config.index("labelbox:"):]
+    block = block[:block.index("\nfolders:")]
+    checked = 0
+    for line in block.splitlines():
+        found = re.match(r"\s+(\w+):.*#\s*([\w, ]+?)(?:\s+[A-Z_]+)?$", line)
+        if not found:
+            continue
+        key, scripts = found.group(1), found.group(2).split(",")
+        for name in (s.strip() for s in scripts):
+            script = REPO / "labelling" / f"{name}.py"
+            assert script.exists(), (
+                f"config.yaml says {name} reads {key}, and labelling/{name}.py "
+                f"is not there.")
+            assert key in script.read_text(encoding="utf-8"), (
+                f"config.yaml says {name} reads {key}, and it does not. The "
+                f"comment is what tells a reader what changing this affects.")
+            checked += 1
+    assert checked >= 4, f"only {checked} settings carried a script comment"

@@ -13,7 +13,7 @@ plantnet:
 labelbox:
   # Which workspace a run points at. No key here; that is .env only.
   # Each id is overridable by the environment variable named beside it.
-  combined_dataset_name: BCI Workshop - Drone Photos       # dispatch_round, close_round
+  combined_dataset_name: BCI Workshop - Drone Photos       # dispatch_round
   project_b_name: BCI Workshop - Botanist Labelling        # dispatch_round, close_round
   dataset_id: cmon3zoss00wu0705ertl0vd7                    # fetch_dataset  LABELBOX_DATASET_ID
   project_id: cmp375mkq0dhr07w92diwbmuh                    # next_batch     LABELBOX_PROJECT_ID
