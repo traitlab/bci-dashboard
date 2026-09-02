@@ -235,3 +235,77 @@ def test_metrics_md_cites_symbols_that_exist_and_no_line_numbers(core):
             missing.append(f"{module}.{symbol}")
     assert not missing, (
         f"metrics.md cites {missing}, which the module no longer defines.")
+
+
+# The five rows of the crop-coverage table in metrics.md, in the order they
+# are printed, each as (regex over the row, expected count).
+CROP_TABLE = (
+    (r"covers <50% of the crop \| ([\d,]+) \|", "lt50"),
+    (r"covers 0% of the crop \| ([\d,]+) \|", "zero"),
+    (r"no labelled box touches the crop at all \| ([\d,]+) \|", "untouched"),
+    (r"of ([\d,]+) with a crop dominant\) \| ([\d,]+) \|", "dominant_disagrees"),
+    (r"admits it anyway \| ([\d,]+) \|", "admitted"),
+)
+
+
+def test_the_crop_coverage_table_in_metrics_md_still_recomputes(core):
+    """The provenance table nobody could check without running the pipeline.
+
+    3,777 records, and five counts under it saying how often the whole-frame
+    label is not what the centre crop shows. They were computed once, by hand,
+    and written into prose. Recomputing them takes about a second: join the
+    boxes to the crop rectangle, add up each species' share, and compare with
+    the labelled species. The one thing that is easy to get wrong is the name
+    mapping. Comparing raw box names gives 1,409 / 253 / 143 / 49; the table's
+    numbers only appear once `Health.canon` folds synonyms first, which is the
+    same mapping every published rate uses.
+    """
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    doc = os.path.join(os.path.dirname(root), "bci-dashboard-docs", "metrics.md")
+    if not os.path.exists(doc):
+        pytest.skip("sibling bci-dashboard-docs/metrics.md not present")
+    health = pytest.importorskip("health")
+    crop_overlap = pytest.importorskip("crop_overlap")
+    if not os.path.exists(crop_overlap.BOXES_CSV):
+        pytest.skip("the tracked box list is not in this checkout")
+    with open(doc, encoding="utf-8") as fh:
+        text = fh.read()
+
+    h = health.load_health()
+    frames = crop_overlap.load_boxes(crop_overlap.BOXES_CSV)
+    rect = crop_overlap.crop_rect()
+    got = dict.fromkeys(("lt50", "zero", "untouched", "dominant_disagrees",
+                         "admitted", "with_dominant"), 0)
+    for rec in h.records:
+        key = rec["global_key"].removeprefix(health.GT_KEY_PREFIX)
+        share = {}
+        for species, part in crop_overlap.frame_coverage(frames[key], rect).items():
+            name = h.canon(species)
+            share[name] = min(share.get(name, 0.0) + part, 1.0)
+        labelled = share.get(h.canon(rec["gt"]), 0.0)
+        got["lt50"] += labelled < core.MIN_CROP_COVERAGE
+        got["zero"] += labelled == 0.0
+        if not share:
+            got["untouched"] += 1
+            continue
+        got["with_dominant"] += 1
+        dominant, covered = max(share.items(), key=lambda kv: kv[1])
+        if dominant != h.canon(rec["gt"]):
+            got["dominant_disagrees"] += 1
+            got["admitted"] += covered >= core.MIN_CROP_COVERAGE
+
+    said = re.search(r"Measured on the ([\d,]+) evaluated records", text)
+    assert said and int(said.group(1).replace(",", "")) == len(h.records), (
+        f"metrics.md measures the table on {said and said.group(1)} records; "
+        f"the pipeline joins {len(h.records)}.")
+    for pattern, what in CROP_TABLE:
+        found = re.search(pattern, text)
+        assert found, f"metrics.md no longer prints the {what} row"
+        if what == "dominant_disagrees":
+            assert int(found.group(1).replace(",", "")) == got["with_dominant"], (
+                f"metrics.md says {found.group(1)} frames have a crop dominant, "
+                f"the boxes give {got['with_dominant']}.")
+        printed = int(found.groups()[-1].replace(",", ""))
+        assert printed == got[what], (
+            f"metrics.md prints {printed} for {what}; recomputing from the "
+            f"boxes gives {got[what]}.")
