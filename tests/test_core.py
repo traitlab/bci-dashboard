@@ -29,6 +29,6 @@ def test_summarise_gives_help_one_sentence_not_the_whole_module_docstring(core):
 
     ``sibling.py`` does the other thing.
 
-        python3 dashboard/thing.py [--out PATH]
+        python3 dashboard/build_external.py [--out PATH]
     """
     assert core.summarise(doc) == "One line saying what this is."

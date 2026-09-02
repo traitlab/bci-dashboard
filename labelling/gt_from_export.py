@@ -1,6 +1,7 @@
-"""Phase 3a refresh: fold a Labelbox project export into the dominant-taxon GT.
+"""Fold a Labelbox project export into the dominant-taxon GT.
 
-``15a_export_gt_dominant_taxon.py`` derived the ground truth offline from
+An earlier script no longer in the repo,
+``15a_export_gt_dominant_taxon.py``, derived the ground truth offline from
 ``input/boxes/crop_bounding_boxes.csv``. On 2026-08-06 the botanists' July 2026
 revision pass was exported from the Labelbox project ``2024_bci`` as NDJSON:
 per-crown ``Planta`` boxes with a nested Radio ``Taxon``. Those labels are the
@@ -8,8 +9,8 @@ revised record, so where the export covers a photo its label wins; photos the
 export does not cover keep the offline label, and photos newly labelled in the
 export are added.
 
-Dominant taxon per photo is by summed box area, the same rule 15a used on the
-crop CSV. Taxon option names carry trailing ALL-CAPS code tokens
+Dominant taxon per photo is by summed box area, the same rule that script
+used on the crop CSV. Taxon option names carry trailing ALL-CAPS code tokens
 (``Mascagnia divaricata-MAS2DI`` / ``-MASCDI``); one or two trailing codes are
 stripped so name variants of one species collapse to the same string.
 
@@ -47,7 +48,7 @@ _CODE = re.compile(r"^[A-Z0-9]{2,}$")
 def strip_codes(name: str) -> str:
     """``Anacardium excelsum-ANACEX-ANAE`` -> ``Anacardium excelsum``.
 
-    Also strips a single trailing code (``-MASCDI``), which 15a's two-code
+    Also strips a single trailing code (``-MASCDI``), which that script's two-code
     strip left in place. Genera/families without codes pass through.
     """
     parts = str(name).split("-")

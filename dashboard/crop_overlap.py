@@ -122,7 +122,7 @@ def build():
     if rect is None:
         raise ValueError(
             f"frame {FRAME_W}x{FRAME_H} is smaller than crop {CROP_SIZE}; "
-            "13a sends such frames uncropped, so there is no rectangle to score"
+            "photo.py sends such frames uncropped, so there is no rectangle to score"
         )
     out, suspect = {}, []
     for base, boxes in load_boxes(BOXES_CSV, EXPORT_BOXES_CSV).items():

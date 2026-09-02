@@ -92,7 +92,7 @@ def eligible(core, crown):
     """Derive the draw pool from the live caches. Run once, at freeze time.
 
     Everything afterwards reads the committed manifest instead, because the
-    Phase 2 fetch fills the tiles cache this function reads.
+    per-photo fetch fills the tiles cache this function reads.
     """
     gt, _ = crown.frame_gt_map(core)
     urls = crown.load_frame_urls()

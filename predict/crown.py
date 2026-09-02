@@ -1,13 +1,13 @@
 """
-Phase 18a - Pl@ntNet predictions per CROWN instead of per photo.
+Pl@ntNet predictions per crown instead of per photo.
 
-13a sends a fixed square, CROP_SIZE px on a side, cut from the centre of each
+predict/photo.py sends a fixed square, CROP_SIZE px on a side, cut from the centre of each
 base frame, so a prediction is scored against crown labels that may lie entirely
 outside the region the model saw. This script sends each labelled crown's own
 pixels, which removes the mismatch instead of filtering around it: the unit of
 prediction and the unit of ground truth become the same object.
 
-It also stores the geometry it used. 13a and the ingest script both computed crop
+It also stores the geometry it used. photo.py and the ingest script both computed crop
 offsets and discarded them, which is why the region had to be reconstructed
 afterwards from the box file.
 
@@ -78,11 +78,11 @@ DEFAULT_MAX_CALLS = 9500
 DEFAULT_DELAY = 0.5
 
 
-def _load_13a():
-    """Reuse 13a's API client rather than restating it.
+def _load_photo_script():
+    """Reuse predict/photo.py's API client rather than restating it.
 
-    Module name starts with a digit so it cannot be imported normally; the
-    by-path import is the same idiom build_export_only.py uses.
+    Loaded by path, not by package import: predict/ holds no __init__.py, so it
+    is not a package on the normal path. Same idiom build_export_only.py uses.
     """
     path = REPO / "predict" / "photo.py"
     spec = importlib.util.spec_from_file_location("_predict_photo", path)
@@ -442,7 +442,7 @@ def main(argv=None) -> int | None:
     if not api_key:
         sys.exit("ERROR: PLANTNET_API_KEY not found in .env")
 
-    pn = _load_13a()
+    pn = _load_photo_script()
     cfg = config["plantnet"]
     api_url = cfg["identify_url"]
 
@@ -465,7 +465,7 @@ def main(argv=None) -> int | None:
                 cfg["identify_lang"],
             )
             entry = pn.parse_response(resp, cid, url, frame_w, frame_h, None)
-            # The geometry 13a threw away. Without these fields the region the
+            # The geometry photo.py threw away. Without these fields the region the
             # model saw cannot be recovered from the cache alone.
             entry.update({
                 "base_image": base,

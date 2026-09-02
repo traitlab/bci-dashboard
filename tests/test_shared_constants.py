@@ -240,3 +240,34 @@ def test_the_tile_window_is_the_one_the_survey_call_documents():
     assert f"{px}px window" in survey, (
         f"crown.py counts crowns under {px}px and ingest_photos.py documents a "
         f"different window. One of the two moved.")
+
+
+# Every tracked script, by the folders that hold them.
+SCRIPTS = [path
+           for folder, pattern in (("predict", "*.py"), ("dashboard", "*.py"),
+                                   ("labelling", "*.py"), ("bin", "*.sh"),
+                                   ("tests", "*.py"))
+           for path in sorted((REPO / folder).glob(pattern))]
+
+_SCRIPT_PATH = re.compile(
+    r"\b(?:predict|dashboard|labelling|bin|tests)/[A-Za-z0-9_.-]+\.(?:py|sh)\b")
+
+
+@pytest.mark.parametrize("source", SCRIPTS,
+                         ids=lambda s: s.relative_to(REPO).as_posix())
+def test_every_script_a_file_points_at_is_a_script_that_is_there(source):
+    """Files name their neighbours constantly: `crown.py` reuses photo.py's API
+    client, the ADRs cite build scripts, docstrings send a reader to the module
+    that measured a number. A rename moves the file and leaves every sentence
+    about it pointing at nothing, and prose does not fail a build.
+
+    Comments and docstrings count as much as code: they are what the next
+    person opens. Retired scripts get named on purpose in `docs/adr/`, which is
+    a record of what the repo used to be and is left out of this sweep.
+    """
+    text = source.read_text(encoding="utf-8")
+    for name in sorted(set(_SCRIPT_PATH.findall(text))):
+        assert (REPO / name).exists(), (
+            f"{source.relative_to(REPO)} points at {name}, which is not there. "
+            f"Either the file moved and this mention did not, or the name is a "
+            f"typo.")

@@ -408,7 +408,7 @@ def write_result(pairs, path):
 
 
 def write_adjudication(rows, path, seed=SEED):
-    """Phase 5: disagreements, arm labels hidden so an adjudicator cannot
+    """The disagreements, arm labels hidden so an adjudicator cannot
     favor the arm they expect to win. A/B order is drawn per frame from
     the seed; the key file stays closed until every verdict is in.
     """

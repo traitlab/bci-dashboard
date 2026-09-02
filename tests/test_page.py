@@ -8,7 +8,7 @@ dictionaries every panel reads, `parse_args` -- with no coverage at all on a
 bare checkout. These tests call none of `prepare()`, `render()`'s builders, or
 any panel function: everything here is reachable from the module's top level.
 
-    .venv/bin/pytest tests/test_panels_registry.py
+    .venv/bin/pytest tests/test_page.py
 """
 
 from __future__ import annotations
