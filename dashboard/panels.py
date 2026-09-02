@@ -769,10 +769,12 @@ def p_confirmatory(c):
         f'is the range on each card above.</p>')
     return panel(
         'Where these two numbers come from, and what we did to each frame',
+        # A pointer, not a second copy of the warning: the next panel gives the
+        # mechanism in full, and stating it twice made the pointer read as the
+        # whole story.
         "<b>Do not quote the top number without the warning below it.</b> It is a real "
-        "number, measured on frames that were fixed before anyone looked. But someone on "
-        "the team had already seen a result from that method, elsewhere, before the frames "
-        "were fixed.", body,
+        "number, measured on frames that were fixed before anyone looked, but it was "
+        "not produced blind. The next panel says why.", body,
         # The id is linked to from the four-rate panel and pinned by a test, so it
         # outlives the wording of the summary above it.
         anchor="where-the-headline-comes-from")
