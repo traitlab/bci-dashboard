@@ -66,6 +66,14 @@ def scan_cache(cache_dir):
     score fields match and lists descend.
     """
     files = sorted(f for f in os.listdir(cache_dir) if f.endswith(".json"))
+    # SystemExit for the same reason load_health uses it below: every count
+    # here is over the files found, so with none `maxk` has no largest list and
+    # max() raises a bare ValueError four call sites from the empty directory.
+    if not files:
+        raise SystemExit(
+            f"No cached Pl@ntNet answers in\n  {cache_dir}\nThe directory exists "
+            f"but holds no .json file. Run bin/refresh.sh to fetch them, or point "
+            f"at an existing copy with the flags --help lists.")
     predictions, status_count, length_hist = {}, Counter(), Counter()
     corpus_vocab = Counter()
     n_entries = n_cov_ne_score = n_unsorted = 0
