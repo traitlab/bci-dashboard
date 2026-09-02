@@ -1,10 +1,9 @@
 """What to send to the Labelbox project next, and why.
 
-Answers the standing question, "which picture in the dataset do we send to the
-project", from the two things a read-only key can reach: the dataset inventory
-(``labelling/fetch_dataset.py``) and a project export dropped on disk.
-
-Three files come out, and they are not equally trustworthy.
+Answers "which picture do we send next" from the two things a read-only key can
+reach: the dataset inventory (``labelling/fetch_dataset.py``) and a project
+export dropped on disk. Three files come out, and they are not equally
+trustworthy.
 
 ``queue_contradictions.csv``  (ready to dispatch)
     Crowns where the field label and Pl@ntNet's first guess disagree at high
@@ -17,15 +16,13 @@ Three files come out, and they are not equally trustworthy.
     *within* a mission, because nothing available can.
 
 ``queue_photos.csv``  (a dispatch list, not a priority signal)
-    Every unsent photo, ordered by mission then by file size.
-
-Why the third is only a list: ranking unsent photos by what they would teach
-the model needs a prediction or an embedding per photo, and this script has
-neither. The cache covers the legacy corpus only, and Labelbox holds the
-embeddings behind an export task a read-only key cannot create.
-``predict/embed.py`` computes an embedding from the pixels instead, and
-``labelling/rank_unsent.py`` ranks the pool over those vectors. That is the
-order to dispatch in.
+    Every unsent photo, ordered by mission then by file size. Ranking them by
+    what they would teach the model needs a prediction or an embedding per
+    photo, and this script has neither: the cache covers the legacy corpus
+    only, and Labelbox holds the embeddings behind an export task a read-only
+    key cannot create. ``predict/embed.py`` computes one from the pixels
+    instead and ``labelling/rank_unsent.py`` ranks over those vectors. That is
+    the order to dispatch in.
 
 Telling a new tree from one photographed before would be better still, and the
 metadata cannot do it: ``labelling/polygon_identity.py`` checked both proxies
@@ -34,12 +31,11 @@ against the labels and both failed.
 Read-only. Nothing is written back to Labelbox.
 
 Usage:
-    python3 labelling/next_batch.py \\
+    python3 labelling/next_batch.py \
         --export "/path/to/Export  project - 2024_bci - 8_6_2026.ndjson"
 
-Which project block is read comes from ``LABELBOX_PROJECT_ID`` if the
-environment or ``.env`` carries it, and from ``config.yaml`` otherwise.
-``--project-id`` beats both.
+The project block comes from ``LABELBOX_PROJECT_ID`` if the environment or
+``.env`` carries it, from ``config.yaml`` otherwise. ``--project-id`` beats both.
 """
 from __future__ import annotations
 
