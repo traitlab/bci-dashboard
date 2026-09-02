@@ -53,13 +53,14 @@ HERO_READING = (
 )
 
 # The two questions, one paragraph of their own: the sentence above says how to
-# read the grid, and these say which rate answers which question.
+# read the grid, and these say which rate answers which question. Which one to
+# quote is said once, in the four-rates panel, and not here: saying it twice put
+# "quote per frame for a photo off the drive" on the same page as "cite the
+# per-species rate, never the per-frame one".
 HERO_WHICH_RATE = (
     "<b>Per species</b> asks how many kinds of tree the model can name, "
-    "which is what a labelling programme moves. Quote it for a species picked off the "
-    "checklist. <b>Per frame</b> asks how often it is right on a photo picked at "
-    "random, which the commonest species decide. Quote it for a photo picked off the "
-    "drive."
+    "which is what a labelling programme moves. <b>Per frame</b> asks how often it is "
+    "right on a photo picked at random, which the commonest species decide."
 )
 
 # Why the two differ, kept out of the two above so the instruction and the
