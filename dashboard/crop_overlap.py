@@ -35,10 +35,6 @@ FRAME_H = 3000
 BOXES_CSV = os.path.join(REPO, "input", "boxes", "crop_bounding_boxes.csv")
 EXPORT_BOXES_CSV = os.path.join(REPO, "data", "export_boxes.csv")
 
-# Default admission threshold: the dominant species must cover at least this
-# fraction of the crop.
-DEFAULT_MIN_COVERAGE = 0.50
-
 # 286 of 3,280 frames have a box edge 1-2 px outside it, a rounding artifact
 # rather than a second resolution (the largest coordinate is 4002 x 3002).
 EDGE_TOLERANCE = 4
@@ -102,22 +98,17 @@ def load_boxes(path=BOXES_CSV, export_path=EXPORT_BOXES_CSV):
 
 
 def frame_coverage(boxes, rect):
-    """Coverage of `rect` by each species in `boxes`.
+    """Fraction of `rect` each species in `boxes` covers.
 
-    Returns (per_species_fraction, n_boxes_overlapping). Fractions are areas
-    divided by the rect area, so they sum to at most 1 only when crowns of
-    different species do not overlap; a single species can exceed 1 if its own
-    boxes overlap, hence the clamp.
+    A single species can exceed 1 where its own boxes overlap, hence the clamp.
     """
     rect_area = (rect[2] - rect[0]) * (rect[3] - rect[1])
     per = collections.Counter()
-    n_boxes = 0
     for b in boxes:
         a = _intersect_area(b[:4], rect)
         if a > 0:
             per[b[4]] += a
-            n_boxes += 1
-    return {sp: min(a / rect_area, 1.0) for sp, a in per.items()}, n_boxes
+    return {sp: min(a / rect_area, 1.0) for sp, a in per.items()}
 
 
 def build(path=BOXES_CSV, frame_w=FRAME_W, frame_h=FRAME_H,
@@ -148,16 +139,9 @@ def build(path=BOXES_CSV, frame_w=FRAME_W, frame_h=FRAME_H,
             continue
         boxes = [(max(0, b[0]), max(0, b[1]),
                   min(b[2], frame_w), min(b[3], frame_h), b[4]) for b in boxes]
-        per, n_boxes = frame_coverage(boxes, rect)
+        per = frame_coverage(boxes, rect)
         dominant, cov = (None, 0.0)
         if per:
             dominant, cov = max(per.items(), key=lambda kv: kv[1])
-        out[base] = {
-            "dominant": dominant,
-            "coverage": cov,
-            "any_coverage": min(sum(per.values()), 1.0),
-            "n_species": len(per),
-            "n_boxes": n_boxes,
-            "crop_rect": rect,
-        }
+        out[base] = {"dominant": dominant, "coverage": cov}
     return out, suspect

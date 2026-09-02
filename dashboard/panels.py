@@ -12,9 +12,6 @@ from __future__ import annotations
 
 import datetime as _dt
 import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc
 from assets import (CSS, JS, cap, esc, filterable_table, hero, panel,
@@ -110,14 +107,6 @@ def hero_terms(k):
             + "".join(f"<li>{t}</li>" for t in items) + "</ul>")
 
 
-def crop_mismatch(c):
-    """How many scored frames the centre crop mostly misses. Two counts, used
-    twice: once under the species table where a reader first meets a per-species
-    rate, and once under the four corpus rates."""
-    return (sum(1 for r in c.sp_recs if (r.get("crop_coverage") or 0) < 0.5),
-            sum(1 for r in c.sp_recs if (r.get("crop_coverage") or 0) == 0))
-
-
 # The two regions above are not the same region, and the numbers below compare
 # across them. Stated here rather than in a footnote because every figure on
 # this page inherits the mismatch.
@@ -128,7 +117,7 @@ def hero_region(c):
     stale and measured over the wrong population, which is the failure the rest
     of this file avoids by recomputing every figure at build time.
     """
-    half, none_ = crop_mismatch(c)
+    half, none_ = c.crop_half, c.crop_none
     return (
         "<p><strong>These four numbers judge a centre crop against a label for the whole "
         f"frame.</strong> The two are not always looking at the same tree. On {half:,} of "
@@ -310,7 +299,7 @@ def _starts_hidden(d, status):
 
 def p_species(c):
     sp_rows, attrs = [], []
-    for d in sorted(c.per_species, key=lambda x: (-x["n_labelled_crowns"], x["species"])):
+    for d in c.per_species:
         sp, st = d["species"], c.status[d["species"]]
         sp_rows.append([
             f'<span class="sp" data-sort="{esc(sp)}">{esc(cap(sp))}</span>',
@@ -324,7 +313,7 @@ def p_species(c):
                      + (' data-thin="1"' if _starts_hidden(d, st) else ""))
     n_thin = sum(1 for d in c.per_species
                  if _starts_hidden(d, c.status[d["species"]]))
-    half, none_ = crop_mismatch(c)
+    half, none_ = c.crop_half, c.crop_none
     # Three things a reader needs before the table, one paragraph each. They used
     # to be a single 159-word ask above the panel body: how to work the table,
     # how a status is chosen, and what the rates are scored on, run together.

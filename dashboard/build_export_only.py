@@ -190,8 +190,7 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
         # the model gets wrong or one with too few labels to judge, which is the
         # first thing a reader of a single export wants to know.
         rows, attrs = [], []
-        for d in sorted(per_species,
-                        key=lambda d: (-d["n_labelled_crowns"], d["species"])):
+        for d in per_species:
             st = hc.diagnose(d)
             rows.append([
                 (f'<span class="sp" data-sort="{esc(d["species"])}">'

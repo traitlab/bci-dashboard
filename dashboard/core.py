@@ -111,7 +111,6 @@ REVIEW_CONF = 0.8
 # Predictions come from a fixed centre crop; labels come from boxes drawn anywhere
 # in the frame, so a label can lie outside what the model was sent. A frame is
 # admitted only when its dominant species fills this much of the crop.
-# Same value as crop_overlap.DEFAULT_MIN_COVERAGE.
 MIN_CROP_COVERAGE = 0.50
 # Reported as a sweep, so the gate's effect on the headline is visible rather than
 # assumed from one threshold.
@@ -468,12 +467,6 @@ class Health:
     genus_recs: list
     per_species: list
     canon: Callable[[str], str]
-    crop_frames: dict
-    crop_suspect: list
-    crop_min_coverage: float
-    n_crop_joined: int
-    crop_admitted: list
-    crop_rejected: list
 
 
 def scan_cache(cache_dir):
@@ -752,8 +745,7 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon):
 
 
 def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
-                wcvp_cache=WCVP_CACHE_JSON, boxes_csv=None,
-                min_coverage=MIN_CROP_COVERAGE,
+                wcvp_cache=WCVP_CACHE_JSON,
                 log: Callable[[str], None] | None = None) -> Health:
     def _log(msg: str = "") -> None:
         if log is not None:
@@ -810,8 +802,7 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     #
     # Imported here because crop_overlap imports ``normalize`` from this module.
     import crop_overlap
-    crop_frames, crop_suspect = crop_overlap.build(
-        **({"path": boxes_csv} if boxes_csv else {}))
+    crop_frames, crop_suspect = crop_overlap.build()
 
     records = []
     for gk, stem, gt_name in joined:
@@ -837,9 +828,9 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     genus_recs = [r for r in records if not r["species_level"] and r["ranked"]]
 
     n_crop_joined = sum(1 for r in records if r["crop_coverage"] is not None)
-    crop_admitted, crop_rejected = coverage_split(sp_recs, min_coverage)
+    crop_admitted, crop_rejected = coverage_split(sp_recs, MIN_CROP_COVERAGE)
     _log_crop_gate(_log, records, sp_recs, crop_frames, crop_suspect,
-                   n_crop_joined, crop_admitted, crop_rejected, min_coverage)
+                   n_crop_joined, crop_admitted, crop_rejected, MIN_CROP_COVERAGE)
 
     # ---------------- 6. one row per species ----------------
     corpus_canon = {canon(b) for b in corpus_raw}
@@ -851,7 +842,4 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
         corpus_norm=corpus_norm, corpus_canon=corpus_canon, gt_names=gt_names,
         tier_of_name=tier_of_name, tier_crowns=tier_crowns, records=records,
         sp_recs=sp_recs, genus_recs=genus_recs, per_species=per_species, canon=canon,
-        crop_frames=crop_frames, crop_suspect=crop_suspect, crop_min_coverage=min_coverage,
-        n_crop_joined=n_crop_joined, crop_admitted=crop_admitted,
-        crop_rejected=crop_rejected,
     )

@@ -7,11 +7,6 @@ table and the to-do list together.
 
 from __future__ import annotations
 
-import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 import core as hc
 
 # key -> (label, what to do about it). Order is the order of the to-do list:

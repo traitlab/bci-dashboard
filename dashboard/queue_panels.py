@@ -4,11 +4,6 @@ panel on either page, so a builder asks by id as before.
 
 from __future__ import annotations
 
-import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 import core as hc
 from assets import cap, esc, panel, pctf, svg_hbar, table
 from explain import BAND_SHORT, CONF_BAND_WORDS

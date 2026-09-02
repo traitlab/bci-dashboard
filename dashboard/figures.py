@@ -10,11 +10,8 @@ from __future__ import annotations
 
 import csv
 import os
-import sys
 from collections import Counter, defaultdict
 from types import SimpleNamespace
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core as hc
 from history import model_tag_of, snapshot_date_of
@@ -191,6 +188,11 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     # tells the reader to open the rest, so two sorts would be two lists.
     queue_rows.sort(key=lambda r: (hc.QUEUE_ORDER.index(r[0]), r[3], r[1]))
 
+    # How many scored frames the centre crop mostly misses. Read under the species
+    # table and again under the four corpus rates, so it is computed here once.
+    crop_half = sum(1 for r in sp_recs if (r.get("crop_coverage") or 0) < 0.5)
+    crop_none = sum(1 for r in sp_recs if (r.get("crop_coverage") or 0) == 0)
+
     scored_cams = Counter(camera_of(r["global_key"]) for r in sp_recs)
     queue_cams = Counter(camera_of(stem) for _, stem, _, _ in queue_rows)
 
@@ -277,4 +279,5 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
         flat=flat, eligible=eligible, test_recs=test_recs, rare=rare,
         n_rare_test=n_rare_test, ops=ops, best=best, gn=gn, fam_n=fam_n, gg1=gg1,
         fam_names=fam_names, gen_any=gen_any, gen_one=gen_one, gen_none=gen_none,
-        n_cand=N_CANDIDATES, cf=load_confirmatory(), checks=None)
+        n_cand=N_CANDIDATES, cf=load_confirmatory(), checks=None,
+        crop_half=crop_half, crop_none=crop_none)
