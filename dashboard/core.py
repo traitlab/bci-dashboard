@@ -163,6 +163,17 @@ def is_species_level(n: str) -> bool:
 
 
 # --- Loaders ---
+def summarise(doc: str) -> str:
+    """The first paragraph of a module docstring, as a terminal should read it.
+
+    The rest of the docstring is written for someone with the file open: it
+    names sibling modules in ``double backticks``, which argparse prints
+    literally, and repeats the usage line argparse prints for itself. Passing
+    the whole thing gave --help a nine-line wall before the first flag.
+    """
+    return " ".join(doc.strip().split("\n\n")[0].replace("``", "").split())
+
+
 def read_csv_rows(path: str) -> list[dict]:
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))

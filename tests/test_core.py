@@ -22,3 +22,15 @@ def test_status_precedence_is_the_order_diagnose_actually_uses(core):
                              top5_accuracy=1.0)) == "ranking"
     assert core.diagnose(row(n_labelled_crowns=1)) == "unmeasured"
     assert core.STATUS_PRECEDENCE == ("unreachable", "reliable", "ranking", "unmeasured")
+
+
+def test_summarise_gives_help_one_sentence_not_the_whole_module_docstring(core):
+    """--help printed nine lines of design note, RST backticks and a usage line
+    argparse prints for itself, before the first flag."""
+    doc = """One line saying what this is.
+
+    ``sibling.py`` does the other thing.
+
+        python3 dashboard/thing.py [--out PATH]
+    """
+    assert core.summarise(doc) == "One line saying what this is."

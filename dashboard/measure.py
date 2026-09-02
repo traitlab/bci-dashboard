@@ -18,7 +18,7 @@ import sys
 from collections import Counter, defaultdict
 
 from core import (
-    load_health,
+    load_health, summarise,
     pct, ratio, fmt, genus_of, normalize, queue_of_prediction, chunk_send_batches,
     coverage_gate_stats, coverage_split, labelbox_urls, adjudicated_keys,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
@@ -45,7 +45,7 @@ def log(msg: str = "") -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description=__doc__)
+    p = argparse.ArgumentParser(description=summarise(__doc__))
     p.add_argument("--gt", default=GT_CSV, help="path to gt_dominant_taxon.csv")
     p.add_argument("--splits", default=SPLITS_CSV, help="path to splits.csv")
     p.add_argument("--cache-dir", default=CACHE_DIR, help="path to the Pl@ntNet response cache dir")

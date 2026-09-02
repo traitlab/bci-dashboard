@@ -432,8 +432,7 @@ def write_adjudication(rows, path, seed=SEED):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(description=core.summarise(__doc__))
     ap.add_argument("--frozen", type=pathlib.Path, default=FROZEN)
     ap.add_argument("--adjudication", type=pathlib.Path,
                     help="write the blind adjudication sheet here")

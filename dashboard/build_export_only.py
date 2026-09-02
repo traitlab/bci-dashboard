@@ -221,7 +221,7 @@ def build(h: hc.Health, *, export_name: str, n_rows: int, generated: str) -> str
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=pn.summarise(__doc__))
+    ap = argparse.ArgumentParser(description=hc.summarise(__doc__))
     ap.add_argument("--export", required=True, help="Labelbox project export NDJSON")
     ap.add_argument(
         "--splits",
