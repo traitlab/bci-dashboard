@@ -100,7 +100,7 @@ def test_candidates_panel_names_the_longest_list_length_returned(explain):
 
 # --- weighting_panel -----------------------------------------------------------
 
-def _weighting_kwargs(*, big_species="sp2"):
+def _weighting_kwargs():
     support = {"sp1": 1, "sp2": 25}
     sp_recs = [
         {"gt": "sp1", "ranked": [("other", 0.9), ("sp1", 0.05)]},
@@ -108,7 +108,7 @@ def _weighting_kwargs(*, big_species="sp2"):
     ]
     per_species = [
         {"species": "sp1", "n_labelled_crowns": 1, "top1_accuracy": 0.0},
-        {"species": big_species, "n_labelled_crowns": 25, "top1_accuracy": 1.0},
+        {"species": "sp2", "n_labelled_crowns": 25, "top1_accuracy": 1.0},
     ]
     buckets = {
         "1": {"n_species": 1, "n_crowns": 1, "c1": 0},
@@ -125,12 +125,6 @@ def test_weighting_panel_returns_a_balanced_string_with_the_given_numbers(explai
     assert isinstance(out, str)
     assert _balanced(out)
     assert "2" in out
-
-
-def test_weighting_panel_escapes_the_biggest_species_name(explain):
-    out = explain.weighting_panel(**_weighting_kwargs(big_species=INJECT))
-    assert "<script>&" not in out
-    assert "&lt;script&gt;" in out
 
 
 def test_weighting_panel_raises_zero_division_when_no_species_is_well_sampled(explain):

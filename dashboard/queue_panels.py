@@ -116,10 +116,8 @@ def p_send(c):
              f'right less than {pctf(hc.HARD_MAX_TOP1)} of the time.</p>'
              # Two CSVs sit in the snapshot folder and the page named both as the
              # thing to work, 200 lines apart. This says which is which.
-             f'<p class="note">The snapshot folder holds this same order as '
-             f'<code>send_first_queue.csv</code>, one row per frame, and '
-             f'<code>send_batches.csv</code>, that list cut into batches of at most 100. '
-             f'<b>Work the batches file.</b></p>'
+             f'<p class="note"><code>send_first_queue.csv</code> in the snapshot folder '
+             f'holds this same order, one row per frame.</p>'
              f'<p class="note"><strong>{c.n_no_answer} unlabelled photos got no answer at '
              f'all</strong>: the candidate list came back empty. Those are the likeliest to '
              f'be junk or to show no plant (leaves in the water, bare trunks). No automatic '
@@ -136,8 +134,7 @@ def p_send(c):
              # the accounting for the rest of the corpus and the model-change note.
              f'<p class="note">The other {len(c.h.split_rows) - c.n_unlab:,} of the '
              f'{len(c.h.split_rows):,} photos are already labelled, or have no cached answer '
-             f'to rank. A model update re-sorts this queue exactly as it re-sorts the '
-             f'can-wait one.</p>')
+             f'to rank.</p>')
     # The same two queues the hero counts, added the same way, so this number and
     # the hero's agree.
     send_now = (c.queue_counts.get("long_tail", 0)

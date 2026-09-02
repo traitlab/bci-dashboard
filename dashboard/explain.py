@@ -12,7 +12,7 @@ from collections import Counter
 from statistics import median
 
 import core as hc
-from assets import cap, esc, panel, pctf, svg_hbar, svg_weight_pair
+from assets import esc, panel, pctf, svg_hbar, svg_weight_pair
 from crop_overlap import CROP_SIZE
 
 # One colour and name per labelled-frame band, both bars of the weighting chart.
@@ -173,7 +173,6 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
     well_micro = sum(1 for r in well if r["ranked"][0][0] == r["gt"]) / len(well)
     well_macro = sum(d["top1_accuracy"] for d in well_sp) / len(well_sp)
     gap = 100 * (now["micro_top1"] - now["macro_top1"])
-    big = max(per_species, key=lambda d: d["n_labelled_crowns"])
     singles = buckets[thin]["n_species"]
     return panel(
         # No "why X and Y disagree" clause here: the paragraph under the headline
@@ -191,18 +190,14 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
         + svg_weight_pair(rows,
                           label_a=f"one vote per species ({n_sp} votes)",
                           label_b=f"one vote per frame ({n:,} votes)")
-        + f'<p class="note">Picture {n_sp} classes, one per species, {n:,} students, one quiz. '
-          f'Count students and the big classes decide; score each class once and a class of one '
-          f'counts as much as <em>{esc(cap(big["species"]))}</em>\'s '
-          f'{big["n_labelled_crowns"]:,}.</p>'
           # Name the bars by their own labels, not by position: the second share is
           # a sliver too thin to carry a printed label, so "2% of the bottom" sent a
           # reader looking for a 2% they could not find.
-          f'<p class="note">The {singles} single-frame species are '
+        + f'<p class="note">The {singles} single-frame species are '
           f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the '
           f'one-vote-per-species bar but only '
           f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the one-vote-per-frame one. '
-          f'That slice is too thin to label there, so the key says it instead. '
+          f'That slice is too thin to label there. '
           f'Pl@ntNet is right {pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} of the '
           f'time on species we labelled once, against '
           f'{pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at {BAND_WORD[fat]}. Rare in '
@@ -237,9 +232,8 @@ def method_panel(*, tag, n, n_sp, n_cand, checks):
             f'<li>Predictions: <code>identify/k-central-america</code>, model run '
             f'<code>{esc(tag)}</code>. The Central America regional model, not the '
             f'worldwide one, so a regional restriction is already in place.</li>'
-            f'<li>Request settings: <code>nb-results={n_cand}</code>, sent explicitly on every '
-            f'request from <code>config.yaml</code> <code>identify_nb_results</code> and not '
-            f'an API default, plus <code>no-reject=true</code>, organs detected '
+            f'<li>Request settings: <code>nb-results={n_cand}</code>, '
+            f'plus <code>no-reject=true</code>, organs detected '
             f'automatically, and <code>include-related-images=false</code>, on a '
             f'{CROP_SIZE}&nbsp;px centre crop of each frame photo. A correct answer at '
             f'position '

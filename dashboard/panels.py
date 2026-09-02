@@ -127,11 +127,7 @@ def hero_region(c):
         # The mismatch, then what to do about it, kept as two paragraphs rather than
         # one.
         "<p>Read these four as a record of what the centre-crop "
-        "path did, not as the model's accuracy. The number at the top of the page, where a "
-        "botanist outlined the trees first, is the one to quote: it names the same thing the "
-        "label names. "
-        '<a href="#where-the-headline-comes-from">Where these two numbers come from</a> '
-        "says which frames it was measured on.</p>"
+        "path did, not as the model's accuracy.</p>"
     )
 
 
@@ -209,18 +205,20 @@ def p_review(c):
     pair_rows = sorted(c.review_pairs.items(), key=lambda kv: -len(kv[1]))[:10]
     # What a row on either table means comes first, before the tables themselves,
     # so a reader is not left guessing what put a frame here.
-    body = (f'<p class="note">Each row on both tables is a labelled frame where the '
+    shown = sum(len(cs) for _, cs in pair_rows)
+    # "Each row is a frame" was wrong for the pairs table, whose rows are pairs and
+    # whose frames column reads 3, 2, 2, 1 -- and the ten rows shown cover 14 of the
+    # 51 frames, so a reader who added the column went looking for the other 37.
+    body = (f'<p class="note">Every frame counted here is a labelled frame where the '
             f'model is at least {hc.REVIEW_CONF:.1f} confident in a <em>different</em> '
             f'species. A first guess this confident is right {pctf(c.confident_ok)} of '
             f'the time in bulk ({c.confident_hits:,} of {len(c.confident):,}).</p>'
-            f'<p class="note">So each '
-            f'row is either a rare confident mistake by the model, or a wrong label. A '
-            f'wrong label found this way is the cheapest label fix available. Offline '
-            f'there is no way to tell which of the two it is; that is the botanist\'s '
-            f'minute.</p>'
+            f'<p class="note">A wrong label found this way is the cheapest label fix '
+            f'available.</p>'
             f'<p class="note">The {c.review_counts[0]} frames fall into '
             f'{len(c.review_pairs)} label-and-guess pairs. The '
-            f'{len(pair_rows)} commonest pairs are first, then the '
+            f'{len(pair_rows)} commonest are first, and they cover {shown} of the '
+            f'{c.review_counts[0]} frames. Then come the '
             f'{REVIEW_PREVIEW} individual frames the model is surest about, some of '
             f'which are also single-frame pairs above. All '
             f'{c.review_counts[0]} are in <code>label_review_queue.csv</code> in the '
@@ -372,8 +370,7 @@ def p_ceiling(c):
             f'everywhere: on {c.short5:,} of the {c.n_pred:,} frames with a cached answer '
             f'({pctf(c.short5 / c.n_pred)}) fewer than five came back, so nothing was cut '
             f'off. On the other {c.n_pred - c.short5:,} anything ranked sixth or lower is '
-            f'invisible to us. Only re-running the predictions with more candidates can tell '
-            f'the two apart, and more name cleaning will not help.</div>'
+            f'invisible to us. More name cleaning will not help.</div>'
             + table([("Species", False), ("Labelled frames", True)],
                     [[f'<span class="sp">{esc(cap(d["species"]))}</span>',
                       f'{d["n_labelled_crowns"]:,}'] for d in c.never])
@@ -448,10 +445,10 @@ def p_confirmatory(c):
     if cf is None:
         raise SystemExit("p_confirmatory needs the frozen result; see confirmatory_hero")
     body = (
-        f'<p class="note"><strong>What we did for the top number.</strong> We sent '
-        f'Pl@ntNet every tree crown a botanist had outlined, one at a time, then combined '
-        f'the answers into a single name for the frame. Each crown got a say in proportion '
-        f'to how much of the frame it covered. So the number says what naming '
+        f'<p class="note"><strong>What we did for the top number.</strong> Every crown a '
+        f'botanist had outlined, sent one at a time and combined into one name for the '
+        f'frame, each crown weighted by how much of the frame it covered. So the number '
+        f'says what naming '
         f'costs once someone has found the trees, not what a fully automatic pipeline '
         f'would score.</p>'
         f'<p class="note"><strong>What we did for the second number.</strong> We sent one '
@@ -476,18 +473,10 @@ def p_confirmatory(c):
         # mechanism in full, and stating it twice made the pointer read as the
         # whole story.
         "<b>The top number is real but it was not produced blind.</b> It was measured on "
-        "frames that were fixed before anyone looked. The next panel says why that is "
-        "not the whole story.", body,
+        "frames that were fixed before anyone looked.", body,
         # The id is linked to from the four-rate panel and pinned by a test, so it
         # outlives the wording of the summary above it.
         anchor="where-the-headline-comes-from")
-
-
-# Above each verbatim amendment block. The plan's words are kept for the record,
-# but the paragraph above each block already says the same thing in plain English,
-# so a reader who does not need the citation can move on.
-SKIPPABLE_QUOTE = ("The plan&rsquo;s own wording follows, for the record. The paragraph "
-                   "above says the same thing, so you can skip the grey block.")
 
 
 def p_caveats(c):
@@ -541,7 +530,6 @@ def p_caveats(c):
         f'labelled photo. '
         f'Do not read it against the {pctf(cf["crown_top1"])} at the top, which scores a '
         f'whole frame on this fixed sample.</p>'
-        f'<p class="note">{SKIPPABLE_QUOTE}</p>'
         f'{A2_PRIOR_EXPOSURE}</div>'
         f'<div class="warn"><p><strong>Tiles, the third way of asking, was dropped after '
         f'we had seen how it was doing.</strong> Dropping a method after glimpsing its '
