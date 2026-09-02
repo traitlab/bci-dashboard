@@ -236,7 +236,9 @@ def process_image(
     return result
 
 
-def main() -> None:
+def parse_args():
+    """One source of photos, a local directory or a CSV of URLs, and the knobs
+    for how they are called and scored."""
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -257,52 +259,44 @@ def main() -> None:
     ap.add_argument("--no-aggregate", action="store_true",
                     help="skip aggregation (cache JSONs only, aggregate locally later)")
     ap.add_argument("--test", action="store_true", help="process 1 image only")
-    args = ap.parse_args()
+    return ap.parse_args()
 
-    load_dotenv()
-    api_key = os.environ.get("PLANTNET_API_KEY")
-    if not api_key:
-        sys.exit("ERROR: PLANTNET_API_KEY not found in .env")
 
-    config = load_config()
-    out_dir = args.out_dir
-    cache_dir = out_dir / "cache"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    cache_dir.mkdir(parents=True, exist_ok=True)
+def photo_sources(args):
+    """Pair every photo with a way to get its bytes, without getting them yet.
 
+    Each entry is a name and a callable. In CSV mode the callable downloads from
+    the bucket when the photo is due, so a run streams and never writes image
+    data to disk. Returns the pairs and the words to add to the run banner.
+    """
     if args.csv:
         rows = load_csv_urls(args.csv)
         if not rows:
             sys.exit(f"No valid rows in {args.csv}")
-        # The pixels are fetched when the photo is due, not now: CSV mode
-        # streams from the bucket and never writes image data to disk.
-        photos = [(gk, lambda url=url: download_image_bytes(url)) for gk, url in rows]
-        streaming = " (streaming from URLs)"
-    else:
-        files = sorted(p for p in args.photos.iterdir()
-                       if p.suffix.lower() in IMG_EXTENSIONS)
-        if not files:
-            sys.exit(f"No image files found in {args.photos}")
-        photos = [(p.name, p.read_bytes) for p in files]
-        streaming = ""
+        return ([(gk, lambda url=url: download_image_bytes(url)) for gk, url in rows],
+                " (streaming from URLs)")
 
-    if args.test:
-        photos = photos[:1]
-        print("TEST MODE: 1 image only\n")
+    files = sorted(p for p in args.photos.iterdir()
+                   if p.suffix.lower() in IMG_EXTENSIONS)
+    if not files:
+        sys.exit(f"No image files found in {args.photos}")
+    return [(p.name, p.read_bytes) for p in files], ""
 
-    mode = "survey" if args.survey_endpoint else "identify+embeddings"
-    cached = sum(1 for name, _ in photos if (cache_dir / f"{name}.json").exists())
-    print(f"Ingesting {len(photos)} photos via {mode}{streaming}")
-    print(f"  Cached: {cached}, remaining: {len(photos) - cached}\n")
 
-    processed = 0
-    failed = []
+def fetch_all(photos, api_key, config, cache_dir, *, survey_url, delay):
+    """Call the API once per photo, cache as you go, and say so on every line.
+
+    A run is long enough to be watched, so each photo prints its own result
+    rather than a bar. A quota refusal stops the loop and is safe to resume
+    from, because the cache is what the next run skips on.
+    """
+    processed, failed = 0, []
     for i, (name, read_bytes) in enumerate(photos, 1):
         print(f"  [{i}/{len(photos)}] {name} ... ", end="", flush=True)
         try:
             result = process_image(
                 name, read_bytes, api_key, config, cache_dir,
-                survey_url=args.survey_endpoint, delay=args.delay,
+                survey_url=survey_url, delay=delay,
             )
             if result:
                 n_sp = len(result.get("results", {}).get("species", []))
@@ -319,21 +313,14 @@ def main() -> None:
             failed.append(name)
 
         if i < len(photos):
-            time.sleep(args.delay)
+            time.sleep(delay)
+    return processed, failed
 
-    print(f"\nAPI calls done: {processed} processed, {len(failed)} failed")
-    if failed:
-        print(f"  Failed: {', '.join(failed[:10])}")
 
-    if args.no_aggregate:
-        n_cached = len(list(cache_dir.glob("*.json")))
-        print(f"\n--no-aggregate: {n_cached} JSONs in {cache_dir}")
-        print("Aggregate locally with:")
-        print(f"  python3 predict/aggregate_survey.py --survey-dir {cache_dir}")
-        return
-
-    # --- Aggregate (same as 15c) ---
-    print("\nAggregating ...")
+def read_cache(cache_dir):
+    """One embedding and one species list per cached photo, skipping the
+    unparseable. Reads the whole cache, not this run: two half-runs aggregate
+    into the same thing one whole run would have."""
     json_files = sorted(cache_dir.glob("*.json"))
     if not json_files:
         sys.exit("No cached JSONs to aggregate")
@@ -354,12 +341,16 @@ def main() -> None:
             embeddings[global_key] = emb.tolist()
         if parsed["species"]:
             dataset_species[global_key] = parsed["species"]
+    return embeddings, dataset_species
 
-    emb_path = out_dir / "survey_embeddings.json"
-    with open(emb_path, "w") as f:
-        json.dump(embeddings, f)
-    print(f"  Embeddings: {len(embeddings)} photos -> {emb_path}")
 
+def score_photos(dataset_species, args, out_dir):
+    """Rank photos by how much labelling them would buy, against what is labelled.
+
+    The count of existing labels comes from the GT file, so a photo full of
+    species the botanists have already named scores low and a photo of something
+    rare scores high. Missing GT is not an error: everything is rare then.
+    """
     import pandas as pd
     from labelfirst.eval.species_priority import batch_scores
 
@@ -377,6 +368,59 @@ def main() -> None:
     with open(score_path, "w") as f:
         json.dump(scores, f)
     print(f"  Scores: {len(scores)} photos -> {score_path}")
+    return score_path
+
+
+def main() -> None:
+    """Fetch what is missing, then aggregate the whole cache into embeddings and
+    priority scores. --no-aggregate stops after the fetch, for when the calls
+    happen on one machine and the numpy work on another."""
+    args = parse_args()
+    load_dotenv()
+    api_key = os.environ.get("PLANTNET_API_KEY")
+    if not api_key:
+        sys.exit("ERROR: PLANTNET_API_KEY not found in .env")
+
+    config = load_config()
+    out_dir = args.out_dir
+    cache_dir = out_dir / "cache"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    photos, streaming = photo_sources(args)
+    if args.test:
+        photos = photos[:1]
+        print("TEST MODE: 1 image only\n")
+
+    mode = "survey" if args.survey_endpoint else "identify+embeddings"
+    cached = sum(1 for name, _ in photos if (cache_dir / f"{name}.json").exists())
+    print(f"Ingesting {len(photos)} photos via {mode}{streaming}")
+    print(f"  Cached: {cached}, remaining: {len(photos) - cached}\n")
+
+    processed, failed = fetch_all(
+        photos, api_key, config, cache_dir,
+        survey_url=args.survey_endpoint, delay=args.delay)
+
+    print(f"\nAPI calls done: {processed} processed, {len(failed)} failed")
+    if failed:
+        print(f"  Failed: {', '.join(failed[:10])}")
+
+    if args.no_aggregate:
+        n_cached = len(list(cache_dir.glob("*.json")))
+        print(f"\n--no-aggregate: {n_cached} JSONs in {cache_dir}")
+        print("Aggregate locally with:")
+        print(f"  python3 predict/aggregate_survey.py --survey-dir {cache_dir}")
+        return
+
+    print("\nAggregating ...")
+    embeddings, dataset_species = read_cache(cache_dir)
+
+    emb_path = out_dir / "survey_embeddings.json"
+    with open(emb_path, "w") as f:
+        json.dump(embeddings, f)
+    print(f"  Embeddings: {len(embeddings)} photos -> {emb_path}")
+
+    score_path = score_photos(dataset_species, args, out_dir)
 
     print("\nDone. Rebuild the dashboard over the new cache:")
     print("  python3 dashboard/measure.py && python3 dashboard/build_external.py")
