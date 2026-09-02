@@ -311,6 +311,17 @@ def p_review(c):
 THIN_MIN_FRAMES = hc.WELL_SAMPLED_MIN_N
 
 
+def _starts_hidden(d, status):
+    """A row starts hidden when its rate is too thin to read.
+
+    "Never returned on any BCI photo" is exempt: it is the page's most actionable
+    status, it does not depend on the rate being readable, and all but one of the
+    species carrying it fall under the frame cut-off. Hiding them left the legend
+    describing a status no visible row had.
+    """
+    return status != "unreachable" and d["n_labelled_crowns"] < THIN_MIN_FRAMES
+
+
 def p_species(c):
     sp_rows, attrs = [], []
     for d in sorted(c.per_species, key=lambda x: (-x["n_labelled_crowns"], x["species"])):
@@ -324,10 +335,9 @@ def p_species(c):
             f'{d["mean_top1_confidence"]:.2f}</span>',
             status_tag(st, STATUS[st][0])])
         attrs.append(f' data-species="{esc(sp)}" data-status="{st}"'
-                     + (' data-thin="1"'
-                        if d["n_labelled_crowns"] < THIN_MIN_FRAMES else ""))
+                     + (' data-thin="1"' if _starts_hidden(d, st) else ""))
     n_thin = sum(1 for d in c.per_species
-                 if d["n_labelled_crowns"] < THIN_MIN_FRAMES)
+                 if _starts_hidden(d, c.status[d["species"]]))
     half, none_ = crop_mismatch(c)
     # Three things a reader needs before the table, one paragraph each. They used
     # to be a single 159-word ask above the panel body: how to work the table,
@@ -345,7 +355,8 @@ def p_species(c):
               f'They carry fewer than {THIN_MIN_FRAMES} labelled frames each, the same '
               f'cut-off as the &ldquo;too few labels to judge&rdquo; status. On that few '
               f'frames a rate can only land on a handful of values, so it says little '
-              f'about the model.</p>'
+              f'about the model. Species the model never returned on any BCI photo stay '
+              f'on screen however few frames they carry.</p>'
             + f'<p class="note">Type a name and the species appears anyway, and so does '
               f'picking a status. Tick <i>show all {c.n_sp}</i> to keep them all on '
               f'screen.</p>'
@@ -504,12 +515,20 @@ def p_confirmatory(c):
         # A pointer, not a second copy of the warning: the next panel gives the
         # mechanism in full, and stating it twice made the pointer read as the
         # whole story.
-        "<b>Do not quote the top number without the warning below it.</b> It is a real "
-        "number, measured on frames that were fixed before anyone looked, but it was "
-        "not produced blind. The next panel says why.", body,
+        "<b>The top number is real but it was not produced blind.</b> It was measured on "
+        "frames that were fixed before anyone looked. The next panel says why that is "
+        "not the whole story.", body,
         # The id is linked to from the four-rate panel and pinned by a test, so it
         # outlives the wording of the summary above it.
         anchor="where-the-headline-comes-from")
+
+
+# Above each verbatim amendment block. The plan's words are kept for the record,
+# but the paragraph above each block already says the same thing in plain English,
+# so a reader who does not need the citation can move on.
+SKIPPABLE_QUOTE = ("The plan&rsquo;s own wording follows, quoted for the record. The "
+                   "plain-English paragraph above says the same thing, so you can skip "
+                   "the grey block.")
 
 
 def p_caveats(c):
@@ -568,11 +587,13 @@ def p_caveats(c):
         f'labelled photo. '
         f'Do not read it against the {pctf(cf["crown_top1"])} at the top, which scores a '
         f'whole frame on this fixed sample.</p>'
+        f'<p class="note">{SKIPPABLE_QUOTE}</p>'
         f'{A2_PRIOR_EXPOSURE}</div>'
         f'<div class="warn"><p><strong>A third way of asking was dropped after we had seen '
         f'how it was doing.</strong> The study planned to test a third method, tiles, and '
         f'cut it partway through. Dropping a method after glimpsing its result is the kind '
-        f'of choice that can flatter the methods that survive. Amendment A4, in full:</p>'
+        f'of choice that can flatter the methods that survive.</p>'
+        f'<p class="note">{SKIPPABLE_QUOTE}</p>'
         f'{A4_WHAT_THIS_COSTS}</div>'
         f'<div class="warn"><p><strong>What this rate is not.</strong></p><ul>'
         f'<li><strong>It does not measure a fully automatic pipeline.</strong> The '
@@ -637,15 +658,7 @@ def p_weighting(c):
         + f'<div class="caveat">{hero_region(c)}</div>'
         + f'<p class="note">{HERO_READING}</p>'
         + f'<p class="note">{HERO_WHICH_RATE}</p>'
-        + f'<p class="note">{HERO_WHY_DIFFER}</p>'
-        # One sentence, not the full caveat: the ceiling panel states the same numbers
-        # with the reasoning, and twice made this the second dense paragraph up top.
-        + f'<p class="note"><strong>{c.unscoreable:,} of these frames belong to '
-          f'{len(c.never)} species the model never names in five candidates, so they are '
-          f'counted wrong however the score is cut.</strong> Without them the per-frame rate is '
-          f'{pctf(c.reach1)}. <a href="#what-this-cannot-tell-you">What this cannot tell '
-          f'you</a> says why that is a limit of the question we asked, not proof the '
-          f'model has never heard of them.</p>')
+        + f'<p class="note">{HERO_WHY_DIFFER}</p>')
     return weighting_panel(per_species=c.per_species, sp_recs=c.sp_recs, support=c.support,
                            buckets=c.buckets, now=c.now, n=c.n, n_sp=c.n_sp,
                            corpus_block=corpus)

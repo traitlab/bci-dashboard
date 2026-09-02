@@ -163,16 +163,20 @@ def test_method_panel_returns_a_balanced_string_with_the_given_numbers(explain):
     assert "12" in out
 
 
-def test_method_panel_renders_every_check_as_its_own_li(explain):
-    out = explain.method_panel(tag="run-1", n=1, n_sp=1, n_cand=5, checks=["first check", "second check"])
-    assert "<li>first check</li>" in out
-    assert "<li>second check</li>" in out
+def test_method_panel_counts_the_checks_rather_than_listing_them(explain):
+    """The bullets only asserted that each CSV matched, which the closing
+    sentence already guarantees. The count stays live so the page cannot claim a
+    number of cross-checks the build did not run."""
+    out = explain.method_panel(tag="run-1", n=1, n_sp=1, n_cand=5,
+                               checks=["first check", "second check"])
+    assert "the 2 CSVs" in out
+    assert "first check" not in out
 
 
-def test_method_panel_escapes_a_check_containing_html(explain):
+def test_method_panel_leaks_no_check_text_onto_the_page(explain):
     out = explain.method_panel(tag="run-1", n=1, n_sp=1, n_cand=5, checks=[INJECT])
-    assert "<script>&" not in out
-    assert "&lt;script&gt;" in out
+    assert INJECT not in out
+    assert "<script>" not in out
 
 
 def test_method_panel_escapes_the_model_tag(explain):

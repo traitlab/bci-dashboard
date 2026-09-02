@@ -250,7 +250,14 @@ def p_rules(c):
              f'of the {len(c.test_recs):,} held-out frames. No rarely-labelled frame can be '
              f'pushed down the queue by a rule that also asks for labelled frames: that '
              f'second condition leaves them out.</p>')
-    return panel("How the five candidate rules compare",
+    # Four of the five rows describe rules that are not in force, so the summary
+    # carries the one that is and the other four open on request. The arithmetic
+    # below is unchanged; this is page weight, not evidence.
+    b = c.best
+    return panel(f'The rule in force is: {b["label"]}. It takes {b["n"]:,} of the '
+                 f'{len(c.test_recs):,} held-out frames off the queue and is wrong on '
+                 f'{pctf(b["err"])} of them. Show the four alternatives I could have '
+                 f'picked instead',
                  "<b>Read this only if you want to move the confidence line.</b> Each row "
                  "trades how many frames it takes off the queue against how often a frame "
                  "it pushed down was named wrong after all.", body,

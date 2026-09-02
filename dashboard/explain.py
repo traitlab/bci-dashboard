@@ -280,18 +280,13 @@ def method_panel(*, tag, n, n_sp, n_cand, checks):
             f'over earlier folders. Its model tag is read from its own '
             f'<code>run_log.txt</code>, which records the endpoint and the model run '
             f'name.</li>'
-            '<li>Every number here is recomputed from the source data at build time. '
-            'Each one is then cross-checked against the CSVs the measurement pass wrote '
-            'into the snapshot folder:<ul>'
-            + "".join(f"<li>{esc(c)}</li>" for c in checks)
-            + '</ul>A mismatch aborts the build.</li>'
-            '<li>Artifact: one HTML file that opens from a <code>file://</code> path. So it is '
-            'mailable, archivable next to the snapshot it describes, and readable by a '
-            'botanist or PI with no Python environment. It renders from the standard library '
-            'alone, so it needs no environment to rebuild either.</li>'
-            '<li>Rebuild: <code>python3 dashboard/measure.py</code> then '
-            '<code>python3 dashboard/build_external.py</code>. Standard library '
-            'only, same output every run, no network.</li></ul>')
+            f'<li>Every number here is recomputed from the source data at build time and '
+            f'cross-checked against the {len(checks)} CSVs the measurement pass wrote into '
+            f'the snapshot folder. A mismatch aborts the build.</li>'
+            # Build provenance is a maintainer's question, not a reader's, and it
+            # lives in the README beside the source. One line stays so an archived
+            # copy of this page still says where to look.
+            '<li>Rebuild: see the README beside this dashboard&rsquo;s source.</li></ul>')
     # Two panels above already end "and what it does not measure"/"does not
     # tell you". This one is provenance: which model, which frames, which files.
     return panel("How this was measured: the model, the frames, the files",
