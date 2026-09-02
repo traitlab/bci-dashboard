@@ -1,6 +1,6 @@
 """The WCVP crosswalk, which is the only reason match tier (d) exists.
 
-`load_wcvp_crosswalk` turns a cache of 249 WCVP lookups into one mapping:
+`load_wcvp_crosswalk` turns the cache of WCVP lookups into one mapping:
 the botanist's label, normalized, to the accepted binomial, normalized. A
 label that reaches a cached prediction only through this mapping is scored
 correct; without it the same frame is a miss. `measure.py` prints the
@@ -91,7 +91,7 @@ def test_the_raw_records_come_back_whole_including_the_dropped_ones(core, tmp_pa
 # ---------------------------------------------------------------------------
 
 def test_an_accepted_name_equal_to_the_label_is_not_a_mapping(core, tmp_path):
-    # Most of the 249 records are a name WCVP already accepts. Keeping these
+    # Most records in the cache are a name WCVP already accepts. Keeping these
     # would put every label in tier (d), which is the tier that says a synonym
     # was applied, and the sensitivity line in the run log would read as though
     # the crosswalk carried the whole headline.
@@ -176,3 +176,26 @@ def test_a_command_can_reword_one_flag_without_restating_the_others(core):
     help_text = p.format_help()
     assert "the answers to score" in help_text
     assert "botanist labels" in help_text
+
+
+def test_the_cache_holds_the_number_of_labels_core_says_it_covers(core):
+    """core.py sizes the cache in a comment, and the cache is tracked.
+
+    `data/wcvp_cache.json` is one of two files kept out of the `data/` ignore
+    rule, so it ships with the repo and its size is a fact about this checkout,
+    not about whatever ran last. The comment beside `WCVP_CACHE_JSON` is where
+    a reader learns the cache is BCI-only rather than all of WCVP, and that
+    claim rests on the count. Rebuild the cache over a wider label set and
+    nothing else would notice.
+    """
+    import pathlib
+    import re
+
+    src = pathlib.Path(core.__file__).read_text(encoding="utf-8")
+    said = re.search(r"Covers the ~([\d,]+) BCI labels", src)
+    assert said, "core.py no longer says how many labels the WCVP cache covers"
+    with open(core.WCVP_CACHE_JSON, encoding="utf-8") as fh:
+        cache = json.load(fh)
+    assert int(said.group(1).replace(",", "")) == len(cache), (
+        f"core.py says the cache covers ~{said.group(1)} labels, it holds "
+        f"{len(cache)}.")
