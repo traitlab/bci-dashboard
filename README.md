@@ -35,19 +35,21 @@ it prints and aborts if the snapshot CSVs disagree.
 
 ## What a number means
 
-Every number carries its population and support count and is defined in the
-sibling `bci-dashboard-docs/metrics.md`. Three things the pages say out loud,
-because missing them means reading the numbers wrong:
+Every number says which frames it covers and how many labelled frames it
+rests on. Each one is defined in the sibling `bci-dashboard-docs/metrics.md`.
+Three things the pages say out loud, because missing them means reading the
+numbers wrong:
 
 - **The headline is measured crown by crown**: one call per labelled crown,
   pooled to the frame by box area, on 300 frames frozen before the numbers
-  existed (`bci-dashboard-docs/hypothesis.md` fixed the design in advance). It
+  existed. `bci-dashboard-docs/hypothesis.md` fixed the design in advance. It
   is the cost of naming trees already found, not of finding them.
 - **Every other rate comes from a fixed 1280x1280 centre crop**, 13.7% of the
-  frame, while a botanist draws crowns anywhere in it. The pages score ungated.
-  `MIN_CROP_COVERAGE` (0.50) asks a different question -- does the species
-  covering most of the *crop* cover half of it -- and here only reports, in
-  `coverage_gate.csv`. `labelling/next_batch.py` is what filters on it.
+  frame, while a botanist draws crowns anywhere in it. The pages score every
+  frame, with no coverage condition applied. `MIN_CROP_COVERAGE` (0.50) asks a
+  different question -- does the species covering most of the *crop* cover half
+  of it -- and here only reports, in `coverage_gate.csv`.
+  `labelling/next_batch.py` is what filters on it.
 - A miss counts only inside a known population. A species missing from a cached
   list of five names is unproven either way.
 

@@ -10,6 +10,11 @@ deliberately.
   * none of the words `CONTEXT.md` retired, because a glossary that is not
     enforced is a glossary that drifts.
 
+`README.md` is held to the same two lines. It is the first thing anyone
+reads, so a page that says "the right name in the list" while the front page
+says "top-5" has retired the word in the one place it is measured and kept it
+in the one place it is met.
+
 Both checks run on the page's own prose, not on the source: what matters is
 what a reader sees, and the same sentence can be assembled from three
 f-strings. Tables, the species list and the inline script are excluded -- a
@@ -113,6 +118,42 @@ def prose(html: str, drop: tuple[str, ...] = ()) -> list[str]:
     html = _CODE.sub(" ", html)
     return [text for _, body in _PROSE_TAG.findall(html)
             if (text := _text(body))]
+
+
+_FENCE = re.compile(r"```.*?```", re.DOTALL)
+_INLINE_CODE = re.compile(r"`[^`]*`")
+_EMPHASIS = re.compile(r"\*{1,2}([^*]+)\*{1,2}")
+_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+
+
+def markdown_prose(text: str) -> list[str]:
+    """The prose of a Markdown file, one string per paragraph or list item.
+
+    Fenced blocks, inline code and table rows are dropped for the same reason
+    the page's tables and `<code>` spans are: a file path and a column name are
+    identifiers a reader looks at rather than reads, and counting them as words
+    makes a short sentence look long. Blocks are kept apart so a bullet list
+    after a colon is several sentences and not one very long one.
+    """
+    text = _FENCE.sub(" ", text)
+    text = _INLINE_CODE.sub(" ", text)
+    text = _LINK.sub(r"\1", text)
+    text = _EMPHASIS.sub(r"\1", text)
+
+    blocks, current = [], []
+    for line in text.splitlines():
+        stripped = line.strip()
+        starts_block = stripped.startswith(("-", "*", "|", "#", ">"))
+        if not stripped or starts_block:
+            if current:
+                blocks.append(" ".join(current))
+                current = []
+        if not stripped or stripped.startswith(("|", "#", ">")):
+            continue
+        current.append(stripped.lstrip("-* "))
+    if current:
+        blocks.append(" ".join(current))
+    return [block for block in blocks if block]
 
 
 def sentences(blocks: list[str]) -> list[str]:
@@ -255,3 +296,30 @@ def test_context_md_lists_the_statuses_the_pages_actually_print(core, status_wor
         assert label.replace(",", "").lower() in listed, (
             f"status_words calls a status {label!r} and CONTEXT.md's list does "
             f"not say it. The glossary is what every page's wording answers to.")
+
+
+@pytest.fixture(scope="session")
+def readme_prose(core):
+    import os
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    with open(os.path.join(root, "README.md"), encoding="utf-8") as fh:
+        return markdown_prose(fh.read())
+
+
+def test_the_readme_has_no_sentence_a_reader_has_to_reread(readme_prose):
+    _no_long_sentences(readme_prose, "README.md")
+
+
+@pytest.mark.parametrize("pattern,instead", sorted(RETIRED.items()))
+def test_the_readme_uses_no_word_context_md_retired(readme_prose, pattern, instead):
+    """The front page answers to the glossary too.
+
+    It said the pages "score ungated" and that every number carries a "support
+    count", both retired, and both in the paragraph that exists to tell a
+    newcomer what the numbers mean.
+    """
+    hits = [block for block in readme_prose if re.search(pattern, block, re.IGNORECASE)]
+    assert not hits, (
+        f"README.md: '{pattern}' is retired; say {instead}. In CONTEXT.md. Found in:\n"
+        + "\n".join(f"  {block[:160]}" for block in hits[:5]))
