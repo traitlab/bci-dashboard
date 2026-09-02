@@ -354,9 +354,7 @@ def p_send(c):
                'queue on which species was guessed, whatever the confidence. Inside a '
                'queue the weakest guesses come first, because those are the frames our '
                'labels cover worst. A guess near the bottom of the scale means Pl@ntNet '
-               'recognised almost nothing, which is itself the reason to look. A first '
-               'guess this low means the model had no candidate it liked, not that the '
-               'named species is unlikely.</p>'
+               'recognised almost nothing, which is itself the reason to look.</p>'
              + table([("#", True), ("photo", False), ("Pl@ntNet's guess", False),
                       ("confidence", True), ("frames that species has", True)],
                      [[f"{i}", f'<code class="key">{esc(stem)}</code>',
