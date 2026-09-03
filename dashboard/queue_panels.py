@@ -332,21 +332,23 @@ def discovery_chart(c) -> str:
 
 
 def novelty_chart(c) -> str:
-    """Where the ordering stops telling you anything.
+    """How far down the queue the ordering keeps separating photos.
 
-    The line falls fast and then flattens. Past the flat part every photo is
-    about as unlike the labelled set as the next, so the queue is back to
-    confidence order underneath and there is nothing left to gain by working on.
+    Written to describe whatever shape the data has, not the shape expected of
+    it: on the pool measured so far the line falls steeply and then keeps
+    falling, with no flat part at all, so a note promising one would be telling
+    a reader to look for something that is not there.
     """
     if not c.novelty_curve:
         return ""
     return (svg_curve([("distance", c.novelty_curve, LOOK_AMBER)],
                       title="How unlike the named photos each one looks, by its place",
                       x_title="place in the queue", y_title="distance")
-            + '<p class="note"><b>Where this flattens, the order stops helping.</b> Each '
-              'point averages a slice of the queue. Once the line is level the photos are '
-              'all about equally unlike what we have, and the order under them is the old '
-              'confidence order.</p>')
+            + '<p class="note"><b>How to read this.</b> Each point averages a slice of '
+              'the queue. The line falls, so photos near the top really are less like the '
+              'named ones than photos near the bottom. Where it levels off, the order has '
+              'stopped separating photos, and the old confidence order is doing the work '
+              'under it.</p>')
 
 
 def camera_note(c) -> str:
