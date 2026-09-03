@@ -102,19 +102,9 @@ Three of the nine CSVs are evidence a person opens rather than page input:
 `measure.NOT_READ_BACK_BY_A_BUILD` names them. A dated `snapshots/` folder
 records a day the labels moved; no build reads one back.
 
-## Layout
-
-| | |
-|---|---|
-| `dashboard/` | measure, score, build the pages |
-| `predict/` | Pl@ntNet calls: per photo, per crown box, embeddings, checklist. Needs `PLANTNET_API_KEY` |
-| `labelling/` | Labelbox side: fold an export in, rank and send batches, fold results back. Needs `LABELBOX_API_KEY` |
-| `bin/refresh.sh` | the full chain, above |
-| `input/boxes/` | crown boxes and the frame list. Tracked: the frame list defines the population |
-| `CONTEXT.md` | every term the pages use and the plain words they say instead. Untracked, so a clone has none; `tests/test_plain_english.py` holds the pages to it when it is there |
-| `data/`, `snapshots/`, `build/` | generated, gitignored |
-
-Why a module is shaped the way it is lives in that module's own docstring, so
+`input/boxes/` is tracked, unlike the other data folders, because the frame list
+in it defines the population every number is counted over. Why a module is
+shaped the way it is lives in that module's own docstring, so
 `dashboard/queues.py`, `dashboard/assets.py`, `dashboard/style.py` and
 `dashboard/explain.py` each open with the argument for their own existence.
 Read one before splitting it.
