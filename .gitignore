@@ -24,3 +24,6 @@ CONTEXT.md
 !.specify/memory/
 .specify/memory/*
 !.specify/memory/constitution.md
+
+# Agent instructions kept out of the repo.
+CLAUDE.md
