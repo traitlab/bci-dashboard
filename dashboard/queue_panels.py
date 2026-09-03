@@ -284,10 +284,16 @@ def p_evidence(c):
     wants all three pieces of evidence in one place. Splitting them made the
     page three screens long to say one thing.
     """
-    return panel(f"Which frames can wait, and why the line sits where it does: "
-                 f"{c.best['n']:,} of {len(c.test_recs):,} frames held back for grading",
+    # The counts were in the summary and have moved down here. "and why the line
+    # sits where it does" already says what the panel is for, so the numbers were
+    # scope rather than the finding, and they made a stable header move on every
+    # snapshot. Every other summary on this page keeps its number, because there
+    # the number is the reason to open the panel.
+    return panel("Which frames can wait, and why the line sits where it does",
                  "<b>Read this to move the confidence line, or to check the wait rule.</b> "
-                 f"The rule in force is <em>{c.best['label']}</em>. It orders the queue, it "
+                 f"The rule in force is <em>{c.best['label']}</em>. It would let "
+                 f"{c.best['n']:,} of {len(c.test_recs):,} frames held back for grading "
+                 f"wait. It orders the queue, it "
                  "does not close frames, and it is recomputed whenever Pl@ntNet updates.",
                  _wait_rule(c) + _rules_compared(c) + _confidence_evidence(c),
                  anchor="which-frames-can-wait")
