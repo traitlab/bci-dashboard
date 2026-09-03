@@ -352,17 +352,19 @@ def novelty_chart(c) -> str:
 def camera_note(c) -> str:
     """The cost of this ordering, in the summary rather than a chart.
 
-    Every named photo comes from one camera, so a photo can read as new because
-    of the lens and not the species. Two numbers, so a sentence carries it and a
-    chart would only decorate it.
+    The `tele` in a file name is a naming change, not a second camera: the
+    flights that carry it also produced `zoom` names, and the two namings differ
+    by the month the frames were exported. So the risk this note carries is that
+    a photo reads as new for the batch it came from. Two numbers, so a sentence
+    carries it and a chart would only decorate it.
     """
     if not c.head_n:
         return ""
     return (f'<p class="note"><b>What this ordering costs.</b> Of the {c.head_n:,} photos '
-            f'it puts first, {pctf(c.head_tele_share)} come from the long-lens camera, '
-            f'against {pctf(c.queue_tele_share)} across the whole queue. Every named photo '
-            f'is from the other camera, so some of that gap is the lens and not the '
-            f'species.</p>')
+            f'it puts first, {pctf(c.head_tele_share)} carry the newer file naming, '
+            f'against {pctf(c.queue_tele_share)} across the whole queue. That naming '
+            f'marks a later batch of flights, not a different camera. A gap here can be '
+            f'the flights and not the species.</p>')
 
 
 def contact_sheet(c) -> str:
