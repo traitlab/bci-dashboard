@@ -67,7 +67,7 @@ def check_per_species(directory, per_species):
         r = ref.get(row["species"])
         if r is None:
             fail(f"species {row['species']!r} absent from {path}")
-        if int(r["n_labelled_crowns"]) != row["n_labelled_crowns"]:
+        if int(r["n_labelled_frames"]) != row["n_labelled_frames"]:
             fail(f"labelled frames for {row['species']!r}")
         for col in ("top1_accuracy", "top5_accuracy"):
             if not close(r[col], row[col]):

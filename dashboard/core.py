@@ -338,7 +338,7 @@ def diagnose(row: dict) -> str:
     ``unreachable`` outranks all; no labelling helps. ``reliable`` outranks
     ``ranking``: >=90% needs no re-rank. ``unmeasured`` sits below ``ranking``,
     so a thin species already in the list counts as cheap."""
-    n, a1, a5 = row["n_labelled_crowns"], row["top1_accuracy"], row["top5_accuracy"]
+    n, a1, a5 = row["n_labelled_frames"], row["top1_accuracy"], row["top5_accuracy"]
     if not row["in_corpus_vocabulary"]:
         return "unreachable"
     if n >= WELL_SAMPLED_MIN_N and a1 >= RELIABLE_MIN_TOP1:

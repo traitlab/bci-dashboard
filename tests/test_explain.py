@@ -83,8 +83,8 @@ def _weighting_kwargs():
         {"gt": "sp2", "ranked": [("sp2", 0.9)]},
     ]
     per_species = [
-        {"species": "sp1", "n_labelled_crowns": 1, "top1_accuracy": 0.0},
-        {"species": "sp2", "n_labelled_crowns": 25, "top1_accuracy": 1.0},
+        {"species": "sp1", "n_labelled_frames": 1, "top1_accuracy": 0.0},
+        {"species": "sp2", "n_labelled_frames": 25, "top1_accuracy": 1.0},
     ]
     buckets = {
         "1": {"n_species": 1, "n_crowns": 1, "c1": 0},
@@ -114,8 +114,8 @@ def test_weighting_panel_raises_zero_division_when_no_species_is_well_sampled(ex
         {"gt": "sp2", "ranked": [("sp2", 0.9)]},
     ]
     per_species = [
-        {"species": "sp1", "n_labelled_crowns": 1, "top1_accuracy": 1.0},
-        {"species": "sp2", "n_labelled_crowns": 4, "top1_accuracy": 1.0},
+        {"species": "sp1", "n_labelled_frames": 1, "top1_accuracy": 1.0},
+        {"species": "sp2", "n_labelled_frames": 4, "top1_accuracy": 1.0},
     ]
     now = {"micro_top1": 1.0, "macro_top1": 1.0}
     with pytest.raises(ZeroDivisionError):
