@@ -292,8 +292,46 @@ def p_species(c):
 
 def p_ceiling(c):
     """What the headline rate cannot reach: frames whose species never appeared
-    in any answer the model gave us, counted three ways over three populations."""
+    in any answer the model gave us, counted three ways over three populations.
+
+    Split in two when a checklist is on disk: species proven absent from
+    Pl@ntNet's own list, and species that simply never ranked in a sample of
+    ``c.n_cand``. Falls back to one table and today's framing when it is not.
+    """
     n, gn = c.n, c.gn
+
+    def sp_table(rows):
+        return table([("Species", False), ("Labelled frames", True)],
+                     [[f'<span class="sp">{esc(cap(d["species"]))}</span>',
+                       f'{d["n_labelled_frames"]:,}'] for d in rows])
+
+    if c.has_checklist:
+        scope_html = (
+            f'<div class="warn"><strong>{len(c.out_of_scope)} species, '
+            f'{c.out_of_scope_frames} frames, are proven absent from Pl@ntNet’s own '
+            f'species list for this project.</strong> No re-run can return a name the '
+            f'project does not carry. Do not spend expert time renaming or relabelling '
+            f'these.</div>'
+            + sp_table(c.out_of_scope)
+            + f'<p class="note"><strong>{len(c.unproven_absent)} more species, '
+            f'{c.unproven_absent_frames} frames, are on the project’s list but never '
+            f'ranked in a sample of {c.n_cand} candidates per photo.</strong> That is not '
+            f'proof the model cannot return them, only that we never asked for enough '
+            f'candidates to find out. Re-running with a larger candidate count could '
+            f'still recover some of these.</p>'
+            + sp_table(c.unproven_absent))
+    else:
+        scope_html = (
+            f'<div class="warn"><strong>This is a limit of the question we asked, not proof '
+            f'the model has never heard of these species.</strong> Offline we can only check '
+            f'whether a name turns up in the cached answers, and we asked for '
+            f'{c.n_cand} candidates per photo. A species Pl@ntNet knows well, but which '
+            f'never made a list of {c.n_cand} on a BCI photo, looks exactly like one it '
+            f'cannot return. Do not spend expert time renaming or relabelling these; only a '
+            f'checklist from predict/fetch_checklist.py or a re-run can tell the two apart.'
+            f'</div>'
+            + sp_table(c.never))
+
     body = (f'<p class="note"><strong>Those {c.never_frames} frames are '
             f'{pctf(c.never_frames / n)} of the {n:,} evaluated, and no answer the model '
             f'gave us named their species.</strong> Leaving them out raises the per-frame rate from {pctf(c.c1 / n)} to '
@@ -302,19 +340,12 @@ def p_ceiling(c):
             f'frames carrying a botanist label, genus-only frames and the few with no '
             f'cached answer included. On that set {c.never_all} frames carry a name the '
             f'model never returned to us.</p>'
-            f'<div class="warn"><strong>This is a limit of the question we asked, not proof '
-            f'the model has never heard of these species.</strong> Offline we can only check '
-            f'whether a name turns up in the cached answers, and we asked for '
-            f'{c.n_cand} candidates per photo. A species Pl@ntNet knows well, but which '
-            f'never made a list of {c.n_cand} on a BCI photo, looks exactly like one it '
-            f'cannot return. The cap did not bite '
-            f'everywhere: on {c.short5:,} of the {c.n_pred:,} frames with a cached answer '
-            f'({pctf(c.short5 / c.n_pred)}) fewer than {c.n_cand} came back, so nothing was '
-            f'cut off. On the other {c.n_pred - c.short5:,} anything ranked {c.n_cand + 1} '
-            f'or lower is invisible to us. More name cleaning will not help.</div>'
-            + table([("Species", False), ("Labelled frames", True)],
-                    [[f'<span class="sp">{esc(cap(d["species"]))}</span>',
-                      f'{d["n_labelled_frames"]:,}'] for d in c.never])
+            + scope_html
+            + f'<p class="note">The cap did not bite everywhere. On {c.short5:,} of the '
+            f'{c.n_pred:,} frames with a cached answer ({pctf(c.short5 / c.n_pred)}) fewer '
+            f'than {c.n_cand} came back, so nothing was cut off. On the other '
+            f'{c.n_pred - c.short5:,} anything ranked {c.n_cand + 1} or lower is invisible '
+            f'to us.</p>'
             + f'<p class="note"><strong>Spelling and renamed species do not cost us any '
               f'frames.</strong> Labels and predictions are put into the same standard form '
               f'before comparison, and old names are resolved to current ones. Raw names '
@@ -337,10 +368,10 @@ def p_ceiling(c):
               f'{pctf(c.gg1 / gn)}.</p>')
     return panel(f"What labelling cannot fix: {len(c.never)} species, {c.never_frames} frames "
                  f"the model never named",
-                 "<b>Do not spend expert time renaming or relabelling these.</b> Either "
-                 "the model cannot return the species, or we never asked for enough "
-                 "candidates to find out. Only re-running the predictions can tell the two "
-                 "apart.", body)
+                 "<b>Most of these are not proof the model cannot return the species.</b> "
+                 "A checklist from predict/fetch_checklist.py, when on disk, tells a proven "
+                 "absence apart from one we simply never asked enough candidates to find.",
+                 body)
 
 
 def p_terms(c):
@@ -391,7 +422,8 @@ def p_method(c):
         raise SystemExit("the method panel reports the build's own verification lines, so "
                          "the page must run verify_snapshot and set ctx.checks before "
                          "rendering it.")
-    return method_panel(tag=c.tag, n=c.n, n_sp=c.n_sp, n_cand=c.n_cand, checks=c.checks)
+    return method_panel(tag=c.tag, n=c.n, n_sp=c.n_sp, n_cand=c.n_cand, checks=c.checks,
+                        out_of_scope=c.out_of_scope, out_of_scope_in_world=c.out_of_scope_in_world)
 
 
 def p_counts(c):

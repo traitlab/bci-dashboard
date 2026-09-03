@@ -133,6 +133,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .tag.unmeasured{background:#fff3e0;color:#bf360c}
 .tag.hard{background:#ffebee;color:#c62828}
 .tag.unreachable{background:#eceff1;color:#455a64}
+.tag.out_of_scope{background:#f5f5f5;color:#757575}
 /* Sits directly above/below the table it explains, so a status stays legible
    without leaving the table. Text colour matches .todo li. */
 .status-legend{list-style:none;font-size:0.82rem;color:#424242;

@@ -84,12 +84,17 @@ def p_todo(c):
     # row, so one fact does not arrive as two numbers. The count is counted, not
     # written out: a row that leaves SKIP_STATUSES must leave this sentence too.
     n_skip = {2: "Two", 3: "Three", 4: "Four"}.get(len(SKIP_STATUSES), str(len(SKIP_STATUSES)))
+    # Whether every skip row also sits last on the page: true only while
+    # SKIP_STATUSES is exactly the tail of STATUS, in the same order.
+    tail = list(STATUS)[-len(SKIP_STATUSES):]
+    position_note = (" They sit last on the page too, in this order." if tail == list(SKIP_STATUSES)
+                     else " They are scattered through the list, not grouped at the bottom.")
     return panel(f"Where to spend botanist time next: {c.counts['ranking']} species "
                  f"are one confirmation away",
                  "<b>Work top to bottom.</b> Rows are ordered cheapest useful work "
                  f"first. {n_skip} of them you can skip: "
                  + ", ".join(f"&ldquo;{uncap(STATUS[k][0])}&rdquo;" for k in SKIP_STATUSES)
-                 + ". Neither sits at the bottom of the list.",
+                 + "." + position_note,
                  "\n".join(body), open_=True)
 
 
