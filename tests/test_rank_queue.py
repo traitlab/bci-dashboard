@@ -195,3 +195,15 @@ def test_the_distance_curve_averages_its_bins_rather_than_sampling_them(rank_que
 
 def test_an_empty_pool_has_no_distance_curve(rank_queue):
     assert rank_queue.bin_means([]) == []
+
+
+def test_provenance_records_an_absent_npz_rather_than_stopping(rank_queue, tmp_path):
+    """`load_embeddings` reads the per-photo cache when the npz is not there, so
+    every run before the fetch finishes reaches this with a path that does not
+    exist. Stopping there loses the sidecar for exactly the ranking that needs
+    one most."""
+    out = tmp_path / "p.txt"
+    rank_queue.write_provenance(out, [("pool", tmp_path / "missing.npz", 12)])
+    text = out.read_text()
+    assert "rows=12" in text
+    assert "absent" in text
