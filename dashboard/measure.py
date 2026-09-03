@@ -88,6 +88,14 @@ def write_name_reconciliation(out_dir, h):
 
 def write_per_species_health(out_dir, per_species):
     """The page's table: one row per species from the aggregation."""
+    if not per_species:
+        # Like health.scan_cache and health.require_inputs on the same no-data
+        # case: a loud, actionable failure here, not an IndexError off
+        # per_species[0] two lines down with nothing to act on.
+        raise SystemExit(
+            "No species to write to per_species_health.csv: the aggregation found no "
+            "labelled species. Run bin/refresh.sh to fetch and build the inputs, or "
+            "point at an existing copy with the flags --help lists.")
     with _csv(out_dir, "per_species_health.csv") as f:
         w = csv.DictWriter(f, fieldnames=list(per_species[0].keys()))
         w.writeheader()
@@ -119,7 +127,7 @@ def write_filter_gain(out_dir, B, *, n, c1, f1, f_abstain):
                     "delta_pp", "n_correct_global", "n_correct_filtered",
                     "n_no_candidate_after_filter"])
         w.writerow(["ALL", n, fmt(ratio(c1, n)), fmt(ratio(f1, n)),
-                    fmt(100.0 * (f1 - c1) / n, 2), c1, f1, f_abstain])
+                    fmt(ratio(100.0 * (f1 - c1), n), 2), c1, f1, f_abstain])
         for lab in BUCKET_ORDER:
             b = B[lab]
             if not b["n_crowns"]:

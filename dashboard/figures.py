@@ -97,9 +97,9 @@ def _rates(sp_recs, per_species):
     c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:N_CANDIDATES]])
     return {
         "n": n, "n_sp": n_sp, "c1": c1,
-        "now": {"macro_top1": sum(d["top1_accuracy"] for d in per_species) / n_sp,
-                "macro_top5": sum(d["top5_accuracy"] for d in per_species) / n_sp,
-                "micro_top1": c1 / n, "micro_top5": c5 / n}}
+        "now": {"macro_top1": hc.ratio(sum(d["top1_accuracy"] for d in per_species), n_sp),
+                "macro_top5": hc.ratio(sum(d["top5_accuracy"] for d in per_species), n_sp),
+                "micro_top1": hc.ratio(c1, n), "micro_top5": hc.ratio(c5, n)}}
 
 
 def _species_status(per_species):
@@ -170,7 +170,7 @@ def _out_of_reach(h, sp_recs, per_species):
         "never_all": (h.tier_crowns["e_absent_from_corpus"]
                       + h.tier_crowns["c_genus_only_in_corpus"]),
         "reach": reach,
-        "reach1": sum(1 for r in reach if top1(r) == r["gt"]) / len(reach),
+        "reach1": hc.ratio(sum(1 for r in reach if top1(r) == r["gt"]), len(reach)),
         "unscoreable": len(sp_recs) - len(reach),
         "strict1": strict1,
         "short5": sum(1 for r in sp_recs + h.genus_recs
