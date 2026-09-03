@@ -39,9 +39,15 @@ QL = {"long_tail": ("Species we barely have, or barely get right",
 # Above the 25 filenames, not below them: a reader who meets the list first has
 # already accepted it as instructions by the time the caveat arrives.
 UNGRADED_NOTE = (
-    '<p class="note"><b>This order has not been graded.</b> Nothing measures whether it '
-    'fills gaps faster than sending photos at random. It is a reasonable guess about '
-    'where our labels are thin. The wait rule further down <em>is</em> measured.</p>')
+    '<p class="note"><b>This order has not been graded yet.</b> Nothing here measures '
+    'whether it fills gaps faster than sending photos at random. It is a reasonable '
+    'guess about where our labels are thin. The wait rule further down <em>is</em> '
+    'measured.</p>'
+    f'<p class="note"><b>Batch 1 carries the comparison.</b> {queues.control_size()} of its '
+    f'{queues.BATCH_SIZE} photos are drawn at random from the whole pool instead of '
+    'from the head of this order. When they come back labelled, the two halves can be '
+    'compared. This only works on the first batch: every later pool has already been '
+    'reshaped by this order.</p>')
 
 
 # The page's own hand-off: the queue is only worth building if a batch reaches

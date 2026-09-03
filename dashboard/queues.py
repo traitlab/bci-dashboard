@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import csv
 import os
+import random
 from collections import defaultdict
 
 from core import (
@@ -38,10 +39,28 @@ QUEUE_ORDER = ["long_tail", "low_conf_known", "normal", "can_wait"]
 SEND_FIRST_COLUMNS = ["queue", "global_key", "split", "predicted_species", "confidence",
                       "species_labelled_crowns", "species_top1_accuracy", "novelty_rank"]
 # send_batches.csv's columns, likewise: returned in this order, written as that header.
-SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue"]
+SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue", "picked_by"]
 
 # No more than this many crowns per Labelbox batch, one botanist session's worth.
 BATCH_SIZE = 100
+
+# The share of the first batch drawn at random from the whole unlabelled pool
+# instead of from the head of the queue. Nothing here measures whether the queue
+# fills gaps faster than sending photos at random, and after the first batch is
+# labelled nothing ever can: every later batch is chosen from a pool the queue
+# has already reshaped. These frames are the comparison, and they are only a
+# comparison if they go out with the first batch.
+#
+# 15% of a hundred is fifteen frames. Small enough that the botanist hours the
+# queue was built to save are still mostly saved, large enough that fifteen
+# random draws say something about how the two orders differ.
+CONTROL_FRACTION = 0.15
+# Fixed, so two runs of measure.py write the same file. Changing it draws a
+# different fifteen frames, which is a new comparison, not a correction.
+CONTROL_SEED = 20260903
+# What a control row carries in `species_group`. Not a species, and it cannot
+# collide with one: every species name here is a binomial.
+CONTROL_GROUP = "control"
 
 # The place in the order a frame with no vector takes: after every ranked frame
 # of its queue, where the frames behind it keep today's confidence order. Bigger
@@ -73,21 +92,68 @@ def load_novelty(path: str) -> dict:
     return out
 
 
-def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
+def control_size(batch_size: int = BATCH_SIZE,
+                 fraction: float = CONTROL_FRACTION) -> int:
+    """How many of a batch are the comparison rather than queue work.
+
+    The page quotes this and the batcher reserves room for it, so it is worked
+    out once. Never the whole batch: the first batch has queue work to do too.
+    """
+    if not 0 <= fraction < 1:
+        raise ValueError(f"control fraction must be in [0, 1), got {fraction}")
+    n = round(batch_size * fraction)
+    return 0 if n < 1 else min(n, batch_size - 1)
+
+
+def draw_control_slice(queue_rows: list, batch_size: int = BATCH_SIZE,
+                       fraction: float = CONTROL_FRACTION,
+                       seed: int = CONTROL_SEED) -> list:
+    """The row indices of the frames the first batch carries as a comparison.
+
+    A uniform draw from the whole pool, the head of the queue included. A frame
+    that the queue would have sent anyway is a legitimate outcome of a random
+    draw, and dropping it to avoid the overlap is what would bias the sample.
+
+    ``fraction`` of ``batch_size``, not of the pool: the slice rides in the
+    first batch, so its size is set by what one batch holds. A fraction of 0
+    draws nothing, which is how this is turned off.
+    """
+    n = min(control_size(batch_size, fraction), len(queue_rows))
+    if n < 1:
+        return []
+    return sorted(random.Random(seed).sample(range(len(queue_rows)), n))
+
+
+def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
+                       control_fraction: float = CONTROL_FRACTION) -> list:
     """Species-grouped, priority-first batches over an already-ordered
     ``queue_rows`` (send_first_queue.csv order). Each species is visited once,
     at its highest-priority row; its rows travel together, packed whole until
     the next would overflow ``batch_size``, then split.
+
+    The first batch gives up ``control_fraction`` of its room to the control
+    slice, which rides at the end of it as one block. Every other batch packs as
+    before. The result is still a repartition of the queue: the control frames
+    are moved forward, never added, and no frame is sent twice.
     """
     if batch_size < 1:
         raise ValueError(f"batch_size must be at least 1, got {batch_size}")
-    order: list[str] = []
-    seen: set[str] = set()
-    by_species: dict[str, list] = defaultdict(list)
     queue_at = SEND_FIRST_COLUMNS.index("queue")
     key_at = SEND_FIRST_COLUMNS.index("global_key")
     species_at = SEND_FIRST_COLUMNS.index("predicted_species")
-    for row in queue_rows:
+
+    control_at = set(draw_control_slice(queue_rows, batch_size, control_fraction))
+    control = [queue_rows[i] for i in sorted(control_at)]
+    # Reserved room, so the first batch stays inside batch_size once the slice
+    # is appended to it.
+    first_cap = batch_size - len(control)
+
+    order: list[str] = []
+    seen: set[str] = set()
+    by_species: dict[str, list] = defaultdict(list)
+    for i, row in enumerate(queue_rows):
+        if i in control_at:
+            continue
         sp = row[species_at]
         by_species[sp].append(row)
         if sp not in seen:
@@ -101,15 +167,34 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE) -> list:
 
     batches = []
     batch_id = 0
-    held = batch_size  # rows already in the open batch; forces the first one open
-    for sp, rows in groups:
-        if held + len(rows) > batch_size:
+    held = cap = 0  # rows in the open batch, and its room; forces the first open
+    pending = list(groups)
+    while pending:
+        sp, rows = pending.pop(0)
+        if held + len(rows) > cap:
             batch_id += 1
+            cap = first_cap if batch_id == 1 else batch_size
             held = 0
+            if len(rows) > cap:
+                # Only reachable on the first batch, whose room is short by the
+                # slice. Chop the group to what fits rather than leave the batch
+                # nearly empty; the rest is the next group in line. With no
+                # slice, `cap` is `batch_size` and the groups are already split
+                # to it, so this is unreachable and the packing is unchanged.
+                pending.insert(0, (sp, rows[cap:]))
+                rows = rows[:cap]
         held += len(rows)
         for row in rows:
-            batches.append([batch_id, sp, row[key_at], row[queue_at]])
-    return batches
+            batches.append([batch_id, sp, row[key_at], row[queue_at], "queue"])
+
+    if not control:
+        return batches
+    # After the first batch's own rows and before the second's, so the block is
+    # contiguous and the file still reads in batch order.
+    at = next((i for i, b in enumerate(batches) if b[0] > 1), len(batches))
+    return (batches[:at]
+            + [[1, CONTROL_GROUP, r[key_at], r[queue_at], "control"] for r in control]
+            + batches[at:])
 
 
 def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> str:

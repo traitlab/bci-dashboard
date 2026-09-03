@@ -128,7 +128,8 @@ def batch_rows_for(queue_rows, batch_id=None):
     """
     if batch_id is not None:
         return [{"batch_id": batch_id, "species_group": r["predicted_species"],
-                 "global_key": r["global_key"], "queue": r["queue"]}
+                 "global_key": r["global_key"], "queue": r["queue"],
+                 "picked_by": "queue"}
                 for r in queue_rows]
     rows = [[r[c] for c in queues.SEND_FIRST_COLUMNS] for r in queue_rows]
     return [dict(zip(queues.SEND_BATCH_COLUMNS, b))
@@ -188,11 +189,10 @@ def write_snapshot(tmp_path, *, per_species_rows=None, bucket_rows=None, bin_row
     if with_queue_counts:
         qrows = queue_rows if queue_rows is not None else queue_rows_for()
         brows = batch_rows if batch_rows is not None else batch_rows_for(qrows)
-        write_csv(d / "send_first_queue.csv", qrows,
-                   ["queue", "global_key", "split", "predicted_species", "confidence",
-                    "species_labelled_crowns", "species_top1_accuracy", "novelty_rank"])
-        write_csv(d / "send_batches.csv", brows,
-                   ["batch_id", "species_group", "global_key", "queue"])
+        # The headers come from queues, not a second copy here: a column added
+        # there and not here writes a file the fixture cannot fill.
+        write_csv(d / "send_first_queue.csv", qrows, queues.SEND_FIRST_COLUMNS)
+        write_csv(d / "send_batches.csv", brows, queues.SEND_BATCH_COLUMNS)
         files["queue"], files["batches"] = qrows, brows
         kwargs["queue_counts"] = dict(QUEUE_COUNTS)
         if queue_keys is not None:
