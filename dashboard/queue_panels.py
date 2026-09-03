@@ -26,8 +26,10 @@ QL = {"long_tail": ("Species we barely have, or barely get right",
       "low_conf_known": ("A usually-right species, guessed weakly",
                          f"Right at least {pctf(hc.RELIABLE_MIN_TOP1, 0)} of the time "
                          f"overall, but confidence under {hc.LOW_CONF:.2f} here"),
-      # Not "Everything else": a further category follows it.
-      "normal": ("The ordinary queue",
+      # Not "Everything else": a further category follows it. The name says why
+      # a botanist should open the queue rather than what is in it, because the
+      # rule beside it already draws the line against the queue above.
+      "normal": ("Not sure enough to leave alone",
                  "Neither of the two above, and not confident enough to wait"),
       "can_wait": ("Confident on a well-covered species",
                    f"Confidence {hc.WAIT_CONF:.2f} or more, and {hc.WELL_SAMPLED_MIN_N} or "
