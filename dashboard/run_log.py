@@ -232,6 +232,42 @@ def log_headline(_log, n, n_sp, c1, c5, macro1, macro5, g1, g5, reachable, r1, r
     _log("")
 
 
+def log_checklist_scope(_log, scope, n, c1, n_sp, macro1):
+    """Which species are proven out of scope, and the headline recomputed
+    without their frames. The published numbers above this block do not move;
+    this is a second, adjusted view sitting next to them, not a replacement.
+    """
+    _log("--- CHECKLIST SCOPE (predict/fetch_checklist.py) ---")
+    ck = scope.checklist
+    if ck is None:
+        _log("  no checklist on disk. Run predict/fetch_checklist.py to download")
+        _log("  core.EVAL_PROJECT's species list before this block can say more than")
+        _log("  that: every species still carries in_project_checklist=None, and")
+        _log("  'unreachable' is the most specific status diagnose() can give it.")
+        _log("")
+        return
+    _log(f"  checklist read                      : data/checklist_{ck.project}.json")
+    _log(f"  project                              : {ck.project}")
+    _log(f"  species on the list                  : {ck.n_returned}")
+    mismatch = "" if ck.declared_species_count == ck.n_returned else "  MISMATCH"
+    _log(f"  declared species count               : {ck.declared_species_count}{mismatch}")
+    _log("")
+    _log(f"  out-of-scope species (proven absent from the checklist) : {len(scope.out)}")
+    _log(f"  out-of-scope frames                                     : {scope.frames}")
+    for d in scope.out:
+        _log(f"      {d['n_labelled_frames']:>4} frames  {d['species']}")
+    _log("")
+    _log("  published headline (above) does not change. Side by side with the")
+    _log("  out-of-scope frames and species removed:")
+    _log(f"  {'':<28} {'published':>12} {'out-of-scope removed':>22}")
+    _log(f"  {'frames (N)':<28} {n:>12} {scope.n_adj:>22}")
+    _log(f"  {'frame top-1':<28} {pct(c1, n):>12} {pct(scope.c1_adj, scope.n_adj):>22}")
+    _log(f"  {'species (N)':<28} {n_sp:>12} {scope.n_sp_adj:>22}")
+    _log(f"  {'macro per-species top-1':<28} {_macro(macro1, 11)} "
+        f"{_macro(scope.macro1_adj, 21)}")
+    _log("")
+
+
 def log_gate_comparison(_log, sp_recs, sweep, gate, n, n_sp, c1, macro1):
     """Gated and ungated side by side, then the sweep behind the threshold."""
     _log("--- CROP-COVERAGE GATE: GATED AND UNGATED, SIDE BY SIDE ---")

@@ -229,6 +229,28 @@ def headline_counts(h):
         macro5=ratio(sum(d["top5_accuracy"] for d in per_species), n_sp))
 
 
+def checklist_scope_stats(h, head):
+    """The out-of-scope population, and the headline recomputed without it.
+
+    ``head`` is unchanged; ``published`` on the page never moves. This is the
+    side-by-side the run log carries so a reader can see what the 3 known
+    out-of-scope species are worth without the published number silently
+    changing under them.
+    """
+    out = sorted((d for d in h.per_species if d["in_project_checklist"] is False),
+                 key=lambda d: -d["n_labelled_frames"])
+    frames = sum(d["n_labelled_frames"] for d in out)
+    c1_adj = head.c1 - sum(d["n_correct_top1"] for d in out)
+    n_adj = head.n - frames
+    n_sp_adj = head.n_sp - len(out)
+    macro1_adj = ratio(
+        sum(d["top1_accuracy"] for d in h.per_species if d["in_project_checklist"] is not False),
+        n_sp_adj)
+    return SimpleNamespace(
+        checklist=h.checklist, out=out, frames=frames,
+        c1_adj=c1_adj, n_adj=n_adj, n_sp_adj=n_sp_adj, macro1_adj=macro1_adj)
+
+
 def bci_list_filter(h):
     """What restricting the model's candidates to the BCI species list buys.
 
@@ -390,6 +412,8 @@ def main() -> None:
     rl.log_headline(log, head.n, head.n_sp, head.c1, head.c5, head.macro1,
                     head.macro5, head.g1, head.g5, gain.reachable, gain.r1,
                     gain.r5, head.s1, head.s5, head.gn, head.gg1, head.gg5)
+    scope = checklist_scope_stats(h, head)
+    rl.log_checklist_scope(log, scope, head.n, head.c1, head.n_sp, head.macro1)
     rl.log_gate_comparison(log, h.sp_recs, sweep,
                            coverage_gate_stats(h.sp_recs, MIN_CROP_COVERAGE),
                            head.n, head.n_sp, head.c1, head.macro1)
