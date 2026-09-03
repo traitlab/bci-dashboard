@@ -8,9 +8,12 @@ carries but has never ranked looks exactly like one it does not carry. Within
 the primary evaluation set, 143 names are visible only because rank 5 was
 included, which is how far from saturated that sample is.
 
-GET /v2/projects/{project}/species returns the label set itself. With pageSize
-and page left empty the response is the complete list, which is what makes the
-distinction exact and permanent instead of proportional to how deep we query.
+GET /v2/projects/{project}/species returns the label set itself. It is read in
+pages and the pages are concatenated, which is what makes the distinction exact
+and permanent instead of proportional to how deep we query. Leaving pageSize
+empty asks for the whole list in one response and the server answers 503 on a
+project the size of k-world-flora, so paging is the only route that works for
+every project.
 
 Writes data/checklist_<project>.json: the raw species array plus the
 speciesCount the project listing reports, so a later run can tell a truncated
@@ -37,7 +40,11 @@ from photo import api_and_project
 REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "data"
 
-TIMEOUT = 300  # the unpaginated list is documented as a long response
+TIMEOUT = 300  # a page of thousands of species is a long response
+# Species per request. The route defaults to 100 and accepts far more; 5,000
+# reads k-world-flora in 17 requests instead of 847. Not the whole list in one
+# request: that is what 503s.
+PAGE_SIZE = 5000
 
 
 def project_species_count(api: str, api_key: str, project: str):
@@ -55,19 +62,31 @@ def project_species_count(api: str, api_key: str, project: str):
     return None
 
 
-def fetch_species(api: str, api_key: str, project: str, lang: str = "en") -> list:
-    """The whole label set in one call.
+def fetch_species(api: str, api_key: str, project: str, lang: str = "en",
+                  page_size: int = PAGE_SIZE) -> list:
+    """The whole label set, read a page at a time and concatenated.
 
-    pageSize and page are sent empty on purpose: the API paginates at 100 by
-    default, and an empty value is the documented way to switch that off.
+    A short page ends the loop, so the last request is the one that proves the
+    list is finished. `main` then checks the total against the count the project
+    listing declares, which is what tells a dropped page from a real change in
+    the model.
     """
-    r = requests.get(
-        f"{api}/projects/{project}/species",
-        params={"api-key": api_key, "lang": lang, "pageSize": "", "page": ""},
-        timeout=TIMEOUT,
-    )
-    r.raise_for_status()
-    return r.json()
+    out, page = [], 1
+    while True:
+        r = requests.get(
+            f"{api}/projects/{project}/species",
+            params={"api-key": api_key, "lang": lang,
+                    "pageSize": page_size, "page": page},
+            timeout=TIMEOUT,
+        )
+        r.raise_for_status()
+        got = r.json()
+        if not isinstance(got, list):
+            raise ValueError(f"expected a species array, got {type(got).__name__}")
+        out += got
+        if len(got) < page_size:
+            return out
+        page += 1
 
 
 def main() -> int:
