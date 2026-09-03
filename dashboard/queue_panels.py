@@ -348,9 +348,10 @@ def novelty_chart(c) -> str:
                       x_title="place in the queue", y_title="distance")
             + '<p class="note"><b>How to read this.</b> Each point averages a slice of '
               'the queue. The line falls, so photos near the top really are less like the '
-              'named ones than photos near the bottom. Where it levels off, the order has '
-              'stopped separating photos, and the old confidence order is doing the work '
-              'under it.</p>')
+              'named ones than photos near the bottom. Most of that fall is in the first '
+              'quarter of the queue. Past it the line keeps dropping, but slowly. The '
+              'photos it separates there differ from each other far less than the ones '
+              'at the head do.</p>')
 
 
 def camera_note(c) -> str:
@@ -367,8 +368,9 @@ def camera_note(c) -> str:
     return (f'<p class="note"><b>What this ordering costs.</b> Of the {c.head_n:,} photos '
             f'it puts first, {pctf(c.head_tele_share)} carry the newer file naming, '
             f'against {pctf(c.queue_tele_share)} across the whole queue. That naming '
-            f'marks a later batch of flights, not a different camera. A gap here can be '
-            f'the flights and not the species.</p>')
+            f'marks a later batch of flights, not a different camera. Where the first '
+            f'share is the bigger one, the head leans on that batch. Some of what makes '
+            f'those photos look new is then the batch, not the species.</p>')
 
 
 def contact_sheet(c) -> str:
