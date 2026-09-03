@@ -28,6 +28,19 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 DASHBOARD = REPO / "dashboard"
 BOX_CSV = REPO / "input" / "boxes" / "crop_bounding_boxes.csv"
 GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
+CONTEXT_MD = REPO / "CONTEXT.md"
+
+
+def require_context_md() -> pathlib.Path:
+    """The glossary, or a skip when the checkout has no copy.
+
+    CONTEXT.md is gitignored, so a fresh clone has nothing to hold the pages
+    and the code to. Same shape as `require_buildable`: the checks that read it
+    say so by name instead of failing as though the glossary disagreed.
+    """
+    if not CONTEXT_MD.exists():
+        pytest.skip("CONTEXT.md not present (gitignored)")
+    return CONTEXT_MD
 
 
 @contextlib.contextmanager

@@ -240,7 +240,7 @@ def test_neither_page_uses_a_word_context_md_retired(page_prose, pattern, instea
         + "\n".join(f"  {block[:160]}" for block in hits[:5]))
 
 
-def test_every_word_context_md_bans_is_a_word_this_file_checks_for(core):
+def test_every_word_context_md_bans_is_a_word_this_file_checks_for():
     """RETIRED above is a hand-copy of CONTEXT.md, and a hand-copy drifts.
 
     CONTEXT.md is the glossary; this file is the only thing that enforces it.
@@ -248,10 +248,9 @@ def test_every_word_context_md_bans_is_a_word_this_file_checks_for(core):
     how "lens" survived on the queue page for a week after CONTEXT.md said the
     pair are cameras.
     """
-    import os
+    from conftest import require_context_md
 
-    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
-    text = open(os.path.join(root, "CONTEXT.md"), encoding="utf-8").read()
+    text = require_context_md().read_text(encoding="utf-8")
     banned = set(BANNED_IN_CONTEXT.findall(text))
     assert banned, "CONTEXT.md no longer marks any word with never \"...\""
 
@@ -262,7 +261,7 @@ def test_every_word_context_md_bans_is_a_word_this_file_checks_for(core):
         f"{unchecked}. Add a pattern to RETIRED, with what a page says instead.")
 
 
-def test_context_md_lists_the_statuses_the_pages_actually_print(core, status_words):
+def test_context_md_lists_the_statuses_the_pages_actually_print(status_words):
     """CONTEXT.md glosses "status" by listing all six, and that list is a copy.
 
     `status_words.STATUS` is the one definition: it names the legend, the
@@ -270,11 +269,11 @@ def test_context_md_lists_the_statuses_the_pages_actually_print(core, status_wor
     six labels, so renaming one leaves the shared vocabulary describing a word
     no page says. The count is checked too, since the entry says "six".
     """
-    import os
     import re
 
-    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
-    text = open(os.path.join(root, "CONTEXT.md"), encoding="utf-8").read()
+    from conftest import require_context_md
+
+    text = require_context_md().read_text(encoding="utf-8")
     entry = re.search(r"One of (\w+) plain verdicts a species gets: ([^|]+)", text)
     assert entry, "CONTEXT.md no longer glosses status by listing them"
 

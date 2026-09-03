@@ -18,6 +18,7 @@ import os
 import re
 
 import pytest
+from conftest import require_context_md
 
 
 @pytest.fixture(scope="session")
@@ -116,6 +117,8 @@ def test_every_path_the_docs_point_at_is_there(doc, least, core):
     form. The sibling `-docs` files count too, since both send the reader to
     them for what every number means.
     """
+    if doc == "CONTEXT.md":
+        require_context_md()
     root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
     with open(os.path.join(root, doc), encoding="utf-8") as fh:
         text = fh.read()
@@ -207,6 +210,7 @@ def test_metrics_md_cites_symbols_that_exist_and_no_line_numbers(core):
     doc = os.path.join(os.path.dirname(root), "bci-dashboard-docs", "metrics.md")
     if not os.path.exists(doc):
         pytest.skip("sibling bci-dashboard-docs/metrics.md not present")
+    require_context_md()
     with open(doc, encoding="utf-8") as fh:
         text = fh.read()
 
