@@ -23,12 +23,21 @@ STATUS = {
     # core.diagnose reads in_corpus_vocabulary, true when the name came back on
     # ANY BCI photo, so 0.0% under a different status is not a contradiction.
     "unreachable": ("Never returned on any BCI photo",
-                    "Nothing to do until we know whether Pl@ntNet carries this "
-                    "species at all"),
+                    "Label these like any other row. We have not yet asked Pl@ntNet "
+                    "whether it carries this species"),
 }
 
 # The rows a botanist can pass over, not simply the tail of STATUS.
-SKIP_STATUSES = ("hard", "reliable", "unreachable")
+#
+# "Never returned on any BCI photo" is not one of them, and used to be. We only
+# ever asked for hc.N_CANDIDATES names per photo, so a species the model carries
+# but has never ranked that high looks exactly like one it does not carry.
+# Telling a botanist to skip those rows spends an unproven absence as though it
+# were a proven one, which is the opposite of what README.md says about that
+# population. It comes back
+# here only when predict/fetch_checklist.py has shown the name is absent from
+# the project's own species list.
+SKIP_STATUSES = ("hard", "reliable")
 
 
 def uncap(label):
@@ -45,10 +54,12 @@ STATUS_REASON = {
     "adequate": "Mixed results, so keep it in the normal review queue.",
     "reliable": "Usually right, so this species is low priority for extra work.",
     "unreachable": "Pl@ntNet never returned this name on any BCI photo, not just on this "
-                   "species\u2019 own frames. Labelling will not recover it. Other rows do "
-                   "show 0.0% in the \u201cRight name in the list\u201d column under a "
-                   "different status. There the model did produce the name, just never on "
-                   "the frames of that species.",
+                   "species\u2019 own frames. That is what we saw, not what the model can "
+                   f"do. We ask each photo for {hc.N_CANDIDATES} names. A species it "
+                   "carries but never ranks that high looks the same to us as one it does "
+                   "not carry at all. Other rows do show 0.0% in the \u201cRight name in "
+                   "the list\u201d column under a different status. There the model did "
+                   "produce the name, just never on the frames of that species.",
 }
 
 def status_precedence_note():

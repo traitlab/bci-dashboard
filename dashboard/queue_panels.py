@@ -80,14 +80,16 @@ def p_todo(c):
                 f'candidates hold exactly one species from that genus, so the question is yes '
                 f'or no, not which of {c.n_sp}. No species was named on them, so they sit '
                 f'outside the {c.n_sp} scored here.</p>')
-    # The heading names only the cheapest work; the lede lists all three
-    # skippable rows, so one fact does not arrive as two numbers.
+    # The heading names only the cheapest work; the lede lists every skippable
+    # row, so one fact does not arrive as two numbers. The count is counted, not
+    # written out: a row that leaves SKIP_STATUSES must leave this sentence too.
+    n_skip = {2: "Two", 3: "Three", 4: "Four"}.get(len(SKIP_STATUSES), str(len(SKIP_STATUSES)))
     return panel(f"Where to spend botanist time next: {c.counts['ranking']} species "
                  f"are one confirmation away",
                  "<b>Work top to bottom.</b> Rows are ordered cheapest useful work "
-                 "first. Three of them you can skip: "
+                 f"first. {n_skip} of them you can skip: "
                  + ", ".join(f"&ldquo;{uncap(STATUS[k][0])}&rdquo;" for k in SKIP_STATUSES)
-                 + ". They are not all at the bottom.",
+                 + ". Neither sits at the bottom of the list.",
                  "\n".join(body), open_=True)
 
 
