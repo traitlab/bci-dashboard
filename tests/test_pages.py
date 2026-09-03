@@ -383,13 +383,13 @@ def test_the_rendered_queue_matches_the_file_it_points_at(internal_page):
         f"rendered order differs from the CSV: {shown[:3]} against {expected[:3]}")
 
 
-def test_the_camera_note_counts_the_frames_it_describes(internal_page, panels):
+def test_the_file_naming_note_counts_the_frames_it_describes(internal_page, panels):
     """The note names a camera split read off the frame keys. If the keys stop
     naming a camera the build aborts, so this checks the number that survived
     is the number of keys actually rendered as tele."""
     html, _ = internal_page
     m = re.search(r"They are (\d[\d,]*) of the queue \(([\d.]+)%\)", html)
-    assert m, "the camera note is not on the page"
+    assert m, "the file-naming note is not on the page"
     tele = int(m.group(1).replace(",", ""))
     # The denominator is no longer printed beside the share, so take it from the
     # file the panel ranks: the queue is every row of it.
@@ -400,10 +400,10 @@ def test_the_camera_note_counts_the_frames_it_describes(internal_page, panels):
     pct = float(m.group(2))
     assert 0 < tele < pool
     assert abs(100 * tele / pool - pct) < 0.05
-    # The note says the scored population is all zoom. If a tele key ever reaches
-    # the scored table the sentence beside it becomes false, so check the claim
-    # rather than only the arithmetic.
-    assert f"No botanist has labelled a frame from {panels.CAMERA_IS['tele']}" in html
+    # The note says the scored population all carries the earlier naming. If a
+    # tele key ever reaches the scored table the sentence beside it becomes
+    # false, so check the claim rather than only the arithmetic.
+    assert f"No botanist has labelled a frame carrying {panels.NAMING_IS['tele']}" in html
 
 
 def test_only_the_internal_page_renders_the_queue(page):

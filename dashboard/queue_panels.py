@@ -9,7 +9,7 @@ import queues
 from assets import cap, esc, panel, pctf, svg_curve, svg_hbar, table
 from explain import BAND_SHORT, CONF_BAND_WORDS
 from figures import RARE_MAX_SUPPORT, RECOMMENDED_CONF, WAIT_SUPPORT_MIN
-from panels import CAMERA_IS
+from panels import NAMING_IS, NAMING_NOTE
 from status_words import STATUS, SKIP_STATUSES, uncap
 
 # Enough to answer "what do I send next" without a CSV reader. A batch is 100
@@ -138,7 +138,7 @@ def send_preview_table(c):
 def send_notes(c):
     """The four questions a reader of the table above asks, in order: which
     species fill the first queue, where the full list lives, what to do with the
-    photos that got no answer, and which camera none of this covers."""
+    photos that got no answer, and which frames none of this covers."""
     body = ""
     top_lt = sorted(c.lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
     body += ('<p class="note"><b>Most-named species in the first queue.</b> '
@@ -152,16 +152,16 @@ def send_notes(c):
              f'all</strong>: the candidate list came back empty. Likeliest to be junk or to '
              f'show no plant, and no automatic rule for junk is reliable, so check that '
              f'handful by eye.</p>'
-             # Names an unscored population: nothing on this page grades that
-             # camera. "Camera", not "lens", is CONTEXT.md's word for the pair.
-             f'<p class="note"><b>The long-lens camera is ungraded.</b> Every frame scored '
-             f'here came from {CAMERA_IS["zoom"]}: '
-             f'all {c.scored_cams["zoom"]:,} of them. No botanist has labelled a frame from '
-             f'{CAMERA_IS["tele"]}, so this page says nothing about those. They are '
-             f'{c.queue_cams["tele"]:,} of the queue '
+             # Names an unscored population. It is an export batch, not a camera:
+             # saying "the long-lens camera" here invented a lens difference that
+             # the flight team confirmed does not exist.
+             f'<p class="note"><b>The later export batch is ungraded.</b> Every frame scored '
+             f'here carries {NAMING_IS["zoom"]}: '
+             f'all {c.scored_cams["zoom"]:,} of them. No botanist has labelled a frame '
+             f'carrying {NAMING_IS["tele"]}, so this page says nothing about those. They '
+             f'are {c.queue_cams["tele"]:,} of the queue '
              f'({pctf(hc.ratio(c.queue_cams["tele"], sum(c.queue_cams.values())))}); '
-             f'sending them is '
-             f'how it becomes known.</p>')
+             f'sending them is how it becomes known. {NAMING_NOTE}</p>')
     return body
 
 
