@@ -21,15 +21,24 @@ from status_words import (STATUS, filter_options, legend_entries,
 REVIEW_PREVIEW = 15
 
 
-# What each drone camera is, as a noun phrase both pages drop into their own
-# sentence. The file-name word contradicts the camera it names, so a reader who
-# did not know that stops on it assuming a typo. Said outright, and said once.
-CAMERA_IS = {
-    "zoom": ("the drone&rsquo;s wide-angle camera, which confusingly is named "
-             "<code>zoom</code> in the file names"),
-    "tele": ("the drone&rsquo;s long-lens camera, named <code>tele</code> in the "
-             "file names"),
+# What each file naming is, as a noun phrase both pages drop into their own
+# sentence. Both words read like camera settings and neither is one: the flight
+# team confirmed one camera throughout, and the flights that produced
+# <code>tele</code> names produced <code>zoom</code> ones too. A reader who does
+# not know that reads a lens difference into every count split this way, so it
+# is said outright, and said once.
+NAMING_IS = {
+    "zoom": "the earlier file naming <code>zoom</code>",
+    "tele": "the later file naming <code>tele</code>",
 }
+
+# Where the two namings come from, said once on each page that splits a count by
+# them. Kept out of NAMING_IS so a sentence can name a naming without carrying
+# the whole explanation every time.
+NAMING_NOTE = ("Both words read like camera settings and neither is one. The flight "
+               "team confirmed the naming changed and nothing else did. Every "
+               "<code>tele</code> frame comes from one of four flights that also "
+               "produced <code>zoom</code> frames.")
 
 # The species table's lede, shared by the internal pages and the export-only one.
 SPECIES_LOOKUP_LEDE = ("<b>Find a species you care about and read its status.</b> "

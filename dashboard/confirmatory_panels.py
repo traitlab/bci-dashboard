@@ -19,16 +19,16 @@ from __future__ import annotations
 
 from assets import esc, panel, pctf
 from figures import CONFIRMATORY_CSV
-from panels import CAMERA_IS, CENTRE_CROP_IS
+from panels import CENTRE_CROP_IS, NAMING_IS
 
 def cam_phrase(cameras):
-    """Name the camera in the queue page's words.
+    """Name the file naming in the queue page's words.
 
     Read from the frame keys rather than assumed, so a future sample carrying
-    both cameras does not render as one camera with two names.
+    both namings does not render as one naming with two names.
     """
-    return (CAMERA_IS.get(cameras)
-            or f"these cameras: <code>{esc(cameras)}</code>")
+    return (NAMING_IS.get(cameras)
+            or f"these file namings: <code>{esc(cameras)}</code>")
 
 
 def require(cf):
@@ -105,9 +105,9 @@ def p_floor(c):
         f'right where the middle square got it wrong. On {int(cf["photo_only_hits"])} it '
         f'went the other way.</p>'
         f'<div class="warn"><p><strong>How far the gap reaches.</strong></p><ul>'
-        f'<li><strong>One camera.</strong> Every frame was shot with '
-        f'{cam_phrase(cf["cameras"])}. The drone carries a second one, and no mission in '
-        f'this design flies both.</li>'
+        f'<li><strong>One export batch.</strong> Every frame here carries '
+        f'{cam_phrase(cf["cameras"])}. A later batch of flights was exported under the '
+        f'other naming, and no mission in this design draws from both.</li>'
         f'<li><strong>{int(cf["n_sites"])} of the 17 field sites.</strong> '
         f'Frames from a site are alike, so five unvisited sites are five unknowns.</li>'
         f'<li><strong>Per frame, not per species.</strong> The sample carries '

@@ -18,7 +18,7 @@ this file.
 | **labelled frame** | A frame that has a botanist's label. The count of these for one species is how much evidence we have about that species; on a page, "labelled frames", never "support". |
 | **unlabelled photo** | A frame with a Pl@ntNet guess and no botanist label. The pool the queue orders. |
 | **site** | One field location. There are 17; frames from the same site are alike, which is why a range is worked out by drawing whole sites. |
-| **camera** | The drone carries two: the wide-angle one, named `zoom` in the file names, and the long-lens one, named `tele`. Every scored frame so far is `zoom`. On a page they are cameras, never "lenses", and the file-name word is introduced before it is used. |
+| **file naming** | Two conventions appear in frame names, `zoom` and `tele`. It is a naming change, not a second camera: the flight team confirmed it, and in `input/boxes/` all 449 `tele` frames come from four missions flown July to October 2025 that also produced `zoom` frames. The `tele` names carry a March 2026 date, which is when they were written and not when they were flown. A page calls them file namings or export batches, never cameras and never lenses. Every scored frame so far carries the `zoom` naming. |
 
 ## What the model does
 
@@ -64,7 +64,7 @@ asking, never "arm": that word belongs in `hypothesis.md`.
 | **queue** | One of four groups the unlabelled pool is sorted into, worked top to bottom. |
 | **how a photo looks** | The 768 numbers Pl@ntNet makes from a centre crop. Two photos with close numbers look alike to the model. A page says "how the photo looks to the model", never "embedding" and never a score. |
 | **least like everything already labelled** | The order inside a queue. The first photo is the one furthest from every labelled photo, and confidence only breaks a tie. Never "farthest-first". `coverage` stays a crop word, as in `coverage_gate.csv`. |
-| **the labelled photos it is compared against** | The 1,719 frames a botanist has already named, all from the wide-angle camera. A page names the count and the camera, because a long-lens photo can look new for the lens rather than for the species. |
+| **the labelled photos it is compared against** | The 1,719 frames a botanist has already named, all carrying the earlier `zoom` file naming. A page names the count and the naming, because a photo from the later export batch can look new for the batch it came from rather than for the species. |
 | **held back for grading** | The frames a rule is scored on, kept out of the frames it is allowed to learn from. A page spells the split out rather than naming it. The one exception is citing the source: a page may say which value of the `split` column in `splits.csv` holds them, so a reader can find the same frames. |
 | **confidence band** | A range of Pl@ntNet confidence, written "0.7 to 0.8" and "0.9 and up". The CSVs keep the interval notation `[0.7,0.8)`; a page never shows it. |
 
