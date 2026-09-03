@@ -281,10 +281,12 @@ def p_species(c):
         row_attrs=attrs,
         thin_label=f"show all {c.n_sp}",
     ))
-    # "any of", not "all": rows start hidden, and a typed name reaches them. The
-    # colon stays, since slug() cuts there and the anchor keeps its old value.
+    # The colon stays, since slug() cuts there and the anchor keeps its old value.
+    # The species count was in this summary and is gone: a reader deciding whether
+    # to open a lookup table does not need the size of the table, and the number
+    # made the one header on this page that answers nothing change every snapshot.
     # Closed, because this is a lookup tool rather than the page's deliverable.
-    return panel(f"Look up one species: any of the {c.n_sp}, sortable and filterable",
+    return panel("Look up one species: sortable and filterable",
                  SPECIES_LOOKUP_LEDE, body)
 
 
