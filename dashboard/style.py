@@ -168,6 +168,10 @@ h3.sub{font-size:0.95rem;font-weight:700;color:#37474f;margin:22px 0 8px}
    gap in the data. Six columns divide the twelve frames evenly and fit inside
    the panel on both pages. max-content, so the pixel size stays in one place,
    on the img tag, where THUMB_PX writes it. */
+/* The rule a queue selects on, under its heading. Everywhere else the two
+   travel together; the sheet used to show the name alone, which made the name
+   carry a distinction the rule already draws. */
+.qrule{font-size:0.85rem;color:#616161;margin:-4px 0 8px}
 .sheet{display:grid;grid-template-columns:repeat(6,max-content);
   justify-content:start;gap:6px;margin:0 0 14px}
 .sheet img{display:block;border-radius:3px;border:1px solid #e0e0e0}

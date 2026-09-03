@@ -387,6 +387,7 @@ def contact_sheet(c) -> str:
             f'title="{esc(stem)} &#10; {esc(pred)}"/>'
             for stem, pred, uri in shots)
         out.append(f'<h3 class="sub">{esc(cap(QL[q][0]))}</h3>'
+                   f'<p class="qrule">{esc(QL[q][1])}</p>'
                    f'<div class="sheet">{cells}</div>')
     return ("".join(out)
             + f'<p class="note"><b>What you are looking at.</b> The first '
