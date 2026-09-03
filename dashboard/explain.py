@@ -148,14 +148,23 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
         anchor="why-the-two-headline-scores-differ")
 
 
-def method_panel(*, tag, n, n_sp, n_cand, checks):
+def method_panel(*, tag, n, n_sp, n_cand, checks, out_of_scope=None, out_of_scope_in_world=None):
     """Model, request settings, evaluated set, and the untestable assumption."""
+    scope_sentence = ""
+    if out_of_scope:
+        scope_sentence = (
+            f' That restriction excludes {len(out_of_scope)} species BCI has recorded, '
+            f'checked against the region’s own species list.')
+        if out_of_scope_in_world is not None:
+            scope_sentence += (
+                f' All {out_of_scope_in_world} of them are on the worldwide list, so the '
+                f'region, not the model, is why they never came back.')
     body = ('<ul class="prov">'
             # The tag is `<endpoint-slug>@<run-name>`, so it already carries the
             # endpoint; a typed one could not follow a move to another endpoint.
             f'<li>Predictions: model run <code>{esc(tag)}</code>, the Central '
             f'America regional model and not the worldwide one, so a regional '
-            f'restriction is already in place.</li>'
+            f'restriction is already in place.{scope_sentence}</li>'
             f'<li>Request settings: <code>nb-results={n_cand}</code>, '
             f'plus <code>no-reject=true</code>, organs detected '
             f'automatically, and <code>include-related-images=false</code>, on a '

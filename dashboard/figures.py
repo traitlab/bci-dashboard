@@ -14,6 +14,7 @@ from types import SimpleNamespace
 
 import core as hc
 import queues
+from checklist import load_checklist
 from history import model_tag_of, snapshot_date_of
 
 # A species is "rarely labelled" below this many frames, and a frame can be
@@ -81,6 +82,11 @@ def load_confirmatory(path=CONFIRMATORY_CSV):
 # than restated, like RARE_MAX_SUPPORT above. prepare() checks the cache too.
 N_CANDIDATES = hc.N_CANDIDATES
 
+# The worldwide Pl@ntNet project, read only to say whether a species out of
+# scope for hc.EVAL_PROJECT is at least on the global list. Not an evaluation
+# project itself: no prediction was ever requested from it.
+WORLD_PROJECT = "k-world-flora"
+
 
 def _rates(sp_recs, per_species):
     """The four corpus rates, and the two counts they are over.
@@ -131,7 +137,15 @@ def _out_of_reach(h, sp_recs, per_species):
     """What this evaluation cannot score, and what name matching is worth.
     "Never named" means the species is in no cached candidate list, so no
     threshold scores it. Counted over the evaluated set and over every label,
-    and the run log uses the second."""
+    and the run log uses the second.
+
+    That population splits into two, when ``core.EVAL_PROJECT``'s checklist is
+    on disk: ``out_of_scope`` species are proven absent from Pl@ntNet's own
+    list, ``unproven_absent`` ones simply never ranked in an
+    ``N_CANDIDATES``-name sample. Without a checklist neither can be told
+    apart, so both are empty and ``never`` alone carries the population,
+    today's behaviour.
+    """
     never = sorted((d for d in per_species if not d["in_corpus_vocabulary"]),
                    key=lambda d: -d["n_labelled_frames"])
     never_sp = {d["species"] for d in never}
@@ -139,6 +153,17 @@ def _out_of_reach(h, sp_recs, per_species):
     # Scoring the raw names says what canonicalisation is worth: always a gain.
     strict1 = sum(1 for r in sp_recs
                   if r["ranked_strict"] and r["ranked_strict"][0][0] == r["gt_strict"])
+    has_checklist = h.checklist is not None
+    out_of_scope = [d for d in never if d["in_project_checklist"] is False] if has_checklist else []
+    unproven_absent = [d for d in never if d not in out_of_scope]
+    # Whether the region-only species are at least on the worldwide list, so
+    # explain.py can say the regional restriction rather than assume it.
+    out_of_scope_in_world = None
+    if out_of_scope:
+        world = load_checklist(WORLD_PROJECT)
+        if world is not None:
+            world_canon = world.canon_binomials(h.canon)
+            out_of_scope_in_world = sum(1 for d in out_of_scope if d["species"] in world_canon)
     return {
         "never": never,
         "never_frames": sum(d["n_labelled_frames"] for d in never),
@@ -150,7 +175,13 @@ def _out_of_reach(h, sp_recs, per_species):
         "strict1": strict1,
         "short5": sum(1 for r in sp_recs + h.genus_recs
                       if len(r["ranked"]) < N_CANDIDATES),
-        "n_pred": len(sp_recs) + len(h.genus_recs)}
+        "n_pred": len(sp_recs) + len(h.genus_recs),
+        "has_checklist": has_checklist,
+        "out_of_scope": out_of_scope,
+        "out_of_scope_frames": sum(d["n_labelled_frames"] for d in out_of_scope),
+        "unproven_absent": unproven_absent,
+        "unproven_absent_frames": sum(d["n_labelled_frames"] for d in unproven_absent),
+        "out_of_scope_in_world": out_of_scope_in_world}
 
 
 def _queue(h, support, per_species):
