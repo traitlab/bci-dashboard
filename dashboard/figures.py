@@ -98,7 +98,7 @@ def _rates(sp_recs, per_species):
 
 def _species_status(per_species):
     """How many labels each species has, and the verdict core.diagnose gives it."""
-    support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
+    support = {d["species"]: d["n_labelled_frames"] for d in per_species}
     status = {d["species"]: hc.diagnose(d) for d in per_species}
     counts = defaultdict(int)
     for s in status.values():
@@ -133,7 +133,7 @@ def _out_of_reach(h, sp_recs, per_species):
     threshold scores it. Counted over the evaluated set and over every label,
     and the run log uses the second."""
     never = sorted((d for d in per_species if not d["in_corpus_vocabulary"]),
-                   key=lambda d: -d["n_labelled_crowns"])
+                   key=lambda d: -d["n_labelled_frames"])
     never_sp = {d["species"] for d in never}
     reach = [r for r in sp_recs if r["gt"] not in never_sp]
     # Scoring the raw names says what canonicalisation is worth: always a gain.
@@ -141,7 +141,7 @@ def _out_of_reach(h, sp_recs, per_species):
                   if r["ranked_strict"] and r["ranked_strict"][0][0] == r["gt_strict"])
     return {
         "never": never,
-        "never_crowns": sum(d["n_labelled_crowns"] for d in never),
+        "never_frames": sum(d["n_labelled_frames"] for d in never),
         "never_all": (h.tier_crowns["e_absent_from_corpus"]
                       + h.tier_crowns["c_genus_only_in_corpus"]),
         "reach": reach,

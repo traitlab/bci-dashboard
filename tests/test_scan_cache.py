@@ -245,7 +245,7 @@ def test_a_species_is_in_the_vocabulary_under_either_spelling(health):
 def test_the_support_bucket_is_the_one_core_assigns(health, core):
     rows = health.aggregate_per_species(
         [_rec("ficus insipida", [("ficus insipida", 0.9)])] * 3, set(), set())
-    assert rows[0]["n_labelled_crowns"] == 3
+    assert rows[0]["n_labelled_frames"] == 3
     assert rows[0]["support_bucket"] == core.bucket_label(3)
 
 

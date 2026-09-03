@@ -335,10 +335,16 @@ def canonicaliser(crosswalk: dict):
 
 def diagnose(row: dict) -> str:
     """Per-species status. First matching rule wins; order is the point.
-    ``unreachable`` outranks all; no labelling helps. ``reliable`` outranks
-    ``ranking``: >=90% needs no re-rank. ``unmeasured`` sits below ``ranking``,
-    so a thin species already in the list counts as cheap."""
-    n, a1, a5 = row["n_labelled_crowns"], row["top1_accuracy"], row["top5_accuracy"]
+    ``unreachable`` outranks all: a name we have never seen come back is the
+    most specific thing we can say about a species, and it says nothing about
+    the other rules that would also fit. It does not mean labelling is wasted.
+    We ask each photo for ``N_CANDIDATES`` names, so a species the model carries
+    and never ranks looks exactly like one it does not carry. Only the project's
+    own species list tells the two apart (``predict/fetch_checklist.py``).
+    ``reliable`` outranks ``ranking``: >=90% needs no re-rank. ``unmeasured``
+    sits below ``ranking``, so a thin species already in the list counts as
+    cheap."""
+    n, a1, a5 = row["n_labelled_frames"], row["top1_accuracy"], row["top5_accuracy"]
     if not row["in_corpus_vocabulary"]:
         return "unreachable"
     if n >= WELL_SAMPLED_MIN_N and a1 >= RELIABLE_MIN_TOP1:

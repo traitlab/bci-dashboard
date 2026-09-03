@@ -39,9 +39,15 @@ QL = {"long_tail": ("Species we barely have, or barely get right",
 # Above the 25 filenames, not below them: a reader who meets the list first has
 # already accepted it as instructions by the time the caveat arrives.
 UNGRADED_NOTE = (
-    '<p class="note"><b>This order has not been graded.</b> Nothing measures whether it '
-    'fills gaps faster than sending photos at random. It is a reasonable guess about '
-    'where our labels are thin. The wait rule further down <em>is</em> measured.</p>')
+    '<p class="note"><b>This order has not been graded yet.</b> Nothing here measures '
+    'whether it fills gaps faster than sending photos at random. It is a reasonable '
+    'guess about where our labels are thin. The wait rule further down <em>is</em> '
+    'measured.</p>'
+    f'<p class="note"><b>Batch 1 carries the comparison.</b> {queues.control_size()} of its '
+    f'{queues.BATCH_SIZE} photos are drawn at random from the whole pool instead of '
+    'from the head of this order. When they come back labelled, the two halves can be '
+    'compared. This only works on the first batch: every later pool has already been '
+    'reshaped by this order.</p>')
 
 
 # The page's own hand-off: the queue is only worth building if a batch reaches
@@ -74,14 +80,16 @@ def p_todo(c):
                 f'candidates hold exactly one species from that genus, so the question is yes '
                 f'or no, not which of {c.n_sp}. No species was named on them, so they sit '
                 f'outside the {c.n_sp} scored here.</p>')
-    # The heading names only the cheapest work; the lede lists all three
-    # skippable rows, so one fact does not arrive as two numbers.
+    # The heading names only the cheapest work; the lede lists every skippable
+    # row, so one fact does not arrive as two numbers. The count is counted, not
+    # written out: a row that leaves SKIP_STATUSES must leave this sentence too.
+    n_skip = {2: "Two", 3: "Three", 4: "Four"}.get(len(SKIP_STATUSES), str(len(SKIP_STATUSES)))
     return panel(f"Where to spend botanist time next: {c.counts['ranking']} species "
                  f"are one confirmation away",
                  "<b>Work top to bottom.</b> Rows are ordered cheapest useful work "
-                 "first. Three of them you can skip: "
+                 f"first. {n_skip} of them you can skip: "
                  + ", ".join(f"&ldquo;{uncap(STATUS[k][0])}&rdquo;" for k in SKIP_STATUSES)
-                 + ". They are not all at the bottom.",
+                 + ". Neither sits at the bottom of the list.",
                  "\n".join(body), open_=True)
 
 

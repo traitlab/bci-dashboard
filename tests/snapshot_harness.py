@@ -24,9 +24,9 @@ import queues
 
 
 PER_SPECIES = [
-    {"species": "Hura crepitans", "n_labelled_crowns": 10,
+    {"species": "Hura crepitans", "n_labelled_frames": 10,
      "top1_accuracy": 0.8, "top5_accuracy": 0.9},
-    {"species": "Ceiba pentandra", "n_labelled_crowns": 5,
+    {"species": "Ceiba pentandra", "n_labelled_frames": 5,
      "top1_accuracy": 0.6, "top5_accuracy": 1.0},
 ]
 
@@ -66,7 +66,7 @@ def write_csv(path, rows, fieldnames):
 
 
 def species_csv_rows():
-    return [{"species": d["species"], "n_labelled_crowns": d["n_labelled_crowns"],
+    return [{"species": d["species"], "n_labelled_frames": d["n_labelled_frames"],
              "top1_accuracy": d["top1_accuracy"], "top5_accuracy": d["top5_accuracy"]}
             for d in PER_SPECIES]
 
@@ -128,7 +128,8 @@ def batch_rows_for(queue_rows, batch_id=None):
     """
     if batch_id is not None:
         return [{"batch_id": batch_id, "species_group": r["predicted_species"],
-                 "global_key": r["global_key"], "queue": r["queue"]}
+                 "global_key": r["global_key"], "queue": r["queue"],
+                 "picked_by": "queue"}
                 for r in queue_rows]
     rows = [[r[c] for c in queues.SEND_FIRST_COLUMNS] for r in queue_rows]
     return [dict(zip(queues.SEND_BATCH_COLUMNS, b))
@@ -167,7 +168,7 @@ def write_snapshot(tmp_path, *, per_species_rows=None, bucket_rows=None, bin_row
         "bins": bin_rows if bin_rows is not None else bin_csv_rows(),
     }
     write_csv(d / "per_species_health.csv", files["per_species"],
-               ["species", "n_labelled_crowns", "top1_accuracy", "top5_accuracy"])
+               ["species", "n_labelled_frames", "top1_accuracy", "top5_accuracy"])
     write_csv(d / "support_buckets.csv", files["buckets"],
                ["support_bucket", "n_species", "n_crowns", "top1_accuracy"])
     write_csv(d / "confidence_calibration.csv", files["bins"],
@@ -188,11 +189,10 @@ def write_snapshot(tmp_path, *, per_species_rows=None, bucket_rows=None, bin_row
     if with_queue_counts:
         qrows = queue_rows if queue_rows is not None else queue_rows_for()
         brows = batch_rows if batch_rows is not None else batch_rows_for(qrows)
-        write_csv(d / "send_first_queue.csv", qrows,
-                   ["queue", "global_key", "split", "predicted_species", "confidence",
-                    "species_labelled_crowns", "species_top1_accuracy", "novelty_rank"])
-        write_csv(d / "send_batches.csv", brows,
-                   ["batch_id", "species_group", "global_key", "queue"])
+        # The headers come from queues, not a second copy here: a column added
+        # there and not here writes a file the fixture cannot fill.
+        write_csv(d / "send_first_queue.csv", qrows, queues.SEND_FIRST_COLUMNS)
+        write_csv(d / "send_batches.csv", brows, queues.SEND_BATCH_COLUMNS)
         files["queue"], files["batches"] = qrows, brows
         kwargs["queue_counts"] = dict(QUEUE_COUNTS)
         if queue_keys is not None:

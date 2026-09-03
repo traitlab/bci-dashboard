@@ -47,7 +47,7 @@ def load_selection_csv(csv_path: Path, batch_id: str | None = None) -> list[str]
     column is sent whole: an older selection CSV is still a valid selection.
     An id that is not in the file is a stop, never an empty send.
     """
-    global_keys, seen = [], set()
+    global_keys, seen, n_control = [], set(), 0
     with open(csv_path, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             in_file = (row.get("batch_id") or "").strip()
@@ -57,9 +57,16 @@ def load_selection_csv(csv_path: Path, batch_id: str | None = None) -> list[str]
             gk = row["global_key"].strip()
             if gk:
                 global_keys.append(gk)
+                n_control += (row.get("picked_by") or "").strip() == "control"
     if batch_id is not None and batch_id not in seen:
         sys.exit(f"ERROR: batch {batch_id} is not in {csv_path}. "
                  f"It holds {len(seen - {''})} batches.")
+    if n_control:
+        # Said out loud, because the botanist will not see it: the batch reaches
+        # Labelbox as global keys and nothing marks these frames there. The
+        # record that they were the comparison is the CSV, and this run.
+        print(f"  {n_control} of these were drawn at random from the whole pool, not "
+              f"from the head of the queue. They are the comparison; keep the CSV.")
     return global_keys
 
 

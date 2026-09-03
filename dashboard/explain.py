@@ -92,7 +92,7 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
     thin, fat = hc.BUCKET_ORDER[0], hc.BUCKET_ORDER[-1]
     thin_n, thin_in5 = _near_miss([r for r in sp_recs if support[r["gt"]] <= THIN_MAX])
     fat_n, fat_in5 = _near_miss([r for r in sp_recs if support[r["gt"]] >= FAT_MIN])
-    well_sp = [d for d in per_species if d["n_labelled_crowns"] >= hc.WELL_SAMPLED_MIN_N]
+    well_sp = [d for d in per_species if d["n_labelled_frames"] >= hc.WELL_SAMPLED_MIN_N]
     well = [r for r in sp_recs if support[r["gt"]] >= hc.WELL_SAMPLED_MIN_N]
     well_micro = sum(1 for r in well if r["ranked"][0][0] == r["gt"]) / len(well)
     well_macro = sum(d["top1_accuracy"] for d in well_sp) / len(well_sp)

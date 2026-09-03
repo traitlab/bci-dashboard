@@ -22,10 +22,10 @@ import pytest
 
 
 @pytest.fixture(scope="session")
-def context(core):
-    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
-    with open(os.path.join(root, "CONTEXT.md"), encoding="utf-8") as fh:
-        return fh.read()
+def context():
+    from conftest import require_context_md
+
+    return require_context_md().read_text(encoding="utf-8")
 
 
 def test_the_frame_size(context, crop_overlap):
@@ -157,9 +157,9 @@ def test_the_glossary_names_the_files_the_builders_actually_write():
     """
     import re
 
-    from conftest import REPO
+    from conftest import REPO, require_context_md
 
-    context = (REPO / "CONTEXT.md").read_text(encoding="utf-8")
+    context = require_context_md().read_text(encoding="utf-8")
     for module, pattern in (("build_external.py", r'OUT_NAME = "([\w.]+)"'),
                             ("build_internal.py", r'OUT_NAME = "([\w.]+)"')):
         source = (REPO / "dashboard" / module).read_text(encoding="utf-8")

@@ -135,9 +135,9 @@ def test_species_present_here_but_absent_from_csv_aborts(history, tmp_path):
     assert "Ceiba pentandra" in msg and "absent from" in msg
 
 
-def test_labelled_crown_count_mismatch_aborts(history, tmp_path):
+def test_labelled_frame_count_mismatch_aborts(history, tmp_path):
     rows = species_csv_rows()
-    rows[0]["n_labelled_crowns"] = rows[0]["n_labelled_crowns"] + 1
+    rows[0]["n_labelled_frames"] = rows[0]["n_labelled_frames"] + 1
     kwargs, _ = write_snapshot(tmp_path, per_species_rows=rows)
     msg = assert_aborts(history, tmp_path, kwargs)
     assert "labelled frames for" in msg and "Hura crepitans" in msg

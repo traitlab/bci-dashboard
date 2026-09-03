@@ -22,6 +22,7 @@ import re
 from pathlib import Path
 
 import pytest
+from conftest import require_context_md
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -166,6 +167,8 @@ def test_the_docs_still_state_the_numbers_the_code_holds(what, doc, build):
     constant moved in the code and left standing here is a claim nothing
     checks and nobody notices. CONTEXT.md is the wording the pages answer to,
     so a number stale there is a number stale on a page."""
+    if doc == "CONTEXT.md":
+        require_context_md()
     phrase = build()
     text = (REPO / doc).read_text(encoding="utf-8")
     assert phrase in text, (
@@ -206,7 +209,7 @@ def test_context_counts_the_sites_the_frame_list_actually_holds():
     works its range out by drawing whole sites, so the number is the size of
     the thing being sampled."""
     sites = frame_list_sites()
-    context = (REPO / "CONTEXT.md").read_text(encoding="utf-8")
+    context = require_context_md().read_text(encoding="utf-8")
     assert f"There are {len(sites)};" in context, (
         f"the frame list covers {len(sites)} sites and CONTEXT.md says otherwise. "
         f"The sites are {sorted(sites)}.")

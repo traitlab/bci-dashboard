@@ -157,8 +157,8 @@ def write_coverage_gate(out_dir, sweep):
     """The headline at every crop-coverage threshold."""
     with _csv(out_dir, "coverage_gate.csv") as f:
         w = csv.writer(f)
-        w.writerow(["min_coverage", "n_frames_admitted", "crown_top1",
-                    "macro_per_species_top1", "n_species"])
+        w.writerow(["min_coverage", "n_frames_admitted", "right_per_frame",
+                    "right_per_species", "n_species"])
         for g in sweep:
             w.writerow([f"{g['min_coverage']:.2f}", g["n_admitted"],
                         fmt(g["micro_top1"]), fmt(g["macro_top1"]), g["n_species"]])
@@ -298,9 +298,9 @@ def calibration_scopes(h):
     """
     per_species, sp_recs = h.per_species, h.sp_recs
     well = {d["species"] for d in per_species
-            if d["n_labelled_crowns"] >= WELL_SAMPLED_MIN_N}
+            if d["n_labelled_frames"] >= WELL_SAMPLED_MIN_N}
     good = {d["species"] for d in per_species
-            if d["n_labelled_crowns"] >= WELL_SAMPLED_MIN_N
+            if d["n_labelled_frames"] >= WELL_SAMPLED_MIN_N
             and d["top1_accuracy"] >= RELIABLE_MIN_TOP1}
     good_recs = [r for r in sp_recs if r["gt"] in good]
     scopes = [("all_species_level_gt", sp_recs),
@@ -322,7 +322,7 @@ def send_queue(h):
     can say how much of the queue the ordering file actually reaches.
     """
     per_species = h.per_species
-    support = {d["species"]: d["n_labelled_crowns"] for d in per_species}
+    support = {d["species"]: d["n_labelled_frames"] for d in per_species}
     top1_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     decided, n_no_answer = send_first_rows(
         h.predictions, {stem for _, stem, _ in h.joined}, h.canon, support, top1_of,

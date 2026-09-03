@@ -4,10 +4,21 @@ Two self-contained HTML pages, built offline from files already on disk: a
 Labelbox export of botanist labels, plus cached Pl@ntNet responses. Each page is
 one file you can open, email, or drop on a share.
 
-| page | for | build it | it writes |
-|---|---|---|---|
-| **How well does Pl@ntNet name BCI trees?** Per species, how often the first guess is right, on how many labelled frames, and why the species carries its status. | anyone outside the lab | `python3 dashboard/build_external.py` | `build/model_health_dashboard.html` |
-| **What to label next.** The send-first queue, the rule behind it, and the command that ships a batch. | the labelling team | `python3 dashboard/build_internal.py` | `build/label_queue_dashboard.html`, plus `send_first_queue.csv` and `send_batches.csv` beside it |
+**How well does Pl@ntNet name BCI trees?** For anyone outside the lab. Per
+species, how often the first guess is right, on how many labelled frames, and why
+the species carries its status.
+
+```bash
+python3 dashboard/build_external.py   # writes build/model_health_dashboard.html
+```
+
+**What to label next.** For the labelling team. The send-first queue, the rule
+behind it, and the command that ships a batch.
+
+```bash
+python3 dashboard/build_internal.py   # writes build/label_queue_dashboard.html,
+                                      # plus send_first_queue.csv and send_batches.csv beside it
+```
 
 Both read the same measurement pass, so the two pages cannot disagree. Run it
 first, or run everything at once:
@@ -100,7 +111,7 @@ records a day the labels moved; no build reads one back.
 | `labelling/` | Labelbox side: fold an export in, rank and send batches, fold results back. Needs `LABELBOX_API_KEY` |
 | `bin/refresh.sh` | the full chain, above |
 | `input/boxes/` | crown boxes and the frame list. Tracked: the frame list defines the population |
-| `CONTEXT.md` | every term the pages use and the plain words they say instead. `tests/test_plain_english.py` holds the pages to it |
+| `CONTEXT.md` | every term the pages use and the plain words they say instead. Untracked, so a clone has none; `tests/test_plain_english.py` holds the pages to it when it is there |
 | `data/`, `snapshots/`, `build/` | generated, gitignored |
 
 Why a module is shaped the way it is lives in that module's own docstring, so

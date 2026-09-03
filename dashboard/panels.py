@@ -226,7 +226,7 @@ def _starts_hidden(d, status):
     status, it does not depend on the rate being readable, and hiding it would
     leave the legend describing a status no visible row carries.
     """
-    return status != "unreachable" and d["n_labelled_crowns"] < THIN_MIN_FRAMES
+    return status != "unreachable" and d["n_labelled_frames"] < THIN_MIN_FRAMES
 
 
 def p_species(c):
@@ -237,7 +237,7 @@ def p_species(c):
         sp, st = d["species"], c.status[d["species"]]
         sp_rows.append([
             esc(cap(sp)),
-            num_cell(d["n_labelled_crowns"], f'{d["n_labelled_crowns"]:,}'),
+            num_cell(d["n_labelled_frames"], f'{d["n_labelled_frames"]:,}'),
             num_cell(d["top1_accuracy"], pctf(d["top1_accuracy"])),
             num_cell(d["top5_accuracy"], pctf(d["top5_accuracy"])),
             num_cell(d["mean_top1_confidence"],
@@ -294,8 +294,8 @@ def p_ceiling(c):
     """What the headline rate cannot reach: frames whose species never appeared
     in any answer the model gave us, counted three ways over three populations."""
     n, gn = c.n, c.gn
-    body = (f'<p class="note"><strong>Those {c.never_crowns} frames are '
-            f'{pctf(c.never_crowns / n)} of the {n:,} evaluated, and no answer the model '
+    body = (f'<p class="note"><strong>Those {c.never_frames} frames are '
+            f'{pctf(c.never_frames / n)} of the {n:,} evaluated, and no answer the model '
             f'gave us named their species.</strong> Leaving them out raises the per-frame rate from {pctf(c.c1 / n)} to '
             f'{pctf(c.reach1)} on {len(c.reach):,} centre crops.</p>'
             f'<p class="note">A wider count uses every one of the {len(c.h.gt_rows):,} '
@@ -314,7 +314,7 @@ def p_ceiling(c):
             f'or lower is invisible to us. More name cleaning will not help.</div>'
             + table([("Species", False), ("Labelled frames", True)],
                     [[f'<span class="sp">{esc(cap(d["species"]))}</span>',
-                      f'{d["n_labelled_crowns"]:,}'] for d in c.never])
+                      f'{d["n_labelled_frames"]:,}'] for d in c.never])
             + f'<p class="note"><strong>Spelling and renamed species do not cost us any '
               f'frames.</strong> Labels and predictions are put into the same standard form '
               f'before comparison, and old names are resolved to current ones. Raw names '
@@ -335,7 +335,7 @@ def p_ceiling(c):
               f'predictions up to family needs a list we do not have here. Counting them in '
               f'would have reported {pctf(c.gg1 / (gn + c.fam_n))} instead of '
               f'{pctf(c.gg1 / gn)}.</p>')
-    return panel(f"What labelling cannot fix: {len(c.never)} species, {c.never_crowns} frames "
+    return panel(f"What labelling cannot fix: {len(c.never)} species, {c.never_frames} frames "
                  f"the model never named",
                  "<b>Do not spend expert time renaming or relabelling these.</b> Either "
                  "the model cannot return the species, or we never asked for enough "

@@ -18,6 +18,7 @@ import os
 import re
 
 import pytest
+from conftest import require_context_md
 
 
 @pytest.fixture(scope="session")
@@ -116,6 +117,8 @@ def test_every_path_the_docs_point_at_is_there(doc, least, core):
     form. The sibling `-docs` files count too, since both send the reader to
     them for what every number means.
     """
+    if doc == "CONTEXT.md":
+        require_context_md()
     root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
     with open(os.path.join(root, doc), encoding="utf-8") as fh:
         text = fh.read()
@@ -155,7 +158,11 @@ def test_the_headline_rates_metrics_md_quotes_are_the_ones_the_snapshot_holds(co
     and 186 species, all quoted from the 2026-08-24 snapshot. Prose cannot
     import a CSV, so those four figures are copies. This recomputes them from
     `per_species_health.csv` the way the measurement does: micro is correct
-    top-1 over labelled crowns, macro is the mean of the per-species rates.
+    top-1 over labelled frames, macro is the mean of the per-species rates.
+
+    The 2026-08-24 snapshot is frozen, so its header still reads
+    `n_labelled_crowns`, the name that column carried before it was corrected
+    to `n_labelled_frames`. It always counted frames.
     """
     root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
     doc = os.path.join(os.path.dirname(root), "bci-dashboard-docs", "metrics.md")
@@ -170,8 +177,8 @@ def test_the_headline_rates_metrics_md_quotes_are_the_ones_the_snapshot_holds(co
     with open(table, newline="", encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
 
-    crowns = sum(int(r["n_labelled_crowns"]) for r in rows)
-    micro = sum(int(r["n_correct_top1"]) for r in rows) / crowns
+    frames = sum(int(r["n_labelled_crowns"]) for r in rows)
+    micro = sum(int(r["n_correct_top1"]) for r in rows) / frames
     macro = sum(float(r["top1_accuracy"]) for r in rows) / len(rows)
     for pattern, what, expected in METRICS_CLAIMS[:2]:
         assert re.search(pattern, text), (
@@ -182,8 +189,8 @@ def test_the_headline_rates_metrics_md_quotes_are_the_ones_the_snapshot_holds(co
 
     said = re.search(METRICS_CLAIMS[2][0], text)
     assert said, "metrics.md no longer says how many frames and species it scores"
-    assert int(said.group(1).replace(",", "")) == crowns, (
-        f"metrics.md says {said.group(1)} frames, the snapshot holds {crowns}.")
+    assert int(said.group(1).replace(",", "")) == frames, (
+        f"metrics.md says {said.group(1)} frames, the snapshot holds {frames}.")
     assert int(said.group(2).replace(",", "")) == len(rows), (
         f"metrics.md says {said.group(2)} species, the snapshot holds {len(rows)}.")
 
@@ -203,6 +210,7 @@ def test_metrics_md_cites_symbols_that_exist_and_no_line_numbers(core):
     doc = os.path.join(os.path.dirname(root), "bci-dashboard-docs", "metrics.md")
     if not os.path.exists(doc):
         pytest.skip("sibling bci-dashboard-docs/metrics.md not present")
+    require_context_md()
     with open(doc, encoding="utf-8") as fh:
         text = fh.read()
 

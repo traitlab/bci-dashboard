@@ -173,7 +173,7 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon):
         per_species.append({
             "species": sp,
             "gt_raw_labels": "|".join(sorted({r["gt_raw"] for r in rs})),
-            "n_labelled_crowns": m,
+            "n_labelled_frames": m,
             "n_correct_top1": k1,
             "top1_accuracy": k1 / m,
             "n_correct_top5": k5,
@@ -183,7 +183,7 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon):
             "in_corpus_vocabulary": sp in corpus_norm or sp in corpus_canon,
             "support_bucket": bucket_label(m),
         })
-    per_species.sort(key=lambda d: (-d["n_labelled_crowns"], d["species"]))
+    per_species.sort(key=lambda d: (-d["n_labelled_frames"], d["species"]))
     return per_species
 
 
