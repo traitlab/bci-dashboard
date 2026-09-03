@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 
 import run_log as rl
+from checklist import load_checklist
 from core import (
     CACHE_DIR,
     GT_CSV,
@@ -57,6 +58,7 @@ class Health:
     genus_recs: list
     per_species: list
     canon: Callable[[str], str]
+    checklist: object | None
 
 
 def scan_cache(cache_dir):
@@ -148,14 +150,19 @@ def reconcile_names(gt_rows, predictions, corpus_vocab, crosswalk):
         genus_in_corpus_only=genus_in_corpus_only)
 
 
-def aggregate_per_species(sp_recs, corpus_norm, corpus_canon):
+def aggregate_per_species(sp_recs, corpus_norm, corpus_canon, checklist_canon=None):
     """One row per species, commonest first. The keys are the dict below.
 
-    Two of them are not counts. ``in_corpus_vocabulary`` is true when the name
-    came back on any BCI photo, not only on this species’ own frames, so a
-    row can be 0.0% in the list column and still be in the vocabulary.
+    Three of them are not counts. ``in_corpus_vocabulary`` is true when the
+    name came back on any BCI photo, not only on this species' own frames, so
+    a row can be 0.0% in the list column and still be in the vocabulary.
     ``top5_accuracy`` counts ``core.N_CANDIDATES`` names, the constant
     ``figures.prepare`` aborts a build against when the cache carries more.
+    ``in_project_checklist`` is ``None`` when no checklist is on disk
+    (``predict/fetch_checklist.py`` has not been run), otherwise True or
+    False against ``core.EVAL_PROJECT``'s own species list, the one source
+    that can prove a species absent rather than merely never ranked in an
+    ``N_CANDIDATES``-name sample.
     """
     def top1(r):
         return r["ranked"][0][0]
@@ -181,6 +188,8 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon):
             "mean_top1_confidence": sum(r["ranked"][0][1] for r in rs) / m,
             "mean_top1_confidence_when_correct": (sum(confs_ok) / len(confs_ok)) if confs_ok else None,
             "in_corpus_vocabulary": sp in corpus_norm or sp in corpus_canon,
+            "in_project_checklist": (None if checklist_canon is None
+                                      else sp in checklist_canon),
             "support_bucket": bucket_label(m),
         })
     per_species.sort(key=lambda d: (-d["n_labelled_frames"], d["species"]))
@@ -305,7 +314,9 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
 
     # ---------------- 6. one row per species ----------------
     corpus_canon = {canon(b) for b in corpus_raw}
-    per_species = aggregate_per_species(sp_recs, corpus_norm, corpus_canon)
+    checklist = load_checklist()
+    checklist_canon = checklist.canon_binomials(canon) if checklist is not None else None
+    per_species = aggregate_per_species(sp_recs, corpus_norm, corpus_canon, checklist_canon)
 
     return Health(
         gt_rows=gt_rows, split_rows=split_rows, split_of=split_of, predictions=predictions,
@@ -313,4 +324,5 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
         corpus_norm=corpus_norm, corpus_canon=corpus_canon, gt_names=gt_names,
         tier_of_name=tier_of_name, tier_crowns=tier_crowns, records=records,
         sp_recs=sp_recs, genus_recs=genus_recs, per_species=per_species, canon=canon,
+        checklist=checklist,
     )

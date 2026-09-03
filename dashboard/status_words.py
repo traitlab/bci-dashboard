@@ -25,6 +25,9 @@ STATUS = {
     "unreachable": ("Never returned on any BCI photo",
                     "Label these like any other row. We have not yet asked Pl@ntNet "
                     "whether it carries this species"),
+    "out_of_scope": ("Not in the project's own species list",
+                      "Skip. predict/fetch_checklist.py shows Pl@ntNet does not carry "
+                      "this species under the project we predict from"),
 }
 
 # The rows a botanist can pass over, not simply the tail of STATUS.
@@ -34,10 +37,11 @@ STATUS = {
 # but has never ranked that high looks exactly like one it does not carry.
 # Telling a botanist to skip those rows spends an unproven absence as though it
 # were a proven one, which is the opposite of what README.md says about that
-# population. It comes back
-# here only when predict/fetch_checklist.py has shown the name is absent from
-# the project's own species list.
-SKIP_STATUSES = ("hard", "reliable")
+# population. "Not in the project's own species list" is the proven version of
+# that same absence: predict/fetch_checklist.py has shown the name is missing
+# from the project's own species list, so it belongs in this tuple and
+# "unreachable" still does not.
+SKIP_STATUSES = ("hard", "reliable", "out_of_scope")
 
 
 def uncap(label):
@@ -60,6 +64,9 @@ STATUS_REASON = {
                    "not carry at all. Other rows do show 0.0% in the \u201cRight name in "
                    "the list\u201d column under a different status. There the model did "
                    "produce the name, just never on the frames of that species.",
+    "out_of_scope": "Pl@ntNet's own species list, read by predict/fetch_checklist.py, "
+                    "does not carry this name. That is a proven absence, not the "
+                    "sample effect behind “never returned”.",
 }
 
 def status_precedence_note():
@@ -69,9 +76,15 @@ def status_precedence_note():
     leave the page describing the old order.
     """
     names = [uncap(STATUS[k][0]) for k in hc.STATUS_PRECEDENCE]
-    return ("Each species gets one status: the first rule that fits. Order: "
-            + ", ".join(f"&ldquo;{n}&rdquo;" for n in names)
-            + f". So a few-frame species can still show as &ldquo;{names[2]}&rdquo;. "
+    quoted = [f"&ldquo;{n}&rdquo;" for n in names]
+    # Split the order into two sentences at the midpoint, not one long list:
+    # a status added to STATUS_PRECEDENCE grows this list, and one sentence
+    # holding all of it would eventually run over the page's sentence-length
+    # ceiling.
+    mid = (len(quoted) + 1) // 2
+    order = ("Order: " + ", ".join(quoted[:mid]) + ". Then " + ", ".join(quoted[mid:]) + ".")
+    return ("Each species gets one status: the first rule that fits. " + order +
+            f" A few-frame species can still show as &ldquo;{names[2]}&rdquo;. "
             "That is the point: it is cheap work whatever its count. Read the "
             "labelled-frames column next to the status.")
 
