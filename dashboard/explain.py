@@ -87,8 +87,10 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
         if not b or not b["n_crowns"]:
             continue
         rows.append((BAND_WORD[lab], b["n_species"] / n_sp, b["n_crowns"] / n,
-                     f'{b["n_species"]} species, {b["n_crowns"]:,} frames, '
-                     f'{pctf(b["c1"] / b["n_crowns"])} right', BAND_COLOR[lab]))
+                     f'{b["n_species"]} species, '
+                     + ('one frame each, ' if b["n_species"] == b["n_crowns"]
+                        else f'{b["n_crowns"]:,} frames, ')
+                     + f'{pctf(b["c1"] / b["n_crowns"])} right', BAND_COLOR[lab]))
     thin, fat = hc.BUCKET_ORDER[0], hc.BUCKET_ORDER[-1]
     thin_n, thin_in5 = _near_miss([r for r in sp_recs if support[r["gt"]] <= THIN_MAX])
     fat_n, fat_in5 = _near_miss([r for r in sp_recs if support[r["gt"]] >= FAT_MIN])

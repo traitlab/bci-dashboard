@@ -143,7 +143,7 @@ def test_a_page_opens_only_the_panels_that_are_its_deliverable(page):
     """
     expected = {
         "model_health": [],
-        "label_queue": ["Where to spend botanist time next",
+        "label_queue": ["Cheapest confirmation work",
                         "What to send to the botanist first"],
     }
     html, name, _ = page

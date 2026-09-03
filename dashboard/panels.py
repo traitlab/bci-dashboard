@@ -202,12 +202,12 @@ def p_review(c):
                  f'not listed: a botanist has confirmed the label, so the model is simply '
                  f'wrong there and the frame would return here on every build. They still '
                  f'count against the {pctf(c.confident_ok)} above.</p>')
-    return panel(f"Labels worth a second look: {c.review_counts[0]} frames where Pl@ntNet "
-                 f"confidently disagrees",
+    return panel(f"Labels worth a second look: {c.review_counts[0]} confident "
+                 f"disagreements a botanist can settle",
                  f"<b>Put these {c.review_counts[0]} frames in front of a botanist.</b> "
                  f"Either the label is wrong or the model is, and one look settles "
                  f"which. They are the disagreements most worth an expert's minute. "
-                 f"All {c.review_counts[0]} are in "
+                 f"All of them are in "
                  f'<a href="label_review_queue.csv">label_review_queue.csv</a>, '
                  f"most confident first.", body)
 
@@ -307,14 +307,15 @@ def p_ceiling(c):
 
     if c.has_checklist:
         scope_html = (
-            f'<div class="warn"><strong>{len(c.out_of_scope)} species, '
-            f'{c.out_of_scope_frames} frames, are proven absent from Pl@ntNet’s own '
+            f'<div class="warn"><strong>{c.out_of_scope_frames} of those '
+            f'{c.never_frames} frames, on {len(c.out_of_scope)} species, are proven '
+            f'absent from Pl@ntNet’s own '
             f'species list for this project.</strong> No re-run can return a name the '
             f'project does not carry. Do not spend expert time renaming or relabelling '
             f'these.</div>'
             + sp_table(c.out_of_scope)
-            + f'<p class="note"><strong>{len(c.unproven_absent)} more species, '
-            f'{c.unproven_absent_frames} frames, are on the project’s list but never '
+            + f'<p class="note"><strong>The other {c.unproven_absent_frames} frames, '
+            f'on {len(c.unproven_absent)} species, are on the project’s list but never '
             f'ranked in a sample of {c.n_cand} candidates per photo.</strong> That is not '
             f'proof the model cannot return them, only that we never asked for enough '
             f'candidates to find out. Re-running with a larger candidate count could '

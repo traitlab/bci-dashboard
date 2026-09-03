@@ -89,8 +89,8 @@ def p_todo(c):
     tail = list(STATUS)[-len(SKIP_STATUSES):]
     position_note = (" They sit last on the page too, in this order." if tail == list(SKIP_STATUSES)
                      else " They are scattered through the list, not grouped at the bottom.")
-    return panel(f"Where to spend botanist time next: {c.counts['ranking']} species "
-                 f"are one confirmation away",
+    return panel(f"Cheapest confirmation work: {c.counts['ranking']} species "
+                 f"need a yes or no",
                  "<b>Work top to bottom.</b> Rows are ordered cheapest useful work "
                  f"first. {n_skip} of them you can skip: "
                  + ", ".join(f"&ldquo;{uncap(STATUS[k][0])}&rdquo;" for k in SKIP_STATUSES)
