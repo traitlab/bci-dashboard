@@ -240,6 +240,19 @@ def test_every_input_boxes_path_a_script_names_is_a_file_that_is_there(source):
             f"{sorted(p.name for p in (REPO / 'input' / 'boxes').iterdir())}.")
 
 
+def test_eval_project_is_the_project_identify_url_names():
+    """`core.EVAL_PROJECT` is read by `dashboard/checklist.py` to find
+    `data/checklist_<EVAL_PROJECT>.json`. Move config.yaml's `identify_url` to
+    another project and predictions come from somewhere the constant no longer
+    names, so out_of_scope would be checked against the wrong species list."""
+    config = (REPO / "config.yaml").read_text(encoding="utf-8")
+    m = re.search(r"identify_url:\s*\S*/identify/(\S+)\s*$", config, re.MULTILINE)
+    assert m, "config.yaml no longer states plantnet.identify_url"
+    assert value_of("EVAL_PROJECT", "dashboard/core.py") == f'"{m.group(1)}"', (
+        f"config.yaml's identify_url names project {m.group(1)!r} and "
+        f"core.EVAL_PROJECT says otherwise.")
+
+
 def test_the_fetch_writes_into_the_folder_the_dashboard_reads():
     """`predict/photo.py` takes its output folder from config.yaml and every
     page reads `core.CACHE_DIR`. Those were `data/photos` and

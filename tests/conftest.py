@@ -176,6 +176,16 @@ def history():
 
 
 @pytest.fixture(scope="session")
+def dashboard_checklist():
+    """`dashboard/checklist.py`, stdlib only. Named apart from the `checklist`
+    fixture above, which loads `predict/fetch_checklist.py`, the fetch script
+    this module reads the output of rather than the module itself."""
+    with _on_path(REPO / "dashboard"):
+        import checklist
+        yield checklist
+
+
+@pytest.fixture(scope="session")
 def assets():
     """The rendering primitives, called directly rather than regexed out of a
     built page. They are pure functions of their arguments, so they need none

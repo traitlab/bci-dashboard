@@ -1,25 +1,46 @@
 def test_status_precedence_is_the_order_diagnose_actually_uses(core):
     """The pages print the precedence, so it has to be the real one. Each row
-    below satisfies every rule from its position onward, so the status it gets
-    is proof that its own rule was checked first."""
+    below satisfies every rule from its position onward that can hold at once,
+    so the status it gets is proof that its own rule was checked first."""
     def row(**kw):
         base = dict(n_labelled_frames=1, top1_accuracy=0.0, top5_accuracy=0.0,
-                    in_corpus_vocabulary=True)
+                    in_corpus_vocabulary=True, in_project_checklist=None)
         base.update(kw)
         return base
 
-    # Satisfies unreachable, reliable, ranking and unmeasured at once.
-    everything = row(in_corpus_vocabulary=False, n_labelled_frames=1,
-                     top1_accuracy=1.0, top5_accuracy=1.0)
-    assert core.diagnose(everything) == "unreachable"
-    # Reliable and ranking and unmeasured cannot all hold: reliable needs frames.
+    # Satisfies out_of_scope, reliable, ranking and unreachable at once.
+    everything = row(in_project_checklist=False, in_corpus_vocabulary=False,
+                     n_labelled_frames=99, top1_accuracy=1.0, top5_accuracy=1.0)
+    assert core.diagnose(everything) == "out_of_scope"
+    # Reliable and ranking cannot both hold: reliable needs a1 high, ranking
+    # needs a5 - a1 wide.
     assert core.diagnose(row(n_labelled_frames=99, top1_accuracy=1.0,
                              top5_accuracy=1.0)) == "reliable"
-    # Thin and its answer is in the list: ranking wins over unmeasured.
     assert core.diagnose(row(n_labelled_frames=1, top1_accuracy=0.0,
                              top5_accuracy=1.0)) == "ranking"
+    # unreachable no longer outranks reliable or ranking: the same rows that
+    # would have won it before, minus in_corpus_vocabulary, still go to
+    # whichever of those fits.
+    assert core.diagnose(row(in_corpus_vocabulary=False, n_labelled_frames=99,
+                             top1_accuracy=1.0, top5_accuracy=1.0)) == "reliable"
+    assert core.diagnose(row(in_corpus_vocabulary=False, n_labelled_frames=1,
+                             top1_accuracy=0.0, top5_accuracy=1.0)) == "ranking"
+    # unreachable still outranks unmeasured.
+    assert core.diagnose(row(in_corpus_vocabulary=False, n_labelled_frames=1,
+                             top1_accuracy=0.0, top5_accuracy=0.0)) == "unreachable"
     assert core.diagnose(row(n_labelled_frames=1)) == "unmeasured"
-    assert core.STATUS_PRECEDENCE == ("unreachable", "reliable", "ranking", "unmeasured")
+    assert core.STATUS_PRECEDENCE == (
+        "out_of_scope", "reliable", "ranking", "unreachable", "unmeasured")
+
+
+def test_out_of_scope_requires_a_checklist_to_say_false_not_just_absent(core):
+    """``None`` (no checklist on disk) is not the same claim as ``False``
+    (checklist read, species absent). Only ``False`` reaches out_of_scope."""
+    row = dict(n_labelled_frames=1, top1_accuracy=0.0, top5_accuracy=0.0,
+              in_corpus_vocabulary=False, in_project_checklist=None)
+    assert core.diagnose(row) == "unreachable"
+    row["in_project_checklist"] = False
+    assert core.diagnose(row) == "out_of_scope"
 
 
 def test_summarise_gives_help_one_sentence_not_the_whole_module_docstring(core):

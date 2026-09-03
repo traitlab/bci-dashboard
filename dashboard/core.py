@@ -107,6 +107,13 @@ def gt_provenance(gt_csv: str = GT_CSV) -> str:
 # is in the list" is measured at.
 N_CANDIDATES = 5
 
+# The Pl@ntNet project our predictions came from (config.yaml plantnet.identify_url,
+# the segment after /identify/). predict/fetch_checklist.py downloads its species
+# list to data/checklist_<EVAL_PROJECT>.json; dashboard/checklist.py reads that back
+# and is the one source that can prove a species absent rather than merely never
+# ranked in an N_CANDIDATES-name sample.
+EVAL_PROJECT = "k-central-america"
+
 CONF_BINS = [(0.0, 0.5), (0.5, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.01)]
 CONF_THRESHOLDS = [0.7, 0.8, 0.9]
 # The top band has no upper bound. Written as a number so the bands tile the
@@ -335,22 +342,27 @@ def canonicaliser(crosswalk: dict):
 
 def diagnose(row: dict) -> str:
     """Per-species status. First matching rule wins; order is the point.
-    ``unreachable`` outranks all: a name we have never seen come back is the
-    most specific thing we can say about a species, and it says nothing about
-    the other rules that would also fit. It does not mean labelling is wasted.
-    We ask each photo for ``N_CANDIDATES`` names, so a species the model carries
-    and never ranks looks exactly like one it does not carry. Only the project's
-    own species list tells the two apart (``predict/fetch_checklist.py``).
-    ``reliable`` outranks ``ranking``: >=90% needs no re-rank. ``unmeasured``
-    sits below ``ranking``, so a thin species already in the list counts as
-    cheap."""
+    ``out_of_scope`` outranks all: ``EVAL_PROJECT``'s own species list
+    (``predict/fetch_checklist.py``, read back by ``dashboard/checklist.py``)
+    proves the name absent, which is stronger than anything the sample can
+    say. It only fires when a checklist is on disk; offline, this rule never
+    matches.
+    ``reliable`` outranks ``ranking``: >=90% needs no re-rank.
+    ``unreachable`` sits below both: a name we have never seen come back in
+    an ``N_CANDIDATES``-name sample looks exactly like one the model does not
+    carry, but a checklist has not shown that, and most of the time none is
+    on disk to ask. It does not mean labelling is wasted. ``unmeasured``
+    sits below ``unreachable``, so a thin species that has at least come back
+    once counts as cheap."""
     n, a1, a5 = row["n_labelled_frames"], row["top1_accuracy"], row["top5_accuracy"]
-    if not row["in_corpus_vocabulary"]:
-        return "unreachable"
+    if row["in_project_checklist"] is False:
+        return "out_of_scope"
     if n >= WELL_SAMPLED_MIN_N and a1 >= RELIABLE_MIN_TOP1:
         return "reliable"
     if a5 - a1 >= 0.20 and a5 >= 0.60:
         return "ranking"
+    if not row["in_corpus_vocabulary"]:
+        return "unreachable"
     if n < WELL_SAMPLED_MIN_N:
         return "unmeasured"
     return "hard" if a1 < HARD_MAX_TOP1 else "adequate"
@@ -358,7 +370,7 @@ def diagnose(row: dict) -> str:
 
 # The order above, as data, because the pages have to say it. The last two go by
 # accuracy alone, so the tuple stops where the ordering stops mattering.
-STATUS_PRECEDENCE = ("unreachable", "reliable", "ranking", "unmeasured")
+STATUS_PRECEDENCE = ("out_of_scope", "reliable", "ranking", "unreachable", "unmeasured")
 
 
 # --- Crop coverage gate ---
