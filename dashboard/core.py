@@ -132,6 +132,16 @@ WAIT_CONF = 0.8
 # "usually right"; below HARD_MAX_TOP1 with enough crowns it is "hard".
 RELIABLE_MIN_TOP1 = 0.90
 HARD_MAX_TOP1 = 0.70
+# "Right name in the list, not first": the right-name-in-the-list rate has to
+# beat the first-guess rate by RANKING_MIN_GAP, on a rate of RANKING_MIN_TOP5 or
+# better.
+RANKING_MIN_GAP = 0.20
+RANKING_MIN_TOP5 = 0.60
+# Every rate diagnose compares is a ratio of two small integers, so one that equals a
+# threshold in arithmetic can land a float step below it: 63/85 and 80/85 differ
+# by exactly 0.20, and by 0.19999999999999996 in binary. Compare rates through
+# this tolerance so a species is not sorted by a rounding step.
+RATE_EPS = 1e-9
 # A confident first guess that still disagrees with the botanist label is worth
 # a second look: either the label or the model is wrong.
 REVIEW_CONF = 0.8
@@ -357,15 +367,15 @@ def diagnose(row: dict) -> str:
     n, a1, a5 = row["n_labelled_frames"], row["top1_accuracy"], row["top5_accuracy"]
     if row["in_project_checklist"] is False:
         return "out_of_scope"
-    if n >= WELL_SAMPLED_MIN_N and a1 >= RELIABLE_MIN_TOP1:
+    if n >= WELL_SAMPLED_MIN_N and a1 >= RELIABLE_MIN_TOP1 - RATE_EPS:
         return "reliable"
-    if a5 - a1 >= 0.20 and a5 >= 0.60:
+    if a5 - a1 >= RANKING_MIN_GAP - RATE_EPS and a5 >= RANKING_MIN_TOP5 - RATE_EPS:
         return "ranking"
     if not row["in_corpus_vocabulary"]:
         return "unreachable"
     if n < WELL_SAMPLED_MIN_N:
         return "unmeasured"
-    return "hard" if a1 < HARD_MAX_TOP1 else "adequate"
+    return "hard" if a1 < HARD_MAX_TOP1 - RATE_EPS else "adequate"
 
 
 # The order above, as data, because the pages have to say it. The last two go by

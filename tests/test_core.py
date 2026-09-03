@@ -53,3 +53,15 @@ def test_summarise_gives_help_one_sentence_not_the_whole_module_docstring(core):
         python3 dashboard/build_external.py [--out PATH]
     """
     assert core.summarise(doc) == "One line saying what this is."
+
+
+def test_a_rate_gap_that_is_exact_in_arithmetic_is_not_lost_to_binary(core):
+    """63/85 and 80/85 differ by exactly RANKING_MIN_GAP, and by one float step
+    less in binary. The species is "one confirmation away" either way."""
+    row = {"n_labelled_frames": 85, "top1_accuracy": 63 / 85, "top5_accuracy": 80 / 85,
+           "in_corpus_vocabulary": True, "in_project_checklist": True}
+    assert (80 / 85) - (63 / 85) < core.RANKING_MIN_GAP
+    assert core.diagnose(row) == "ranking"
+    row = {"n_labelled_frames": 5, "top1_accuracy": 4 / 5, "top5_accuracy": 5 / 5,
+           "in_corpus_vocabulary": True, "in_project_checklist": True}
+    assert core.diagnose(row) == "ranking"
