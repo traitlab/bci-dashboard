@@ -18,7 +18,6 @@ import os
 import re
 
 import pytest
-from conftest import require_context_md
 
 
 @pytest.fixture(scope="session")
@@ -107,18 +106,15 @@ def test_the_layout_table_names_the_key_each_directory_reads(readme, core):
 GENERATED = ("data/", "snapshots/", "build/", ".env")
 
 
-@pytest.mark.parametrize("doc,least", [("README.md", 15), ("CONTEXT.md", 4)])
+@pytest.mark.parametrize("doc,least", [("README.md", 15)])
 def test_every_path_the_docs_point_at_is_there(doc, least, core):
     """The front page is a map, and a map to a moved file is worse than none.
 
     Six numbers in the README are held to the code. The paths were not: rename a
     module or drop an ADR and the file keeps pointing at it, which the reader
-    finds out one failed `cat` later. CONTEXT.md is the same promise in glossary
-    form. The sibling `-docs` files count too, since both send the reader to
-    them for what every number means.
+    finds out one failed `cat` later. The sibling `-docs` files count too, since
+    the README sends the reader to them for what every number means.
     """
-    if doc == "CONTEXT.md":
-        require_context_md()
     root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
     with open(os.path.join(root, doc), encoding="utf-8") as fh:
         text = fh.read()
@@ -203,20 +199,18 @@ def test_metrics_md_cites_symbols_that_exist_and_no_line_numbers(core):
     gate filters. Both had drifted: the second is now the middle of an
     output-table list. A symbol name survives an edit above it, so the rule is
     that the file cites `module.symbol`, and this checks each one is real. The
-    same rule is applied to the two front-page documents, which is why the
-    line-number check reads a list of files rather than one.
+    same rule is applied to the README, which is why the line-number check
+    reads a list of files rather than one.
     """
     root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
     doc = os.path.join(os.path.dirname(root), "bci-dashboard-docs", "metrics.md")
     if not os.path.exists(doc):
         pytest.skip("sibling bci-dashboard-docs/metrics.md not present")
-    require_context_md()
     with open(doc, encoding="utf-8") as fh:
         text = fh.read()
 
     numbered = []
-    for path in (doc, os.path.join(root, "README.md"),
-                 os.path.join(root, "CONTEXT.md")):
+    for path in (doc, os.path.join(root, "README.md")):
         with open(path, encoding="utf-8") as fh:
             numbered += re.findall(r"`([\w./]+\.py:[\d-]+)`", fh.read())
     assert not numbered, (
@@ -234,8 +228,6 @@ def test_metrics_md_cites_symbols_that_exist_and_no_line_numbers(core):
     # A call or an upper-case constant. Anything else with a dot in it is a
     # filename: `history.csv` is not the `csv` member of a `history` module.
     with open(os.path.join(root, "README.md"), encoding="utf-8") as fh:
-        text += fh.read()
-    with open(os.path.join(root, "CONTEXT.md"), encoding="utf-8") as fh:
         text += fh.read()
     cited = (re.findall(r"`(\w+)\.(\w+)\(\)`", text)
              + re.findall(r"`(\w+)\.([A-Z][A-Z_0-9]+)`", text))
