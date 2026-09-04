@@ -117,6 +117,33 @@ def test_hero_of_no_cards_is_an_empty_shell(assets):
     assert assets.hero([]) == '<div class="hero"></div>'
 
 
+def test_a_hero_card_can_link_the_csv_its_figure_comes_off(assets):
+    """The card is where a reader meets the number, so it is where the rows
+    behind it should be reachable from. The link carries the filename as its
+    text: a bare arrow or the word "CSV" hides which file arrives."""
+    out = assets.hero([("E1", "V1", "L1", "N1", "send_batches.csv")])
+    assert '<a class="src" href="send_batches.csv">send_batches.csv</a>' in out
+    # Inside the row, beside the figure, not below the note: the row's flex rule
+    # is what puts it on the right of the number.
+    assert '<div class="v">V1</div><a class="src"' in out
+
+
+def test_a_hero_card_with_no_source_renders_no_link(assets):
+    """Most cards have no single file behind them, and an empty href would be a
+    link back to the page itself."""
+    out = assets.hero([("E1", "V1", "L1", "N1")])
+    assert "<a" not in out
+
+
+def test_a_hero_card_of_the_wrong_shape_stops_the_build(assets):
+    """A card short of its note, or carrying a sixth item, is a call site that
+    has drifted from the renderer. It fails here rather than rendering a card
+    with the note in the label's place."""
+    for card in [("E1", "V1", "L1"), ("E1", "V1", "L1", "N1", "a.csv", "extra")]:
+        with pytest.raises(SystemExit, match="hero card 0"):
+            assets.hero([card])
+
+
 def test_table_marks_numeric_columns_and_wraps_in_a_scroll_box(assets):
     out = assets.table([("Name", False), ("Count", True)], [["a", "1"], ["b", "2"]])
     assert '<div class="tscroll">' in out

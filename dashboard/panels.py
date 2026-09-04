@@ -437,8 +437,11 @@ def p_species(c):
               'width.</p>'
             + threshold_control(c)
             + filterable_table(
+        # "(recall)" is in the header, not only in the paragraph above: a reader
+        # scanning the columns found Precision and F1, no recall, and read that
+        # as a missing column rather than as the one it shares a number with.
         [("Species", False), ("Labelled frames", True),
-         ("Top-1 accuracy", True), (f"Top-{c.n_cand} accuracy", True),
+         ("Top-1 accuracy (recall)", True), (f"Top-{c.n_cand} accuracy", True),
          ("Frames guessed", True), ("Precision", True), ("F1", True),
          ("Model's confidence", True), ("Middle half", True), ("Status", False)],
         sp_rows,
@@ -622,18 +625,23 @@ def _prf_block(c):
     """
     return (
         hero([
+            # The three per-species cards each average one column of
+            # per_species_health.csv, so they link it: a reader who wants to see
+            # which species carry the average takes the file off the card. The
+            # per-frame card is not an average of those rows and links nothing.
             ("Precision, per species", pctf(c.now["macro_precision"]),
              "When it offers a name, how often that name is right",
              f"averaged over the {c.n_sp} species a botanist labelled, each counting "
-             f"once however few frames it has"),
+             f"once however few frames it has", "per_species_health.csv"),
             ("Recall, per species", pctf(c.now["macro_recall"]),
              "Of the frames labelled a species, how often the first guess is right",
              "the same number as top-1 accuracy per species above, under the name a "
-             "confusion matrix gives it"),
+             "confusion matrix gives it", "per_species_health.csv"),
             ("F1, per species", pctf(c.now["macro_f1"]),
              "The two above balanced against each other, species by species",
              "each species&rsquo; own F1 first, then the average of those. That is not "
-             "the F1 of the two averages beside it, which is a different number"),
+             "the F1 of the two averages beside it, which is a different number",
+             "per_species_health.csv"),
             ("Precision, recall and F1, per frame", pctf(c.now["micro_prf1"]),
              "One figure, because per frame all three are the same number",
              f"over all {c.n:,} labelled frames it is also the per-frame top-1 accuracy"),
