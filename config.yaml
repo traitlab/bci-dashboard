@@ -17,6 +17,11 @@ labelbox:
   project_b_name: BCI Workshop - Botanist Labelling        # dispatch_round, close_round
   dataset_id: cmon3zoss00wu0705ertl0vd7                    # fetch_dataset  LABELBOX_DATASET_ID
   project_id: cmp375mkq0dhr07w92diwbmuh                    # next_batch     LABELBOX_PROJECT_ID
+  # Which project a deep link on the pages opens in: `legacy` (the project a
+  # frame was originally labelled in, where the botanist's boxes were drawn) or
+  # `current` (the dispatch project above). Same frames either way, this only
+  # changes the destination. dashboard/core.py reads this one key back.
+  link_project: legacy
 
 folders:
   export_for_plantnet: input/boxes

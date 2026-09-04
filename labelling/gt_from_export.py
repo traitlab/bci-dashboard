@@ -19,8 +19,21 @@ no-cache log lines in the dashboard measurement.
 
 Read-only: the NDJSON is parsed, never written back to Labelbox.
 
+``--export`` may be repeated, and the merge is over the union. This matters for
+the deep links rather than for the labels: an export names only the project it
+came from, so one export can only ever mint ids for one project's rows, and the
+single export on disk covers 1,719 of the 3,781 labelled frames. Pass the other
+projects' exports alongside it and the id table covers their frames too, each
+with its own ``project_id``, so a frame links into the project it belongs to.
+Later exports win where two carry the same frame, so the argument order is the
+recency order.
+
 Usage:
     python3 labelling/gt_from_export.py \
+        --export "/path/to/Export  project - 2024_bci - 8_6_2026.ndjson"
+    python3 labelling/gt_from_export.py \
+        --export data/exports/export_cmbgnzmhu0bed07027vmxezzd.ndjson \
+        --export data/exports/export_cme99tjc606h4075147dfd6j6.ndjson \
         --export "/path/to/Export  project - 2024_bci - 8_6_2026.ndjson"
 
 Out: ``data/gt_dominant_taxon.csv`` (rewritten in place)
@@ -114,14 +127,38 @@ def export_dominants(ndjson_path: Path) -> tuple[dict[str, str], list[dict], dic
     return dominants, boxes, row_ids
 
 
+def union_exports(paths) -> tuple[dict[str, str], list[dict], dict[str, tuple[str, str]]]:
+    """``export_dominants`` over several exports, folded into one result.
+
+    Later files win on both the dominant taxon and the ``(data_row_id,
+    project_id)`` pair, so the caller orders its arguments oldest first and gets
+    the most recent read of any frame that appears twice. Boxes accumulate
+    instead, because a frame that two projects both carry crowns for has both
+    sets of crowns and dropping either would be a silent loss.
+    """
+    dominants: dict[str, str] = {}
+    boxes: list[dict] = []
+    row_ids: dict[str, tuple[str, str]] = {}
+    for path in paths:
+        d, b, r = export_dominants(Path(path))
+        print(f"export {Path(path).name}: {len(d)} labelled frames, "
+              f"{len(b)} boxes, {len(r)} data row ids")
+        dominants.update(d)
+        boxes.extend(b)
+        row_ids.update(r)
+    return dominants, boxes, row_ids
+
+
 def parse_args():
-    """The export to merge, the three files it merges into, and an optional note.
+    """The exports to merge, the three files they merge into, and an optional note.
 
     The note is written to a sidecar the dashboards read, so a page can say
     which batch its ground truth came from without anyone retyping it there.
     """
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--export", required=True, help="Labelbox project export NDJSON")
+    ap.add_argument("--export", required=True, action="append",
+                    help="Labelbox project export NDJSON; repeat to merge the "
+                         "union of several projects, oldest first")
     ap.add_argument("--gt", default=str(GT), help="existing gt_dominant_taxon.csv")
     ap.add_argument("--splits", default=str(SPLITS), help="splits.csv (corpus keys)")
     ap.add_argument("--boxes-out", default=str(BOXES),
@@ -171,9 +208,13 @@ def merge_row_ids(row_ids, corpus, n_gt, path):
     """Data row ids accumulate the same way the GT does.
 
     An export names only the project it came from, so a frame labelled in a
-    legacy project has no id here until that project's rows are migrated and
-    exported again. The share is printed rather than the gap being filled by a
-    guess: the pages report the coverage.
+    project nobody has exported has no id here. That is the whole reason the
+    coverage is what it is, and the fix is another export rather than a guess,
+    so the share is printed and the gap is left visible for the pages to report.
+
+    The per-project tally is printed with it because the table is expected to be
+    mixed: a frame links into the project it belongs to, and one line per
+    project is how a reader checks that a project they exported actually landed.
     """
     known: dict[str, tuple[str, str]] = {}
     if path.exists():
@@ -189,6 +230,8 @@ def merge_row_ids(row_ids, corpus, n_gt, path):
         w.writerows([k, *known[k]] for k in sorted(known))
     share = f"{len(known) / n_gt:.1%}" if n_gt else "n/a"
     print(f"data row ids {before} -> {len(known)} ({share} of GT)  -> {path}")
+    for project_id, n in sorted(Counter(p for _, p in known.values()).items()):
+        print(f"  {n:5d}  in project {project_id}")
 
 
 def report(base_gt, july, out, revised, new, gt_path):
@@ -223,7 +266,7 @@ def main() -> None:
     with open(args.gt, newline="", encoding="utf-8") as f:
         base_gt = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
 
-    july, boxes, row_ids = export_dominants(Path(args.export))
+    july, boxes, row_ids = union_exports(args.export)
     write_boxes(boxes, args.boxes_out)
 
     # Only frames the corpus knows about. An export can carry photos from
@@ -235,8 +278,9 @@ def main() -> None:
     merge_row_ids(row_ids, corpus, len(out),
                   Path(args.gt).with_name("data_row_ids.csv"))
 
+    names = ", ".join(Path(p).name for p in args.export)
     note = args.note or (f"Ground truth merged from Labelbox export "
-                         f"{Path(args.export).name} on "
+                         f"{names} on "
                          f"{datetime.now(timezone.utc).date().isoformat()}.")
     sidecar = Path(args.gt).with_suffix(".provenance.txt")
     sidecar.write_text(note + "\n", encoding="utf-8")
