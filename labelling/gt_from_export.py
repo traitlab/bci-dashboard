@@ -69,8 +69,8 @@ def strip_codes(name: str) -> str:
     return "-".join(parts) if parts else str(name)
 
 
-def export_dominants(ndjson_path: Path) -> tuple[dict[str, str], list[dict], dict[str, tuple[str, str]]]:
-    """Basename -> dominant taxon by summed box area, boxes, and data row ids.
+def export_dominants(ndjson_path: Path):
+    """Basename -> dominant taxon by summed box area, boxes, row ids, and dates.
 
     The third return value maps a basename to the ``(data_row_id, project_id)``
     the export recorded for it. That pair is the only way to build the Labelbox
@@ -87,10 +87,21 @@ def export_dominants(ndjson_path: Path) -> tuple[dict[str, str], list[dict], dic
 
     Emitted in the column shape of crop_bounding_boxes.csv so that the coverage
     code can read either source without a second parser.
+
+    The fourth return value is when each frame was labelled, from the export's
+    own ``label_details.created_at``, latest label wins. Today that date is not
+    a labelling journal. Of the 1,900 dated labels, every one of the 1,719 that
+    the corpus knows about carries the same 2026-07-20 bulk migration stamp.
+    The 181 that spread across 2026-07-03 to 2026-07-23 are all outside the
+    frame list. So nothing is plotted against this. It is recorded because a
+    trend across model versions needs dated labels to exist before it can be
+    honest, and the material only starts accumulating once something writes it
+    down.
     """
     area = defaultdict(Counter)
     boxes: list[dict] = []
     row_ids: dict[str, tuple[str, str]] = {}
+    dates: dict[str, str] = {}
     with open(ndjson_path, encoding="utf-8") as f:
         for line in f:
             row = json.loads(line)
@@ -100,6 +111,9 @@ def export_dominants(ndjson_path: Path) -> tuple[dict[str, str], list[dict], dic
                 break
             for proj in row.get("projects", {}).values():
                 for label in proj.get("labels", []):
+                    made = (label.get("label_details") or {}).get("created_at")
+                    if made and made > dates.get(stem, ""):
+                        dates[stem] = made
                     for obj in label.get("annotations", {}).get("objects", []):
                         sp = next(
                             (strip_codes(c["radio_answer"]["name"])
@@ -124,10 +138,10 @@ def export_dominants(ndjson_path: Path) -> tuple[dict[str, str], list[dict], dic
                         })
     dominants = {stem: counts.most_common(1)[0][0]
                  for stem, counts in area.items() if counts}
-    return dominants, boxes, row_ids
+    return dominants, boxes, row_ids, dates
 
 
-def union_exports(paths) -> tuple[dict[str, str], list[dict], dict[str, tuple[str, str]]]:
+def union_exports(paths):
     """``export_dominants`` over several exports, folded into one result.
 
     Later files win on both the dominant taxon and the ``(data_row_id,
@@ -139,14 +153,20 @@ def union_exports(paths) -> tuple[dict[str, str], list[dict], dict[str, tuple[st
     dominants: dict[str, str] = {}
     boxes: list[dict] = []
     row_ids: dict[str, tuple[str, str]] = {}
+    dates: dict[str, str] = {}
     for path in paths:
-        d, b, r = export_dominants(Path(path))
+        d, b, r, dt = export_dominants(Path(path))
         print(f"export {Path(path).name}: {len(d)} labelled frames, "
-              f"{len(b)} boxes, {len(r)} data row ids")
+              f"{len(b)} boxes, {len(r)} data row ids, {len(dt)} dated")
         dominants.update(d)
         boxes.extend(b)
         row_ids.update(r)
-    return dominants, boxes, row_ids
+        # Latest wins across exports too, for the same reason it wins inside
+        # one: a frame relabelled later was labelled later.
+        for stem, made in dt.items():
+            if made > dates.get(stem, ""):
+                dates[stem] = made
+    return dominants, boxes, row_ids, dates
 
 
 def parse_args():
@@ -234,6 +254,42 @@ def merge_row_ids(row_ids, corpus, n_gt, path):
         print(f"  {n:5d}  in project {project_id}")
 
 
+def merge_label_dates(dates, corpus, path):
+    """When each frame was labelled, accumulated the way the row ids are.
+
+    A sidecar rather than a third column on ``gt_dominant_taxon.csv``: that
+    file is two columns everywhere it is read, and widening it is a breaking
+    change for a value nothing reads yet.
+
+    The spread is printed because it is the whole reason no page plots this.
+    A date range of one day over thousands of frames is a migration stamp and
+    not a labelling history, and the print is what makes that visible on the
+    run that first produces a real spread.
+    """
+    known: dict[str, str] = {}
+    if path.exists():
+        with open(path, newline="", encoding="utf-8") as f:
+            known = {r["global_key"]: r["labelled_at"] for r in csv.DictReader(f)}
+    before = len(known)
+    for stem, made in dates.items():
+        key = GT_KEY_PREFIX + stem
+        if key in corpus and made > known.get(key, ""):
+            known[key] = made
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["global_key", "labelled_at"])
+        w.writerows([k, known[k]] for k in sorted(known))
+    print(f"label dates {before} -> {len(known)}  -> {path}")
+    if known:
+        days = Counter(v[:10] for v in known.values())
+        top_day, top_n = days.most_common(1)[0]
+        print(f"  {len(days)} distinct days, {min(days)} to {max(days)}; "
+              f"{top_n} of {len(known)} share {top_day}")
+        if len(days) == 1 or top_n > len(known) // 2:
+            print("  NOTE: one day carries most of these, so they date the "
+                  "export and not the labelling. No trend can be built on them.")
+
+
 def report(base_gt, july, out, revised, new, gt_path):
     """What the merge did, in the four counts that have to add up.
 
@@ -256,8 +312,8 @@ def report(base_gt, july, out, revised, new, gt_path):
 
 
 def main() -> None:
-    """Merge one Labelbox export into the ground truth, the crown boxes and the
-    data row ids, then say what changed in each."""
+    """Merge one Labelbox export into the ground truth, the crown boxes, the
+    data row ids and the label dates, then say what changed in each."""
     args = parse_args()
 
     with open(args.splits, newline="", encoding="utf-8") as f:
@@ -266,7 +322,7 @@ def main() -> None:
     with open(args.gt, newline="", encoding="utf-8") as f:
         base_gt = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
 
-    july, boxes, row_ids = union_exports(args.export)
+    july, boxes, row_ids, dates = union_exports(args.export)
     write_boxes(boxes, args.boxes_out)
 
     # Only frames the corpus knows about. An export can carry photos from
@@ -277,6 +333,7 @@ def main() -> None:
     out, revised, new = merge_gt(base_gt, july, args.gt)
     merge_row_ids(row_ids, corpus, len(out),
                   Path(args.gt).with_name("data_row_ids.csv"))
+    merge_label_dates(dates, corpus, Path(args.gt).with_name("gt_label_dates.csv"))
 
     names = ", ".join(Path(p).name for p in args.export)
     note = args.note or (f"Ground truth merged from Labelbox export "
