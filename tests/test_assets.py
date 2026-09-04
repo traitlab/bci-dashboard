@@ -550,3 +550,51 @@ def test_the_band_palette_is_as_readable_and_as_unordered_as_its_comment_says(ex
         f"the comment misstates the end-to-end contrast, which is {ends}:1.")
     assert f"at {closest:.2f}:1" in src, (
         f"the comment misstates the closest pair, which is {closest:.2f}:1.")
+
+
+# ---------------------------------------------------------------------------
+# table(source=...): the file a table's rows are in
+# ---------------------------------------------------------------------------
+
+def test_a_table_names_no_file_unless_one_is_passed(assets):
+    """Most tables are counted off a figure with no file of its own, and a
+    caption pointing at a near-enough CSV makes the table lie."""
+    out = assets.table([("a", False)], [["1"]])
+    assert ".csv" not in out
+
+
+def test_a_table_with_a_source_links_it_under_the_rows(assets):
+    """Under, not in the paragraph above: a reader who wants the rows is looking
+    at the rows. `page.copy_linked_csvs` reads this href, so the file travels
+    with the page and a named table cannot ship a 404."""
+    out = assets.table([("a", False)], [["1"]], source="per_species_health.csv")
+    assert out.index("</table>") < out.index('href="per_species_health.csv"')
+
+
+def test_the_filterable_table_carries_its_source_the_same_way(assets):
+    """The species table is the one a reader most wants as data, and it is the
+    one that does not go through `table` at the call site."""
+    out = assets.filterable_table([("Species", False)], [["a"]], options=(),
+                                  source="per_species_health.csv")
+    assert 'href="per_species_health.csv"' in out
+
+
+def test_the_caption_reuses_the_footnote_style(assets):
+    """A download affordance of its own would be a CSS rule and a colour for a
+    line that says what every other footnote on the page says. test_style.py
+    fails on a class with no rule, so this is the cheap half of that check."""
+    assert 'class="note"' in assets.source_note("x.csv")
+    assert assets.source_note(None) == ""
+
+
+def test_every_table_on_the_public_page_names_the_file_behind_it(external_page):
+    """The gap this closes: six files were measured every build and reachable by
+    nobody reading a page. A table with no file is the state to catch, so the
+    check is over tables and not over links."""
+    html, _ = external_page
+    blocks = html.split("<details")[1:]
+    missing = [re.sub(r"<[^>]+>", "", re.search(r"<summary[^>]*>(.*?)</summary>",
+                                                b, re.DOTALL).group(1))[:60].strip()
+               for b in blocks
+               if "<table" in b and "This table as data" not in b]
+    assert not missing, f"tables with no file named under them: {missing}"

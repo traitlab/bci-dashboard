@@ -1,0 +1,5 @@
+min_coverage,n_frames_admitted,right_per_frame,right_per_species,n_species
+0.00,3190,0.8094,0.5279,184
+0.30,2515,0.8485,0.5874,170
+0.50,2065,0.8567,0.6108,158
+0.80,1315,0.8586,0.6818,135

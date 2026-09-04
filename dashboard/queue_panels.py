@@ -83,7 +83,9 @@ def p_todo(c):
                 # The sortable species table is on the model-health page.
                 f'The frame counts and accuracy behind each status are in the species '
                 f'table on the model-health page, '
-                f'<code>model_health_dashboard.html</code>.</p>'
+                f'<code>model_health_dashboard.html</code>. Which species sit in which '
+                f'row is the <code>status</code> column of '
+                f'<a href="per_species_health.csv">per_species_health.csv</a>.</p>'
                 f'<p class="note"><strong>Cheaper still, and in no row above: {c.gen_one:,} '
                 f'frames whose botanist label stops at the genus.</strong> Their five '
                 f'candidates hold exactly one species from that genus, so the question is yes '
@@ -121,7 +123,8 @@ def send_pool_table(c):
                     esc(QL[q][1]),
                     f'{c.queue_counts.get(q, 0):,}',
                     pctf(c.queue_counts.get(q, 0) / c.n_unlab if c.n_unlab else None)]
-                   for q in queues.QUEUE_ORDER])
+                   for q in queues.QUEUE_ORDER],
+                  source="send_first_queue.csv")
     # The ladder is tried in this order and the first match wins, which is the
     # only way to read the table without contradiction: a weak guess on a rare
     # species is long tail, not "guessed weakly".
@@ -153,7 +156,8 @@ def send_preview_table(c):
                      [[f"{i}", f'<code class="key">{esc(stem)}</code>',
                        f'<span class="sp">{esc(cap(pred))}</span>', f"{cf:.3f}",
                        f"{c.support.get(pred, 0):,}"]
-                      for i, (_, stem, pred, cf, _rank) in enumerate(head, 1)]))
+                      for i, (_, stem, pred, cf, _rank) in enumerate(head, 1)],
+                     source="send_first_queue.csv"))
     return body
 
 
