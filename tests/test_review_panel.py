@@ -19,6 +19,7 @@ import csv
 import re
 from types import SimpleNamespace
 
+import pytest
 from conftest import SNAPSHOT_DIR
 
 PANEL = re.compile(r'id="labels-worth-a-second-look".*?</details>', re.S)
@@ -146,12 +147,28 @@ def test_the_panel_states_how_far_the_links_reach(external_page, core):
     assert "labelled frames page-wide" in panel
 
 
-def test_the_unlinked_frames_are_explained_as_an_unexported_project(external_page):
-    """Not a broken link and not a limitation: the rows are in a project nobody
-    has exported, and one read-only export per project closes it."""
+def test_a_shortfall_is_explained_rather_than_left_as_a_gap(panels):
+    """Not a broken link and not a limitation: no file here names both halves of
+    the link, and either of the two files that can closes it.
+
+    Tested on the note rather than on the page, because the page has no
+    shortfall to show: both sources together now name a link for every labelled
+    frame. The sentence still has to be right for the build where they do not."""
+    note = panels._link_note(
+        {"n_linked": 40, "n_frames": 51, "n_unlinked": 11, "by_project": {"p": 40}},
+        {"n_linked": 3000, "n_frames": 3781, "share": 0.79})
+    assert "The other 11 are not unlinkable" in note
+    assert "names both the project and the data row" in note
+
+
+def test_no_shortfall_means_no_sentence_about_one(external_page, core):
+    """The clause is conditional, so a fully linked table must not carry it."""
+    keys = [r["global_key"] for r in queue_rows()]
+    here = core.labelbox_link_coverage(keys, core.labelbox_urls())
     panel = review_panel(external_page[0])
-    assert "are not unlinkable" in panel
-    assert "export per project closes it" in panel
+    if here["n_unlinked"]:
+        pytest.skip(f"{here['n_unlinked']} frames are unlinked in this build")
+    assert "are not unlinkable" not in panel
 
 
 def test_the_link_note_says_nothing_about_a_split_it_cannot_see(panels):
