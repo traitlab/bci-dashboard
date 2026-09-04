@@ -65,7 +65,11 @@ def test_every_class_a_builder_writes_has_a_rule_in_the_stylesheet(style):
     css = _css_classes(style)
     missing = {}
     for name, src in _sources().items():
-        if name == "style.py":
+        # style.py holds the stylesheet these are checked against.
+        # build_index.py is the landing page and carries its own: it is served
+        # at the root of the site and has to render on its own, without the
+        # dashboard stylesheet a panel can assume.
+        if name in ("style.py", "build_index.py"):
             continue
         for m in _EMITTED_RE.finditer(src):
             for cls in m.group(1).split():
