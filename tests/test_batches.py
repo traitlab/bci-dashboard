@@ -263,3 +263,32 @@ def test_a_frame_two_batches_claim_is_a_build_failure(queues):
     batches = queues.chunk_send_batches(queue, batch_size=25)
     with pytest.raises(ValueError, match="more than one send batch"):
         queues.with_batch_ids(queue, batches + [list(batches[0])])
+
+
+# --- The cap itself is the labelling team's number ---
+def test_the_cap_defaults_to_a_hundred_when_nothing_is_set(queues):
+    """Antoine's number. An unset or empty variable is not a choice."""
+    assert queues._batch_size_from_env(None) == 100
+    assert queues._batch_size_from_env("") == 100
+    assert queues._batch_size_from_env("   ") == 100
+
+
+def test_the_cap_can_be_set_without_editing_source(queues):
+    """Etienne wanted many small batches over few large ones. Trying 50 or 200
+    should not be a code change, because it is not our call to make."""
+    assert queues._batch_size_from_env("50") == 50
+    assert queues._batch_size_from_env(" 200 ") == 200
+
+
+@pytest.mark.parametrize("raw", ["one hundred", "100.5", "1e2", "100 photos"])
+def test_a_cap_that_is_not_a_number_stops_the_run(queues, raw):
+    """Falling back to 100 on a typo would repartition the queue against a
+    number nobody chose, and the page would then describe it as intended."""
+    with pytest.raises(ValueError, match="whole number"):
+        queues._batch_size_from_env(raw)
+
+
+@pytest.mark.parametrize("raw", ["0", "-1"])
+def test_a_cap_below_one_stops_the_run(queues, raw):
+    with pytest.raises(ValueError, match="at least 1"):
+        queues._batch_size_from_env(raw)
