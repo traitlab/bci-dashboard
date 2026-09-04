@@ -19,11 +19,13 @@ from core import (
     CONF_BINS,
     CONF_THRESHOLDS,
     GT_KEY_PREFIX,
+    IDENTIFY_URL,
     MIN_CROP_COVERAGE,
     N_CANDIDATES,
     RELIABLE_MIN_TOP1,
     REVIEW_CONF,
     WELL_SAMPLED_MIN_N,
+    flora_name,
     pct,
 )
 from crop_overlap import CROP_SIZE
@@ -39,8 +41,12 @@ def log_cache(_log, s):
     _log("--- CACHED PREDICTIONS: PROVENANCE ---")
     _log("  Read from predict/ingest_photos.py + config.yaml")
     _log("  + bin/sbatch_ingest.sh (the run that filled this cache):")
-    _log("    endpoint : https://my-api.plantnet.org/v2/identify/k-central-america")
-    _log("               -> the CENTRAL AMERICA regional model, NOT the global Pl@ntNet model.")
+    # Both lines derive from config.yaml. history.model_tag_of regexes the flora
+    # back out of the first one, so a literal here is how the page comes to name
+    # a flora nothing was predicted through.
+    _log(f"    endpoint : {IDENTIFY_URL}")
+    _log(f"               -> the {flora_name().upper()} model, "
+         f"NOT the global Pl@ntNet model.")
     _log("               The sbatch job passes no --survey-endpoint, so the 2-call")
     _log("               identify+embeddings fallback ran, not /v2/survey/.")
     _log("    model    : the endpoint reports '2026-03-20 (7.5)'.")

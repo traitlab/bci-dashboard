@@ -139,7 +139,51 @@ N_CANDIDATES = 5
 # list to data/checklist_<EVAL_PROJECT>.json; dashboard/checklist.py reads that back
 # and is the one source that can prove a species absent rather than merely never
 # ranked in an N_CANDIDATES-name sample.
-EVAL_PROJECT = "k-central-america"
+#
+# Read from config.yaml rather than typed, because the slug used to be typed in
+# four places and one of them was load-bearing: run_log.py printed the endpoint
+# as a literal and history.model_tag_of regexes the flora back out of that line.
+# Editing config.yaml alone left the page reporting one flora while predicting
+# through another, which is a mislabelled published number rather than a stale
+# comment. Everything downstream now derives from this one value, so the flora
+# on the page cannot disagree with the flora that was called.
+_IDENTIFY_URL_RE = re.compile(r"^\s+identify_url:\s*(\S+)", re.MULTILINE)
+IDENTIFY_URL_FALLBACK = "https://my-api.plantnet.org/v2/identify/k-central-america"
+
+
+def identify_url(config_path: str = CONFIG_YAML) -> str:
+    """The Pl@ntNet endpoint the cached predictions came from.
+
+    Falls back to the endpoint in use when this was written if config.yaml
+    cannot be read at all. The fallback is a last resort and not a default: the
+    file is tracked, so its absence means something is wrong with the checkout
+    rather than that a choice was left unmade.
+    """
+    try:
+        with open(config_path, encoding="utf-8") as fh:
+            m = _IDENTIFY_URL_RE.search(fh.read())
+    except OSError:
+        return IDENTIFY_URL_FALLBACK
+    return m.group(1) if m else IDENTIFY_URL_FALLBACK
+
+
+IDENTIFY_URL = identify_url()
+EVAL_PROJECT = IDENTIFY_URL.rstrip("/").rsplit("/", 1)[-1]
+
+# What to call a flora in prose. A slug nobody has named reads as itself, which
+# is worse English and better than a wrong name: the page would otherwise still
+# say "Central America" after the switch to BCNM that Etienne asked for.
+FLORA_NAMES = {
+    "k-central-america": "Central America regional",
+    "k-world-flora": "worldwide",
+    "bcnm": "Barro Colorado Nature Monument",
+}
+
+
+def flora_name(project: str = "") -> str:
+    """A readable name for a flora slug, or the slug itself."""
+    project = project or EVAL_PROJECT
+    return FLORA_NAMES.get(project, project)
 
 CONF_BINS = [(0.0, 0.5), (0.5, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.01)]
 CONF_THRESHOLDS = [0.7, 0.8, 0.9]
