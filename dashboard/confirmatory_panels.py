@@ -82,11 +82,6 @@ def p_floor(c):
     cf = require(c.cf)
     lo, hi = cf["crown_minus_photo_site_lo"], cf["crown_minus_photo_site_hi"]
     body = (
-        f'<p class="note"><strong>The short version.</strong> The middle square is '
-        f'{CENTRE_CROP_IS.split(", ")[-1]}. Measuring there costs '
-        f'{100 * cf["crown_minus_photo"]:.1f} points against a botanist&rsquo;s outlines, '
-        f'on {int(cf["n_frames"])} frames fixed in advance. The rest of this panel is '
-        f'where that number comes from and how far it reaches.</p>'
         f'<p class="note"><strong>Which frames.</strong> {int(cf["n_frames"])} frames from '
         f'{int(cf["n_sites"])} sites and {int(cf["n_days"])} flight days, drawn from a '
         f'fixed list before any of these numbers existed. Both ways of asking ran on every '
@@ -97,10 +92,9 @@ def p_floor(c):
         f'this page uses.</p>'
         f'<p class="note"><strong>How sure.</strong> We are 95% sure the true gap is '
         f'between {100 * lo:+.1f} and {100 * hi:+.1f} points. Frames shot at the same site '
-        f'look alike, so we re-ran the whole count '
-        f'{int(cf["bootstrap_draws"]):,} times. Each time we drew {int(cf["n_sites"])} '
-        f'sites at random out of the same {int(cf["n_sites"])}, so some got picked twice '
-        f'and others not at all. We kept the middle 95% of the answers.</p>'
+        f'look alike, so the count was re-run {int(cf["bootstrap_draws"]):,} times, each '
+        f'time redrawing the {int(cf["n_sites"])} sites with replacement, keeping the '
+        f'middle 95%.</p>'
         f'<p class="note">On {int(cf["crown_only_hits"])} frames outlining got the name '
         f'right where the middle square got it wrong. On {int(cf["photo_only_hits"])} it '
         f'went the other way.</p>'
@@ -117,13 +111,14 @@ def p_floor(c):
         f'per-species average here, so none is published.</li></ul></div>'
         f'<p class="note">The rules behind this gap predate the data: which frames, '
         f'which test, what counts as right, and when we were allowed to look. The full '
-        f'read, both ways of averaging, and the warnings the design requires word for '
-        f'word are written up with that design, and we send it on request. This page '
-        f'prints the correction and cites the rest.</p>')
+        f'read, both averagings, and the warnings the design requires verbatim sit with '
+        f'that design, and we send it on request.</p>')
     return panel(
         'What the middle square costs, and how far that number reaches',
-        "<b>One question, asked once, on frames fixed in advance.</b> How much the "
-        "middle square costs us against a label for the whole frame.", body,
+        f"<b>One question, asked once, on {int(cf['n_frames'])} frames fixed in "
+        f"advance.</b> Scoring the middle square instead of a botanist&rsquo;s outlines "
+        f"costs {100 * cf['crown_minus_photo']:.1f} points. This is where that comes "
+        f"from, and how far it reaches.", body,
         # The id predates this panel. A saved link should still land on the
         # question it was saved for, which is the one narrowed here.
         anchor="where-the-headline-comes-from")
