@@ -18,6 +18,7 @@ from core import (
     BUCKET_ORDER,
     CONF_BINS,
     CONF_THRESHOLDS,
+    EVAL_PROJECT,
     GT_KEY_PREFIX,
     IDENTIFY_URL,
     MIN_CROP_COVERAGE,
@@ -86,6 +87,20 @@ def log_cache(_log, s):
     _log(f"  entries breaking descending order   : {s.n_unsorted}  "
          f"(0 confirms the list is ranked; index 0 is top-1)")
     _log(f"  distinct predicted binomials        : {len(s.corpus_vocab)}")
+    _log("")
+    _log("--- CACHED PREDICTIONS: WHICH FLORA ANSWERED ---")
+    _log(f"  project config.yaml names now       : {EVAL_PROJECT}")
+    for proj, n in sorted(s.project_count.items()):
+        _log(f"    answers naming {proj or '(nothing)':20}: {n}")
+    for src, n in sorted(s.project_source_count.items()):
+        _log(f"    provenance {src or '(none)':24}: {n}")
+    _log(f"  answers naming another project      : {s.n_foreign_project}  "
+         f"(0 confirms one flora produced every number below)")
+    _log("  'recorded' was written by the fetch. 'assumed' was backfilled by")
+    _log("  predict/stamp_cache_project.py from the endpoint in force at the time,")
+    _log("  which is weaker evidence and is counted apart for that reason. A project")
+    _log("  filters one classifier, so answers from two projects are two populations")
+    _log("  and pooling them is not a rounding error.")
     _log("")
 
 

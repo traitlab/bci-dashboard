@@ -21,6 +21,7 @@ import run_log as rl
 from checklist import load_checklist
 from core import (
     CACHE_DIR,
+    EVAL_PROJECT,
     GT_CSV,
     GT_KEY_PREFIX,
     MIN_CROP_COVERAGE,
@@ -30,11 +31,14 @@ from core import (
     bucket_label,
     canonicaliser,
     coverage_split,
+    entry_project,
+    entry_project_source,
+    entry_species,
     genus_of,
     is_species_level,
-    load_cache_entry,
     load_wcvp_crosswalk,
     normalize,
+    read_cache_json,
     read_csv_rows,
 )
 
@@ -66,8 +70,14 @@ def scan_cache(cache_dir):
     """Every cached Pl@ntNet response, read once.
 
     Returns the ranked list per photo stem, plus run-log counts: parse status,
-    list-length histogram, and the two invariants pages assume, score fields
-    match and lists descend.
+    list-length histogram, the two invariants pages assume, score fields match
+    and lists descend, and which Pl@ntNet project each answer records.
+
+    The project counts are here rather than in a separate pass because this is
+    the only walk of the directory. An answer whose project is not the one
+    config.yaml names today was fetched through a different flora, and every
+    per-species number pools it with the rest. That is the one failure mode a
+    flora switch introduces and the only place it can be seen.
     """
     files = sorted(f for f in os.listdir(cache_dir) if f.endswith(".json"))
     # SystemExit like require_inputs below: with no files `maxk` has no largest
@@ -78,12 +88,15 @@ def scan_cache(cache_dir):
             f"but holds no .json file. Run bin/refresh.sh to fetch them, or point "
             f"at an existing copy with the flags --help lists.")
     predictions, status_count, length_hist = {}, Counter(), Counter()
-    corpus_vocab = Counter()
+    corpus_vocab, project_count, project_source_count = Counter(), Counter(), Counter()
     n_entries = n_cov_ne_score = n_unsorted = 0
 
     for fn in files:
-        sp, status = load_cache_entry(os.path.join(cache_dir, fn))
+        entry, status = read_cache_json(os.path.join(cache_dir, fn))
+        sp = entry_species(entry)
         status_count[status] += 1
+        project_count[entry_project(entry)] += 1
+        project_source_count[entry_project_source(entry)] += 1
         ranked = []
         prev = None
         for e in sp:
@@ -105,7 +118,11 @@ def scan_cache(cache_dir):
     return SimpleNamespace(
         files=files, predictions=predictions, status_count=status_count,
         length_hist=length_hist, corpus_vocab=corpus_vocab, n_entries=n_entries,
-        n_cov_ne_score=n_cov_ne_score, n_unsorted=n_unsorted, maxk=max(length_hist))
+        n_cov_ne_score=n_cov_ne_score, n_unsorted=n_unsorted, maxk=max(length_hist),
+        project_count=project_count, project_source_count=project_source_count,
+        n_no_project=project_count[""],
+        n_foreign_project=sum(n for p, n in project_count.items()
+                              if p and p != EVAL_PROJECT))
 
 
 def reconcile_names(gt_rows, predictions, corpus_vocab, crosswalk):

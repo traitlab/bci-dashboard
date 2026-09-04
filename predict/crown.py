@@ -439,7 +439,8 @@ def fetch_crowns(log, args, todo, cache_dir, cfg, api_key):
                 cfg["identify_organs"],
                 cfg["identify_lang"],
             )
-            entry = pn.parse_response(resp, cid, url, frame_w, frame_h, None)
+            entry = pn.parse_response(resp, cid, url, frame_w, frame_h, None,
+                                      project=pn.api_and_project({"plantnet": cfg})[1])
             # The geometry photo.py threw away. Without these fields the region the
             # model saw cannot be recovered from the cache alone.
             entry.update({

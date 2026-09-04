@@ -180,8 +180,33 @@ def identify_url(config_path: str = CONFIG_YAML) -> str:
     return m.group(1) if m else IDENTIFY_URL_FALLBACK
 
 
+def project_of(url: str) -> str:
+    """The project slug in a Pl@ntNet identify endpoint, the last path segment.
+
+    predict/photo.py derives the same slug from the same setting, in
+    ``api_and_project``, when it stamps a cached answer. The two copies exist
+    because dashboard/ imports nothing from predict/ and predict/ imports this
+    file only by path; tests/test_cache_provenance.py holds them to the same
+    answer. A cached answer and the page reporting on it have to name the project
+    the same way, or the mismatch the stamp exists to catch is invisible.
+    """
+    return (url or "").rstrip("/").rsplit("/", 1)[-1]
+
+
 IDENTIFY_URL = identify_url()
-EVAL_PROJECT = IDENTIFY_URL.rstrip("/").rsplit("/", 1)[-1]
+EVAL_PROJECT = project_of(IDENTIFY_URL)
+
+# The key a cached Pl@ntNet answer records its project under. Written by
+# predict/photo.py at fetch time, backfilled by predict/stamp_cache_project.py,
+# and read by entry_project below.
+PROJECT_KEY = "project"
+
+# The key beside it saying how the project was established: "recorded" when the
+# fetch wrote it, "assumed" when it was backfilled from the endpoint in force at
+# the time. The two are not the same evidence and a page may not merge them.
+PROJECT_SOURCE_KEY = "project_source"
+PROJECT_RECORDED = "recorded"
+PROJECT_ASSUMED = "assumed"
 
 # What to call a flora in prose. A slug nobody has named reads as itself, which
 # is worse English and better than a wrong name: the page would otherwise still
@@ -514,22 +539,72 @@ def salvage_species_array(text: str):
     return None
 
 
-def load_cache_entry(path: str):
-    """-> (species_list, status). status in {ok, salvaged, unreadable}.
-    per_tiles_embeddings is dropped immediately and never retained."""
+def read_cache_json(path: str):
+    """-> (entry, status). status in {ok, salvaged, unreadable}.
+
+    The whole cached answer, so a caller can read both the ranked names and the
+    provenance beside them without opening the file twice. A salvaged payload
+    yields only what could be recovered, which is the species array alone: a
+    truncated file has no trustworthy provenance and must not be given one.
+    """
     with open(path, encoding="utf-8", errors="replace") as f:
         text = f.read()
     try:
-        return json.loads(text).get("results", {}).get("species", []) or [], "ok"
+        return json.loads(text), "ok"
     except json.JSONDecodeError:
         pass
     try:  # valid JSON followed by trailing garbage
         obj, _ = json.JSONDecoder().raw_decode(text)
-        return obj.get("results", {}).get("species", []) or [], "salvaged"
+        return obj, "salvaged"
     except json.JSONDecodeError:
         pass
     sp = salvage_species_array(text)
-    return (sp, "salvaged") if sp is not None else ([], "unreadable")
+    if sp is None:
+        return {}, "unreadable"
+    return {"results": {"species": sp}}, "salvaged"
+
+
+def entry_species(entry) -> list:
+    """The ranked names in a cached answer, or [] for any shape without them."""
+    if not isinstance(entry, dict):
+        return []
+    results = entry.get("results")
+    if not isinstance(results, dict):
+        return []
+    return results.get("species") or []
+
+
+def entry_project_source(entry) -> str:
+    """How a cached answer's project was established, or "" if it says nothing.
+
+    "recorded" means the fetch wrote it. "assumed" means it was backfilled from
+    the endpoint in force at the time, which is weaker evidence and is reported
+    separately for that reason.
+    """
+    if not isinstance(entry, dict):
+        return ""
+    return str(entry.get(PROJECT_SOURCE_KEY) or "").strip()
+
+
+def entry_project(entry) -> str:
+    """The Pl@ntNet project a cached answer records, or "" if it records none.
+
+    An answer written before predict/photo.py stamped the project carries no
+    such key, and "" is the honest reading: the project is unknown, not the one
+    config.yaml happens to name today. Everything that reports on the cache
+    keeps those two apart, because after a flora switch an unstamped answer and
+    a current one are otherwise the same file.
+    """
+    if not isinstance(entry, dict):
+        return ""
+    return str(entry.get(PROJECT_KEY) or "").strip()
+
+
+def load_cache_entry(path: str):
+    """-> (species_list, status). status in {ok, salvaged, unreadable}.
+    per_tiles_embeddings is dropped immediately and never retained."""
+    entry, status = read_cache_json(path)
+    return entry_species(entry), status
 
 
 def load_wcvp_crosswalk(path):

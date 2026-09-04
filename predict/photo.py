@@ -207,7 +207,7 @@ def call_identify_api(jpeg_bytes: bytes, filename: str, api_url: str,
 
 def parse_response(response: dict, global_key: str, image_url: str,
                    orig_width: int, orig_height: int,
-                   crop_size: int | None) -> dict:
+                   crop_size: int | None, *, project: str = "") -> dict:
     """
     Extract top-N results and organ predictions from API response.
     Each result entry: {rank, score, scientific_name, family, genus, gbif_id, powo_id}
@@ -250,6 +250,12 @@ def parse_response(response: dict, global_key: str, image_url: str,
     return {
         "global_key":        global_key,
         "image_url":         image_url,
+        # Which flora answered. A project is a filter on one classifier, so the
+        # same photo gets different names from different projects and the answers
+        # are not interchangeable. Without this key an answer fetched before a
+        # flora switch is indistinguishable on disk from one fetched after it.
+        "project":           project,
+        "project_source":    "recorded",
         "best_match":        best_match,
         "remaining_credits": response.get("remainingIdentificationRequests"),
         "original_width":    orig_width,
@@ -296,6 +302,9 @@ def api_settings(config):
     pn_cfg = config["plantnet"]
     return SimpleNamespace(
         url=pn_cfg["identify_url"],
+        # The same slug dashboard/core.py derives from this setting, so a cached
+        # answer names its project the way the page reporting on it does.
+        project=api_and_project(config)[1],
         nb_results=pn_cfg["identify_nb_results"],
         organs=pn_cfg["identify_organs"],
         lang=pn_cfg["identify_lang"])
@@ -364,7 +373,8 @@ def fetch_all(to_process, api, api_key, cache_dir, *, delay, test):
             if test:
                 report_request(gk, orig_w, orig_h, crop_s, jpeg_bytes, response)
 
-            entry = parse_response(response, gk, image_url, orig_w, orig_h, crop_s)
+            entry = parse_response(response, gk, image_url, orig_w, orig_h, crop_s,
+                                   project=api.project)
             save_cache(cache_dir / f"{cache_name(gk)}.json", entry)
             ok += 1
             last_remaining = entry.get("remaining_credits")
