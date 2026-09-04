@@ -1,6 +1,6 @@
 """The corpus-wide calibration chart, and the per-species spread beside it.
 
-Etienne, 2026-09-03, on the confidence column: he wanted the distribution and
+The reviewer, 2026-09-03, on the confidence column: they wanted the distribution and
 not one number. That is two halves. The chart here is the corpus half, measured
 already and until now drawn only on the internal page; the species table's
 middle-half column is the per-species half.

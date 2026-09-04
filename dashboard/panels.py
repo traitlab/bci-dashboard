@@ -47,7 +47,7 @@ SPECIES_LOOKUP_LEDE = ("<b>Find a species you care about and read its status.</b
 # The name is the metric's own name and the question is the plain-English gloss
 # under it. Until 2026-09-03 there was no name and the gloss was the label:
 # CONTEXT.md banned "top-1" and "top-5" on a page outright, out of the
-# 2026-09-01 plain-English pass. Etienne asked for the names back on the call
+# 2026-09-01 plain-English pass. The reviewer asked for the names back on the call
 # ("maybe it's actually simpler, just name the metric") and the user confirmed
 # the reversal, so the ban is gone and the gloss stayed under the name.
 # A botanist still reads the sentence; a PI stops having to translate it.
@@ -295,7 +295,7 @@ def p_review(c):
 THIN_MIN_FRAMES = hc.WELL_SAMPLED_MIN_N
 
 
-# The bars the reader can pick between. Etienne, sorting the table by hand and
+# The bars the reader can pick between. The reviewer, sorting the table by hand and
 # counting rows out loud: "it would be nice to see how many are above 85 or
 # something". Round numbers around that. The default is RELIABLE_MIN_TOP1
 # because at that bar, over species carrying THIN_MIN_FRAMES or more labelled
@@ -459,7 +459,7 @@ def p_calibration(c):
     The measurement is already on disk and already verified against
     ``confidence_calibration.csv``; until now only the internal page drew it,
     so a reader of this page met "confidence" as a column with nothing behind
-    it. Etienne on 2026-09-03 asked for the confidence as a distribution rather
+    it. The reviewer on 2026-09-03 asked for the confidence as a distribution rather
     than one number, and this is the corpus-wide half of that: the species
     table's middle-half column is the per-species half.
     """

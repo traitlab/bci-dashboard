@@ -172,7 +172,7 @@ EVAL_PROJECT = IDENTIFY_URL.rstrip("/").rsplit("/", 1)[-1]
 
 # What to call a flora in prose. A slug nobody has named reads as itself, which
 # is worse English and better than a wrong name: the page would otherwise still
-# say "Central America" after the switch to BCNM that Etienne asked for.
+# say "Central America" after the switch to BCNM that the reviewer asked for.
 FLORA_NAMES = {
     "k-central-america": "Central America regional",
     "k-world-flora": "worldwide",

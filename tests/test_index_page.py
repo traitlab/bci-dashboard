@@ -1,6 +1,6 @@
 """The landing page GitHub Pages serves.
 
-Etienne asked for one bookmarkable address rather than a file someone has to be
+The reviewer asked for one bookmarkable address rather than a file someone has to be
 sent each time. A bookmark that lands on a directory listing is not that, and a
 bookmark whose dates were typed by hand goes stale without anyone noticing.
 """

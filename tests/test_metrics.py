@@ -213,7 +213,7 @@ def test_every_species_row_carries_the_spread_and_not_just_the_mean(corpus):
 # ---------------------------------------------------------------------------
 
 def test_the_page_names_the_metric_as_well_as_glossing_it(external_page):
-    """Etienne asked for the metric's own name back on the 2026-09-03 call.
+    """The reviewer asked for the metric's own name back on the 2026-09-03 call.
 
     The plain-English sentence stayed underneath as the gloss, so this asserts
     both halves: a page that only names the metric has lost the botanist, and

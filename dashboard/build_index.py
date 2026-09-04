@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The landing page GitHub Pages serves at the root of the site.
 
-Two links and the date they were built. It exists because Etienne asked for one
+Two links and the date they were built. It exists because the reviewer asked for one
 bookmarkable address rather than a file someone has to be sent each time, and a
 bookmark that lands on a directory listing is not that.
 

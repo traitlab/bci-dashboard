@@ -1,6 +1,6 @@
 """The species table's own two additions: the accuracy bar and the export link.
 
-Etienne sorted the table by hand and counted rows out loud to answer "how many
+The reviewer sorted the table by hand and counted rows out loud to answer "how many
 species are above 85 or so". The control answers it directly, and the count it
 prints has to be the same count the rows carry, or the page tells a reader two
 different things about one population.

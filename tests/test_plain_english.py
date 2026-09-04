@@ -67,7 +67,7 @@ RETIRED = {
     r"\bmacro\b": "per species",
     r"\bmicro\b": "per frame",
     # "top-1" and "top-5" were retired here on 2026-09-01 and brought back on
-    # 2026-09-03: Etienne asked for the metric's own name on the call, and a
+    # 2026-09-03: the reviewer asked for the metric's own name on the call, and a
     # page that never names it leaves a reader translating in their head. The
     # plain-English sentence stayed as the gloss under the name, so nothing was
     # lost. If you are retiring them again, change CONTEXT.md in the same edit.
