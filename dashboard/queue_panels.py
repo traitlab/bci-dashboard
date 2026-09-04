@@ -83,7 +83,9 @@ def p_todo(c):
                 # The sortable species table is on the model-health page.
                 f'The frame counts and accuracy behind each status are in the species '
                 f'table on the model-health page, '
-                f'<code>model_health_dashboard.html</code>.</p>'
+                f'<code>model_health_dashboard.html</code>. Which species sit in which '
+                f'row is the <code>status</code> column of '
+                f'<a href="per_species_health.csv">per_species_health.csv</a>.</p>'
                 f'<p class="note"><strong>Cheaper still, and in no row above: {c.gen_one:,} '
                 f'frames whose botanist label stops at the genus.</strong> Their five '
                 f'candidates hold exactly one species from that genus, so the question is yes '

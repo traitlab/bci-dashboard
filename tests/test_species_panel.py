@@ -83,3 +83,48 @@ def test_the_species_table_links_its_own_export(external_page):
     html, stdout = external_page
     assert 'href="per_species_health.csv"' in html
     assert "per_species_health.csv" in stdout
+
+
+# ---------------------------------------------------------------------------
+# The status column: the one figure the file did not carry
+# ---------------------------------------------------------------------------
+
+def _species_row(**over):
+    """One aggregation row, in the shape `write_per_species_health` reads."""
+    row = {"species": "Hura crepitans", "n_labelled_frames": 12,
+           "top1_accuracy": 0.95, "top5_accuracy": 0.99,
+           "in_corpus_vocabulary": True, "in_project_checklist": True}
+    return {**row, **over}
+
+
+def test_the_file_carries_the_status_the_table_shows(measure, core, tmp_path):
+    """The species table's last column, and the queue page's whole to-do list,
+    were the one figure a reader could not get out of the file."""
+    rows = [_species_row(), _species_row(species="Ceiba pentandra",
+                                        n_labelled_frames=2, top1_accuracy=0.0,
+                                        top5_accuracy=0.0)]
+    measure.write_per_species_health(str(tmp_path), rows)
+    import csv
+    got = list(csv.DictReader((tmp_path / "per_species_health.csv").open()))
+    assert [d["status"] for d in got] == [core.diagnose(r) for r in rows]
+
+
+def test_the_status_column_is_written_from_the_rule_the_pages_call(measure, core):
+    """`core.diagnose`, not a second copy of the precedence order. A status in
+    the file that no page names is the drift this guards."""
+    import inspect
+    src = inspect.getsource(measure.write_per_species_health)
+    assert "diagnose(d)" in src
+
+
+def test_every_status_the_file_can_carry_is_one_the_pages_name(core, status_words):
+    """The file is read beside the pages, so a key here that the legends do not
+    explain is a column a reader cannot act on."""
+    keys = {core.diagnose(_species_row(**over)) for over in (
+        {}, {"in_project_checklist": False}, {"n_labelled_frames": 2},
+        {"top1_accuracy": 0.1, "top5_accuracy": 0.9},
+        {"top1_accuracy": 0.1, "top5_accuracy": 0.15},
+        {"in_corpus_vocabulary": False, "top1_accuracy": 0.1, "top5_accuracy": 0.15},
+    )}
+    assert keys <= set(status_words.STATUS)
+    assert len(keys) >= 5

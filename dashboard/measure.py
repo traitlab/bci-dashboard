@@ -22,7 +22,7 @@ from health import load_health
 from core import (
     add_input_flags, summarise,
     ratio, fmt, genus_of, normalize,
-    coverage_gate_stats, labelbox_urls, adjudicated_keys,
+    coverage_gate_stats, diagnose, labelbox_urls, adjudicated_keys,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
     REVIEW_CONF, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
@@ -88,7 +88,14 @@ def write_name_reconciliation(out_dir, h):
 
 
 def write_per_species_health(out_dir, per_species):
-    """The page's table: one row per species from the aggregation."""
+    """The page's table: one row per species from the aggregation.
+
+    The ``status`` column is the one figure the aggregation does not carry. Both
+    pages show it, the species table as its last column and the queue page as
+    the to-do list, and a reader who took the file got every column except the
+    one they were reading rows by. Written from ``core.diagnose``, the same rule
+    the pages call, so a status here and a status on a page cannot differ.
+    """
     if not per_species:
         # Like health.scan_cache and health.require_inputs on the same no-data
         # case: a loud, actionable failure here, not an IndexError off
@@ -98,10 +105,11 @@ def write_per_species_health(out_dir, per_species):
             "labelled species. Run bin/refresh.sh to fetch and build the inputs, or "
             "point at an existing copy with the flags --help lists.")
     with _csv(out_dir, "per_species_health.csv") as f:
-        w = csv.DictWriter(f, fieldnames=list(per_species[0].keys()))
+        w = csv.DictWriter(f, fieldnames=[*per_species[0], "status"])
         w.writeheader()
         for d in per_species:
-            w.writerow({k: (fmt(v) if isinstance(v, float) else v) for k, v in d.items()})
+            row = {k: (fmt(v) if isinstance(v, float) else v) for k, v in d.items()}
+            w.writerow({**row, "status": diagnose(d)})
 
 
 def write_support_buckets(out_dir, B):
