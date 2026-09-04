@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import core as hc
 from assets import (cap, esc, filterable_table, hero, num_cell, panel, pctf,
-                    status_legend, status_tag, table)
+                    status_legend, status_tag, svg_hbar, table)
 from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
-from explain import method_panel, weighting_panel
+from explain import CONF_BAND_WORDS, method_panel, weighting_panel
 from figures import conf, top1
 from status_words import (STATUS, filter_options, legend_entries,
                           status_precedence_note)
@@ -386,6 +386,11 @@ def p_species(c):
             num_cell(d["f1"], pctf(d["f1"])),
             num_cell(d["mean_top1_confidence"],
                      f'{d["mean_top1_confidence"]:.2f}'),
+            # Sorted on the width, shown as the range: a reader scanning for
+            # species whose confidence is all over the place wants the width,
+            # and a reader reading one row wants the two ends.
+            num_cell(d["iqr_top1_confidence"],
+                     f'{d["p25_top1_confidence"]:.2f} to {d["p75_top1_confidence"]:.2f}'),
             status_tag(st, STATUS[st][0])])
         # No data-status: the row's status tag carries it and the filter reads
         # it from there, rather than 4KB of markup saying it twice.
@@ -419,13 +424,18 @@ def p_species(c):
             + '<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own '
               'score for its first guess, averaged over that species&rsquo; frames. '
               'Pl@ntNet spreads 100% of it across every species it knows. So 0.86 means '
-              'nearly all of that went on one name, and 0.32 means it was spread thin.</p>'
+              'nearly all of that went on one name, and 0.32 means it was spread thin. '
+              '<b>Middle half</b> is where the middle 50% of that species&rsquo; frames '
+              'fall, the 25th to the 75th percentile. A mean of 0.60 over a middle half '
+              'of 0.55 to 0.65 is a steady score. The same mean over 0.20 to 0.95 is two '
+              'behaviours averaged into one number, and the column sorts on that '
+              'width.</p>'
             + threshold_control(c)
             + filterable_table(
         [("Species", False), ("Labelled frames", True),
          ("Top-1 accuracy", True), (f"Top-{c.n_cand} accuracy", True),
          ("Frames guessed", True), ("Precision", True), ("F1", True),
-         ("Model's confidence", True), ("Status", False)],
+         ("Model's confidence", True), ("Middle half", True), ("Status", False)],
         sp_rows,
         options=filter_options(),
         row_attrs=attrs,
@@ -441,6 +451,36 @@ def p_species(c):
                  "does not show, are in "
                  '<a href="per_species_health.csv">per_species_health.csv</a>.',
                  body)
+
+
+def p_calibration(c):
+    """How often the first guess is right at each confidence band.
+
+    The measurement is already on disk and already verified against
+    ``confidence_calibration.csv``; until now only the internal page drew it,
+    so a reader of this page met "confidence" as a column with nothing behind
+    it. Etienne on 2026-09-03 asked for the confidence as a distribution rather
+    than one number, and this is the corpus-wide half of that: the species
+    table's middle-half column is the per-species half.
+    """
+    rows = [(CONF_BAND_WORDS[band], k / nn if nn else 0.0,
+             f'{pctf(k / nn) if nn else "n/a"} of {nn:,} frames', "#1565c0")
+            for band, nn, k in c.bins_all]
+    graded = sum(nn for _, nn, _ in c.bins_all)
+    return panel(
+        "Is the confidence score worth anything: mostly yes",
+        "<b>Read this before treating a confidence as a probability.</b> How often "
+        "the first guess is right, band by band, over every labelled frame.",
+        svg_hbar(rows, title="how often the first guess is right, "
+                             "by the model's own confidence")
+        + f'<p class="note">All {graded:,} labelled frames, one guess each. The bands '
+          f'rise, so a higher score really does mean a likelier answer, which is what '
+          f'makes ordering the label queue on confidence work at all.</p>'
+        f'<p class="note"><b>It is not a probability.</b> A band reading '
+        f'{pctf(c.bins_all[-1][2] / c.bins_all[-1][1]) if c.bins_all[-1][1] else "n/a"} '
+        f'is not the same claim as a score of {c.bins_all[-1][0][1:4]}. And this holds in '
+        f'bulk only: on species with few labelled frames a high score is much less '
+        f'reliable, which the label-queue page measures band by band.</p>')
 
 
 def p_ceiling(c):

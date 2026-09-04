@@ -22,7 +22,7 @@ from assets import css_for, section, strip_comments
 from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
 from confirmatory_panels import p_floor
 from panels import (
-    p_ceiling, p_counts, p_method, p_review, p_species, p_terms,
+    p_calibration, p_ceiling, p_counts, p_method, p_review, p_species, p_terms,
     p_weighting)
 from queue_panels import p_evidence, p_look, p_send, p_todo
 
@@ -77,6 +77,10 @@ PANELS = {
     # ("No, I think it's good ... it's good to have all the information"). It is
     # an explanation of the two headline rates, so it belongs here.
     "weighting": ("explanations", p_weighting),
+    # The calibration chart was measured for this page and drawn only on the
+    # other one. It explains the confidence column rather than reporting a new
+    # number, so it sits in the explanations section beside the weighting panel.
+    "calibration": ("explanations", p_calibration),
     "terms": ("explanations", p_terms),
     "counts": ("explanations", p_counts),
     "ceiling": ("limits", p_ceiling),
@@ -94,7 +98,7 @@ INTERNAL_PANELS = ("todo", "send", "look", "evidence")
 # "centre crop" were defined before first use, which is right for a first read
 # and wrong for every read after it.
 EXTERNAL_PANELS = ("floor", "species", "review",
-                   "weighting", "terms", "counts", "ceiling", "method")
+                   "weighting", "calibration", "terms", "counts", "ceiling", "method")
 
 if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
     raise SystemExit(f"every panel belongs to a page: "
