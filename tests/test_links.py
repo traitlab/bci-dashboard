@@ -27,6 +27,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
 
 import core as hc  # noqa: E402
 
+# No inventory at all. Passed explicitly wherever a test is about the id table
+# on its own, because the default is now every inventory the repo has generated
+# and a unit test must not read whatever happens to be on this laptop.
+NO_INVENTORY = ()
+
 LEGACY_A = "cmbgnzmhu0bed07027vmxezzd"
 LEGACY_B = "cme99tjc606h4075147dfd6j6"
 
@@ -66,12 +71,22 @@ def config(tmp_path, value):
 
 
 def test_a_missing_file_is_an_empty_map_not_an_error(tmp_path):
-    assert hc.labelbox_urls(str(tmp_path / "absent.csv")) == {}
+    assert hc.labelbox_urls(str(tmp_path / "absent.csv"), NO_INVENTORY) == {}
+
+
+def test_an_absent_id_table_still_links_what_the_inventory_knows(tmp_path):
+    """The id table is one of two sources, not the gate on the other. Only one
+    project export exists, and it covers 1,719 of the 3,781 labelled frames;
+    the rest carry a whole legacy URL, project half included, in the inventory.
+    Gating on the export left those 2,062 frames unlinked for nothing."""
+    inv = write_inventory(tmp_path, ("comb_a.JPG", lb_url(LEGACY_A, "old1")))
+    assert hc.labelbox_urls(str(tmp_path / "absent.csv"), inv) == {
+        "comb_a.JPG": lb_url(LEGACY_A, "old1")}
 
 
 def test_a_known_pair_builds_the_project_scoped_url(tmp_path):
     urls = hc.labelbox_urls(write(tmp_path, ("comb_a.JPG", "dr1", "pr1")),
-                            mode=hc.LINK_PROJECT_CURRENT)
+                            NO_INVENTORY, mode=hc.LINK_PROJECT_CURRENT)
     assert urls == {"comb_a.JPG": "https://app.labelbox.com/projects/pr1/data-rows/dr1"}
 
 
@@ -79,14 +94,15 @@ def test_a_known_pair_builds_the_project_scoped_url(tmp_path):
                                  ("comb_a.JPG", "dr1", ""),
                                  ("comb_a.JPG", "", "")])
 def test_a_half_known_row_yields_no_link_rather_than_a_broken_one(tmp_path, row):
-    assert hc.labelbox_urls(write(tmp_path, row), mode=hc.LINK_PROJECT_CURRENT) == {}
+    assert hc.labelbox_urls(write(tmp_path, row), NO_INVENTORY,
+                            mode=hc.LINK_PROJECT_CURRENT) == {}
 
 
 def test_rows_are_independent(tmp_path):
     urls = hc.labelbox_urls(write(tmp_path, ("comb_a.JPG", "dr1", "pr1"),
                                   ("comb_b.JPG", "", "pr1"),
                                   ("comb_c.JPG", "dr3", "pr2")),
-                            mode=hc.LINK_PROJECT_CURRENT)
+                            NO_INVENTORY, mode=hc.LINK_PROJECT_CURRENT)
     assert sorted(urls) == ["comb_a.JPG", "comb_c.JPG"]
 
 
@@ -102,14 +118,20 @@ def test_the_legacy_url_is_preferred_where_the_inventory_carries_one(tmp_path):
 
 def test_a_frame_the_inventory_does_not_know_keeps_its_dispatch_link(tmp_path):
     """Fallback, not silence. A frame that was never migrated has only one
-    known URL, and dropping it would trade a link for nothing."""
+    known URL, and dropping it would trade a link for nothing.
+
+    The other frame in the inventory is linked too, from its own row, and the
+    one with no URL is not: each frame is answered by whichever source can
+    answer it, and neither source gates the other."""
     ids = write(tmp_path, ("comb_a.JPG", "dr1", "pr_dispatch"))
     inv = write_inventory(tmp_path, ("migrated/somethingelse.JPG",
                                      lb_url(LEGACY_A, "old1")),
                           ("migrated/nourl.JPG", None))
     urls = hc.labelbox_urls(ids, inv, mode=hc.LINK_PROJECT_LEGACY)
-    assert urls == {"comb_a.JPG":
-                    "https://app.labelbox.com/projects/pr_dispatch/data-rows/dr1"}
+    assert urls == {
+        "comb_a.JPG": "https://app.labelbox.com/projects/pr_dispatch/data-rows/dr1",
+        "migrated/somethingelse.JPG": lb_url(LEGACY_A, "old1"),
+    }
 
 
 def test_one_build_emits_links_into_more_than_one_project(tmp_path):

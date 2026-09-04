@@ -226,17 +226,19 @@ def _review_table(groups, urls):
 def _link_note(here, wide):
     """Where the table's links go, and why the rest of the rows carry none.
 
-    Not a limitation and not a broken link: the frames without one have their
-    data rows in a project nobody has exported yet, so no id for them exists on
-    this machine. The page-wide figure sits beside the table's own so a reader
-    can see whether the shortfall is local.
+    Not a limitation and not a broken link: a link is only shipped where a file
+    on this machine states both halves of it, the project and the data row.
+    Two files can, a project export and the dataset inventory, and a frame
+    neither one names carries no link. The page-wide figure sits beside the
+    table's own so a reader can see whether the shortfall is local.
     """
     out = (f'<p class="note">{here["n_linked"]} of {here["n_frames"]} frames link to '
            f'their row in Labelbox{_project_split(here)}.')
     if here["n_unlinked"]:
-        out += (f' The other {here["n_unlinked"]} are not unlinkable. Their data rows '
-                f'sit in a project nobody has exported yet, so no id for them exists '
-                f'offline. One read-only export per project closes it.')
+        out += (f' The other {here["n_unlinked"]} are not unlinkable. No file here '
+                f'names both the project and the data row for them, and a link needs '
+                f'both. Either a read-only export of their project or a paged read of '
+                f'the dataset they sit in closes it.')
     return (out + f' The same join reaches {wide["n_linked"]:,} of '
                   f'{wide["n_frames"]:,} labelled frames page-wide '
                   f'({pctf(wide["share"])}).</p>')

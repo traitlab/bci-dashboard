@@ -73,6 +73,19 @@ _LABELBOX_URL_RE = re.compile(
 # project the botanist's annotations actually live in.
 DATASET_ROWS_JSONL = os.path.join(BASE, "dataset_rows.jsonl")
 
+# The same page, run over the dispatch dataset rather than the 2024_bci one
+# ``config.yaml`` points ``fetch_dataset.py`` at by default. It matters because
+# it names its frames the way the pages do, so a frame no export has ever
+# covered is still linkable from it:
+#
+#     python labelling/fetch_dataset.py --dataset-id cmn5chixy005u07846jctibv1 \
+#         --out data/dataset_rows_combined.jsonl
+#
+# Both files are generated and gitignored. Whichever ones exist are read; an
+# absent one costs coverage and nothing else.
+DATASET_ROWS_COMBINED_JSONL = os.path.join(BASE, "dataset_rows_combined.jsonl")
+LEGACY_INVENTORIES = (DATASET_ROWS_JSONL, DATASET_ROWS_COMBINED_JSONL)
+
 # Which project a frame's link opens in. Two projects hold the same frame: the
 # dispatch project ``config.yaml`` sends new work to, and the legacy project it
 # was originally labelled in. A data row exists in both, so both URLs resolve;
@@ -341,62 +354,104 @@ def frame_key(global_key: str) -> str:
     return os.path.splitext(stem)[0]
 
 
-def legacy_labelbox_urls(path: str = DATASET_ROWS_JSONL) -> dict[str, str]:
+def _inventory_pairs(paths):
+    """(global_key, URL) for every inventory row that states a whole link.
+
+    Straight off ``metadata.original_labelbox_url``. Offline, no network, no
+    guessing: a row without that field yields nothing, and a value that is not a
+    Labelbox data-row URL is dropped rather than passed through, because a link
+    on the page has to be one this code can name a project and a data row for.
+
+    A single path is accepted as well as several, because a caller with one
+    inventory to test against should not have to wrap it in a tuple. Later paths
+    win, so the argument order is the precedence order.
+    """
+    for path in ((paths,) if isinstance(paths, str) else paths):
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                url = (row.get("metadata") or {}).get("original_labelbox_url")
+                key = row.get("global_key")
+                if key and url and _LABELBOX_URL_RE.fullmatch(str(url).strip()):
+                    yield key, str(url).strip()
+
+
+def legacy_labelbox_urls(path=LEGACY_INVENTORIES) -> dict[str, str]:
     """frame_key -> the URL the frame had in the project it was labelled in.
 
-    Straight off ``metadata.original_labelbox_url`` in the dataset inventory.
-    Offline, no network, no guessing: a row without that field is simply not in
-    the map, and a value that is not a Labelbox data-row URL is dropped rather
-    than passed through, because a link on the page has to be one this code can
-    name a project and a data row for.
+    Keyed on the stem, because this map exists to be joined against
+    ``data_row_ids.csv``, whose frames are named in a different era.
     """
-    out: dict[str, str] = {}
-    if not os.path.exists(path):
-        return out
-    with open(path, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                row = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            url = (row.get("metadata") or {}).get("original_labelbox_url")
-            key = row.get("global_key")
-            if key and url and _LABELBOX_URL_RE.fullmatch(str(url).strip()):
-                out[frame_key(key)] = str(url).strip()
-    return out
+    return {frame_key(key): url for key, url in _inventory_pairs(path)}
+
+
+def inventory_labelbox_urls(path=LEGACY_INVENTORIES) -> dict[str, str]:
+    """global_key -> the same URL, under the name the inventory itself uses.
+
+    The join above needs the stem; the pages need the key they hold, and for a
+    frame no export has ever covered the inventory is the only source of both.
+    That is not a small residue: one export on disk links 1,719 of the 3,781
+    labelled frames, and the dispatch dataset's inventory carries a whole legacy
+    URL, project half included, for all of them.
+    """
+    return dict(_inventory_pairs(path))
 
 
 def labelbox_urls(path: str = DATA_ROW_IDS_CSV,
-                  legacy_path: str = DATASET_ROWS_JSONL,
+                  legacy_path=LEGACY_INVENTORIES,
                   mode: str | None = None) -> dict[str, str]:
     """global_key -> Labelbox URL, where known.
 
-    The set of linked frames is decided by ``data_row_ids.csv`` alone: a frame
-    with no recorded ``(data_row_id, project_id)`` pair gets no link, exactly as
-    before. What ``mode`` decides is only where an existing link points. Under
-    ``legacy`` a frame that the dataset inventory carries an original URL for
-    opens in the project it was labelled in; every other frame keeps the
-    dispatch-project URL. So this adds no link and removes none, and the two
-    modes are guaranteed to have identical coverage.
+    Two offline sources state a whole link, and a frame is linked when either
+    one does. ``data_row_ids.csv`` pairs a data row with the dispatch project,
+    which is what a project export records. The dataset inventory carries the
+    URL the frame had in the project it was labelled in, project half included,
+    which is what a paged read records. Neither is guessed and neither is
+    fetched here.
 
-    Per-row, not per-run: the legacy URLs point into more than one project, and
-    a frame has to open in the project it belongs to. Mixed-project output from
-    a single build is the normal case, not an edge one.
+    ``mode`` decides only the destination where both sources answer: ``legacy``
+    opens the project the botanist's boxes were drawn in, ``current`` the
+    dispatch project. Where one source answers alone, its answer is the link
+    under either mode, so switching the setting never changes how many frames
+    are linked. It used to be the id table alone that decided coverage, which
+    left 2,062 labelled frames unlinked whose whole legacy URL was sitting in
+    the inventory, waiting on a project export that no key here can run.
+
+    Per-row, not per-run: the legacy URLs point into four projects, and a frame
+    has to open in the project it belongs to. Mixed-project output from a single
+    build is the normal case, not an edge one.
     """
-    if not os.path.exists(path):
-        return {}
-    legacy = legacy_labelbox_urls(legacy_path) if (
-        mode or link_project_mode()) == LINK_PROJECT_LEGACY else {}
-    out = {}
-    for r in read_csv_rows(path):
-        if not (r.get("data_row_id") and r.get("project_id")):
-            continue
+    prefer_legacy = (mode or link_project_mode()) == LINK_PROJECT_LEGACY
+    by_frame = legacy_labelbox_urls(legacy_path)
+    out, seen = {}, set()
+    for r in read_csv_rows(path) if os.path.exists(path) else ():
         key = r["global_key"]
-        out[key] = legacy.get(frame_key(key)) or LABELBOX_URL.format(
-            project_id=r["project_id"], data_row_id=r["data_row_id"])
+        current = LABELBOX_URL.format(
+            project_id=r["project_id"], data_row_id=r["data_row_id"]) if (
+            r.get("data_row_id") and r.get("project_id")) else None
+        was = by_frame.get(frame_key(key))
+        chosen = (was or current) if prefer_legacy else (current or was)
+        if chosen:
+            out[key] = chosen
+            seen.add(frame_key(key))
+    # Then the frames only the inventory knows, under the name it knows them by.
+    # One entry per photo: a frame the id table already named is not named a
+    # second time, and where two inventories name the same photo the dispatch
+    # name wins over the ``migrated/`` one, because that is the name a page
+    # looks up. Sorted, so which one that is never depends on read order.
+    for key, url in sorted(inventory_labelbox_urls(legacy_path).items(),
+                           key=lambda kv: ("/" in kv[0], kv[0])):
+        if frame_key(key) not in seen:
+            out[key] = url
+            seen.add(frame_key(key))
     return out
 
 
