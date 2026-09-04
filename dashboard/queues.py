@@ -20,6 +20,7 @@ from __future__ import annotations
 import csv
 import os
 import random
+import re
 from collections import defaultdict
 
 from core import (
@@ -67,6 +68,13 @@ CONTROL_GROUP = "control"
 # than any rank the ranker can assign, since the pool is four figures.
 NO_NOVELTY = 10 ** 9
 
+# The sidecar `labelling/rank_queue.py` writes beside the ordering file, and the
+# `rows=N` it puts on each source line. The ranker runs outside bin/refresh.sh,
+# so this file is the only record of when the ordering was last rebuilt and
+# against what.
+NOVELTY_PROVENANCE_SUFFIX = ".provenance.txt"
+_PROVENANCE_ROWS = re.compile(r"\brows=(\d+)\b")
+
 
 def load_novelty(path: str) -> dict:
     """``global_key`` -> how unlike the labelled frames a photo looks, 1 first.
@@ -90,6 +98,65 @@ def load_novelty(path: str) -> dict:
             except ValueError:
                 continue
     return out
+
+
+def novelty_provenance(path: str) -> dict:
+    """What the ordering file was built from: written date, anchors, pool.
+
+    ``labelling/rank_queue.py`` writes the sidecar beside the CSV because the
+    ranker runs outside ``bin/refresh.sh``, in its own virtualenv, and nothing
+    else on disk records when it last ran. Every value is ``None`` when the
+    sidecar is absent or does not carry that line: a missing number is reported
+    as missing, never guessed at from the CSV, because the two counts a reader
+    wants (how many labelled frames anchored the ranking, how many photos were
+    ranked against them) are properties of the embedding files and not of this
+    CSV's row count.
+    """
+    out: dict = {"written": None, "anchors": None, "pool": None}
+    sidecar = os.path.splitext(path)[0] + NOVELTY_PROVENANCE_SUFFIX
+    if not os.path.exists(sidecar):
+        return out
+    with open(sidecar, encoding="utf-8") as f:
+        for line in f:
+            role, sep, rest = line.partition(":")
+            if not sep:
+                continue
+            role = role.strip()
+            if role == "written":
+                out["written"] = rest.strip() or None
+            elif role in ("anchors", "pool"):
+                found = _PROVENANCE_ROWS.search(rest)
+                if found:
+                    out[role] = int(found.group(1))
+    return out
+
+
+def novelty_complaint(path: str, n_ranked: int, n_unlab: int) -> str:
+    """Why a page must not be built off this ordering file, or ``""``.
+
+    ``queues.load_novelty`` is deliberately forgiving: an absent file is the
+    normal state of a fresh clone, and it returns ``{}`` so the queue still
+    comes out in confidence order. That forgiveness is the hazard. The ranker
+    is not in ``bin/refresh.sh``, so the file can go missing between two builds
+    without anything else changing, and the page goes on saying the photo least
+    like everything already labelled comes first while the order behind that
+    sentence has silently reverted to the one it replaced.
+
+    So the loader keeps falling back and the *builder* refuses instead. A page
+    that describes an ordering it is not using is worse than a page that will
+    not build: the first is read and believed, the second is fixed.
+    """
+    if not os.path.exists(path):
+        return (f"{path} is missing, so every frame ties on novelty and the queue "
+                f"has silently fallen back to confidence order, which is not the "
+                f"order this page describes. Re-run labelling/rank_queue.py, or "
+                f"take the ordering claim off the page.")
+    if n_unlab and not n_ranked:
+        return (f"{path} is present but ranks none of the {n_unlab:,} queued frames, "
+                f"so the queue is in confidence order while the page describes an "
+                f"embedding order. The file is stale against this pool: re-run "
+                f"labelling/rank_queue.py.")
+    return ""
 
 
 def control_size(batch_size: int = BATCH_SIZE,

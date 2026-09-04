@@ -346,6 +346,11 @@ with _on_path(REPO / "dashboard"):
     SNAPSHOT_DIR = pathlib.Path(_core.TABLES_DIR)
 SPLITS_CSV = REPO / "data" / "splits.csv"
 CACHE_DIR = REPO / "data" / "predictions" / "cache"
+# labelling/rank_queue.py writes this one, outside bin/refresh.sh and in its
+# own virtualenv, so a checkout can have every other input and still not have
+# it. build_internal.py refuses to build without it rather than describe an
+# ordering it is not using, which is a skip here and not a failure.
+QUEUE_NOVELTY_CSV = pathlib.Path(_core.QUEUE_NOVELTY_CSV)
 
 # A fixed generation string, like the worktree byte-diff checks use: real
 # dates would make two builds of the same code differ for no reason a test
@@ -391,7 +396,9 @@ def require_buildable():
     `dashboard/measure.py` to make the tables."""
     for path, label in ((GT_CSV, "data/gt_dominant_taxon.csv"),
                         (SPLITS_CSV, "data/splits.csv"),
-                        (CACHE_DIR, "data/predictions/cache")):
+                        (CACHE_DIR, "data/predictions/cache"),
+                        (QUEUE_NOVELTY_CSV,
+                         "data/next_batch/queue_novelty.csv")):
         if not path.exists():
             pytest.skip(f"{label} not present (fresh clone)")
     if not SNAPSHOT_DIR.exists():

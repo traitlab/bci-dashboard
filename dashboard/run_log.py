@@ -390,8 +390,17 @@ def log_calibration(_log, scopes, top1, n, good, good_recs):
         _log("")
 
 
-def log_send_queue(_log, q_counts, batch_rows, n_no_answer, n_ranked=0):
-    """The unlabelled pool, by queue, and how it was batched."""
+def log_send_queue(_log, q_counts, batch_rows, n_no_answer, n_ranked=0,
+                   novelty=None):
+    """The unlabelled pool, by queue, and how it was batched.
+
+    ``novelty`` is what ``queues.novelty_provenance`` read off the sidecar
+    beside the ordering file: when the ranking was last rebuilt, how many
+    labelled frames anchored it, how many photos it ranked. It is printed
+    because ``labelling/rank_queue.py`` is not in ``bin/refresh.sh`` and needs a
+    virtualenv this one is not: the ordering file can therefore be months older
+    than every other number in this log, and nothing else here would say so.
+    """
     n_unlab = sum(q_counts.values())
     n_batches = batch_rows[-1][0] if batch_rows else 0
     _log("--- SEND-FIRST QUEUE (cached predictions with no GT label) ---")
@@ -402,6 +411,14 @@ def log_send_queue(_log, q_counts, batch_rows, n_no_answer, n_ranked=0):
     # for every frame this number does not cover, and a reader has to know how
     # much of the queue that is.
     _log(f"  frames ordered by how they look     : {n_ranked} of {n_unlab}")
+    # Immediately under the count it qualifies. "unknown" is printed rather than
+    # skipped: a reader who cannot see the date cannot tell a fresh ranking from
+    # one built before the last three batches went out.
+    p = novelty or {}
+    _log(f"    ordering file written            : {p.get('written') or 'unknown'}")
+    _log(f"    labelled frames anchoring it     : {p.get('anchors') or 'unknown'}")
+    _log(f"    photos ranked against them       : {p.get('pool') or 'unknown'}")
+    _log("    (labelling/rank_queue.py writes these, outside bin/refresh.sh)")
     _log(f"  send_batches.csv                    : {len(batch_rows)} rows in {n_batches} "
         f"batches, max {BATCH_SIZE}/batch, species groups packed whole")
     _log(f"  unlabelled frames with NO answer    : {n_no_answer}  (empty candidate list;")

@@ -30,7 +30,7 @@ from core import (
 )
 from queues import (
     BATCH_SIZE, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_FIRST_COLUMNS,
-    chunk_send_batches, load_novelty, send_first_rows,
+    chunk_send_batches, load_novelty, novelty_provenance, send_first_rows,
 )
 
 # Generated tables go where the repo's other generated files go, not beside the
@@ -348,8 +348,10 @@ def send_queue(h):
     a prediction. The queue decision and its order live in ``queues``, which
     figures.py reads too; the columns are this file's own.
 
-    Also returns how many of those frames carried a novelty rank, so the run log
-    can say how much of the queue the ordering file actually reaches.
+    Also returns how many of those frames carried a novelty rank, and what the
+    ordering file's sidecar says about itself, so the run log can report both
+    how much of the queue the ordering reaches and how old that ordering is.
+    The ranker runs outside bin/refresh.sh, so nothing else in the log would.
     """
     per_species = h.per_species
     support = {d["species"]: d["n_labelled_frames"] for d in per_species}
@@ -363,7 +365,8 @@ def send_queue(h):
              "" if rank == NO_NOVELTY else rank]
             for q, stem, pred, conf, rank in decided]
     n_ranked = sum(1 for r in decided if r[4] != NO_NOVELTY)
-    return rows, Counter(r[0] for r in decided), n_no_answer, n_ranked
+    return (rows, Counter(r[0] for r in decided), n_no_answer, n_ranked,
+            novelty_provenance(QUEUE_NOVELTY_CSV))
 
 
 def review_queue(h):
@@ -431,13 +434,14 @@ def main() -> None:
                        gain.sw_short, gain.sw_full_unreachable)
     rl.log_calibration(log, scopes, top1, head.n, good, good_recs)
 
-    queue_rows, q_counts, n_no_answer, n_ranked = send_queue(h)
+    queue_rows, q_counts, n_no_answer, n_ranked, novelty_prov = send_queue(h)
     write_send_first_queue(out_dir, queue_rows)
     # Send batches over the same priority order, capped at BATCH_SIZE rows:
     # priority-first globally, one species per batch, never a mixed bag.
     batch_rows = chunk_send_batches(queue_rows, batch_size=BATCH_SIZE)
     write_send_batches(out_dir, batch_rows)
-    rl.log_send_queue(log, q_counts, batch_rows, n_no_answer, n_ranked)
+    rl.log_send_queue(log, q_counts, batch_rows, n_no_answer, n_ranked,
+                      novelty=novelty_prov)
 
     review_rows, n_adjudicated = review_queue(h)
     write_label_review_queue(out_dir, review_rows)
