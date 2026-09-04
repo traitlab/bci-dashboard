@@ -331,6 +331,37 @@ def fetch_dataset():
 
 
 @pytest.fixture(scope="session")
+def rounds():
+    """`labelling/rounds.py`, the batch-name and metadata convention. Stdlib
+    only, so it loads with no Labelbox and no key."""
+    return load("_rounds_under_test", REPO / "labelling" / "rounds.py")
+
+
+@pytest.fixture(scope="session")
+def close_round():
+    """`labelling/close_round.py`, loaded for the helpers that find a round.
+
+    Nothing here reaches Labelbox: `find_batch` and `near_misses` are given a
+    stand-in project that only has to list batch names.
+    """
+    _require("labelbox", "yaml", "dotenv", who="labelling")
+    with _on_path(REPO / "labelling"):
+        return load("_close_round_under_test", REPO / "labelling" / "close_round.py")
+
+
+@pytest.fixture(scope="session")
+def verify_round():
+    """`labelling/verify_round.py`, loaded for its three checks.
+
+    Each check reads exported rows as plain dicts, so the whole verifier is
+    testable without a project, a batch, or a key.
+    """
+    _require("labelbox", "yaml", "dotenv", who="labelling")
+    with _on_path(REPO / "labelling"):
+        return load("_verify_round_under_test", REPO / "labelling" / "verify_round.py")
+
+
+@pytest.fixture(scope="session")
 def draw_confirmatory():
     _require("PIL", "yaml", "dotenv")
     return load("_draw_confirmatory_under_test", REPO / "predict" / "draw_confirmatory.py")
