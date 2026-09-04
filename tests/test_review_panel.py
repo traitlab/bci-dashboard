@@ -193,3 +193,7 @@ def test_the_link_note_says_nothing_about_a_split_it_cannot_see(panels):
     assert panels._project_split({"by_project": {"p": 4}}) == ""
     two = panels._project_split({"by_project": {"p": 4, "q": 1}})
     assert two == ", 4 in one Labelbox project and 1 in the other"
+    # Past two the clause names the count of projects and the largest, not a
+    # bare list of numbers a reader cannot attach to anything.
+    many = panels._project_split({"by_project": {"p": 4, "q": 3, "r": 1}})
+    assert many == ", spread across 3 projects, the largest holding 4"

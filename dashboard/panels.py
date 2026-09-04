@@ -173,17 +173,20 @@ def _review_pairs(review):
 def _project_split(cov):
     """Where a table's links go, as a clause the link sentence drops in.
 
-    Two legacy projects hold these frames, and a reader told only the total
-    cannot check one link of each kind. Empty when there is nothing to split:
-    one project, or none linked at all.
+    Several projects hold these frames, because a frame was labelled wherever
+    its flight was labelled, and a reader told only the total cannot check one
+    link of each kind. Empty when there is nothing to split: one project, or
+    none linked at all.
     """
     counts = sorted(cov["by_project"].values(), reverse=True)
     if len(counts) < 2:
         return ""
     if len(counts) == 2:
         return f", {counts[0]} in one Labelbox project and {counts[1]} in the other"
-    return (", " + ", ".join(str(n) for n in counts)
-            + f" across {len(counts)} Labelbox projects")
+    # Past two, the list of counts stops being readable and the number a reader
+    # can act on is how many projects they have to open.
+    return (f", spread across {len(counts)} projects, "
+            f"the largest holding {counts[0]}")
 
 
 # The columns of the one review table, numeric flag second, as ``table`` takes
