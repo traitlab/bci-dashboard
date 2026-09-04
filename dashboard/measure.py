@@ -31,6 +31,7 @@ from core import (
 from queues import (
     BATCH_SIZE, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_FIRST_COLUMNS,
     chunk_send_batches, load_novelty, novelty_provenance, send_first_rows,
+    with_batch_ids,
 )
 
 # Generated tables go where the repo's other generated files go, not beside the
@@ -442,10 +443,12 @@ def main() -> None:
     rl.log_calibration(log, scopes, top1, head.n, good, good_recs)
 
     queue_rows, q_counts, n_no_answer, n_ranked, novelty_prov, held_out = send_queue(h)
-    write_send_first_queue(out_dir, queue_rows)
     # Send batches over the same priority order, capped at BATCH_SIZE rows:
     # priority-first globally, one species per batch, never a mixed bag.
+    # Batched before the queue is written, because the queue row now carries the
+    # batch it landed in and that is only known once the packing has run.
     batch_rows = chunk_send_batches(queue_rows, batch_size=BATCH_SIZE)
+    write_send_first_queue(out_dir, with_batch_ids(queue_rows, batch_rows))
     write_send_batches(out_dir, batch_rows)
     rl.log_send_queue(log, q_counts, batch_rows, n_no_answer, n_ranked,
                       novelty=novelty_prov, held_out=held_out)

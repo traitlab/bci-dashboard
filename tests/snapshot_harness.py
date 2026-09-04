@@ -107,7 +107,12 @@ def log_lines_default(never_all=NEVER_ALL, unscoreable=UNSCOREABLE, strict_hits=
 
 
 def queue_rows_for(counts=QUEUE_COUNTS):
-    """send_first_queue.csv rows: one contiguous species group per queue."""
+    """send_first_queue.csv rows: one contiguous species group per queue.
+
+    ``batch_id`` is filled from the batcher, the way measure.py fills it. A
+    fixture that made the number up would be asserting an assignment
+    verify_snapshot recomputes and rejects.
+    """
     rows = []
     for q, n in counts.items():
         for i in range(n):
@@ -115,6 +120,13 @@ def queue_rows_for(counts=QUEUE_COUNTS):
                          "predicted_species": f"species_{q}", "confidence": "0.500000",
                          "species_labelled_crowns": "0", "species_top1_accuracy": "",
                          "novelty_rank": ""})
+    unbatched = [c for c in queues.SEND_FIRST_COLUMNS if c != "batch_id"]
+    packed = queues.chunk_send_batches([[r[c] for c in unbatched] for r in rows])
+    id_at = queues.SEND_BATCH_COLUMNS.index("batch_id")
+    key_at = queues.SEND_BATCH_COLUMNS.index("global_key")
+    of_key = {b[key_at]: b[id_at] for b in packed}
+    for r in rows:
+        r["batch_id"] = of_key[r["global_key"]]
     return rows
 
 

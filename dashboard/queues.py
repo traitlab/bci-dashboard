@@ -37,8 +37,17 @@ QUEUE_ORDER = ["long_tail", "low_conf_known", "normal", "can_wait"]
 
 # send_first_queue.csv's columns, in order. `measure.py` writes the header and
 # `chunk_send_batches` below reads rows by position, so the order is named once.
+#
+# `batch_id` is last, and it is filled in after the batching runs rather than
+# computed with the rest of the row. Without it the two files could only be
+# joined by re-running the batcher, which is exactly the recomputation that
+# `history.check_send_batches` exists to police: anyone wanting to know which
+# batch a queued frame is in had to either trust a second implementation of the
+# packing or open both files and match on global_key by hand. Reading it off
+# the row it belongs to is the whole point.
 SEND_FIRST_COLUMNS = ["queue", "global_key", "split", "predicted_species", "confidence",
-                      "species_labelled_crowns", "species_top1_accuracy", "novelty_rank"]
+                      "species_labelled_crowns", "species_top1_accuracy", "novelty_rank",
+                      "batch_id"]
 # send_batches.csv's columns, likewise: returned in this order, written as that header.
 SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue", "picked_by"]
 
@@ -262,6 +271,43 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
     return (batches[:at]
             + [[1, CONTROL_GROUP, r[key_at], r[queue_at], "control"] for r in control]
             + batches[at:])
+
+
+def with_batch_ids(queue_rows: list, batch_rows: list) -> list:
+    """``queue_rows`` again, each row carrying the batch it was packed into.
+
+    The batcher is the only thing that knows the answer, so the column is filled
+    from its output rather than derived a second time. Deriving it twice is how
+    two files that are supposed to agree stop agreeing.
+
+    Every queued frame is packed exactly once, so a frame the batcher never
+    named, or named twice, means the packing and the queue have come apart and
+    there is no honest value to write. That is a build failure, not a blank
+    cell: a blank one would be read as "not scheduled yet".
+    """
+    key_at = SEND_FIRST_COLUMNS.index("global_key")
+    batch_at = SEND_BATCH_COLUMNS.index("batch_id")
+    of_key: dict[str, int] = {}
+    for b in batch_rows:
+        key = b[SEND_BATCH_COLUMNS.index("global_key")]
+        if key in of_key:
+            raise ValueError(f"{key} is in more than one send batch")
+        of_key[key] = b[batch_at]
+    missing = [r[key_at] for r in queue_rows if r[key_at] not in of_key]
+    if missing:
+        raise ValueError(f"{len(missing)} queued frames were never packed into a "
+                         f"batch, first {missing[0]}")
+    # Set by position, and short rows padded first: the batcher runs on rows
+    # that do not have the column yet, and verify_snapshot re-packs rows read
+    # back out of the file that do. Both come through here and both leave the
+    # same width as the header.
+    at = SEND_FIRST_COLUMNS.index("batch_id")
+    out = []
+    for r in queue_rows:
+        row = list(r) + [""] * (len(SEND_FIRST_COLUMNS) - len(r))
+        row[at] = of_key[r[key_at]]
+        out.append(row)
+    return out
 
 
 def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> str:

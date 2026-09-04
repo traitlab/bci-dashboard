@@ -29,7 +29,7 @@ def rows(*counts):
     for i, n in enumerate(counts):
         for k in range(n):
             out.append(["long_tail", f"s{i}_{k}.JPG", "train", f"species {i}", 0.5, 0, 0.0,
-                        k + 1])
+                        k + 1, ""])
     return out
 
 
@@ -121,7 +121,11 @@ def test_the_order_a_photo_looks_new_in_does_not_reach_the_batches(queues):
     """`send_first_rows` has already applied it. The batcher takes the queue in
     the order it is given, so the new column is carried, never read."""
     plain = queues.chunk_send_batches(rows(3, 2), batch_size=100, control_fraction=0)
-    shuffled = [r[:-1] + [100 - r[-1]] for r in rows(3, 2)]
+    at = queues.SEND_FIRST_COLUMNS.index("novelty_rank")
+    shuffled = []
+    for r in rows(3, 2):
+        r[at] = 100 - r[at]
+        shuffled.append(r)
     assert queues.chunk_send_batches(shuffled, batch_size=100, control_fraction=0) == plain
 
 
@@ -203,3 +207,59 @@ def test_a_group_too_big_for_the_shortened_first_batch_is_chopped_to_fit(queues)
     assert sizes(batches)[0] == 100, "85 queue rows plus the 15-row slice"
     assert max(sizes(batches)) <= 100
     assert sum(sizes(batches)) == 500
+
+
+# --- the batch a queued frame landed in, written on the frame ------------------
+#
+# send_first_queue.csv and send_batches.csv describe the same frames, and until
+# now the only way to ask "which batch is this frame in" was to open both files
+# and match on global_key, or to re-run the packing, which is the second
+# implementation verify_snapshot exists to forbid. The queue row carries the
+# answer now.
+
+
+def test_every_queued_frame_carries_the_batch_it_was_packed_into(queues):
+    queue = rows(30, 40)
+    batches = queues.chunk_send_batches(queue, batch_size=25)
+    joined = queues.with_batch_ids(queue, batches)
+    key_at = queues.SEND_FIRST_COLUMNS.index("global_key")
+    of_key = {b[2]: b[0] for b in batches}
+    assert [r[-1] for r in joined] == [of_key[r[key_at]] for r in queue]
+    assert all(len(r) == len(queues.SEND_FIRST_COLUMNS) for r in joined)
+
+
+def test_the_control_slice_keeps_its_batch_id_on_the_queue_row(queues):
+    """The slice rides in batch 1 and moves forward out of queue order, so its
+    rows are the ones a positional join would get wrong."""
+    queue = rows(500)
+    batches = queues.chunk_send_batches(queue, batch_size=100)
+    joined = queues.with_batch_ids(queue, batches)
+    control = {b[2] for b in batches if b[4] == "control"}
+    key_at = queues.SEND_FIRST_COLUMNS.index("global_key")
+    assert len(control) == 15
+    assert {r[-1] for r in joined if r[key_at] in control} == {1}
+
+
+def test_the_added_column_does_not_move_the_packing(queues):
+    """verify_snapshot re-packs the queue file it reads, batch_id column and
+    all. A column that shifted the result would abort every build."""
+    queue = rows(30, 40)
+    batches = queues.chunk_send_batches(queue, batch_size=25)
+    assert queues.chunk_send_batches(
+        queues.with_batch_ids(queue, batches), batch_size=25) == batches
+
+
+def test_a_frame_no_batch_claims_is_a_build_failure(queues):
+    """A blank cell would read as "not scheduled yet", which is a different
+    fact from "the queue and the packing disagree"."""
+    queue = rows(4)
+    batches = queues.chunk_send_batches(queue, batch_size=25)
+    with pytest.raises(ValueError, match="never packed"):
+        queues.with_batch_ids(queue, batches[:-1])
+
+
+def test_a_frame_two_batches_claim_is_a_build_failure(queues):
+    queue = rows(4)
+    batches = queues.chunk_send_batches(queue, batch_size=25)
+    with pytest.raises(ValueError, match="more than one send batch"):
+        queues.with_batch_ids(queue, batches + [list(batches[0])])
