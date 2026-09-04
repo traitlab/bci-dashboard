@@ -224,10 +224,16 @@ def test_eval_project_is_the_project_identify_url_names():
     `data/checklist_<EVAL_PROJECT>.json`. Move config.yaml's `identify_url` to
     another project and predictions come from somewhere the constant no longer
     names, so out_of_scope would be checked against the wrong species list."""
+    from conftest import load
+
     config = (REPO / "config.yaml").read_text(encoding="utf-8")
     m = re.search(r"identify_url:\s*\S*/identify/(\S+)\s*$", config, re.MULTILINE)
     assert m, "config.yaml no longer states plantnet.identify_url"
-    assert value_of("EVAL_PROJECT", "dashboard/core.py") == f'"{m.group(1)}"', (
+    # Compared against what the module computes, not against a literal in its
+    # source: the constant used to be typed here and the point of deriving it is
+    # that there is no second copy left to disagree.
+    core = load("_core_eval_project_under_test", REPO / "dashboard" / "core.py")
+    assert core.EVAL_PROJECT == m.group(1), (
         f"config.yaml's identify_url names project {m.group(1)!r} and "
         f"core.EVAL_PROJECT says otherwise.")
 

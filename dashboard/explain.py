@@ -156,9 +156,9 @@ def method_panel(*, tag, n, n_sp, n_cand, checks, out_of_scope=None, out_of_scop
     body = ('<ul class="prov">'
             # The tag is `<endpoint-slug>@<run-name>`, so it already carries the
             # endpoint; a typed one could not follow a move to another endpoint.
-            f'<li>Predictions: model run <code>{esc(tag)}</code>, the Central '
-            f'America regional model, so a regional restriction is already in '
-            f'place.{scope_sentence}</li>'
+            f'<li>Predictions: model run <code>{esc(tag)}</code>, the '
+            f'{esc(hc.flora_name())} model, so a regional restriction is already '
+            f'in place.{scope_sentence}</li>'
             f'<li>Request: <code>nb-results={n_cand}</code>, <code>no-reject=true</code>, '
             f'organs detected automatically, <code>include-related-images=false</code>, on a '
             f'{CROP_SIZE}&nbsp;px centre crop. A correct answer at position {n_cand + 1} or '

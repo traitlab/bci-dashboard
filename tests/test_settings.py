@@ -59,30 +59,63 @@ def test_the_api_key_has_no_config_default(settings, monkeypatch):
 
 
 def test_the_run_log_provenance_block_matches_config_yaml(settings, core):
-    """The pages publish which Pl@ntNet model answered, and it is a literal.
+    """The pages publish which Pl@ntNet model answered.
 
-    `dashboard/` is stdlib only, so it cannot read config.yaml, and the
-    provenance block in `run_log.py` types the endpoint and the model run name
-    out by hand. `history.model_tag_of` then regexes both back out of
-    run_log.txt, and that string is the `<code>` tag on the model-health page.
-    So a Pl@ntNet version bump that updates config.yaml and nothing else makes
-    every new snapshot publish the old model identity, silently. Nothing
-    compared the two copies until this test.
+    `history.model_tag_of` regexes the endpoint and the model run name back out
+    of run_log.txt, and that string is the `<code>` tag on the model-health
+    page. A Pl@ntNet version bump that updates config.yaml and nothing else
+    would otherwise make every new snapshot publish the old model identity,
+    silently.
+
+    The endpoint is no longer typed: `core.identify_url` reads it, so the two
+    cannot drift and the test below checks the read instead of the copy. The
+    run name and the organs setting are still literals, so they are still
+    compared.
     """
     import os
 
     plantnet = settings.load_config()["plantnet"]
     root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
     src = open(os.path.join(root, "dashboard", "run_log.py"), encoding="utf-8").read()
-    for key in ("identify_url", "single_model_run_name", "identify_organs"):
+    for key in ("single_model_run_name", "identify_organs"):
         value = str(plantnet[key])
         assert value in src, (
             f"config.yaml plantnet.{key} is {value!r}, and run_log.py does not "
             f"print it. The provenance block names the run that filled the cache, "
             f"so it has to say what config.yaml says.")
+    assert core.identify_url() == plantnet["identify_url"], (
+        "core.identify_url does not read what config.yaml states. Everything "
+        "downstream, the run-log endpoint line and the model tag regexed back "
+        "out of it, derives from this one read.")
     assert plantnet["identify_nb_results"] == core.N_CANDIDATES, (
         "config.yaml asks Pl@ntNet for a different list length than "
         "core.N_CANDIDATES, which every page counts against.")
+
+
+def test_no_pl_ntnet_endpoint_is_typed_into_the_dashboard(core):
+    """The defect this replaces, kept as a test.
+
+    run_log.py printed the endpoint as a string while config.yaml held the real
+    one, and `history.model_tag_of` reads the flora out of that printed line. So
+    switching flora in config.yaml alone left the page reporting one flora and
+    predicting through another, which is a mislabelled published number rather
+    than a stale comment. The only permitted literal is core's last-resort
+    fallback.
+    """
+    import os
+    import re
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    for name in sorted(os.listdir(os.path.join(root, "dashboard"))):
+        if not name.endswith(".py"):
+            continue
+        src = open(os.path.join(root, "dashboard", name), encoding="utf-8").read()
+        for line in src.split("\n"):
+            if "IDENTIFY_URL_FALLBACK" in line or line.lstrip().startswith("#"):
+                continue
+            assert not re.search(r"/v2/identify/\S", line), (
+                f"dashboard/{name} types a Pl@ntNet identify endpoint: {line.strip()!r}. "
+                f"Read it from config.yaml with core.identify_url instead.")
 
 
 def test_config_yaml_carries_every_request_setting_the_fetchers_index(settings):
