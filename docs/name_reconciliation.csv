@@ -1,0 +1,269 @@
+gt_raw_name,normalized,wcvp_accepted_binomial,match_tier,n_gt_crowns,in_corpus_vocabulary
+Anacardium excelsum,anacardium excelsum,,a_exact_binomial,392,True
+Dipteryx oleifera,dipteryx oleifera,,a_exact_binomial,281,True
+Luehea seemannii,luehea seemannii,,a_exact_binomial,143,True
+Hura crepitans,hura crepitans,,a_exact_binomial,123,True
+Prioria copaifera,prioria copaifera,,a_exact_binomial,121,True
+Jacaranda copaia,jacaranda copaia,,a_exact_binomial,118,True
+Hieronyma alchorneoides,hieronyma alchorneoides,,a_exact_binomial,107,True
+Handroanthus guayacan,handroanthus guayacan,,a_exact_binomial,86,True
+Terminalia amazonia,terminalia amazonia,,a_exact_binomial,85,True
+Alseis blackiana,alseis blackiana,,a_exact_binomial,73,True
+Tachigali panamensis,tachigali panamensis,,a_exact_binomial,64,True
+Virola surinamensis,virola surinamensis,,c_genus_only_in_corpus,64,False
+Attalea butyracea,attalea butyracea,,a_exact_binomial,59,True
+Ceiba pentandra,ceiba pentandra,,a_exact_binomial,59,True
+Quararibea stenophylla,quararibea stenophylla,,a_exact_binomial,59,True
+Tabebuia rosea,tabebuia rosea,,a_exact_binomial,56,True
+Spondias,spondias,,c_gt_label_is_genus_only,54,False
+Sterculia apetala,sterculia apetala,,a_exact_binomial,54,True
+Uncaria tomentosa,uncaria tomentosa,,a_exact_binomial,48,True
+Virola,virola,,c_gt_label_is_genus_only,48,False
+Protium stevensonii,protium stevensonii,,a_exact_binomial,45,True
+Cecropia insignis,cecropia insignis,,a_exact_binomial,44,True
+Calophyllum longifolium,calophyllum longifolium,,a_exact_binomial,43,True
+Simarouba amara,simarouba amara,,a_exact_binomial,42,True
+Apeiba membranacea,apeiba membranacea,,a_exact_binomial,40,True
+Astronium graveolens,astronium graveolens,,a_exact_binomial,37,True
+Brosimum alicastrum,brosimum alicastrum,,a_exact_binomial,35,True
+Fridericia candicans,fridericia candicans,,a_exact_binomial,35,True
+Spondias mombin,spondias mombin,,a_exact_binomial,34,True
+Platypodium elegans,platypodium elegans,,a_exact_binomial,33,True
+Pseudobombax septenatum,pseudobombax septenatum,,a_exact_binomial,27,True
+Luehea,luehea,,c_gt_label_is_genus_only,26,False
+Guatteria lucens,guatteria lucens,,a_exact_binomial,25,True
+Protium,protium,,c_gt_label_is_genus_only,23,False
+Tabebuia,tabebuia,,c_gt_label_is_genus_only,23,False
+Zanthoxylum,zanthoxylum,,c_gt_label_is_genus_only,22,False
+Aspidosperma desmanthum,aspidosperma desmanthum,,a_exact_binomial,21,True
+Davilla nitida,davilla nitida,,a_exact_binomial,21,True
+Trattinnickia aspera,trattinnickia aspera,,a_exact_binomial,21,True
+Trichilia tuberculata,trichilia tuberculata,,a_exact_binomial,21,True
+Zanthoxylum ekmanii,zanthoxylum ekmanii,,a_exact_binomial,21,True
+Ochroma pyramidale,ochroma pyramidale,,a_exact_binomial,20,True
+Pouteria stipitata,pouteria stipitata,,a_exact_binomial,20,True
+Bignoniaceae,bignoniaceae,,c_gt_label_is_genus_only,19,False
+Hippocratea volubilis,hippocratea volubilis,,a_exact_binomial,19,True
+Malpighiaceae,malpighiaceae,,c_gt_label_is_genus_only,19,False
+Tabernaemontana arborea,tabernaemontana arborea,,a_exact_binomial,19,True
+Terminalia oblonga,terminalia oblonga,,a_exact_binomial,19,True
+Ceiba,ceiba,,c_gt_label_is_genus_only,18,False
+Chrysophyllum cainito,chrysophyllum cainito,,a_exact_binomial,18,True
+Ficus,ficus,,c_gt_label_is_genus_only,18,False
+Miconia argentea,miconia argentea,,a_exact_binomial,18,True
+Quararibea,quararibea,,c_gt_label_is_genus_only,18,False
+Senegalia hayesii,senegalia hayesii,,a_exact_binomial,16,True
+Serjania circumvallata,serjania circumvallata,,a_exact_binomial,16,True
+Guapira myrtiflora,guapira myrtiflora,,a_exact_binomial,15,True
+Oenocarpus mapora,oenocarpus mapora,,a_exact_binomial,15,True
+Apeiba tibourbou,apeiba tibourbou,,a_exact_binomial,14,True
+Ficus insipida,ficus insipida,,a_exact_binomial,14,True
+Gustavia superba,gustavia superba,,a_exact_binomial,14,True
+Poulsenia armata,poulsenia armata,,a_exact_binomial,14,True
+Terminalia,terminalia,,c_gt_label_is_genus_only,14,False
+Fridericia patellifera,fridericia patellifera,,a_exact_binomial,13,True
+Paullinia,paullinia,,c_gt_label_is_genus_only,13,False
+Sloanea terniflora,sloanea terniflora,,a_exact_binomial,13,True
+Ficus obtusifolia,ficus obtusifolia,,a_exact_binomial,12,True
+Protium panamense,protium panamense,,a_exact_binomial,12,True
+Cordia alliodora,cordia alliodora,,a_exact_binomial,11,True
+Dipteryx,dipteryx,,c_gt_label_is_genus_only,11,False
+Guazuma,guazuma,,c_gt_label_is_genus_only,11,False
+Guazuma ulmifolia,guazuma ulmifolia,,a_exact_binomial,11,True
+Spondias radlkoferi,spondias radlkoferi,,a_exact_binomial,11,True
+Inga marginata,inga marginata,,a_exact_binomial,10,True
+Lauraceae,lauraceae,,c_gt_label_is_genus_only,10,False
+Ocotea cernua,ocotea cernua,ocotea leptobotra,d_wcvp_synonym,10,True
+Rubiaceae,rubiaceae,,c_gt_label_is_genus_only,10,False
+Tabernaemontana,tabernaemontana,,c_gt_label_is_genus_only,10,False
+Callichlamys latifolia,callichlamys latifolia,,a_exact_binomial,9,True
+Cavanillesia platanifolia,cavanillesia platanifolia,,a_exact_binomial,9,True
+Pourouma bicolor,pourouma bicolor,,a_exact_binomial,9,True
+Sapium glandulosum,sapium glandulosum,,a_exact_binomial,9,True
+Astrocaryum standleyanum,astrocaryum standleyanum,,a_exact_binomial,8,True
+Beilschmiedia tovarensis,beilschmiedia tovarensis,,a_exact_binomial,8,True
+Calophyllum,calophyllum,,c_gt_label_is_genus_only,8,False
+Genipa americana,genipa americana,,a_exact_binomial,8,True
+Jacaranda,jacaranda,,c_gt_label_is_genus_only,8,False
+Virola nobilis,virola nobilis,,c_genus_only_in_corpus,8,False
+Fridericia,fridericia,,c_gt_label_is_genus_only,7,False
+Lonchocarpus heptaphyllus,lonchocarpus heptaphyllus,,a_exact_binomial,7,True
+Nectandra lineata,nectandra lineata,,a_exact_binomial,7,True
+Platymiscium,platymiscium,,c_gt_label_is_genus_only,7,False
+Protium tenuifolium,protium tenuifolium,,a_exact_binomial,7,True
+Trema micranthum,trema micranthum,,a_exact_binomial,7,True
+Celtis schippii,celtis schippii,sparrea schippii,d_wcvp_synonym,6,True
+Combretum decandrum,combretum decandrum,,a_exact_binomial,6,True
+Enterolobium cyclocarpum,enterolobium cyclocarpum,,a_exact_binomial,6,True
+Maripa panamensis,maripa panamensis,,a_exact_binomial,6,True
+Ocotea oblonga,ocotea oblonga,,a_exact_binomial,6,True
+Omphalea diandra,omphalea diandra,,a_exact_binomial,6,True
+Pochota fendleri,pochota fendleri,,a_exact_binomial,6,True
+Prionostemma aspera,prionostemma aspera,,a_exact_binomial,6,True
+Urticaceae,urticaceae,,c_gt_label_is_genus_only,6,False
+Virola sebifera,virola sebifera,,a_exact_binomial,6,True
+Apeiba,apeiba,,c_gt_label_is_genus_only,5,False
+Arrabidaea candicans,arrabidaea candicans,fridericia candicans,d_wcvp_synonym,5,True
+Celtis iguanaea,celtis iguanaea,,a_exact_binomial,5,True
+Fridericia schumanniana,fridericia schumanniana,,a_exact_binomial,5,True
+Guarea guidonia,guarea guidonia,,a_exact_binomial,5,True
+Hiraea grandifolia,hiraea grandifolia,,a_exact_binomial,5,True
+Hylenaea praecelsa,hylenaea praecelsa,,a_exact_binomial,5,True
+Hymenaea courbaril,hymenaea courbaril,,a_exact_binomial,5,True
+Mascagnia divaricata,mascagnia divaricata,,a_exact_binomial,5,True
+Mascagnia ovatifolia,mascagnia ovatifolia,,a_exact_binomial,5,True
+Ocotea leptobotra,ocotea leptobotra,,a_exact_binomial,5,True
+Pachira sessilis,pachira sessilis,,a_exact_binomial,5,True
+Quararibea asterolepis,quararibea asterolepis,,a_exact_binomial,5,True
+Uncaria tomentosa-UNCATO,uncaria tomentosa,,b_normalized,5,True
+Amphilophium crucigerum,amphilophium crucigerum,,a_exact_binomial,4,True
+Amphilophium paniculatum,amphilophium paniculatum,,a_exact_binomial,4,True
+Aspidosperma cruentum,aspidosperma cruentum,aspidosperma desmanthum,d_wcvp_synonym,4,True
+Celastraceae,celastraceae,,c_gt_label_is_genus_only,4,False
+Cordia panamensis,cordia panamensis,,a_exact_binomial,4,True
+Croton billbergianus,croton billbergianus,,a_exact_binomial,4,True
+Dendropanax arboreus,dendropanax arboreus,,c_genus_only_in_corpus,4,False
+Pochota,pochota,,c_gt_label_is_genus_only,4,False
+Quararibea asterolepis-QUARAS,quararibea asterolepis,,b_normalized,4,True
+Sapotaceae,sapotaceae,,c_gt_label_is_genus_only,4,False
+Serjania mexicana,serjania mexicana,paullinia fuscescens,a_exact_binomial,4,True
+Aiouea montana,aiouea montana,,a_exact_binomial,3,True
+Arecaceae,arecaceae,,c_gt_label_is_genus_only,3,False
+Bignonia aequinoctialis,bignonia aequinoctialis,,a_exact_binomial,3,True
+Bignonia corymbosa,bignonia corymbosa,,a_exact_binomial,3,True
+Chrysophyllum,chrysophyllum,,c_gt_label_is_genus_only,3,False
+Chrysophyllum argenteum,chrysophyllum argenteum,,a_exact_binomial,3,True
+Cinnamomum triplinerve,cinnamomum triplinerve,aiouea montana,d_wcvp_synonym,3,True
+Coccoloba manzinellensis,coccoloba manzinellensis,,a_exact_binomial,3,True
+Combretum,combretum,,c_gt_label_is_genus_only,3,False
+Cordia bicolor,cordia bicolor,,a_exact_binomial,3,True
+Didymopanax morototoni,didymopanax morototoni,,a_exact_binomial,3,True
+Drypetes standleyi,drypetes standleyi,,c_genus_only_in_corpus,3,False
+Ficus yoponensis,ficus yoponensis,,a_exact_binomial,3,True
+Guarea grandifolia,guarea grandifolia,guarea guidonia,d_wcvp_synonym,3,True
+Gustavia,gustavia,,c_gt_label_is_genus_only,3,False
+Lafoensia punicifolia,lafoensia punicifolia,,a_exact_binomial,3,True
+Machaerium isadelphum,machaerium isadelphum,,a_exact_binomial,3,True
+Macrocnemum roseum,macrocnemum roseum,,a_exact_binomial,3,True
+Mascagnia divaricata-MAS2DI,mascagnia divaricata,,b_normalized,3,True
+Moquilea platypus,moquilea platypus,,a_exact_binomial,3,True
+Pouteria reticulata,pouteria reticulata,,a_exact_binomial,3,True
+Prioria,prioria,,c_gt_label_is_genus_only,3,False
+Tachigali,tachigali,,c_gt_label_is_genus_only,3,False
+Tontelea passiflora,tontelea passiflora,,a_exact_binomial,3,True
+Trema domingense,trema domingense,,c_genus_only_in_corpus,3,False
+Vatairea erythrocarpa,vatairea erythrocarpa,,a_exact_binomial,3,True
+Anacardium,anacardium,,c_gt_label_is_genus_only,2,False
+Cassipourea elliptica,cassipourea elliptica,,a_exact_binomial,2,True
+Coccoloba excelsa,coccoloba excelsa,,a_exact_binomial,2,True
+Cordia,cordia,,c_gt_label_is_genus_only,2,False
+Cosmibuena macrocarpa,cosmibuena macrocarpa,,a_exact_binomial,2,True
+Doliocarpus,doliocarpus,,c_gt_label_is_genus_only,2,False
+Enterolobium,enterolobium,,c_gt_label_is_genus_only,2,False
+Fabaceae,fabaceae,,c_gt_label_is_genus_only,2,False
+Ficus matiziana,ficus matiziana,,c_genus_only_in_corpus,2,False
+Ficus maxima,ficus maxima,,a_exact_binomial,2,True
+Ficus obtusifolia-FICUOB,ficus obtusifolia,,b_normalized,2,True
+Ficus popenoei,ficus popenoei,,a_exact_binomial,2,True
+Guapira standleyana,guapira standleyana,guapira myrtiflora,d_wcvp_synonym,2,True
+Hippocrateaceae,hippocrateaceae,,c_gt_label_is_genus_only,2,False
+Inga acuminata,inga acuminata,,c_genus_only_in_corpus,2,False
+Inga thibaudiana,inga thibaudiana,,a_exact_binomial,2,True
+Jupunba macradenia,jupunba macradenia,,a_exact_binomial,2,True
+Luehea speciosa,luehea speciosa,,a_exact_binomial,2,True
+Malvaceae,malvaceae,,c_gt_label_is_genus_only,2,False
+Pachira,pachira,,c_gt_label_is_genus_only,2,False
+Platymiscium dimorphandrum,platymiscium dimorphandrum,,c_genus_only_in_corpus,2,False
+Serjania pyramidata,serjania pyramidata,,a_exact_binomial,2,True
+Socratea exorrhiza,socratea exorrhiza,,a_exact_binomial,2,True
+Symphonia globulifera,symphonia globulifera,,a_exact_binomial,2,True
+Tanaecium pyramidatum,tanaecium pyramidatum,,a_exact_binomial,2,True
+Tetrathylacium johansenii,tetrathylacium johansenii,,e_absent_from_corpus,2,False
+Tynnanthus croatianus,tynnanthus croatianus,tynanthus croatianus,d_wcvp_synonym,2,True
+Virola fosteri,virola fosteri,,a_exact_binomial,2,True
+Vochysia ferruginea,vochysia ferruginea,,a_exact_binomial,2,True
+Zanthoxylum panamense,zanthoxylum panamense,,a_exact_binomial,2,True
+Zuelania guidonia,zuelania guidonia,casearia laetioides,d_wcvp_synonym,2,True
+Abarema macradenia,abarema macradenia,jupunba macradenia,d_wcvp_synonym,1,True
+Acacia hayesii,acacia hayesii,senegalia hayesii,d_wcvp_synonym,1,True
+Adelphia hiraea,adelphia hiraea,,e_absent_from_corpus,1,False
+Aegiphila cephalophora,aegiphila cephalophora,,c_genus_only_in_corpus,1,False
+Alseis,alseis,,c_gt_label_is_genus_only,1,False
+Anacardiaceae,anacardiaceae,,c_gt_label_is_genus_only,1,False
+Anacardium occidentale,anacardium occidentale,,a_exact_binomial,1,True
+Annona spraguei,annona spraguei,,a_exact_binomial,1,True
+Arrabidaea,arrabidaea,,c_gt_label_is_genus_only,1,False
+Arrabidaea patellifera,arrabidaea patellifera,fridericia patellifera,d_wcvp_synonym,1,True
+Arrabidaea verrucosa,arrabidaea verrucosa,fridericia schumanniana,d_wcvp_synonym,1,True
+Bignonia,bignonia,,c_gt_label_is_genus_only,1,False
+Blakea parasitica,blakea parasitica,,a_exact_binomial,1,True
+Brosimum,brosimum,,c_gt_label_is_genus_only,1,False
+Burseraceae,burseraceae,,c_gt_label_is_genus_only,1,False
+Casearia arborea,casearia arborea,,a_exact_binomial,1,True
+Casearia laetioides,casearia laetioides,,a_exact_binomial,1,True
+Cecropia,cecropia,,c_gt_label_is_genus_only,1,False
+Cecropia obtusifolia,cecropia obtusifolia,,a_exact_binomial,1,True
+Chomelia psilocarpa,chomelia psilocarpa,,e_absent_from_corpus,1,False
+Cissus erosa,cissus erosa,,a_exact_binomial,1,True
+Combretaceae,combretaceae,,c_gt_label_is_genus_only,1,False
+Combretum fruticosum,combretum fruticosum,,a_exact_binomial,1,True
+Convolvulaceae,convolvulaceae,,c_gt_label_is_genus_only,1,False
+Coussapoa villosa,coussapoa villosa,,a_exact_binomial,1,True
+Cupania rufescens,cupania rufescens,,a_exact_binomial,1,True
+Cydista aequinoctialis,cydista aequinoctialis,bignonia aequinoctialis,d_wcvp_synonym,1,True
+Davilla,davilla,,c_gt_label_is_genus_only,1,False
+Davilla kunthii-DAVIKU,davilla kunthii,,b_normalized,1,True
+Dilleniaceae,dilleniaceae,,c_gt_label_is_genus_only,1,False
+Doliocarpus major,doliocarpus major,,a_exact_binomial,1,True
+Doliocarpus multiflorus,doliocarpus multiflorus,,a_exact_binomial,1,True
+Eugenia coloradoensis,eugenia coloradoensis,eugenia florida,c_genus_only_in_corpus,1,False
+Eugenia nesiotica,eugenia nesiotica,,c_genus_only_in_corpus,1,False
+Euphorbiaceae,euphorbiaceae,,c_gt_label_is_genus_only,1,False
+Faramea,faramea,,c_gt_label_is_genus_only,1,False
+Faramea occidentalis,faramea occidentalis,,a_exact_binomial,1,True
+Fevillea cordifolia,fevillea cordifolia,,e_absent_from_corpus,1,False
+Ficus costaricana,ficus costaricana,,a_exact_binomial,1,True
+Gnetum,gnetum,,c_gt_label_is_genus_only,1,False
+Gnetum leyboldii,gnetum leyboldii,,e_absent_from_corpus,1,False
+Guapira,guapira,,c_gt_label_is_genus_only,1,False
+Guarea,guarea,,c_gt_label_is_genus_only,1,False
+Heteropterys laurifolia,heteropterys laurifolia,heteropterys intermedia,a_exact_binomial,1,False
+Hiraea reclinata,hiraea reclinata,,a_exact_binomial,1,True
+Humiriaceae,humiriaceae,,c_gt_label_is_genus_only,1,False
+Inga goldmanii,inga goldmanii,,a_exact_binomial,1,True
+Inga laurina,inga laurina,,a_exact_binomial,1,True
+Inga pezizifera,inga pezizifera,,c_genus_only_in_corpus,1,False
+Inga sapindoides,inga sapindoides,,a_exact_binomial,1,True
+Lacmellea panamensis,lacmellea panamensis,,a_exact_binomial,1,True
+Lindackeria laurina,lindackeria laurina,,a_exact_binomial,1,True
+Macfadyena unguis-cati,macfadyena unguis-cati,dolichandra unguis-cati,d_wcvp_synonym,1,True
+Mangifera indica,mangifera indica,,a_exact_binomial,1,True
+Margaritaria nobilis,margaritaria nobilis,,a_exact_binomial,1,True
+Martinella obovata,martinella obovata,,a_exact_binomial,1,True
+Mascagnia,mascagnia,,c_gt_label_is_genus_only,1,False
+Miconia,miconia,,c_gt_label_is_genus_only,1,False
+Ocotea puberula,ocotea puberula,,a_exact_binomial,1,True
+Ocotea whitei,ocotea whitei,,c_genus_only_in_corpus,1,False
+Ormosia macrocalyx,ormosia macrocalyx,,a_exact_binomial,1,True
+Passiflora auriculata,passiflora auriculata,,c_genus_only_in_corpus,1,False
+Paullinia bracteosa,paullinia bracteosa,,a_exact_binomial,1,True
+Phyllanthaceae,phyllanthaceae,,c_gt_label_is_genus_only,1,False
+Platymiscium pinnatum,platymiscium pinnatum,,a_exact_binomial,1,True
+Pochota quinata,pochota quinata,bombax ceiba,d_wcvp_synonym,1,True
+Pterocarpus rohrii,pterocarpus rohrii,,a_exact_binomial,1,True
+Quararibea pterocalyx,quararibea pterocalyx,,c_genus_only_in_corpus,1,False
+Schizolobium parahyba,schizolobium parahyba,,e_absent_from_corpus,1,False
+Schnella guianensis,schnella guianensis,,c_genus_only_in_corpus,1,False
+Serjania,serjania,,c_gt_label_is_genus_only,1,False
+Souroubea sympetala,souroubea sympetala,,a_exact_binomial,1,True
+Sterculia,sterculia,,c_gt_label_is_genus_only,1,False
+Swartzia simplex var. continentalis,swartzia simplex,,b_normalized,1,True
+Swartzia simplex var. grandiflora,swartzia simplex,,b_normalized,1,True
+Tanaecium,tanaecium,,c_gt_label_is_genus_only,1,False
+Tetracera portobellensis,tetracera portobellensis,,a_exact_binomial,1,True
+Tetrapterys tinifolia,tetrapterys tinifolia,,c_genus_only_in_corpus,1,False
+Tontelea ovalifolia_subsp._richardii,tontelea ovalifolia,tontelea passiflora,d_wcvp_synonym,1,True
+Trichospermum galeottii,trichospermum galeottii,trichospermum mexicanum,d_wcvp_synonym,1,True
+Turpinia occidentalis,turpinia occidentalis,,a_exact_binomial,1,True
+Vismia macrophylla,vismia macrophylla,,a_exact_binomial,1,True
+Vitis tiliifolia,vitis tiliifolia,,a_exact_binomial,1,True
