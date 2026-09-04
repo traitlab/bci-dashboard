@@ -130,8 +130,8 @@ def gt_provenance(gt_csv: str = GT_CSV) -> str:
     return f"Ground truth: {os.path.basename(gt_csv)}, dated {mtime}."
 
 # How many names we ask Pl@ntNet for per photo (config.yaml identify_nb_results).
-# A request setting, not a property of the model, and the number "the right name
-# is in the list" is measured at.
+# A request setting, not a property of the model, and the number the species
+# table's top-N accuracy column is measured at.
 N_CANDIDATES = 5
 
 # The Pl@ntNet project our predictions came from (config.yaml plantnet.identify_url,

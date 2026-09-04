@@ -17,10 +17,6 @@ from figures import conf, top1
 from status_words import (STATUS, filter_options, legend_entries,
                           status_precedence_note)
 
-# Read, not worked through, so shorter than the queue page's send preview.
-REVIEW_PREVIEW = 15
-
-
 # What each file naming is, as a noun phrase both pages drop into their own
 # sentence. Both words read like camera settings and neither is one: the flight
 # team confirmed one camera throughout, and the flights that produced
@@ -157,67 +153,137 @@ def hero_region(c):
 # ---------------------------------------------------------------------------
 
 
+def _review_pairs(review):
+    """The review frames grouped by label-and-guess pair, recurring pairs first.
+
+    ``figures._review`` already counts the pairs; it keeps confidences, not
+    records, and a row on this table is a frame. Same key, so the two cannot
+    disagree about how many pairs there are. Order is frames per pair and then
+    the pair itself, so the pairs worth working first come first and the order
+    does not move between builds.
+    """
+    groups: dict[tuple, list] = {}
+    for r in review:
+        groups.setdefault((r["gt"], top1(r)), []).append(r)
+    for rows in groups.values():
+        rows.sort(key=lambda r: -conf(r))
+    return sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+
+
+def _project_split(cov):
+    """Where a table's links go, as a clause the link sentence drops in.
+
+    Two legacy projects hold these frames, and a reader told only the total
+    cannot check one link of each kind. Empty when there is nothing to split:
+    one project, or none linked at all.
+    """
+    counts = sorted(cov["by_project"].values(), reverse=True)
+    if len(counts) < 2:
+        return ""
+    if len(counts) == 2:
+        return f", {counts[0]} in one Labelbox project and {counts[1]} in the other"
+    return (", " + ", ".join(str(n) for n in counts)
+            + f" across {len(counts)} Labelbox projects")
+
+
+# The columns of the one review table, numeric flag second, as ``table`` takes
+# them. Written once so the group heading's colspan cannot drift from them.
+REVIEW_COLUMNS = [("botanist label", False), ("Pl@ntNet's first guess", False),
+                  ("confidence", True), ("split", False), ("frame", False)]
+
+
+def _review_table(groups, urls):
+    """One table, every review frame, each pair a heading over its own frames.
+
+    Not two tables: a pairs table capped at one number beside a frames table
+    capped at another reads as two populations, and the pair a reader goes
+    looking for is the one outside the first cap. A heading row inside the one
+    table keeps the pair counts without a second denominator.
+    """
+    out = ["<table><thead><tr>"]
+    for text, num in REVIEW_COLUMNS:
+        cls = ' class="num"' if num else ""
+        out.append(f"<th{cls}>{text}</th>")
+    out.append("</tr></thead><tbody>")
+    for (gt, pr), rows in groups:
+        out.append(f'<tr><th colspan="{len(REVIEW_COLUMNS)}">'
+                   f'<span class="sp">{esc(cap(gt))}</span> labelled, '
+                   f'<span class="sp">{esc(cap(pr))}</span> guessed: {len(rows)} '
+                   f'frame{"" if len(rows) == 1 else "s"}</th></tr>')
+        for r in rows:
+            key = r["global_key"]
+            frame = (f'<a href="{esc(urls[key])}" target="_blank" rel="noopener">'
+                     f'{esc(key)}</a>') if key in urls else esc(key)
+            out.append(f'<tr><td><span class="sp">{esc(cap(r["gt"]))}</span></td>'
+                       f'<td><span class="sp">{esc(cap(top1(r)))}</span></td>'
+                       f'<td class="num">{conf(r):.2f}</td>'
+                       f'<td>{esc(r["split"] or "unassigned")}</td>'
+                       f'<td>{frame}</td></tr>')
+    out.append("</tbody></table>")
+    return '<div class="tscroll">' + "\n".join(out) + "</div>"
+
+
+def _link_note(here, wide):
+    """Where the table's links go, and why the rest of the rows carry none.
+
+    Not a limitation and not a broken link: the frames without one have their
+    data rows in a project nobody has exported yet, so no id for them exists on
+    this machine. The page-wide figure sits beside the table's own so a reader
+    can see whether the shortfall is local.
+    """
+    out = (f'<p class="note">{here["n_linked"]} of {here["n_frames"]} frames link to '
+           f'their row in Labelbox{_project_split(here)}.')
+    if here["n_unlinked"]:
+        out += (f' The other {here["n_unlinked"]} are not unlinkable. Their data rows '
+                f'sit in a project nobody has exported yet, so no id for them exists '
+                f'offline. One read-only export per project closes it.')
+    return (out + f' The same join reaches {wide["n_linked"]:,} of '
+                  f'{wide["n_frames"]:,} labelled frames page-wide '
+                  f'({pctf(wide["share"])}).</p>')
+
+
 def p_review(c):
-    """Labelled frames worth a second look, by species and by confusable pair."""
-    pair_rows = sorted(c.review_pairs.items(), key=lambda kv: -len(kv[1]))[:10]
-    # What a row on either table means comes before the tables themselves. The
-    # pairs table's rows are pairs, not frames, and the ten shown do not cover
-    # every frame, so the prose says how many they do cover.
-    shown = sum(len(cs) for _, cs in pair_rows)
-    body = (f'<p class="note">Every frame counted here is a labelled frame where the '
-            f'model is at least {hc.REVIEW_CONF:.1f} confident in a <em>different</em> '
-            f'species. A first guess this confident is right {pctf(c.confident_ok)} of '
-            f'the time in bulk ({c.confident_hits:,} of {len(c.confident):,}).</p>'
-            f'<p class="note">A wrong label found this way is the cheapest label fix '
-            f'available.</p>'
-            f'<p class="note">The {c.review_counts[0]} frames fall into '
-            f'{len(c.review_pairs)} label-and-guess pairs. The '
-            f'{len(pair_rows)} commonest are first, and they cover {shown} of the '
-            f'{c.review_counts[0]} frames. Then come the '
-            f'{REVIEW_PREVIEW} individual frames the model is surest about, some of '
-            f'which are also single-frame pairs above.</p>'
-            + table([("botanist label", False), ("Pl@ntNet's first guess", False),
-                   ("frames", True), ("mean confidence", True)],
-                  [[f'<span class="sp">{esc(cap(gt))}</span>',
-                    f'<span class="sp">{esc(cap(pr))}</span>',
-                    f"{len(cs):,}", f"{sum(cs) / len(cs):.2f}"]
-                   for (gt, pr), cs in pair_rows])
-            if pair_rows else '<p class="note">None at this confidence.</p>')
-    # Most confident first, linked into Labelbox only where a merge recorded the
-    # data row. Never guessed, never fetched.
+    """Every labelled frame worth a second look, grouped by confusable pair."""
+    groups = _review_pairs(c.review)
+    n = len(c.review)
+    # The pairs that recur, counted off the grouping itself so the sentence and
+    # the headings cannot name different numbers.
+    recur = [(p, rows) for p, rows in groups if len(rows) > 1]
+    covered = sum(len(rows) for _, rows in recur)
+    # Linked only where a merge recorded the data row. Never guessed, never
+    # fetched. The page-wide figure is the same join over every labelled frame,
+    # which is what says whether this table's shortfall is local or general.
     urls = hc.labelbox_urls()
-    top_review = sorted(c.review, key=lambda r: -conf(r))[:REVIEW_PREVIEW]
-    linked = sum(1 for r in c.review if r["global_key"] in urls)
-    body += (f'<h3 class="sub">The {len(top_review)} most confident disagreements</h3>'
-             f'<p class="note">A frame name links to its row in Labelbox where we know the '
-             f'link: {linked} of {len(c.review)} frames here. We know it for the ones that '
-             f'came in on an export these labels were merged from. The rest are listed '
-             f'without a link rather than sent to a guessed address.</p>')
-    body += table([("frame", False), ("botanist label", False),
-                   ("Pl@ntNet's first guess", False), ("confidence", True)],
-                  [[(f'<a href="{esc(urls[r["global_key"]])}" target="_blank" '
-                     f'rel="noopener">{esc(r["global_key"])}</a>'
-                     if r["global_key"] in urls else esc(r["global_key"])),
-                    f'<span class="sp">{esc(cap(r["gt"]))}</span>',
-                    f'<span class="sp">{esc(cap(top1(r)))}</span>',
-                    f"{conf(r):.2f}"]
-                   for r in top_review])
-    body += ('<p class="note">Not urgent: work this list after the queues on the label '
-             'queue page. A '
-             'label-and-guess pair that keeps recurring is a signal about the species, '
-             'not just the photo.</p>')
+    here = hc.labelbox_link_coverage([r["global_key"] for r in c.review], urls)
+    wide = hc.labelbox_link_coverage([r["global_key"] for r in c.h.gt_rows], urls)
+    body = (f'<p class="note">Every frame here is a labelled frame where the model is '
+            f'at least {hc.REVIEW_CONF:.1f} confident in a <em>different</em> species. '
+            f'A first guess this confident is right {pctf(c.confident_ok)} of the time '
+            f'in bulk ({c.confident_hits:,} of {len(c.confident):,}). A wrong label '
+            f'found this way is the cheapest label fix available.</p>'
+            f'<p class="note">All {n} frames are here, grouped under their '
+            f'{len(groups)} label-and-guess pairs, the pairs that recur first. '
+            f'{len(recur)} pairs carry more than one frame and cover {covered} of the '
+            f'{n} frames; the other {len(groups) - len(recur)} carry one frame '
+            f'each.</p>'
+            + _link_note(here, wide)
+            + (_review_table(groups, urls) if groups
+               else '<p class="note">None at this confidence.</p>')
+            + '<p class="note">Not urgent: work this list after the queues on the label '
+              'queue page. A label-and-guess pair that keeps recurring is a signal about '
+              'the species, not just the photo.</p>')
     if c.n_adjudicated:
         body += (f'<p class="note">{c.n_adjudicated} further frame'
-                 f'{"" if c.n_adjudicated == 1 else "s"} disagree at this confidence and are '
-                 f'not listed: a botanist has confirmed the label, so the model is simply '
-                 f'wrong there and the frame would return here on every build. They still '
-                 f'count against the {pctf(c.confident_ok)} above.</p>')
-    return panel(f"Labels worth a second look: {c.review_counts[0]} confident "
+                 f'{"" if c.n_adjudicated == 1 else "s"} disagree at this confidence and '
+                 f'are not listed: a botanist has confirmed the label, so the model is '
+                 f'simply wrong there and the frame would return here on every build. '
+                 f'They still count against the {pctf(c.confident_ok)} above.</p>')
+    return panel(f"Labels worth a second look: {n} confident "
                  f"disagreements a botanist can settle",
-                 f"<b>Put these {c.review_counts[0]} frames in front of a botanist.</b> "
+                 f"<b>Put these {n} frames in front of a botanist.</b> "
                  f"Either the label is wrong or the model is, and one look settles "
                  f"which. They are the disagreements most worth an expert's minute. "
-                 f"All of them are in "
+                 f"The same {n} rows are in "
                  f'<a href="label_review_queue.csv">label_review_queue.csv</a>, '
                  f"most confident first.", body)
 
@@ -227,6 +293,71 @@ def p_review(c):
 # threshold: hiding at 5 while the status beside it switches at 10 sends a reader
 # hunting for a rule that was never there. Hidden, never deleted.
 THIN_MIN_FRAMES = hc.WELL_SAMPLED_MIN_N
+
+
+# The bars the reader can pick between. Etienne, sorting the table by hand and
+# counting rows out loud: "it would be nice to see how many are above 85 or
+# something". Round numbers around that. The default is RELIABLE_MIN_TOP1
+# because at that bar, over species carrying THIN_MIN_FRAMES or more labelled
+# frames, the count is the "usually right" row count by construction, which is
+# the one number on this control a test can check against something else.
+THRESHOLD_BARS = (0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95)
+THRESHOLD_DEFAULT = hc.RELIABLE_MIN_TOP1
+if THRESHOLD_DEFAULT not in THRESHOLD_BARS:
+    raise SystemExit(f"the default bar {THRESHOLD_DEFAULT} is not one of "
+                     f"{THRESHOLD_BARS}, so the select would open on no option")
+
+# The two ids the control's own script looks up. Local to this file, unlike the
+# species table's, which the shared script in style.py reaches for.
+BAR_ID = "accuracy-bar"
+BAR_COUNT_ID = "accuracy-bar-count"
+
+
+def _clearing(per_species, bar):
+    """Species carrying THIN_MIN_FRAMES or more labelled frames that score
+    ``bar`` or better on the first guess.
+
+    The same tolerance as ``core.diagnose``, so at RELIABLE_MIN_TOP1 this is
+    exactly the count of rows tagged "usually right" rather than one rounding
+    step away from it.
+    """
+    return sum(1 for d in per_species
+               if d["n_labelled_frames"] >= THIN_MIN_FRAMES
+               and d["top1_accuracy"] >= bar - hc.RATE_EPS)
+
+
+def threshold_control(c):
+    """How many species clear a bar, with the bar as a control.
+
+    Sorting the table answers "which ones" and not "how many", which is what
+    was asked for. The exclusion is in the sentence and not in a footnote: two
+    support buckets hold most of the species and almost none of the crowns, and
+    a species with one labelled frame scores 0% or 100% and nothing else, so an
+    unqualified count is a misleading headline.
+
+    Every count is rendered into the page, one per option, so the control needs
+    no measurement at read time and the page stays one file.
+    """
+    thick = sum(1 for d in c.per_species
+                if d["n_labelled_frames"] >= THIN_MIN_FRAMES)
+    counts = {bar: _clearing(c.per_species, bar) for bar in THRESHOLD_BARS}
+    opts = "".join(
+        f'<option value="{bar:.2f}" data-n="{counts[bar]}"'
+        f'{" selected" if bar == THRESHOLD_DEFAULT else ""}>'
+        f'{100 * bar:g}%</option>' for bar in THRESHOLD_BARS)
+    return (f'<p class="note">{thick} of {c.n_sp} species carry {THIN_MIN_FRAMES} '
+            f'or more labelled frames. <b><span id="{BAR_COUNT_ID}">'
+            f'{counts[THRESHOLD_DEFAULT]}</span> of those {thick}</b> are at or above '
+            f'<select id="{BAR_ID}" aria-label="top-1 accuracy bar">{opts}</select> '
+            f'top-1 accuracy. The other {c.n_sp - thick} species carry fewer frames than '
+            f'that. On that few a rate lands on a handful of values, so they are left '
+            f'out of this count.</p>'
+            f'<script>(function(){{'
+            f'var s=document.getElementById("{BAR_ID}"),'
+            f'n=document.getElementById("{BAR_COUNT_ID}");'
+            f's.addEventListener("change",function(){{'
+            f'n.textContent=s.options[s.selectedIndex].getAttribute("data-n");}});'
+            f'}})();</script>')
 
 
 def _starts_hidden(d, status):
@@ -293,6 +424,7 @@ def p_species(c):
               'Pl@ntNet spreads 100% of its confidence across every species it '
               'knows. So 0.86 means it put nearly all of that on one '
               'name, and 0.32 means it was spread thin.</p>'
+            + threshold_control(c)
             + filterable_table(
         [("Species", False), ("Labelled frames", True),
          ("Top-1 accuracy", True), (f"Top-{c.n_cand} accuracy", True),
@@ -309,7 +441,10 @@ def p_species(c):
     # made the one header on this page that answers nothing change every snapshot.
     # Closed, because this is a lookup tool rather than the page's deliverable.
     return panel("Look up one species: sortable and filterable",
-                 SPECIES_LOOKUP_LEDE, body)
+                 SPECIES_LOOKUP_LEDE + " Every row, and the columns this table "
+                 "does not show, are in "
+                 '<a href="per_species_health.csv">per_species_health.csv</a>.',
+                 body)
 
 
 def p_ceiling(c):
