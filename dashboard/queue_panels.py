@@ -246,28 +246,23 @@ def _wait_rule(c) -> str:
             f'on {pctf(best["err"])} of those.</div>'
             # Every share in the comparison table below is out of this count.
             f'<p class="note"><strong>What those {len(c.test_recs):,} frames are.</strong> '
-            f'The labelled frames marked <code>test</code> in <code>splits.csv</code>, an '
-            f'input to this page. The rule was chosen on the other frames, so nothing here is '
-            f'graded on the frames that picked it. Every count below is out of those '
-            f'{len(c.test_recs):,}.</p>'
+            f'The labelled frames marked <code>test</code> in <code>splits.csv</code>. The '
+            f'rule was chosen on the other frames, so nothing here is graded on the frames '
+            f'that picked it. Every count below is out of those {len(c.test_recs):,}. '
             # Two hold-outs, described in almost the same words on two pages that
             # link to each other. A reader assumes one is a subset of the other.
-            f'<p class="note">Not the set behind the model-health page\'s two headline '
-            f'numbers. That is a separate draw of {int(c.cf["n_frames"])} frames from every '
-            f'labelled frame, overlapping this one. Neither set contains the other.</p>'
+            f'They are not the model-health page\'s hold-out, a separate draw of '
+            f'{int(c.cf["n_frames"])} frames; the two overlap and neither contains the '
+            f'other.</p>'
             '<p class="note"><strong>Nothing here is a label.</strong> A frame that can wait '
-            "keeps whatever label it has, or none. The rule only pushes frames down the "
-            "botanist's queue.</p>"
-            f'<p class="note"><strong>The decision expires with the model.</strong> Pl@ntNet '
-            f'ships a new model every few months, on its schedule not ours. A frame pushed '
-            f'down under <code>{esc(c.tag)}</code> is not pushed down under the next one. '
-            f'Re-run this page after a model change and any frame can come back to the '
-            f'top.</p>'
+            "keeps whatever label it has, or none; the rule only pushes it down the "
+            "queue. The decision also expires with the model. Pl@ntNet ships a new one "
+            "every few months, and re-running this page after that can bring any frame back "
+            "to the top.</p>"
             f'<p class="note">{len(c.eligible)} species reach {WAIT_SUPPORT_MIN} labelled '
             f'frames inside the frames a rule may learn from, which is the second half of '
-            f'the rule. Counting every label instead, not just those, gives a larger '
-            f'number. So this count will not match the &ldquo;too few labels to judge&rdquo; '
-            f'count in the list above.'
+            f'the rule. Counting every label gives a larger number, so this will not match '
+            f'the &ldquo;too few labels to judge&rdquo; count above.'
             # Two unrelated counts on this page are 41 today, and a reader who meets
             # the second one takes it for a back-reference to the heading.
             + (f' It is also a different set from the {c.counts["ranking"]} species in the '

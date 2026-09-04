@@ -104,10 +104,9 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
         "Every labelled frame, scored on the centre crop: four rates",
         "<b>Quote the number at the top of the page, not these four.</b> These cover "
         "every labelled frame instead of the frozen sample, so they answer a different "
-        "question. If you cite one of them anyway, cite the per-species rate, never the "
         # What the two rates each ask is said once, next to the headline cards,
         # where a reader is looking at the numbers it explains.
-        "per-frame one.",
+        "question. If you cite one anyway, cite the per-species rate.",
         corpus_block
         + svg_weight_pair(rows,
                           label_a=f"one vote per species ({n_sp} votes)",
@@ -115,37 +114,30 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           # Name the bars by their own labels, not by position: the second share
           # is a sliver too thin to carry a printed label.
         + f'<p class="note">The {singles} single-frame species are '
-          f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the '
-          f'one-vote-per-species bar but only '
-          f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the one-vote-per-frame one. '
-          f'That slice is too thin to label there. '
-          f'Pl@ntNet is right {pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} of the '
-          f'time on species we labelled once, against '
-          f'{pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at {BAND_WORD[fat]}.</p>'
+          f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the per-species bar and '
+          f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the per-frame one. Pl@ntNet is '
+          f'right {pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} of the time on '
+          f'them, against {pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at '
+          f'{BAND_WORD[fat]}.</p>'
           # No cause asserted here: the warning block below gives that claim
           # with its reason attached, where a reader can weigh it.
           f'<p class="note">Misses differ at each end. On species with {THIN_MAX} frames '
-          f'or fewer, the right name is still in the {hc.N_CANDIDATES} for {pctf(thin_in5)} of '
-          f'{thin_n} misses. At {FAT_MIN}+ frames it is {pctf(fat_in5)} of {fat_n}. '
-          f'Misses on common '
-          f'species are near '
-          f'misses settled from the short list; on rare ones the model does not know the '
+          f'or fewer, the right name is still in the {hc.N_CANDIDATES} for {pctf(thin_in5)} '
+          f'of {thin_n} misses. At {FAT_MIN}+ it is {pctf(fat_in5)} of {fat_n}. Misses on '
+          f'common species are near misses; on rare ones the model does not know the '
           f'plant.</p>'
           f'<p class="note"><b>Set aside species under {hc.WELL_SAMPLED_MIN_N} frames and '
           f'the scores become {pctf(well_micro)} per frame and {pctf(well_macro)} per '
-          f'species.</b> '
-          f'That is {100 * (well_micro - well_macro):.0f} points apart, instead of the '
-          f'{gap:.0f} between {pctf(now["micro_top1"])} and {pctf(now["macro_top1"])}. A '
+          f'species</b>. That is {100 * (well_micro - well_macro):.0f} points apart, not '
+          f'the {gap:.0f} between {pctf(now["micro_top1"])} and {pctf(now["macro_top1"])}. A '
           f'one-frame species scores only 0% or 100%, so those {singles} votes are coin '
           f'flips.</p>'
           f'<div class="warn"><strong>Read those rows as how common a species is, not as '
           f'something labelling changed.</strong> These predictions come from a frozen '
-          f'Pl@ntNet regional '
-          f'model that has never seen a BCI label, so labelling a species does not make '
-          f'Pl@ntNet better at it. Common species simply have more reference photos '
-          f'inside Pl@ntNet already. Extra labels buy knowledge instead: below about '
-          f'{hc.WELL_SAMPLED_MIN_N} frames a per-species accuracy jumps around too much to '
-          f'act on, and above it the species has a score steady enough to rank work by.</div>',
+          f'Pl@ntNet regional model that has never seen a BCI label; common species simply '
+          f'have more reference photos inside Pl@ntNet already. Extra labels buy knowledge '
+          f'instead: under about {hc.WELL_SAMPLED_MIN_N} frames a per-species accuracy '
+          f'jumps around too much to act on.</div>',
         # Both headline rates are in the summary and both move every snapshot.
         anchor="why-the-two-headline-scores-differ")
 
@@ -165,36 +157,28 @@ def method_panel(*, tag, n, n_sp, n_cand, checks, out_of_scope=None, out_of_scop
             # The tag is `<endpoint-slug>@<run-name>`, so it already carries the
             # endpoint; a typed one could not follow a move to another endpoint.
             f'<li>Predictions: model run <code>{esc(tag)}</code>, the Central '
-            f'America regional model and not the worldwide one, so a regional '
-            f'restriction is already in place.{scope_sentence}</li>'
-            f'<li>Request settings: <code>nb-results={n_cand}</code>, '
-            f'plus <code>no-reject=true</code>, organs detected '
-            f'automatically, and <code>include-related-images=false</code>, on a '
-            f'{CROP_SIZE}&nbsp;px centre crop of each frame photo. A correct answer at '
-            f'position '
-            f'{n_cand + 1} '
-            f'or beyond was never returned and cannot be seen here.</li>'
-            f'<li>Evaluated set: {n:,} frames across {n_sp} species carrying a botanist '
-            f'label that names a species rather than only a genus. They are the historical '
-            f'labelling record, not a random draw. These rates carry over to unlabelled '
-            f'frames only if unlabelled frames look like labelled ones, and that is not '
-            f'something we can check offline.</li>'
-            f'<li>Where the labels came from, in the merge script\u2019s own words. '
+            f'America regional model, so a regional restriction is already in '
+            f'place.{scope_sentence}</li>'
+            f'<li>Request: <code>nb-results={n_cand}</code>, <code>no-reject=true</code>, '
+            f'organs detected automatically, <code>include-related-images=false</code>, on a '
+            f'{CROP_SIZE}&nbsp;px centre crop. A correct answer at position {n_cand + 1} or '
+            f'beyond was never returned and cannot be seen here.</li>'
+            f'<li>Evaluated set: {n:,} frames across {n_sp} species whose botanist label '
+            f'names a species rather than only a genus. They are the historical labelling '
+            f'record, not a random draw. These rates carry over to unlabelled frames only if '
+            f'unlabelled frames look like labelled ones, and that is not checkable '
+            f'offline.</li>'
+            f'<li>Labels, in the merge script\u2019s own words: '
             f'&ldquo;{esc(hc.gt_provenance())}&rdquo; The merge keeps the newer label, and '
-            f'that batch has had no review step on Labelbox yet. '
-            f'<code>labelling/gt_from_export.py</code> writes that line beside the label '
-            f'file, so it always names the batch this page was built over.</li>'
-            f'<li>Snapshot: this page reports one dated '
-            f'<code>model-health-&lt;date&gt;/</code> folder, the latest state, with no trend '
-            f'over earlier folders. Its model tag is read from its own '
-            f'<code>run_log.txt</code>, which records the endpoint and the model run '
-            f'name.</li>'
-            f'<li>Every number here is recomputed from the source data at build time. '
-            f'It is then checked against the {len(checks)} CSVs the measurement pass '
-            f'wrote into the snapshot folder. A mismatch aborts the build.</li>'
+            f'that batch has had no Labelbox review step yet.</li>'
+            f'<li>Snapshot: one dated <code>model-health-&lt;date&gt;/</code> folder, the '
+            f'latest state, with no trend over earlier folders. Every number is recomputed '
+            f'from the source data at build time. It is checked against the {len(checks)} '
+            f'CSVs the measurement pass wrote there, and a mismatch aborts the build. '
+            f'To rebuild, see '
             # Build provenance is a maintainer's question, not a reader's. One
-            # line stays so an archived copy of this page says where to look.
-            '<li>Rebuild: see the README beside this dashboard&rsquo;s source.</li></ul>')
+            # clause stays so an archived copy of this page says where to look.
+            f'the README beside this dashboard&rsquo;s source.</li></ul>')
     # This one is provenance: which model, which frames, which files.
     return panel("How this was measured: the model, the frames, the files",
                  "<b>Read this before quoting any number outside the team.</b> It names "
