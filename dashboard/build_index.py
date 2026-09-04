@@ -5,10 +5,9 @@ Two links and the date they were built. It exists because the reviewer asked for
 bookmarkable address rather than a file someone has to be sent each time, and a
 bookmark that lands on a directory listing is not that.
 
-Every word on it that could go stale is read back out of the built pages, so a
-rebuild moves the dates here too. Nothing is measured or recomputed: if a number
-matters it belongs on one of the two pages, under the provenance that explains
-it.
+The date is read back out of the built pages, so a rebuild moves it here too.
+Nothing else is carried across and nothing is measured: a number belongs on one
+of the two pages, under the provenance that explains it, not on a signpost.
 
     python3 dashboard/build_index.py --build build --out docs/index.html
 """
@@ -49,14 +48,25 @@ a.card{
 a.card:hover{border-color:#1565c0}
 a.card b{display:block;font-size:1.05rem;color:#1565c0;margin-bottom:4px}
 a.card span{font-size:0.9rem;color:#424242}
-p.note{font-size:0.85rem;color:#757575;margin-top:24px}
 """
 
 
-def page_subtitle(text: str) -> str:
-    """The built page's own subtitle line, dates and model tag included."""
-    m = re.search(r'<div class="subtitle">(.*?)</div>', text, re.S)
-    return re.sub(r"<[^>]+>", "", m.group(1)).strip() if m else ""
+def build_stamp(text: str) -> str:
+    """The build date off a built page, and nothing else.
+
+    A page's own subtitle carries the snapshot date, the model tag and two
+    counts after it, separated by middots. Those are numbers, and a number
+    belongs on the page that can say what it was measured on. Here they are a
+    headline with no provenance under it, so only the first field survives.
+
+    The separator is decoded before the caller escapes the line. Left encoded,
+    it was escaped twice and the front door read `built 2026-09-04 &middot;`.
+    """
+    found = re.search(r'<div class="subtitle">(.*?)</div>', text, re.S)
+    if not found:
+        return ""
+    line = html.unescape(re.sub(r"<[^>]+>", "", found.group(1))).strip()
+    return line.split("\u00b7", 1)[0].strip()
 
 
 def build(build_dir: str) -> str:
@@ -65,7 +75,7 @@ def build(build_dir: str) -> str:
     for name, title, blurb in PAGES:
         path = os.path.join(build_dir, name)
         with open(path, encoding="utf-8") as fh:
-            stamp = stamp or page_subtitle(fh.read())
+            stamp = stamp or build_stamp(fh.read())
         cards.append(f'<a class="card" href="{html.escape(name)}">'
                      f'<b>{html.escape(title)}</b>'
                      f'<span>{html.escape(blurb)}</span></a>')
@@ -76,9 +86,6 @@ def build(build_dir: str) -> str:
             "<h1>BCI tree identification</h1>"
             f'<div class="subtitle">{html.escape(stamp)}</div>'
             + "".join(cards) +
-            '<p class="note">Both pages are rebuilt from the measurement pass, '
-            'and each one states what its numbers were measured on. Neither is '
-            'a trend: they report the latest state.</p>'
             "</body></html>\n")
 
 
