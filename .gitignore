@@ -1,0 +1,29 @@
+.env
+.DS_Store
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+build/
+snapshots/
+data/*
+!data/wcvp_cache.json
+!data/adjudications.csv
+.ruff_cache/
+.claude-flow/
+
+specs/
+
+# Glossary kept out of the repo; tests that read it skip when absent.
+CONTEXT.md
+
+# Vendored Spec Kit scaffolding: re-created by `specify init --here`.
+# The constitution is project content and stays tracked.
+.specify/*
+!.specify/memory/
+.specify/memory/*
+!.specify/memory/constitution.md
+
+# Agent instructions kept out of the repo.
+CLAUDE.md

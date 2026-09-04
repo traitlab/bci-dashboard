@@ -1,0 +1,14 @@
+labelbox
+requests
+python-dotenv
+pyyaml
+Pillow
+
+# 15c_aggregate_survey.py only (the --aggregate path of 15xi). The dashboard
+# itself is stdlib. labelfirst and speciesfirst are not on PyPI: install both
+# from the traitlab repo. labelling/rank_queue.py imports them and its docstring
+# says how to run it against that checkout.
+numpy
+pandas
+# labelfirst
+# speciesfirst

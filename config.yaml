@@ -1,0 +1,34 @@
+plantnet:
+  identify_url: https://my-api.plantnet.org/v2/identify/k-central-america
+  embeddings_api_url: https://my-api.plantnet.org/v2/embeddings
+  identify_nb_results: 5
+  identify_organs: auto
+  identify_lang: en
+  # The model behind a snapshot, so it stays identifiable after Pl@ntNet ships
+  # a new version. dashboard/run_log.py prints the run name into run_log.txt,
+  # history.model_tag_of reads it back, and it is the model tag on the pages.
+  # tests/test_settings.py compares the two copies.
+  single_model_run_name: v7.4-2026-03-27
+
+labelbox:
+  # Which workspace a run points at. No key here; that is .env only.
+  # Each id is overridable by the environment variable named beside it.
+  # Two different Labelbox datasets, on purpose: the frames go out from the
+  # combined one and the labelled history is read from the other. They share no
+  # global key, so nothing here should be made to agree with anything below.
+  combined_dataset_name: BCI Workshop - Drone Photos       # dispatch_round
+  project_b_name: BCI Workshop - Botanist Labelling        # dispatch_round, close_round
+  dataset_id: cmon3zoss00wu0705ertl0vd7                    # fetch_dataset  LABELBOX_DATASET_ID
+  project_id: cmp375mkq0dhr07w92diwbmuh                    # next_batch     LABELBOX_PROJECT_ID
+  # Which project a deep link on the pages opens in: `legacy` (the project a
+  # frame was originally labelled in, where the botanist's boxes were drawn) or
+  # `current` (the dispatch project above). Same frames either way, this only
+  # changes the destination. dashboard/core.py reads this one key back.
+  link_project: legacy
+
+folders:
+  export_for_plantnet: input/boxes
+  # Where predict/photo.py writes its per-photo cache. It has to be the folder
+  # dashboard/core.py reads, or a fetch spends a credit per photo into a
+  # directory no page opens. tests/test_shared_constants.py compares the two.
+  single_predictions: data/predictions

@@ -1,0 +1,3 @@
+# Test runner. Nothing under dashboard/ imports this, and nothing in the
+# refresh path needs it. Install with:  uv pip install -r requirements-dev.txt
+pytest>=8.0

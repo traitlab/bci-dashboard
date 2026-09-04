@@ -1,0 +1,2757 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>How well does Pl@ntNet name BCI trees?</title><style>*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  color:#1a1a1a;background:#f8f9fa;line-height:1.5;
+  max-width:780px;margin:0 auto;padding:32px 24px 64px;
+}
+h1{font-size:1.6rem;font-weight:700;margin-bottom:4px;color:#212121}
+.subtitle{font-size:0.85rem;color:#757575;margin-bottom:8px}
+section{margin-bottom:32px}
+section h2{font-size:1.05rem;font-weight:600;color:#424242;margin-bottom:12px;
+  border-bottom:1px solid #e0e0e0;padding-bottom:4px}
+table{
+  width:100%;border-collapse:collapse;font-size:0.85rem;margin-bottom:8px;
+}
+th{
+  text-align:left;padding:8px 10px;background:#f5f5f5;
+  border-bottom:2px solid #e0e0e0;font-weight:600;color:#424242;
+}
+td{padding:7px 10px;border-bottom:1px solid #eeeeee}
+tr:hover td{background:#f8f9fa}
+svg{display:block;margin:0 auto 16px}
+details{margin-top:8px}
+summary{
+  cursor:pointer;font-size:0.9rem;font-weight:600;color:#1565c0;
+  padding:6px 0;
+}
+summary:hover{text-decoration:underline}
+@media(max-width:640px){
+  body{padding:16px 12px 40px}
+  svg{width:100%!important;height:auto!important}
+}
+@media print{
+  body{background:#fff;max-width:none;padding:0}
+  summary{color:#333}
+}
+body{max-width:1120px}
+h1{margin-bottom:2px}
+.intro{font-size:0.95rem;color:#424242;margin:10px 0 22px}
+.caveat{font-size:0.85rem;color:#5d4037;background:#fbf3ec;border-left:3px solid #bf6a34;
+  border-radius:0 4px 4px 0;padding:11px 14px;margin:14px 0 0}
+.caveat strong{color:#3e2723}
+.caveat p+p{margin-top:8px}
+.hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:6px}
+.hero .metric{
+  background:#fff;border:1px solid #e0e0e0;border-radius:8px;
+  padding:14px 18px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);
+}
+.hero .metric.first{border-color:#90caf9;background:#f3f9ff}
+.hero .metric .e{font-size:0.68rem;font-weight:700;letter-spacing:0.07em;
+  text-transform:uppercase;color:#1565c0;margin-bottom:6px}
+.hero .metric .v{font-size:2rem;font-weight:700;color:#212121;line-height:1.1}
+.hero .metric .l{font-size:0.86rem;font-weight:600;color:#37474f;margin-top:6px}
+.hero .metric .n{font-size:0.72rem;color:#6d6d6d;margin-top:4px}
+.hero .metric .row{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.hero .metric .src{font-size:0.72rem;font-weight:600;color:#1565c0;
+  white-space:nowrap;text-align:right}
+.note{font-size:0.82rem;color:#616161;margin-top:10px}
+.note strong{color:#424242}
+.ask{font-size:0.88rem;color:#37474f;margin-bottom:12px}
+.ask b{color:#1a1a1a}
+.warn{
+  background:#fff8e1;border:1px solid #ffe082;border-radius:6px;
+  padding:12px 16px;font-size:0.83rem;color:#5d4037;margin:12px 0;
+}
+details.panel{
+  background:#fff;border:1px solid #e0e0e0;border-radius:8px;
+  margin:0 0 14px;padding:4px 20px 4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);
+}
+details.panel>summary{font-size:0.95rem;color:#0d47a1;padding:12px 0}
+details.panel[open]>summary{border-bottom:1px solid #f0f0f0;margin-bottom:4px}
+.pbody{padding:8px 0 16px}
+.controls{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.controls input,.controls select{
+  font:inherit;font-size:0.85rem;padding:6px 10px;
+  border:1px solid #cfd8dc;border-radius:6px;background:#fff;
+}
+.controls .count{font-size:0.8rem;color:#757575}
+.controls .showall{font-size:0.85rem;color:#37474f;display:flex;align-items:center;gap:6px}
+th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+th.sortable:focus-visible{outline:2px solid #1565c0;outline-offset:-2px}
+th.sortable:after{content:" \2195";color:#6d6d6d;font-size:0.75rem}
+th.sortable.asc:after{content:" \2191";color:#1565c0}
+th.sortable.desc:after{content:" \2193";color:#1565c0}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.sp{font-style:italic}
+.tag{
+  display:inline-block;padding:2px 8px;border-radius:4px;
+  font-size:0.74rem;font-weight:700;white-space:nowrap;
+}
+.tag.reliable{background:#e8f5e9;color:#2e7d32}
+.tag.adequate{background:#e3f2fd;color:#1565c0}
+.tag.ranking{background:#ede7f6;color:#5e35b1}
+.tag.unmeasured{background:#fff3e0;color:#bf360c}
+.tag.hard{background:#ffebee;color:#c62828}
+.tag.unreachable{background:#eceff1;color:#455a64}
+.tag.out_of_scope{background:#f5f5f5;color:#757575}
+.status-legend{list-style:none;font-size:0.82rem;color:#424242;
+  margin:8px 0 14px;display:flex;flex-direction:column;gap:5px}
+.status-legend li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.terms{list-style:none;font-size:0.86rem;color:#424242}
+.terms li{margin:8px 0;padding-left:12px;border-left:2px solid #e0e0e0}
+tr.hidden{display:none}
+.prov{font-size:0.8rem;color:#616161}
+.prov li{margin:5px 0 5px 18px}
+.prov code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.74rem;
+  background:#f5f5f5;padding:1px 4px;border-radius:3px;
+}
+section.grp{margin:38px 0 34px}
+section.grp>h2{
+  font-size:1.15rem;font-weight:700;color:#212121;
+  border-bottom:2px solid #d5dde5;padding-bottom:6px;margin-bottom:4px;
+}
+.lede{font-size:0.86rem;color:#546e7a;margin:0 0 14px}
+.subtitle{color:#6d6d6d}
+.tscroll{overflow-x:auto}
+details.panel:target>summary{background:#e3f2fd}
+@media(max-width:640px){
+  .hero{grid-template-columns:1fr}
+  
+  .sheet{grid-template-columns:repeat(3,max-content)}
+}</style></head><body><h1>How well does Pl@ntNet name BCI trees?</h1>
+<div class="subtitle">built 2026-09-04 &middot; snapshot 2026-08-27 &middot; Pl@ntNet model <code>unknown</code> &middot; 3,277 labelled frames &middot; 186 species</div>
+<p class="intro">Pl@ntNet is asked to name the tree in each frame a botanist labelled. Every number below is measured on the same 3,277 labelled frames across 186 species, one guess per frame. What to label next is a separate page, <code>label_queue_dashboard.html</code>.</p>
+<div class="hero"><div class="metric first"><div class="e">Top-1 accuracy, per species</div><div class="row"><div class="v">50.3%</div></div><div class="l">The first guess is right</div><div class="n">each of the 186 species counts once, however few frames it has</div></div><div class="metric"><div class="e">Top-1 accuracy, per frame</div><div class="row"><div class="v">79.5%</div></div><div class="l">The first guess is right</div><div class="n">one vote per labelled frame, so common species dominate</div></div></div>
+<p class="note"><strong>The middle square is 13.7% of the frame&rsquo;s area, and the label describes all of it.</strong> On 300 frames set aside before either number existed, sending the outlined crowns instead moved the rate by +6.3 points. So read the rates above as a floor. The fairer way of asking needs a botanist&rsquo;s outlines, so that gap is a correction to what we measured, not a gain waiting to be collected. <a href="#where-the-headline-comes-from">Where that gap comes from</a>.</p>
+<details class="panel" id="where-the-headline-comes-from"><summary>What the middle square costs, and how far that number reaches</summary><div class="pbody"><p class="ask"><b>One question, asked once, on 300 frames fixed in advance.</b> Scoring the middle square instead of a botanist&rsquo;s outlines costs 6.3 points. This is where that comes from, and how far it reaches.</p><p class="note"><strong>Which frames.</strong> 300 frames from 12 sites and 38 flight days, drawn from a fixed list before any of these numbers existed. Both ways of asking ran on every one of them, so the two rates come from the same frames.</p><p class="note"><strong>What was compared.</strong> One Pl@ntNet call per crown a botanist had outlined, the answers pooled into one name for the frame by how much of it each crown covered. Against the fixed 1280&times;1280 square from the middle of a frame, 13.7% of the frame&rsquo;s area, which is what every rate on this page uses.</p><p class="note"><strong>How sure.</strong> We are 95% sure the true gap is between +3.9 and +8.9 points. Frames shot at the same site look alike, so the count was re-run 10,000 times, each time redrawing the 12 sites with replacement. We kept the middle 95% of the answers.</p><p class="note">On 25 frames outlining got the name right where the middle square got it wrong. On 6 it went the other way.</p><div class="warn"><p><strong>How far the gap reaches.</strong></p><ul><li><strong>One export batch.</strong> Every frame here carries the earlier file naming <code>zoom</code>. A later batch of flights was exported under the other naming, and no mission in this design draws from both.</li><li><strong>12 of the 17 field sites.</strong> Frames from a site are alike, so five unvisited sites are five unknowns.</li><li><strong>Per frame, not per species.</strong> The sample carries 72 species, and the two commonest are 26.3% of its 300 frames. So the gap leans towards what the model already knows best. The plan asked for no per-species average here, so none is published.</li></ul></div><p class="note">The rules behind this gap predate the data: which frames, which test, what counts as right, and when we were allowed to look. The full read, both averagings, and the warnings the design requires verbatim sit with that design, and we send it on request.</p></div></details>
+<section class="grp" id="the-numbers"><h2>The numbers</h2><p class="lede">Accuracy species by species, and the labels worth a second look.</p>
+<details class="panel" id="look-up-one-species"><summary>Look up one species: sortable and filterable</summary><div class="pbody"><p class="ask"><b>Find a species you care about and read its status.</b> Click any heading to sort, type to filter. Every row, and the columns this table does not show, are in <a href="per_species_health.csv">per_species_health.csv</a>.</p><p class="note"><b>Every rate here is scored on the fixed centre square, not on outlined crowns.</b> So a low rate can mean the crop missed the tree rather than that the model missed the name. Read a row as a flag for a second look, not as that species&rsquo; identification accuracy.</p><ul class="status-legend"><li><span class="tag ranking">Right name in the list, not first</span> The right name is already in the 5, so this is the cheapest confirmation work.</li><li><span class="tag unmeasured">Too few labels to judge</span> Fewer than 10 labelled frames, so the score is too thin to trust yet.</li><li><span class="tag hard">Wrong even with enough labels</span> Enough frames, but the first guess is still weak, so more labels will not fix it.</li><li><span class="tag adequate">Mixed</span> Mixed results, so keep it in the normal review queue.</li><li><span class="tag reliable">Usually right</span> Usually right, so this species is low priority for extra work.</li><li><span class="tag unreachable">Never returned on any BCI photo</span> Pl@ntNet never returned this name on any BCI photo, not just on this species’ own frames. That is what we saw, not what the model can do. We ask each photo for 5 names. A species it carries but never ranks that high looks the same to us as one it does not carry at all. Other rows do show 0.0% in the “Top-5 accuracy” column under a different status. There the model did produce the name, just never on the frames of that species.</li><li><span class="tag out_of_scope">Not in the project&#x27;s own species list</span> Pl@ntNet&#x27;s own species list, read by predict/fetch_checklist.py, does not carry this name. That is a proven absence, not the sample effect behind “never returned”.</li></ul><p class="note">Each species gets one status: the first rule that fits. Order: &ldquo;not in the project's own species list&rdquo;, &ldquo;usually right&rdquo;, &ldquo;right name in the list, not first&rdquo;. Then &ldquo;never returned on any BCI photo&rdquo;, &ldquo;too few labels to judge&rdquo;. A few-frame species can still show as &ldquo;right name in the list, not first&rdquo;. That is the point: it is cheap work whatever its count. Read the labelled-frames column next to the status.</p><p class="note"><b>107 of these 186 species start hidden.</b> They carry fewer than 10 labelled frames each, the same cut-off as the &ldquo;too few labels to judge&rdquo; status. On that few frames a rate lands on a handful of values: F1 on one labelled frame can only be 0% or 100%. Species the model never returned stay on screen however few frames they carry. Type a name or pick a status to reach a hidden row, or tick <i>show all 186</i>.</p><p class="note"><b>Top-1 accuracy on a species row is that species&rsquo; recall</b>: of the frames a botanist labelled it, the share the first guess got right. <b>Precision</b> asks the reverse, over the frames the model guessed that name on, and is only countable where a botanist has labelled the frame. So it is precision over the frames we scored, not over the survey. <b>F1</b> is their harmonic mean, so a row scores well only when both do.</p><p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own score for its first guess, averaged over that species&rsquo; frames. Pl@ntNet spreads 100% of it across every species it knows. So 0.86 means nearly all of that went on one name, and 0.32 means it was spread thin. <b>Middle half</b> is where the middle 50% of that species&rsquo; frames fall, the 25th to the 75th percentile. A mean of 0.60 over a middle half of 0.55 to 0.65 is a steady score. The same mean over 0.20 to 0.95 is two behaviours averaged into one number, and the column sorts on that width.</p><p class="note">59 of 186 species carry 10 or more labelled frames. <b><span id="accuracy-bar-count">15</span> of those 59</b> are at or above <select id="accuracy-bar" aria-label="top-1 accuracy bar"><option value="0.50" data-n="57">50%</option><option value="0.60" data-n="50">60%</option><option value="0.70" data-n="44">70%</option><option value="0.75" data-n="38">75%</option><option value="0.80" data-n="35">80%</option><option value="0.85" data-n="25">85%</option><option value="0.90" data-n="15" selected>90%</option><option value="0.95" data-n="5">95%</option></select> top-1 accuracy. The other 127 species carry fewer frames than that. On that few a rate lands on a handful of values, so they are left out of this count.</p><script>(function(){var s=document.getElementById("accuracy-bar"),n=document.getElementById("accuracy-bar-count");s.addEventListener("change",function(){n.textContent=s.options[s.selectedIndex].getAttribute("data-n");});})();</script><style>#species-table td:nth-child(1){font-style:italic}</style><div class="controls"><input id="species-filter" type="search" placeholder="filter species&hellip;" size="28" aria-label="filter species"><select id="status-filter" aria-label="filter by status"><option value="all">every status</option><option value="ranking">Right name in the list, not first</option><option value="unmeasured">Too few labels to judge</option><option value="hard">Wrong even with enough labels</option><option value="adequate">Mixed</option><option value="reliable">Usually right</option><option value="unreachable">Never returned on any BCI photo</option><option value="out_of_scope">Not in the project&#x27;s own species list</option></select><label class="showall"><input type="checkbox" id="show-thin"> show all 186</label><span class="count" id="species-count"></span></div><style>#species-table td:nth-child(2),#species-table td:nth-child(3),#species-table td:nth-child(4),#species-table td:nth-child(5),#species-table td:nth-child(6),#species-table td:nth-child(7),#species-table td:nth-child(8),#species-table td:nth-child(9){text-align:right;font-variant-numeric:tabular-nums}</style><div class="tscroll"><table id='species-table'>
+<thead><tr>
+<th class="sortable">Species</th>
+<th class="num sortable">Labelled frames</th>
+<th class="num sortable">Top-1 accuracy (recall)</th>
+<th class="num sortable">Top-5 accuracy</th>
+<th class="num sortable">Frames guessed</th>
+<th class="num sortable">Precision</th>
+<th class="num sortable">F1</th>
+<th class="num sortable">Model's confidence</th>
+<th class="num sortable">Middle half</th>
+<th class="sortable">Status</th>
+</tr></thead><tbody>
+<tr>
+<td>Anacardium excelsum</td>
+<td>392</td>
+<td data-sort="0.928571">92.9%</td>
+<td data-sort="0.959184">95.9%</td>
+<td>383</td>
+<td data-sort="0.950392">95.0%</td>
+<td data-sort="0.939355">93.9%</td>
+<td data-sort="0.859354">0.86</td>
+<td data-sort="0.09562">0.87 to 0.97</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Dipteryx oleifera</td>
+<td>281</td>
+<td data-sort="0.964413">96.4%</td>
+<td data-sort="0.982206">98.2%</td>
+<td>275</td>
+<td data-sort="0.985455">98.5%</td>
+<td data-sort="0.97482">97.5%</td>
+<td data-sort="0.85591">0.86</td>
+<td data-sort="0.13148">0.84 to 0.97</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Luehea seemannii</td>
+<td>143</td>
+<td data-sort="0.874126">87.4%</td>
+<td data-sort="0.923077">92.3%</td>
+<td>139</td>
+<td data-sort="0.899281">89.9%</td>
+<td data-sort="0.886525">88.7%</td>
+<td data-sort="0.772594">0.77</td>
+<td data-sort="0.20451">0.75 to 0.95</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Hura crepitans</td>
+<td>123</td>
+<td data-sort="0.910569">91.1%</td>
+<td data-sort="0.943089">94.3%</td>
+<td>114</td>
+<td data-sort="0.982456">98.2%</td>
+<td data-sort="0.945148">94.5%</td>
+<td data-sort="0.756271">0.76</td>
+<td data-sort="0.22516">0.68 to 0.90</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Prioria copaifera</td>
+<td>121</td>
+<td data-sort="0.900826">90.1%</td>
+<td data-sort="0.942149">94.2%</td>
+<td>114</td>
+<td data-sort="0.95614">95.6%</td>
+<td data-sort="0.92766">92.8%</td>
+<td data-sort="0.753182">0.75</td>
+<td data-sort="0.39482">0.55 to 0.95</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Jacaranda copaia</td>
+<td>118</td>
+<td data-sort="0.940678">94.1%</td>
+<td data-sort="0.957627">95.8%</td>
+<td>122</td>
+<td data-sort="0.909836">91.0%</td>
+<td data-sort="0.925">92.5%</td>
+<td data-sort="0.796297">0.80</td>
+<td data-sort="0.203353">0.75 to 0.95</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Hieronyma alchorneoides</td>
+<td>107</td>
+<td data-sort="0.925234">92.5%</td>
+<td data-sort="0.962617">96.3%</td>
+<td>103</td>
+<td data-sort="0.961165">96.1%</td>
+<td data-sort="0.942857">94.3%</td>
+<td data-sort="0.833927">0.83</td>
+<td data-sort="0.128265">0.83 to 0.96</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Handroanthus guayacan</td>
+<td>86</td>
+<td data-sort="0.918605">91.9%</td>
+<td data-sort="0.965116">96.5%</td>
+<td>86</td>
+<td data-sort="0.918605">91.9%</td>
+<td data-sort="0.918605">91.9%</td>
+<td data-sort="0.68461">0.68</td>
+<td data-sort="0.387622">0.51 to 0.89</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Terminalia amazonia</td>
+<td>85</td>
+<td data-sort="0.741176">74.1%</td>
+<td data-sort="0.941176">94.1%</td>
+<td>70</td>
+<td data-sort="0.9">90.0%</td>
+<td data-sort="0.812903">81.3%</td>
+<td data-sort="0.612403">0.61</td>
+<td data-sort="0.52545">0.35 to 0.88</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Alseis blackiana</td>
+<td>73</td>
+<td data-sort="0.849315">84.9%</td>
+<td data-sort="0.90411">90.4%</td>
+<td>68</td>
+<td data-sort="0.911765">91.2%</td>
+<td data-sort="0.879433">87.9%</td>
+<td data-sort="0.744205">0.74</td>
+<td data-sort="0.39734">0.57 to 0.97</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Tachigali panamensis</td>
+<td>64</td>
+<td data-sort="0.890625">89.1%</td>
+<td data-sort="0.953125">95.3%</td>
+<td>57</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.942149">94.2%</td>
+<td data-sort="0.764644">0.76</td>
+<td data-sort="0.313458">0.63 to 0.95</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Attalea butyracea</td>
+<td>59</td>
+<td data-sort="0.677966">67.8%</td>
+<td data-sort="0.966102">96.6%</td>
+<td>43</td>
+<td data-sort="0.930233">93.0%</td>
+<td data-sort="0.784314">78.4%</td>
+<td data-sort="0.489783">0.49</td>
+<td data-sort="0.410395">0.31 to 0.72</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Ceiba pentandra</td>
+<td>59</td>
+<td data-sort="0.864407">86.4%</td>
+<td data-sort="0.966102">96.6%</td>
+<td>70</td>
+<td data-sort="0.728571">72.9%</td>
+<td data-sort="0.790698">79.1%</td>
+<td data-sort="0.711553">0.71</td>
+<td data-sort="0.30401">0.59 to 0.90</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Quararibea stenophylla</td>
+<td>59</td>
+<td data-sort="0.694915">69.5%</td>
+<td data-sort="0.847458">84.7%</td>
+<td>44</td>
+<td data-sort="0.931818">93.2%</td>
+<td data-sort="0.796117">79.6%</td>
+<td data-sort="0.648601">0.65</td>
+<td data-sort="0.358725">0.51 to 0.87</td>
+<td><span class="tag hard">Wrong even with enough labels</span></td>
+</tr>
+<tr>
+<td>Tabebuia rosea</td>
+<td>56</td>
+<td data-sort="0.839286">83.9%</td>
+<td data-sort="0.928571">92.9%</td>
+<td>50</td>
+<td data-sort="0.94">94.0%</td>
+<td data-sort="0.886792">88.7%</td>
+<td data-sort="0.713387">0.71</td>
+<td data-sort="0.424083">0.51 to 0.93</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Sterculia apetala</td>
+<td>54</td>
+<td data-sort="0.814815">81.5%</td>
+<td data-sort="0.907407">90.7%</td>
+<td>52</td>
+<td data-sort="0.846154">84.6%</td>
+<td data-sort="0.830189">83.0%</td>
+<td data-sort="0.735148">0.74</td>
+<td data-sort="0.38448">0.57 to 0.95</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Uncaria tomentosa</td>
+<td>53</td>
+<td data-sort="0.716981">71.7%</td>
+<td data-sort="0.924528">92.5%</td>
+<td>54</td>
+<td data-sort="0.703704">70.4%</td>
+<td data-sort="0.71028">71.0%</td>
+<td data-sort="0.68168">0.68</td>
+<td data-sort="0.53554">0.41 to 0.95</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Virola surinamensis</td>
+<td>47</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.038283">0.04</td>
+<td data-sort="0.01595">0.00 to 0.02</td>
+<td><span class="tag out_of_scope">Not in the project&#x27;s own species list</span></td>
+</tr>
+<tr>
+<td>Protium stevensonii</td>
+<td>45</td>
+<td data-sort="0.733333">73.3%</td>
+<td data-sort="0.977778">97.8%</td>
+<td>52</td>
+<td data-sort="0.634615">63.5%</td>
+<td data-sort="0.680412">68.0%</td>
+<td data-sort="0.61275">0.61</td>
+<td data-sort="0.53492">0.34 to 0.87</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Calophyllum longifolium</td>
+<td>43</td>
+<td data-sort="0.883721">88.4%</td>
+<td data-sort="0.906977">90.7%</td>
+<td>40</td>
+<td data-sort="0.95">95.0%</td>
+<td data-sort="0.915663">91.6%</td>
+<td data-sort="0.72904">0.73</td>
+<td data-sort="0.24695">0.69 to 0.94</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Cecropia insignis</td>
+<td>43</td>
+<td data-sort="0.953488">95.3%</td>
+<td data-sort="0.976744">97.7%</td>
+<td>47</td>
+<td data-sort="0.87234">87.2%</td>
+<td data-sort="0.911111">91.1%</td>
+<td data-sort="0.757211">0.76</td>
+<td data-sort="0.173495">0.70 to 0.88</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Simarouba amara</td>
+<td>42</td>
+<td data-sort="0.809524">81.0%</td>
+<td data-sort="0.97619">97.6%</td>
+<td>36</td>
+<td data-sort="0.944444">94.4%</td>
+<td data-sort="0.871795">87.2%</td>
+<td data-sort="0.727935">0.73</td>
+<td data-sort="0.309165">0.60 to 0.91</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Apeiba membranacea</td>
+<td>40</td>
+<td data-sort="0.775">77.5%</td>
+<td data-sort="0.85">85.0%</td>
+<td>38</td>
+<td data-sort="0.815789">81.6%</td>
+<td data-sort="0.794872">79.5%</td>
+<td data-sort="0.603475">0.60</td>
+<td data-sort="0.375555">0.42 to 0.79</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Fridericia candicans</td>
+<td>40</td>
+<td data-sort="0.825">82.5%</td>
+<td data-sort="0.875">87.5%</td>
+<td>72</td>
+<td data-sort="0.458333">45.8%</td>
+<td data-sort="0.589286">58.9%</td>
+<td data-sort="0.739367">0.74</td>
+<td data-sort="0.327707">0.63 to 0.95</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Astronium graveolens</td>
+<td>37</td>
+<td data-sort="0.972973">97.3%</td>
+<td data-sort="0.972973">97.3%</td>
+<td>41</td>
+<td data-sort="0.878049">87.8%</td>
+<td data-sort="0.923077">92.3%</td>
+<td data-sort="0.849069">0.85</td>
+<td data-sort="0.11614">0.82 to 0.94</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Brosimum alicastrum</td>
+<td>35</td>
+<td data-sort="0.857143">85.7%</td>
+<td data-sort="0.914286">91.4%</td>
+<td>31</td>
+<td data-sort="0.967742">96.8%</td>
+<td data-sort="0.909091">90.9%</td>
+<td data-sort="0.765735">0.77</td>
+<td data-sort="0.219665">0.74 to 0.96</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Spondias mombin</td>
+<td>34</td>
+<td data-sort="0.529412">52.9%</td>
+<td data-sort="0.941176">94.1%</td>
+<td>24</td>
+<td data-sort="0.75">75.0%</td>
+<td data-sort="0.62069">62.1%</td>
+<td data-sort="0.568221">0.57</td>
+<td data-sort="0.341442">0.44 to 0.78</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Platypodium elegans</td>
+<td>33</td>
+<td data-sort="0.818182">81.8%</td>
+<td data-sort="0.909091">90.9%</td>
+<td>32</td>
+<td data-sort="0.84375">84.4%</td>
+<td data-sort="0.830769">83.1%</td>
+<td data-sort="0.642075">0.64</td>
+<td data-sort="0.39238">0.48 to 0.88</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Pseudobombax septenatum</td>
+<td>27</td>
+<td data-sort="0.592593">59.3%</td>
+<td data-sort="0.851852">85.2%</td>
+<td>26</td>
+<td data-sort="0.615385">61.5%</td>
+<td data-sort="0.603774">60.4%</td>
+<td data-sort="0.662016">0.66</td>
+<td data-sort="0.542885">0.41 to 0.95</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Aspidosperma desmanthum</td>
+<td>25</td>
+<td data-sort="0.24">24.0%</td>
+<td data-sort="0.8">80.0%</td>
+<td>7</td>
+<td data-sort="0.857143">85.7%</td>
+<td data-sort="0.375">37.5%</td>
+<td data-sort="0.42789">0.43</td>
+<td data-sort="0.34472">0.24 to 0.59</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Guatteria lucens</td>
+<td>24</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>27</td>
+<td data-sort="0.888889">88.9%</td>
+<td data-sort="0.941176">94.1%</td>
+<td data-sort="0.744202">0.74</td>
+<td data-sort="0.231275">0.70 to 0.93</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Davilla nitida</td>
+<td>21</td>
+<td data-sort="0.761905">76.2%</td>
+<td data-sort="0.857143">85.7%</td>
+<td>28</td>
+<td data-sort="0.571429">57.1%</td>
+<td data-sort="0.653061">65.3%</td>
+<td data-sort="0.603245">0.60</td>
+<td data-sort="0.65499">0.26 to 0.92</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Trattinnickia aspera</td>
+<td>21</td>
+<td data-sort="0.952381">95.2%</td>
+<td data-sort="1">100.0%</td>
+<td>28</td>
+<td data-sort="0.714286">71.4%</td>
+<td data-sort="0.816327">81.6%</td>
+<td data-sort="0.680762">0.68</td>
+<td data-sort="0.22647">0.59 to 0.82</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Trichilia tuberculata</td>
+<td>21</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.952381">95.2%</td>
+<td>15</td>
+<td data-sort="0.933333">93.3%</td>
+<td data-sort="0.777778">77.8%</td>
+<td data-sort="0.66836">0.67</td>
+<td data-sort="0.47356">0.41 to 0.88</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Zanthoxylum ekmanii</td>
+<td>21</td>
+<td data-sort="0.714286">71.4%</td>
+<td data-sort="0.904762">90.5%</td>
+<td>17</td>
+<td data-sort="0.882353">88.2%</td>
+<td data-sort="0.789474">78.9%</td>
+<td data-sort="0.662413">0.66</td>
+<td data-sort="0.3169">0.51 to 0.83</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Ochroma pyramidale</td>
+<td>20</td>
+<td data-sort="0.9">90.0%</td>
+<td data-sort="0.95">95.0%</td>
+<td>18</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.947368">94.7%</td>
+<td data-sort="0.770722">0.77</td>
+<td data-sort="0.182798">0.75 to 0.94</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Pouteria stipitata</td>
+<td>20</td>
+<td data-sort="0.8">80.0%</td>
+<td data-sort="0.85">85.0%</td>
+<td>23</td>
+<td data-sort="0.695652">69.6%</td>
+<td data-sort="0.744186">74.4%</td>
+<td data-sort="0.752985">0.75</td>
+<td data-sort="0.258428">0.66 to 0.91</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Hippocratea volubilis</td>
+<td>19</td>
+<td data-sort="0.842105">84.2%</td>
+<td data-sort="0.894737">89.5%</td>
+<td>56</td>
+<td data-sort="0.285714">28.6%</td>
+<td data-sort="0.426667">42.7%</td>
+<td data-sort="0.542269">0.54</td>
+<td data-sort="0.47823">0.33 to 0.81</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Tabernaemontana arborea</td>
+<td>19</td>
+<td data-sort="0.684211">68.4%</td>
+<td data-sort="0.736842">73.7%</td>
+<td>21</td>
+<td data-sort="0.619048">61.9%</td>
+<td data-sort="0.65">65.0%</td>
+<td data-sort="0.571208">0.57</td>
+<td data-sort="0.589525">0.28 to 0.87</td>
+<td><span class="tag hard">Wrong even with enough labels</span></td>
+</tr>
+<tr>
+<td>Terminalia oblonga</td>
+<td>19</td>
+<td data-sort="0.789474">78.9%</td>
+<td data-sort="1">100.0%</td>
+<td>26</td>
+<td data-sort="0.576923">57.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.718149">0.72</td>
+<td data-sort="0.371355">0.55 to 0.92</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Chrysophyllum cainito</td>
+<td>18</td>
+<td data-sort="0.944444">94.4%</td>
+<td data-sort="1">100.0%</td>
+<td>19</td>
+<td data-sort="0.894737">89.5%</td>
+<td data-sort="0.918919">91.9%</td>
+<td data-sort="0.786787">0.79</td>
+<td data-sort="0.236737">0.70 to 0.94</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Miconia argentea</td>
+<td>18</td>
+<td data-sort="0.888889">88.9%</td>
+<td data-sort="0.888889">88.9%</td>
+<td>16</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.941176">94.1%</td>
+<td data-sort="0.763983">0.76</td>
+<td data-sort="0.337645">0.63 to 0.97</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Guapira myrtiflora</td>
+<td>17</td>
+<td data-sort="0.588235">58.8%</td>
+<td data-sort="0.882353">88.2%</td>
+<td>15</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.625">62.5%</td>
+<td data-sort="0.539519">0.54</td>
+<td data-sort="0.47369">0.23 to 0.71</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Senegalia hayesii</td>
+<td>17</td>
+<td data-sort="0.882353">88.2%</td>
+<td data-sort="0.941176">94.1%</td>
+<td>17</td>
+<td data-sort="0.882353">88.2%</td>
+<td data-sort="0.882353">88.2%</td>
+<td data-sort="0.596973">0.60</td>
+<td data-sort="0.42955">0.36 to 0.79</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Serjania circumvallata</td>
+<td>16</td>
+<td data-sort="0.8125">81.2%</td>
+<td data-sort="1">100.0%</td>
+<td>21</td>
+<td data-sort="0.619048">61.9%</td>
+<td data-sort="0.702703">70.3%</td>
+<td data-sort="0.595542">0.60</td>
+<td data-sort="0.436002">0.37 to 0.80</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Ocotea leptobotra</td>
+<td>15</td>
+<td data-sort="0.866667">86.7%</td>
+<td data-sort="0.933333">93.3%</td>
+<td>29</td>
+<td data-sort="0.448276">44.8%</td>
+<td data-sort="0.590909">59.1%</td>
+<td data-sort="0.539363">0.54</td>
+<td data-sort="0.230405">0.45 to 0.68</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Oenocarpus mapora</td>
+<td>15</td>
+<td data-sort="0.733333">73.3%</td>
+<td data-sort="0.866667">86.7%</td>
+<td>30</td>
+<td data-sort="0.366667">36.7%</td>
+<td data-sort="0.488889">48.9%</td>
+<td data-sort="0.319817">0.32</td>
+<td data-sort="0.321575">0.11 to 0.43</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Apeiba tibourbou</td>
+<td>14</td>
+<td data-sort="0.714286">71.4%</td>
+<td data-sort="1">100.0%</td>
+<td>14</td>
+<td data-sort="0.714286">71.4%</td>
+<td data-sort="0.714286">71.4%</td>
+<td data-sort="0.473869">0.47</td>
+<td data-sort="0.259603">0.35 to 0.61</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Ficus insipida</td>
+<td>14</td>
+<td data-sort="0.857143">85.7%</td>
+<td data-sort="0.857143">85.7%</td>
+<td>13</td>
+<td data-sort="0.923077">92.3%</td>
+<td data-sort="0.888889">88.9%</td>
+<td data-sort="0.702481">0.70</td>
+<td data-sort="0.409965">0.52 to 0.93</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Ficus obtusifolia</td>
+<td>14</td>
+<td data-sort="0.857143">85.7%</td>
+<td data-sort="1">100.0%</td>
+<td>14</td>
+<td data-sort="0.857143">85.7%</td>
+<td data-sort="0.857143">85.7%</td>
+<td data-sort="0.823412">0.82</td>
+<td data-sort="0.099495">0.81 to 0.91</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Fridericia patellifera</td>
+<td>14</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.785714">78.6%</td>
+<td>16</td>
+<td data-sort="0.4375">43.8%</td>
+<td data-sort="0.466667">46.7%</td>
+<td data-sort="0.514205">0.51</td>
+<td data-sort="0.456843">0.26 to 0.72</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Gustavia superba</td>
+<td>14</td>
+<td data-sort="0.571429">57.1%</td>
+<td data-sort="0.785714">78.6%</td>
+<td>8</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.727273">72.7%</td>
+<td data-sort="0.360174">0.36</td>
+<td data-sort="0.351095">0.17 to 0.52</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Poulsenia armata</td>
+<td>14</td>
+<td data-sort="0.928571">92.9%</td>
+<td data-sort="0.928571">92.9%</td>
+<td>13</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.962963">96.3%</td>
+<td data-sort="0.83144">0.83</td>
+<td data-sort="0.106888">0.83 to 0.94</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr>
+<td>Sloanea terniflora</td>
+<td>13</td>
+<td data-sort="0.615385">61.5%</td>
+<td data-sort="0.769231">76.9%</td>
+<td>11</td>
+<td data-sort="0.727273">72.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.505082">0.51</td>
+<td data-sort="0.75091">0.12 to 0.87</td>
+<td><span class="tag hard">Wrong even with enough labels</span></td>
+</tr>
+<tr>
+<td>Protium panamense</td>
+<td>12</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.833333">83.3%</td>
+<td>12</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.610248">0.61</td>
+<td data-sort="0.463433">0.38 to 0.84</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Cordia alliodora</td>
+<td>11</td>
+<td data-sort="0.545455">54.5%</td>
+<td data-sort="0.909091">90.9%</td>
+<td>17</td>
+<td data-sort="0.352941">35.3%</td>
+<td data-sort="0.428571">42.9%</td>
+<td data-sort="0.511629">0.51</td>
+<td data-sort="0.760795">0.11 to 0.87</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Guazuma ulmifolia</td>
+<td>11</td>
+<td data-sort="0.636364">63.6%</td>
+<td data-sort="1">100.0%</td>
+<td>13</td>
+<td data-sort="0.538462">53.8%</td>
+<td data-sort="0.583333">58.3%</td>
+<td data-sort="0.626607">0.63</td>
+<td data-sort="0.559175">0.38 to 0.93</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Spondias radlkoferi</td>
+<td>11</td>
+<td data-sort="0.818182">81.8%</td>
+<td data-sort="1">100.0%</td>
+<td>31</td>
+<td data-sort="0.290323">29.0%</td>
+<td data-sort="0.428571">42.9%</td>
+<td data-sort="0.708743">0.71</td>
+<td data-sort="0.39042">0.50 to 0.89</td>
+<td><span class="tag adequate">Mixed</span></td>
+</tr>
+<tr>
+<td>Inga marginata</td>
+<td>10</td>
+<td data-sort="0.9">90.0%</td>
+<td data-sort="0.9">90.0%</td>
+<td>13</td>
+<td data-sort="0.692308">69.2%</td>
+<td data-sort="0.782609">78.3%</td>
+<td data-sort="0.872829">0.87</td>
+<td data-sort="0.10238">0.88 to 0.98</td>
+<td><span class="tag reliable">Usually right</span></td>
+</tr>
+<tr data-thin="1">
+<td>Callichlamys latifolia</td>
+<td>9</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.777778">77.8%</td>
+<td>9</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.506848">0.51</td>
+<td data-sort="0.43871">0.23 to 0.67</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Cavanillesia platanifolia</td>
+<td>9</td>
+<td data-sort="0.555556">55.6%</td>
+<td data-sort="0.888889">88.9%</td>
+<td>10</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.526316">52.6%</td>
+<td data-sort="0.173488">0.17</td>
+<td data-sort="0.20553">0.06 to 0.27</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Pourouma bicolor</td>
+<td>9</td>
+<td data-sort="0.333333">33.3%</td>
+<td data-sort="0.888889">88.9%</td>
+<td>5</td>
+<td data-sort="0.6">60.0%</td>
+<td data-sort="0.428571">42.9%</td>
+<td data-sort="0.486122">0.49</td>
+<td data-sort="0.391">0.28 to 0.67</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Quararibea asterolepis</td>
+<td>9</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.888889">88.9%</td>
+<td>15</td>
+<td data-sort="0.4">40.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.667219">0.67</td>
+<td data-sort="0.48036">0.45 to 0.94</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Sapium glandulosum</td>
+<td>9</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td>7</td>
+<td data-sort="0.857143">85.7%</td>
+<td data-sort="0.75">75.0%</td>
+<td data-sort="0.682569">0.68</td>
+<td data-sort="0.33636">0.56 to 0.89</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Astrocaryum standleyanum</td>
+<td>8</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.085005">0.09</td>
+<td data-sort="0.055475">0.04 to 0.09</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Beilschmiedia tovarensis</td>
+<td>8</td>
+<td data-sort="0.625">62.5%</td>
+<td data-sort="1">100.0%</td>
+<td>8</td>
+<td data-sort="0.625">62.5%</td>
+<td data-sort="0.625">62.5%</td>
+<td data-sort="0.65679">0.66</td>
+<td data-sort="0.417275">0.49 to 0.90</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Genipa americana</td>
+<td>8</td>
+<td data-sort="0.75">75.0%</td>
+<td data-sort="0.875">87.5%</td>
+<td>10</td>
+<td data-sort="0.6">60.0%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.571926">0.57</td>
+<td data-sort="0.428625">0.37 to 0.80</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Guarea guidonia</td>
+<td>8</td>
+<td data-sort="0.875">87.5%</td>
+<td data-sort="1">100.0%</td>
+<td>12</td>
+<td data-sort="0.583333">58.3%</td>
+<td data-sort="0.7">70.0%</td>
+<td data-sort="0.655485">0.66</td>
+<td data-sort="0.36233">0.52 to 0.88</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Mascagnia divaricata</td>
+<td>8</td>
+<td data-sort="0.625">62.5%</td>
+<td data-sort="0.625">62.5%</td>
+<td>5</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.769231">76.9%</td>
+<td data-sort="0.537354">0.54</td>
+<td data-sort="0.38364">0.39 to 0.77</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Lonchocarpus heptaphyllus</td>
+<td>7</td>
+<td data-sort="0.571429">57.1%</td>
+<td data-sort="0.571429">57.1%</td>
+<td>10</td>
+<td data-sort="0.4">40.0%</td>
+<td data-sort="0.470588">47.1%</td>
+<td data-sort="0.464607">0.46</td>
+<td data-sort="0.565645">0.14 to 0.71</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Nectandra lineata</td>
+<td>7</td>
+<td data-sort="0.714286">71.4%</td>
+<td data-sort="0.714286">71.4%</td>
+<td>5</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.833333">83.3%</td>
+<td data-sort="0.575381">0.58</td>
+<td data-sort="0.430585">0.38 to 0.81</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Protium tenuifolium</td>
+<td>7</td>
+<td data-sort="0.857143">85.7%</td>
+<td data-sort="1">100.0%</td>
+<td>10</td>
+<td data-sort="0.6">60.0%</td>
+<td data-sort="0.705882">70.6%</td>
+<td data-sort="0.576059">0.58</td>
+<td data-sort="0.12981">0.50 to 0.63</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Trema micranthum</td>
+<td>7</td>
+<td data-sort="0.714286">71.4%</td>
+<td data-sort="0.857143">85.7%</td>
+<td>6</td>
+<td data-sort="0.833333">83.3%</td>
+<td data-sort="0.769231">76.9%</td>
+<td data-sort="0.388029">0.39</td>
+<td data-sort="0.50985">0.07 to 0.58</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Combretum decandrum</td>
+<td>6</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.833333">83.3%</td>
+<td>7</td>
+<td data-sort="0.428571">42.9%</td>
+<td data-sort="0.461538">46.2%</td>
+<td data-sort="0.616422">0.62</td>
+<td data-sort="0.239192">0.48 to 0.72</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Enterolobium cyclocarpum</td>
+<td>6</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.833333">83.3%</td>
+<td>4</td>
+<td data-sort="0.75">75.0%</td>
+<td data-sort="0.6">60.0%</td>
+<td data-sort="0.328395">0.33</td>
+<td data-sort="0.377757">0.15 to 0.53</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Fridericia schumanniana</td>
+<td>6</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.833333">83.3%</td>
+<td>8</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.571429">57.1%</td>
+<td data-sort="0.345168">0.35</td>
+<td data-sort="0.30984">0.18 to 0.49</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Maripa panamensis</td>
+<td>6</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td>8</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.571429">57.1%</td>
+<td data-sort="0.439162">0.44</td>
+<td data-sort="0.55347">0.17 to 0.72</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Ocotea oblonga</td>
+<td>6</td>
+<td data-sort="0.833333">83.3%</td>
+<td data-sort="0.833333">83.3%</td>
+<td>9</td>
+<td data-sort="0.555556">55.6%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.812713">0.81</td>
+<td data-sort="0.24285">0.71 to 0.95</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Omphalea diandra</td>
+<td>6</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.666667">66.7%</td>
+<td>9</td>
+<td data-sort="0.333333">33.3%</td>
+<td data-sort="0.4">40.0%</td>
+<td data-sort="0.38783">0.39</td>
+<td data-sort="0.650558">0.09 to 0.74</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Pochota fendleri</td>
+<td>6</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.666667">66.7%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.426533">0.43</td>
+<td data-sort="0.372167">0.22 to 0.59</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Prionostemma aspera</td>
+<td>6</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.833333">83.3%</td>
+<td>7</td>
+<td data-sort="0.428571">42.9%</td>
+<td data-sort="0.461538">46.2%</td>
+<td data-sort="0.47809">0.48</td>
+<td data-sort="0.149037">0.38 to 0.53</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Sparrea schippii</td>
+<td>6</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.833333">83.3%</td>
+<td>5</td>
+<td data-sort="0.8">80.0%</td>
+<td data-sort="0.727273">72.7%</td>
+<td data-sort="0.42142">0.42</td>
+<td data-sort="0.57815">0.11 to 0.69</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Virola sebifera</td>
+<td>6</td>
+<td data-sort="0.833333">83.3%</td>
+<td data-sort="1">100.0%</td>
+<td>5</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.909091">90.9%</td>
+<td data-sort="0.567955">0.57</td>
+<td data-sort="0.54745">0.29 to 0.84</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Celtis iguanaea</td>
+<td>5</td>
+<td data-sort="0.6">60.0%</td>
+<td data-sort="1">100.0%</td>
+<td>3</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.75">75.0%</td>
+<td data-sort="0.617164">0.62</td>
+<td data-sort="0.69869">0.23 to 0.92</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Hiraea grandifolia</td>
+<td>5</td>
+<td data-sort="0.6">60.0%</td>
+<td data-sort="1">100.0%</td>
+<td>4</td>
+<td data-sort="0.75">75.0%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.60478">0.60</td>
+<td data-sort="0.60627">0.29 to 0.90</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Hymenaea courbaril</td>
+<td>5</td>
+<td data-sort="0.4">40.0%</td>
+<td data-sort="0.4">40.0%</td>
+<td>2</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.571429">57.1%</td>
+<td data-sort="0.560934">0.56</td>
+<td data-sort="0.42589">0.29 to 0.71</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Mascagnia ovatifolia</td>
+<td>5</td>
+<td data-sort="0.2">20.0%</td>
+<td data-sort="0.2">20.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.333333">33.3%</td>
+<td data-sort="0.373982">0.37</td>
+<td data-sort="0.49611">0.09 to 0.58</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Pachira sessilis</td>
+<td>5</td>
+<td data-sort="0.8">80.0%</td>
+<td data-sort="1">100.0%</td>
+<td>5</td>
+<td data-sort="0.8">80.0%</td>
+<td data-sort="0.8">80.0%</td>
+<td data-sort="0.564748">0.56</td>
+<td data-sort="0.16715">0.47 to 0.64</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Virola nobilis</td>
+<td>5</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.002672">0.00</td>
+<td data-sort="0.00208">0.00 to 0.00</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Aiouea montana</td>
+<td>4</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>5</td>
+<td data-sort="0.8">80.0%</td>
+<td data-sort="0.888889">88.9%</td>
+<td data-sort="0.878823">0.88</td>
+<td data-sort="0.104553">0.83 to 0.93</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Amphilophium crucigerum</td>
+<td>4</td>
+<td data-sort="0.75">75.0%</td>
+<td data-sort="1">100.0%</td>
+<td>8</td>
+<td data-sort="0.375">37.5%</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.810028">0.81</td>
+<td data-sort="0.150008">0.73 to 0.88</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Amphilophium paniculatum</td>
+<td>4</td>
+<td data-sort="0.75">75.0%</td>
+<td data-sort="1">100.0%</td>
+<td>3</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.857143">85.7%</td>
+<td data-sort="0.510485">0.51</td>
+<td data-sort="0.346395">0.29 to 0.64</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Bignonia aequinoctialis</td>
+<td>4</td>
+<td data-sort="0.25">25.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td>6</td>
+<td data-sort="0.166667">16.7%</td>
+<td data-sort="0.2">20.0%</td>
+<td data-sort="0.504235">0.50</td>
+<td data-sort="0.455955">0.29 to 0.75</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Cordia panamensis</td>
+<td>4</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.25">25.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.356822">0.36</td>
+<td data-sort="0.310553">0.22 to 0.53</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Croton billbergianus</td>
+<td>4</td>
+<td data-sort="0.25">25.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.4">40.0%</td>
+<td data-sort="0.33614">0.34</td>
+<td data-sort="0.365545">0.07 to 0.44</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Hylenaea praecelsa</td>
+<td>4</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.75">75.0%</td>
+<td>12</td>
+<td data-sort="0.166667">16.7%</td>
+<td data-sort="0.25">25.0%</td>
+<td data-sort="0.377215">0.38</td>
+<td data-sort="0.19592">0.29 to 0.49</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Paullinia fuscescens</td>
+<td>4</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.75">75.0%</td>
+<td>3</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.571429">57.1%</td>
+<td data-sort="0.26702">0.27</td>
+<td data-sort="0.11909">0.18 to 0.30</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Tontelea passiflora</td>
+<td>4</td>
+<td data-sort="0.25">25.0%</td>
+<td data-sort="0.75">75.0%</td>
+<td>5</td>
+<td data-sort="0.2">20.0%</td>
+<td data-sort="0.222222">22.2%</td>
+<td data-sort="0.543538">0.54</td>
+<td data-sort="0.572277">0.25 to 0.82</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Bignonia corymbosa</td>
+<td>3</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.109043">0.11</td>
+<td data-sort="0.037875">0.08 to 0.12</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Casearia laetioides</td>
+<td>3</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td>4</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.571429">57.1%</td>
+<td data-sort="0.427037">0.43</td>
+<td data-sort="0.455935">0.17 to 0.62</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Chrysophyllum argenteum</td>
+<td>3</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td>3</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.538817">0.54</td>
+<td data-sort="0.44857">0.34 to 0.79</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Coccoloba manzinellensis</td>
+<td>3</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td>2</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.8">80.0%</td>
+<td data-sort="0.49531">0.50</td>
+<td data-sort="0.206745">0.40 to 0.61</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Cordia bicolor</td>
+<td>3</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="1">100.0%</td>
+<td>3</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.5484">0.55</td>
+<td data-sort="0.3731">0.39 to 0.76</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Didymopanax morototoni</td>
+<td>3</td>
+<td data-sort="0.333333">33.3%</td>
+<td data-sort="0.666667">66.7%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.406877">0.41</td>
+<td data-sort="0.24445">0.32 to 0.57</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Drypetes standleyi</td>
+<td>3</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.073047">0.07</td>
+<td data-sort="0.08354">0.02 to 0.10</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Ficus yoponensis</td>
+<td>3</td>
+<td data-sort="0.333333">33.3%</td>
+<td data-sort="0.666667">66.7%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.41995">0.42</td>
+<td data-sort="0.452015">0.17 to 0.62</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Jupunba macradenia</td>
+<td>3</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.333333">33.3%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.106843">0.11</td>
+<td data-sort="0.00154">0.11 to 0.11</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Lafoensia punicifolia</td>
+<td>3</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.333333">33.3%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.03528">0.04</td>
+<td data-sort="0.01453">0.03 to 0.04</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Machaerium isadelphum</td>
+<td>3</td>
+<td data-sort="0.333333">33.3%</td>
+<td data-sort="0.666667">66.7%</td>
+<td>2</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.4">40.0%</td>
+<td data-sort="0.489367">0.49</td>
+<td data-sort="0.475735">0.24 to 0.72</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Macrocnemum roseum</td>
+<td>3</td>
+<td data-sort="0.333333">33.3%</td>
+<td data-sort="0.333333">33.3%</td>
+<td>2</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.4">40.0%</td>
+<td data-sort="0.407103">0.41</td>
+<td data-sort="0.407615">0.16 to 0.57</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Moquilea platypus</td>
+<td>3</td>
+<td data-sort="0.333333">33.3%</td>
+<td data-sort="0.333333">33.3%</td>
+<td>19</td>
+<td data-sort="0.052632">5.3%</td>
+<td data-sort="0.090909">9.1%</td>
+<td data-sort="0.514587">0.51</td>
+<td data-sort="0.43749">0.32 to 0.76</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Pouteria reticulata</td>
+<td>3</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td>3</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.571897">0.57</td>
+<td data-sort="0.303215">0.41 to 0.72</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr>
+<td>Trema domingense</td>
+<td>3</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.03457">0.03</td>
+<td data-sort="0.002145">0.03 to 0.04</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Vatairea erythrocarpa</td>
+<td>3</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td>3</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.347367">0.35</td>
+<td data-sort="0.30991">0.20 to 0.51</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Cassipourea elliptica</td>
+<td>2</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td>2</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.512655">0.51</td>
+<td data-sort="0.396965">0.31 to 0.71</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Coccoloba excelsa</td>
+<td>2</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.601275">0.60</td>
+<td data-sort="0.363705">0.42 to 0.78</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Cosmibuena macrocarpa</td>
+<td>2</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>2</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.49499">0.49</td>
+<td data-sort="0.34243">0.32 to 0.67</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Dendropanax arboreus</td>
+<td>2</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.067565">0.07</td>
+<td data-sort="0.061455">0.04 to 0.10</td>
+<td><span class="tag out_of_scope">Not in the project&#x27;s own species list</span></td>
+</tr>
+<tr data-thin="1">
+<td>Ficus matiziana</td>
+<td>2</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.16872">0.17</td>
+<td data-sort="0.07031">0.13 to 0.20</td>
+<td><span class="tag out_of_scope">Not in the project&#x27;s own species list</span></td>
+</tr>
+<tr data-thin="1">
+<td>Ficus maxima</td>
+<td>2</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.185325">0.19</td>
+<td data-sort="0.046945">0.16 to 0.21</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Ficus popenoei</td>
+<td>2</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td>3</td>
+<td data-sort="0.333333">33.3%</td>
+<td data-sort="0.4">40.0%</td>
+<td data-sort="0.08998">0.09</td>
+<td data-sort="0.05197">0.06 to 0.12</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr>
+<td>Inga acuminata</td>
+<td>2</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.227655">0.23</td>
+<td data-sort="0.029295">0.21 to 0.24</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Inga thibaudiana</td>
+<td>2</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>2</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.671545">0.67</td>
+<td data-sort="0.288725">0.53 to 0.82</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Luehea speciosa</td>
+<td>2</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.50422">0.50</td>
+<td data-sort="0.38218">0.31 to 0.70</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr>
+<td>Platymiscium dimorphandrum</td>
+<td>2</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.33539">0.34</td>
+<td data-sort="0.17746">0.25 to 0.42</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Serjania pyramidata</td>
+<td>2</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>2</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.249745">0.25</td>
+<td data-sort="0.072335">0.21 to 0.29</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Socratea exorrhiza</td>
+<td>2</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.264575">0.26</td>
+<td data-sort="0.134515">0.20 to 0.33</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Swartzia simplex</td>
+<td>2</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.25688">0.26</td>
+<td data-sort="0.22153">0.15 to 0.37</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Symphonia globulifera</td>
+<td>2</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>3</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.8">80.0%</td>
+<td data-sort="0.33948">0.34</td>
+<td data-sort="0.22452">0.23 to 0.45</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Tanaecium pyramidatum</td>
+<td>2</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>2</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.260785">0.26</td>
+<td data-sort="0.053415">0.23 to 0.29</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr>
+<td>Tetrathylacium johansenii</td>
+<td>2</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.670115">0.67</td>
+<td data-sort="0.080055">0.63 to 0.71</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Tynanthus croatianus</td>
+<td>2</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.459525">0.46</td>
+<td data-sort="0.265325">0.33 to 0.59</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Virola fosteri</td>
+<td>2</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td>8</td>
+<td data-sort="0.125">12.5%</td>
+<td data-sort="0.2">20.0%</td>
+<td data-sort="0.46094">0.46</td>
+<td data-sort="0.42631">0.25 to 0.67</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Vochysia ferruginea</td>
+<td>2</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.19042">0.19</td>
+<td data-sort="0.12818">0.13 to 0.25</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Zanthoxylum panamense</td>
+<td>2</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.5">50.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.51783">0.52</td>
+<td data-sort="0.38872">0.32 to 0.71</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr>
+<td>Adelphia hiraea</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.04168">0.04</td>
+<td data-sort="0">0.04 to 0.04</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr>
+<td>Aegiphila cephalophora</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.13386">0.13</td>
+<td data-sort="0">0.13 to 0.13</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Anacardium occidentale</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.12749">0.13</td>
+<td data-sort="0">0.13 to 0.13</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Annona spraguei</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="1">100.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.16526">0.17</td>
+<td data-sort="0">0.17 to 0.17</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Blakea parasitica</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.04485">0.04</td>
+<td data-sort="0">0.04 to 0.04</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Bombax ceiba</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="1">100.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.30051">0.30</td>
+<td data-sort="0">0.30 to 0.30</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Casearia arborea</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.63407">0.63</td>
+<td data-sort="0">0.63 to 0.63</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Cecropia obtusifolia</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="1">100.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.48752">0.49</td>
+<td data-sort="0">0.49 to 0.49</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr>
+<td>Chomelia psilocarpa</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.16686">0.17</td>
+<td data-sort="0">0.17 to 0.17</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Cissus erosa</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.89916">0.90</td>
+<td data-sort="0">0.90 to 0.90</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Combretum fruticosum</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>3</td>
+<td data-sort="0.333333">33.3%</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.37594">0.38</td>
+<td data-sort="0">0.38 to 0.38</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Coussapoa villosa</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="1">100.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.1824">0.18</td>
+<td data-sort="0">0.18 to 0.18</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Cupania rufescens</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="1">100.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.18722">0.19</td>
+<td data-sort="0">0.19 to 0.19</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Davilla kunthii</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.81846">0.82</td>
+<td data-sort="0">0.82 to 0.82</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Dolichandra unguis-cati</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.39736">0.40</td>
+<td data-sort="0">0.40 to 0.40</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Doliocarpus major</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>5</td>
+<td data-sort="0.2">20.0%</td>
+<td data-sort="0.333333">33.3%</td>
+<td data-sort="0.96893">0.97</td>
+<td data-sort="0">0.97 to 0.97</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Doliocarpus multiflorus</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.96698">0.97</td>
+<td data-sort="0">0.97 to 0.97</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr>
+<td>Eugenia florida</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.03987">0.04</td>
+<td data-sort="0">0.04 to 0.04</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr>
+<td>Eugenia nesiotica</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.52504">0.53</td>
+<td data-sort="0">0.53 to 0.53</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Faramea occidentalis</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>2</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.28339">0.28</td>
+<td data-sort="0">0.28 to 0.28</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr>
+<td>Fevillea cordifolia</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.01949">0.02</td>
+<td data-sort="0">0.02 to 0.02</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Ficus costaricana</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.08699">0.09</td>
+<td data-sort="0">0.09 to 0.09</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr>
+<td>Gnetum leyboldii</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.23468">0.23</td>
+<td data-sort="0">0.23 to 0.23</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Heteropterys intermedia</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>2</td>
+<td data-sort="0.5">50.0%</td>
+<td data-sort="0.666667">66.7%</td>
+<td data-sort="0.30608">0.31</td>
+<td data-sort="0">0.31 to 0.31</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Hiraea reclinata</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.63377">0.63</td>
+<td data-sort="0">0.63 to 0.63</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Inga goldmanii</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="1">100.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.02114">0.02</td>
+<td data-sort="0">0.02 to 0.02</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Inga laurina</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.0573">0.06</td>
+<td data-sort="0">0.06 to 0.06</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr>
+<td>Inga pezizifera</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.28148">0.28</td>
+<td data-sort="0">0.28 to 0.28</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Inga sapindoides</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.96031">0.96</td>
+<td data-sort="0">0.96 to 0.96</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Lacmellea panamensis</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.19075">0.19</td>
+<td data-sort="0">0.19 to 0.19</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Lindackeria laurina</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.19962">0.20</td>
+<td data-sort="0">0.20 to 0.20</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Mangifera indica</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.08317">0.08</td>
+<td data-sort="0">0.08 to 0.08</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Margaritaria nobilis</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.15023">0.15</td>
+<td data-sort="0">0.15 to 0.15</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Martinella obovata</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.34228">0.34</td>
+<td data-sort="0">0.34 to 0.34</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Ocotea puberula</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.37043">0.37</td>
+<td data-sort="0">0.37 to 0.37</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr>
+<td>Ocotea whitei</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.79589">0.80</td>
+<td data-sort="0">0.80 to 0.80</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Ormosia macrocalyx</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.05245">0.05</td>
+<td data-sort="0">0.05 to 0.05</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr>
+<td>Passiflora auriculata</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.05841">0.06</td>
+<td data-sort="0">0.06 to 0.06</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Paullinia bracteosa</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.3767">0.38</td>
+<td data-sort="0">0.38 to 0.38</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Platymiscium pinnatum</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.06859">0.07</td>
+<td data-sort="0">0.07 to 0.07</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Pterocarpus rohrii</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.07334">0.07</td>
+<td data-sort="0">0.07 to 0.07</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr>
+<td>Quararibea pterocalyx</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.32185">0.32</td>
+<td data-sort="0">0.32 to 0.32</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr>
+<td>Schizolobium parahyba</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.24053">0.24</td>
+<td data-sort="0">0.24 to 0.24</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr>
+<td>Schnella guianensis</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.14252">0.14</td>
+<td data-sort="0">0.14 to 0.14</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Souroubea sympetala</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.15918">0.16</td>
+<td data-sort="0">0.16 to 0.16</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Tetracera portobellensis</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.12814">0.13</td>
+<td data-sort="0">0.13 to 0.13</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr>
+<td>Tetrapterys tinifolia</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.31056">0.31</td>
+<td data-sort="0">0.31 to 0.31</td>
+<td><span class="tag unreachable">Never returned on any BCI photo</span></td>
+</tr>
+<tr data-thin="1">
+<td>Trichospermum mexicanum</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.27246">0.27</td>
+<td data-sort="0">0.27 to 0.27</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Turpinia occidentalis</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td>1</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="1">100.0%</td>
+<td data-sort="0.92501">0.93</td>
+<td data-sort="0">0.93 to 0.93</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+<tr data-thin="1">
+<td>Vismia macrophylla</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="1">100.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.02849">0.03</td>
+<td data-sort="0">0.03 to 0.03</td>
+<td><span class="tag ranking">Right name in the list, not first</span></td>
+</tr>
+<tr data-thin="1">
+<td>Vitis tiliifolia</td>
+<td>1</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td>0</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0">0.0%</td>
+<td data-sort="0.51669">0.52</td>
+<td data-sort="0">0.52 to 0.52</td>
+<td><span class="tag unmeasured">Too few labels to judge</span></td>
+</tr>
+</tbody></table></div><p class="note">This table as data: <a href="per_species_health.csv">per_species_health.csv</a>, with the columns it does not show.</p></div></details>
+<details class="panel" id="labels-worth-a-second-look"><summary>Labels worth a second look: 51 confident disagreements a botanist can settle</summary><div class="pbody"><p class="ask"><b>Put these 51 frames in front of a botanist.</b> Either the label is wrong or the model is, and one look settles which. They are the disagreements most worth an expert's minute. The same 51 rows are in <a href="label_review_queue.csv">label_review_queue.csv</a>, most confident first.</p><p class="note">Every frame here is a labelled frame where the model is at least 0.8 confident in a <em>different</em> species. A first guess this confident is right 97.1% of the time in bulk (1,712 of 1,763). A wrong label found this way is the cheapest label fix available.</p><p class="note">All 51 frames are here, grouped under their 47 label-and-guess pairs, the pairs that recur first. 3 pairs carry more than one frame and cover 7 of the 51 frames; the other 44 carry one frame each.</p><p class="note">51 of 51 frames link to their row in Labelbox, spread across 4 projects, the largest holding 23. The same join reaches 3,781 of 3,781 labelled frames page-wide (100.0%).</p><div class="tscroll"><table><thead><tr>
+<th>botanist label</th>
+<th>Pl@ntNet's first guess</th>
+<th class="num">confidence</th>
+<th>split</th>
+<th>frame</th>
+</tr></thead><tbody>
+<tr><th colspan="5"><span class="sp">Anacardium excelsum</span> labelled, <span class="sp">Fridericia candicans</span> guessed: 3 frames</th></tr>
+<tr><td><span class="sp">Anacardium excelsum</span></td><td><span class="sp">Fridericia candicans</span></td><td class="num">0.91</td><td>train</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmeybol50hi7g0712l865v57i" target="_blank" rel="noopener">comb_DJI_20250814111624_0007_V_7454zoom.JPG</a></td></tr>
+<tr><td><span class="sp">Anacardium excelsum</span></td><td><span class="sp">Fridericia candicans</span></td><td class="num">0.87</td><td>test</td><td><a href="https://app.labelbox.com/projects/cm66wsv5u05pl070g92gt9vfv/data-rows/cm60y9bkb4xac0733qwgp43a3" target="_blank" rel="noopener">comb_DJI_20241226095120_0026_V_3415zoom.JPG</a></td></tr>
+<tr><td><span class="sp">Anacardium excelsum</span></td><td><span class="sp">Fridericia candicans</span></td><td class="num">0.86</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xoh384x120733okbm8bdg" target="_blank" rel="noopener">comb_DJI_20241101093929_0040_V_885zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Anacardium excelsum</span> labelled, <span class="sp">Uncaria tomentosa</span> guessed: 2 frames</th></tr>
+<tr><td><span class="sp">Anacardium excelsum</span></td><td><span class="sp">Uncaria tomentosa</span></td><td class="num">0.93</td><td>train</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmbgnqge2b8u00742zu9utq77" target="_blank" rel="noopener">comb_DJI_20250304075902_0024_V_7169zoom.JPG</a></td></tr>
+<tr><td><span class="sp">Anacardium excelsum</span></td><td><span class="sp">Uncaria tomentosa</span></td><td class="num">0.90</td><td>train</td><td><a href="https://app.labelbox.com/projects/cm66wsv5u05pl070g92gt9vfv/data-rows/cm60y9bgv4x9h0733aahm4gsq" target="_blank" rel="noopener">comb_DJI_20241226100709_0076_V_2096zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Pseudobombax septenatum</span> labelled, <span class="sp">Ceiba pentandra</span> guessed: 2 frames</th></tr>
+<tr><td><span class="sp">Pseudobombax septenatum</span></td><td><span class="sp">Ceiba pentandra</span></td><td class="num">0.91</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xific4zhl0727wv5t74ml" target="_blank" rel="noopener">comb_DJI_20240912092443_0032_V_2380zoom.JPG</a></td></tr>
+<tr><td><span class="sp">Pseudobombax septenatum</span></td><td><span class="sp">Ceiba pentandra</span></td><td class="num">0.89</td><td>train</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmgtyszjsgyhn0716fdf0vrpn" target="_blank" rel="noopener">comb_DJI_20250822084810_0009_V_3029zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Anacardium excelsum</span> labelled, <span class="sp">Ficus obtusifolia</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Anacardium excelsum</span></td><td><span class="sp">Ficus obtusifolia</span></td><td class="num">0.96</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xr4324qcf0749z6lteq74" target="_blank" rel="noopener">comb_DJI_20241124085937_0008_V_732zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Apeiba membranacea</span> labelled, <span class="sp">Luehea seemannii</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Apeiba membranacea</span></td><td><span class="sp">Luehea seemannii</span></td><td class="num">0.86</td><td>train</td><td><a href="https://app.labelbox.com/projects/cm66wsv5u05pl070g92gt9vfv/data-rows/cm60xg5ch4lz90760orgg1p79" target="_blank" rel="noopener">comb_DJI_20240911144902_0002_V_1507zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Aspidosperma desmanthum</span> labelled, <span class="sp">Ocotea leptobotra</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Aspidosperma desmanthum</span></td><td><span class="sp">Ocotea leptobotra</span></td><td class="num">0.82</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xn4t44x0d0733c38fq1o1" target="_blank" rel="noopener">comb_DJI_20241024125603_0020_V_1575zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Calophyllum longifolium</span> labelled, <span class="sp">Terminalia amazonia</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Calophyllum longifolium</span></td><td><span class="sp">Terminalia amazonia</span></td><td class="num">0.87</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xohar4x340733qog6dizu" target="_blank" rel="noopener">comb_DJI_20241101103715_0048_V_650zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Ceiba pentandra</span> labelled, <span class="sp">Pseudobombax septenatum</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Ceiba pentandra</span></td><td><span class="sp">Pseudobombax septenatum</span></td><td class="num">0.81</td><td>train</td><td><a href="https://app.labelbox.com/projects/cm66wsv5u05pl070g92gt9vfv/data-rows/cm60y9br94xbv0733qsz58ryj" target="_blank" rel="noopener">comb_DJI_20241226111239_0012_V_1272zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Coccoloba excelsa</span> labelled, <span class="sp">Davilla nitida</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Coccoloba excelsa</span></td><td><span class="sp">Davilla nitida</span></td><td class="num">0.96</td><td>test</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmgsbybuhfb4p07166s3973qn" target="_blank" rel="noopener">comb_DJI_20251010083105_0027_V_2432zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Davilla kunthii</span> labelled, <span class="sp">Hiraea grandifolia</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Davilla kunthii</span></td><td><span class="sp">Hiraea grandifolia</span></td><td class="num">0.82</td><td>valid</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cme9aet672wtp0704stxy3oze" target="_blank" rel="noopener">comb_DJI_20250723113054_0031_V_8049zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Ficus obtusifolia</span> labelled, <span class="sp">Anacardium excelsum</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Ficus obtusifolia</span></td><td><span class="sp">Anacardium excelsum</span></td><td class="num">0.92</td><td>test</td><td><a href="https://app.labelbox.com/projects/cm7axzuax0lat07vw4o2va3zk/data-rows/cm60y5p4h58pn0623d3y0gzpx" target="_blank" rel="noopener">comb_DJI_20241218110700_0050_V_5291zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Fridericia candicans</span> labelled, <span class="sp">Anacardium excelsum</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Fridericia candicans</span></td><td><span class="sp">Anacardium excelsum</span></td><td class="num">0.88</td><td>train</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmeybole7hi9e0712tnyj8aq4" target="_blank" rel="noopener">comb_DJI_20250814120836_0011_V_6695zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Fridericia candicans</span> labelled, <span class="sp">Hieronyma alchorneoides</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Fridericia candicans</span></td><td><span class="sp">Hieronyma alchorneoides</span></td><td class="num">0.97</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xn4pv4wzj07330rko61rn" target="_blank" rel="noopener">comb_DJI_20241024132206_0012_V_2336zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Fridericia candicans</span> labelled, <span class="sp">Prioria copaifera</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Fridericia candicans</span></td><td><span class="sp">Prioria copaifera</span></td><td class="num">0.81</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmd3o87zr9n1y0763lfb9n0lu" target="_blank" rel="noopener">comb_DJI_20250206093203_0038_V_895zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Fridericia patellifera</span> labelled, <span class="sp">Anacardium excelsum</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Fridericia patellifera</span></td><td><span class="sp">Anacardium excelsum</span></td><td class="num">0.81</td><td>train</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmbgnqgp5b8xg0742zxq29aiz" target="_blank" rel="noopener">comb_DJI_20250304074807_0014_V_6215zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Fridericia patellifera</span> labelled, <span class="sp">Macrocnemum roseum</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Fridericia patellifera</span></td><td><span class="sp">Macrocnemum roseum</span></td><td class="num">0.95</td><td>train</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmbgnqgpib8xk07427afjg9ah" target="_blank" rel="noopener">comb_DJI_20250304075513_0012_V_7481zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Handroanthus guayacan</span> labelled, <span class="sp">Tabebuia rosea</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Handroanthus guayacan</span></td><td><span class="sp">Tabebuia rosea</span></td><td class="num">0.94</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cme9ebovb0d370859osm18bfv" target="_blank" rel="noopener">comb_DJI_20250716091818_0024_V_338zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Hieronyma alchorneoides</span> labelled, <span class="sp">Fridericia candicans</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Hieronyma alchorneoides</span></td><td><span class="sp">Fridericia candicans</span></td><td class="num">0.90</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xq2lb58js0623bzmrjhvd" target="_blank" rel="noopener">comb_DJI_20241107104232_0034_V_1952zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Hura crepitans</span> labelled, <span class="sp">Davilla nitida</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Hura crepitans</span></td><td><span class="sp">Davilla nitida</span></td><td class="num">0.83</td><td>train</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmgtyszg3gygy0716ew1l1fec" target="_blank" rel="noopener">comb_DJI_20250821165957_0017_V_3771zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Hura crepitans</span> labelled, <span class="sp">Fridericia candicans</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Hura crepitans</span></td><td><span class="sp">Fridericia candicans</span></td><td class="num">0.94</td><td>train</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmf2yhj11cg9p0716uotefwbu" target="_blank" rel="noopener">comb_DJI_20250821143710_0039_V_2247zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Hura crepitans</span> labelled, <span class="sp">Sterculia apetala</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Hura crepitans</span></td><td><span class="sp">Sterculia apetala</span></td><td class="num">0.91</td><td>train</td><td><a href="https://app.labelbox.com/projects/cm7axzuax0lat07vw4o2va3zk/data-rows/cm60y5oxx58oc0623bzs4337q" target="_blank" rel="noopener">comb_DJI_20241218105439_0014_V_6179zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Hymenaea courbaril</span> labelled, <span class="sp">Prioria copaifera</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Hymenaea courbaril</span></td><td><span class="sp">Prioria copaifera</span></td><td class="num">0.94</td><td>valid</td><td><a href="https://app.labelbox.com/projects/cm7axzuax0lat07vw4o2va3zk/data-rows/cm60y2whj4zk30727rxxncb1y" target="_blank" rel="noopener">comb_DJI_20241217101543_0018_V_3894zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Inga sapindoides</span> labelled, <span class="sp">Inga marginata</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Inga sapindoides</span></td><td><span class="sp">Inga marginata</span></td><td class="num">0.96</td><td>test</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmf2yhhcpcg7w0716ljn2n59h" target="_blank" rel="noopener">comb_DJI_20250813150133_0015_V_3647zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Luehea seemannii</span> labelled, <span class="sp">Apeiba tibourbou</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Luehea seemannii</span></td><td><span class="sp">Apeiba tibourbou</span></td><td class="num">0.93</td><td>train</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmexnuomy2as80733au9euux2" target="_blank" rel="noopener">comb_DJI_20250813094035_0029_V_9687zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Luehea seemannii</span> labelled, <span class="sp">Doliocarpus major</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Luehea seemannii</span></td><td><span class="sp">Doliocarpus major</span></td><td class="num">0.89</td><td>train</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmeybolo2hibf0712ihk3ryg9" target="_blank" rel="noopener">comb_DJI_20250814130116_0019_V_4436zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Luehea seemannii</span> labelled, <span class="sp">Uncaria tomentosa</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Luehea seemannii</span></td><td><span class="sp">Uncaria tomentosa</span></td><td class="num">0.89</td><td>train</td><td><a href="https://app.labelbox.com/projects/cm66wsv5u05pl070g92gt9vfv/data-rows/cm60yb5uc4xvv07228p919a01" target="_blank" rel="noopener">comb_DJI_20250106100254_0024_V_4143zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Machaerium isadelphum</span> labelled, <span class="sp">Sterculia apetala</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Machaerium isadelphum</span></td><td><span class="sp">Sterculia apetala</span></td><td class="num">0.98</td><td>train</td><td><a href="https://app.labelbox.com/projects/cm7axzuax0lat07vw4o2va3zk/data-rows/cm60y5p0w58oy0623qzg1m17f" target="_blank" rel="noopener">comb_DJI_20241218093917_0026_V_5241zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Maripa panamensis</span> labelled, <span class="sp">Protium panamense</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Maripa panamensis</span></td><td><span class="sp">Protium panamense</span></td><td class="num">0.91</td><td>train</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmf2yhikxcg990716t1p2fr5f" target="_blank" rel="noopener">comb_DJI_20250821142752_0007_V_3497zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Ochroma pyramidale</span> labelled, <span class="sp">Pourouma bicolor</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Ochroma pyramidale</span></td><td><span class="sp">Pourouma bicolor</span></td><td class="num">0.88</td><td>train</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cme9ealc32xec07012c3foerp" target="_blank" rel="noopener">comb_DJI_20250716131312_0008_V_70zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Oenocarpus mapora</span> labelled, <span class="sp">Attalea butyracea</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Oenocarpus mapora</span></td><td><span class="sp">Attalea butyracea</span></td><td class="num">0.95</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xohbh4x390733spyij9v3" target="_blank" rel="noopener">comb_DJI_20241101103959_0058_V_670zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Pochota fendleri</span> labelled, <span class="sp">Ceiba pentandra</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Pochota fendleri</span></td><td><span class="sp">Ceiba pentandra</span></td><td class="num">0.85</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xifk04zhw07272mk0grox" target="_blank" rel="noopener">comb_DJI_20240912093538_0064_V_2887zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Pourouma bicolor</span> labelled, <span class="sp">Cecropia insignis</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Pourouma bicolor</span></td><td><span class="sp">Cecropia insignis</span></td><td class="num">0.85</td><td>train</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cme9aet212wsh0704pec51klw" target="_blank" rel="noopener">comb_DJI_20250723104031_0013_V_6184zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Pouteria reticulata</span> labelled, <span class="sp">Pouteria stipitata</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Pouteria reticulata</span></td><td><span class="sp">Pouteria stipitata</span></td><td class="num">0.89</td><td>valid</td><td><a href="https://app.labelbox.com/projects/cm66wsv5u05pl070g92gt9vfv/data-rows/cm60yb5c44xsn0722zk33ceuf" target="_blank" rel="noopener">comb_DJI_20241231102525_0010_V_4752zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Pouteria stipitata</span> labelled, <span class="sp">Fridericia candicans</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Pouteria stipitata</span></td><td><span class="sp">Fridericia candicans</span></td><td class="num">0.87</td><td>train</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmgtjs6domtkc0782tbi92oil" target="_blank" rel="noopener">comb_DJI_20250911104901_0025_V_3443zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Protium panamense</span> labelled, <span class="sp">Anacardium excelsum</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Protium panamense</span></td><td><span class="sp">Anacardium excelsum</span></td><td class="num">0.96</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xoh2j4x0w073370bevf17" target="_blank" rel="noopener">comb_DJI_20241101094006_0042_V_1186zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Quararibea stenophylla</span> labelled, <span class="sp">Luehea seemannii</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Quararibea stenophylla</span></td><td><span class="sp">Luehea seemannii</span></td><td class="num">0.93</td><td>test</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmeybolclhi920712ykgvcaab" target="_blank" rel="noopener">comb_DJI_20250814115732_0057_V_7551zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Sloanea terniflora</span> labelled, <span class="sp">Uncaria tomentosa</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Sloanea terniflora</span></td><td><span class="sp">Uncaria tomentosa</span></td><td class="num">0.94</td><td>train</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cme9aet9k2wuo070447p96fag" target="_blank" rel="noopener">comb_DJI_20250723123652_0011_V_7319zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Spondias mombin</span> labelled, <span class="sp">Spondias radlkoferi</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Spondias mombin</span></td><td><span class="sp">Spondias radlkoferi</span></td><td class="num">0.81</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xoh6i4x1y0733703cid9s" target="_blank" rel="noopener">comb_DJI_20241101100344_0028_V_1184zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Tabebuia rosea</span> labelled, <span class="sp">Handroanthus guayacan</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Tabebuia rosea</span></td><td><span class="sp">Handroanthus guayacan</span></td><td class="num">0.84</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xy9dg0sjz0719pf2xxfvn" target="_blank" rel="noopener">comb_DJI_20241127094919_0016_V_2245zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Tabernaemontana arborea</span> labelled, <span class="sp">Terminalia amazonia</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Tabernaemontana arborea</span></td><td><span class="sp">Terminalia amazonia</span></td><td class="num">0.97</td><td>valid</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmgsjyhsn62vs0766ltewjh0w" target="_blank" rel="noopener">comb_DJI_20251010124150_0039_V_7852zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Terminalia amazonia</span> labelled, <span class="sp">Tabernaemontana arborea</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Terminalia amazonia</span></td><td><span class="sp">Tabernaemontana arborea</span></td><td class="num">0.91</td><td>train</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cme9eboni0d1n085925jsbdj9" target="_blank" rel="noopener">comb_DJI_20250716100614_0012_V_316zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Terminalia amazonia</span> labelled, <span class="sp">Terminalia oblonga</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Terminalia amazonia</span></td><td><span class="sp">Terminalia oblonga</span></td><td class="num">0.94</td><td>unassigned</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cme9eal8k2xdf0701yeorkmex" target="_blank" rel="noopener">comb_DJI_20250716121007_0016_V_77zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Terminalia oblonga</span> labelled, <span class="sp">Terminalia amazonia</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Terminalia oblonga</span></td><td><span class="sp">Terminalia amazonia</span></td><td class="num">0.83</td><td>valid</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmgsjyht562vx0766kijzclbk" target="_blank" rel="noopener">comb_DJI_20251010125040_0001_V_6868zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Trichilia tuberculata</span> labelled, <span class="sp">Protium stevensonii</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Trichilia tuberculata</span></td><td><span class="sp">Protium stevensonii</span></td><td class="num">0.88</td><td>train</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmexsetp556ct07330nw354sx" target="_blank" rel="noopener">comb_DJI_20241218124844_0004_V_2132zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Uncaria tomentosa</span> labelled, <span class="sp">Hieronyma alchorneoides</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Uncaria tomentosa</span></td><td><span class="sp">Hieronyma alchorneoides</span></td><td class="num">0.95</td><td>train</td><td><a href="https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmbgnqgggb8uq0742n1euvw8d" target="_blank" rel="noopener">comb_DJI_20250304082331_0046_V_7517zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Uncaria tomentosa</span> labelled, <span class="sp">Hura crepitans</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Uncaria tomentosa</span></td><td><span class="sp">Hura crepitans</span></td><td class="num">0.85</td><td>train</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cme9aet9n2wup07044iweudav" target="_blank" rel="noopener">comb_DJI_20250723123724_0013_V_7315zoom.JPG</a></td></tr>
+<tr><th colspan="5"><span class="sp">Zanthoxylum ekmanii</span> labelled, <span class="sp">Uncaria tomentosa</span> guessed: 1 frame</th></tr>
+<tr><td><span class="sp">Zanthoxylum ekmanii</span></td><td><span class="sp">Uncaria tomentosa</span></td><td class="num">0.87</td><td>train</td><td><a href="https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmgtqrp6agwrc0716xkqpq791" target="_blank" rel="noopener">comb_DJI_20251006114636_0019_V_1260zoom.JPG</a></td></tr>
+</tbody></table></div><p class="note">This table as data: <a href="label_review_queue.csv">label_review_queue.csv</a>, with the columns it does not show.</p><p class="note">Not urgent: work this list after the queues on the label queue page. A label-and-guess pair that keeps recurring is a signal about the species, not just the photo.</p></div></details></section>
+<section class="grp" id="what-the-words-mean-and-how-the-averaging"><h2>What the words mean, and how the averaging works</h2><p class="lede">Read this when a number above surprises you. Nothing here is a new measurement.</p>
+<details class="panel" id="why-the-two-headline-scores-differ"><summary>Every labelled frame, scored on the centre crop: four rates</summary><div class="pbody"><p class="ask"><b>Quote the number at the top of the page, not these four.</b> These cover every labelled frame instead of the frozen sample, so they answer a different question. If you cite one anyway, cite the per-species rate.</p><div class="hero"><div class="metric first"><div class="e">Top-1 accuracy, per species</div><div class="row"><div class="v">50.3%</div></div><div class="l">The first guess is right</div><div class="n">each of the 186 species counts once, however few frames it has</div></div><div class="metric"><div class="e">Top-1 accuracy, per frame</div><div class="row"><div class="v">79.5%</div></div><div class="l">The first guess is right</div><div class="n">one vote per labelled frame, so common species dominate</div></div><div class="metric"><div class="e">Top-5 accuracy, per species</div><div class="row"><div class="v">63.9%</div></div><div class="l">The right name is among the 5 requested</div><div class="n">the best we could do if a botanist picked the right name out of the 5 every time, so a ceiling on our 5-name request, not on the model</div></div><div class="metric"><div class="e">Top-5 accuracy, per frame</div><div class="row"><div class="v">88.9%</div></div><div class="l">The right name is among the 5 requested</div><div class="n">we only ever asked Pl@ntNet for 5 names</div></div></div><div class="caveat"><p><strong>These four numbers judge a centre crop against a label for the whole frame.</strong> The two are not always looking at the same tree. On 1,212 of 3,277 scored frames the labelled species covers less than half the crop, and on 145 it covers none of it. A wrong answer here is therefore not always a wrong identification.</p><p>Read these four as a record of what the centre-crop path did, not as the model's accuracy.</p></div><p class="note">Read down a column, not across. Both rates are right.</p><p class="note"><b>Per species</b> asks how many kinds of tree the model can name, which is what a labelling programme moves. <b>Per frame</b> asks how often it is right on a photo picked at random, which the commonest species decide.</p><p class="note">Per frame is the higher of the two because the species with many frames are the ones Pl@ntNet already knows.</p><div class="hero"><div class="metric first"><div class="e">Precision, per species</div><div class="row"><div class="v">51.6%</div><a class="src" href="per_species_health.csv">per_species_health.csv</a></div><div class="l">When it offers a name, how often that name is right</div><div class="n">averaged over the 186 species a botanist labelled, each counting once however few frames it has</div></div><div class="metric"><div class="e">Recall, per species</div><div class="row"><div class="v">50.3%</div><a class="src" href="per_species_health.csv">per_species_health.csv</a></div><div class="l">Of the frames labelled a species, how often the first guess is right</div><div class="n">the same number as top-1 accuracy per species above, under the name a confusion matrix gives it</div></div><div class="metric"><div class="e">F1, per species</div><div class="row"><div class="v">48.9%</div><a class="src" href="per_species_health.csv">per_species_health.csv</a></div><div class="l">The two above balanced against each other, species by species</div><div class="n">each species&rsquo; own F1 first, then the average of those. That is not the F1 of the two averages beside it, which is a different number</div></div><div class="metric"><div class="e">Precision, recall and F1, per frame</div><div class="row"><div class="v">79.5%</div></div><div class="l">One figure, because per frame all three are the same number</div><div class="n">over all 3,277 labelled frames it is also the per-frame top-1 accuracy</div></div></div><p class="note"><b>Why the per-frame figure is one number and not three.</b> Every frame here carries one botanist label and one first guess. A wrong guess is one miss for the labelled species and one false alarm for the guessed one. Both denominators are then the frame count, and precision, recall, F1 and top-1 accuracy work out identical.</p><p class="note"><b>Precision is measured on the frames we scored.</b> A false alarm is only visible where a botanist has labelled the frame. So these are rates over the frames we scored, not over the survey. A species with no labelled frame has no row here at all: the per-species averages run over the 186 labelled species only.</p><p class="note"><b>A species the model never guesses scores 0% precision, not a blank.</b> It has no right guesses to divide, and reading that as perfect precision on an empty list would flatter the average. Rows on very few frames are noisy the same way. Under 10 labelled frames a row starts hidden in the species table, and its F1 can only land on a couple of values.</p><svg width="659" height="187" viewBox="0 0 659 187" role="img" aria-label="one vote per species (186 votes) against one vote per frame (3,277 votes)">
+<text x="197" y="26" font-size="11.5" fill="#424242" text-anchor="end">one vote per species (186 votes)</text>
+<rect x="207.0" y="8" width="121.2" height="28" fill="#b71c1c"/>
+<text x="267.6" y="26" font-size="11" fill="#fff" text-anchor="middle">27%</text>
+<rect x="328.2" y="8" width="109.3" height="28" fill="#d44215"/>
+<text x="382.8" y="26" font-size="11" fill="#fff" text-anchor="middle">25%</text>
+<rect x="437.5" y="8" width="71.3" height="28" fill="#8d6e00"/>
+<text x="473.2" y="26" font-size="11" fill="#fff" text-anchor="middle">16%</text>
+<rect x="508.8" y="8" width="68.9" height="28" fill="#4f812c"/>
+<text x="543.3" y="26" font-size="11" fill="#fff" text-anchor="middle">16%</text>
+<rect x="577.7" y="8" width="71.3" height="28" fill="#1b5e20"/>
+<text x="613.4" y="26" font-size="11" fill="#fff" text-anchor="middle">16%</text>
+<text x="197" y="66" font-size="11.5" fill="#424242" text-anchor="end">one vote per frame (3,277 votes)</text>
+<rect x="207.0" y="48" width="6.9" height="28" fill="#b71c1c"/>
+<rect x="213.9" y="48" width="17.0" height="28" fill="#d44215"/>
+<rect x="230.9" y="48" width="27.4" height="28" fill="#8d6e00"/>
+<text x="244.6" y="66" font-size="11" fill="#fff" text-anchor="middle">6%</text>
+<rect x="258.3" y="48" width="63.8" height="28" fill="#4f812c"/>
+<text x="290.2" y="66" font-size="11" fill="#fff" text-anchor="middle">14%</text>
+<rect x="322.1" y="48" width="326.9" height="28" fill="#1b5e20"/>
+<text x="485.5" y="66" font-size="11" fill="#fff" text-anchor="middle">74%</text>
+<rect x="197" y="82" width="10" height="10" fill="#b71c1c" rx="2"/><text x="213" y="90" font-size="11" fill="#616161">1 frame: 51 species, one frame each, 25.5% right</text>
+<rect x="197" y="101" width="10" height="10" fill="#d44215" rx="2"/><text x="213" y="109" font-size="11" fill="#616161">2 to 4 frames: 46 species, 126 frames, 39.7% right</text>
+<rect x="197" y="120" width="10" height="10" fill="#8d6e00" rx="2"/><text x="213" y="128" font-size="11" fill="#616161">5 to 9 frames: 30 species, 203 frames, 57.1% right</text>
+<rect x="197" y="139" width="10" height="10" fill="#4f812c" rx="2"/><text x="213" y="147" font-size="11" fill="#616161">10 to 24 frames: 29 species, 473 frames, 78.0% right</text>
+<rect x="197" y="158" width="10" height="10" fill="#1b5e20" rx="2"/><text x="213" y="166" font-size="11" fill="#616161">25 or more frames: 30 species, 2,424 frames, 84.8% right</text>
+</svg><p class="note">The 51 single-frame species are 27% of the per-species bar and 2% of the per-frame one. Pl@ntNet is right 25.5% of the time on them, against 84.8% at 25 or more frames.</p><p class="note">Misses differ at each end. On species with 4 frames or fewer, the right name is still in the 5 for 21.1% of 114 misses. At 25+ it is 50.5% of 368. Misses on common species are near misses; on rare ones the model does not know the plant.</p><p class="note"><b>Set aside species under 10 frames and the scores become 83.7% per frame and 77.5% per species</b>. That is 6 points apart, not the 29 between 79.5% and 50.3%. A one-frame species scores only 0% or 100%, so those 51 votes are coin flips.</p><div class="warn"><strong>Read those rows as how common a species is, not as something labelling changed.</strong> These predictions come from a frozen Pl@ntNet regional model that has never seen a BCI label; common species simply have more reference photos inside Pl@ntNet already. Extra labels buy knowledge instead: under about 10 frames a per-species accuracy jumps around too much to act on.</div><p class="note">Each group, with its species count, frame count and rates, is in <a href="support_buckets.csv">support_buckets.csv</a>.</p></div></details>
+<details class="panel" id="what-the-accuracy-becomes-if-the-crop-has"><summary>What the accuracy becomes if the crop has to show the labelled species</summary><div class="pbody"><p class="ask"><b>The rates above use no such condition.</b> Imposing one moves the per-frame rate from 80.9% to 85.9% and drops 1,875 of 3,190 labelled frames. Both are published here because neither is the whole answer.</p><div class="tscroll"><table>
+<thead><tr>
+<th>The label must cover</th>
+<th class="num">Labelled frames</th>
+<th class="num">Right, per frame</th>
+<th class="num">Right, per species</th>
+<th class="num">Species</th>
+</tr></thead><tbody>
+<tr>
+<td>any of the crop</td>
+<td class="num">3,190</td>
+<td class="num">80.9%</td>
+<td class="num">52.8%</td>
+<td class="num">184</td>
+</tr>
+<tr>
+<td>30% of the crop</td>
+<td class="num">2,515</td>
+<td class="num">84.9%</td>
+<td class="num">58.7%</td>
+<td class="num">170</td>
+</tr>
+<tr>
+<td>50% of the crop</td>
+<td class="num">2,065</td>
+<td class="num">85.7%</td>
+<td class="num">61.1%</td>
+<td class="num">158</td>
+</tr>
+<tr>
+<td>80% of the crop</td>
+<td class="num">1,315</td>
+<td class="num">85.9%</td>
+<td class="num">68.2%</td>
+<td class="num">135</td>
+</tr>
+</tbody></table></div><p class="note">This table as data: <a href="coverage_gate.csv">coverage_gate.csv</a>, with the columns it does not show.</p><p class="note"><strong>Requiring the crop to show the labelled species raises the per-frame rate by 4.9 points and costs 1,875 of the 3,190 labelled frames.</strong> Every row asks a frame for two things. The labelled species covers at least that much of the centre crop. And it is the largest thing outlined inside it.</p><div class="caveat"><p><strong>The per-species column climbs fastest for a reason that is not the model.</strong> It averages every species equally. The bottom row carries 135 species where the top row carries 184. Every one of the 49 that leave has at most 6 labelled frames, and the median among them is 1. Those are the species the model gets wrong most often. So read that column as a rate over an easier set of species, not as 15.4 points waiting to be collected.</p></div><p class="note">87 of the 3,277 scored frames appear in no row at all. Either no crown geometry was recorded for their crop, or the largest crown inside it carries a different species from the label. The headline rates at the top of this page use no bar, which is the top row.</p></div></details>
+<details class="panel" id="is-the-confidence-score-worth-anything"><summary>Is the confidence score worth anything: mostly yes</summary><div class="pbody"><p class="ask"><b>Read this before treating a confidence as a probability.</b> How often the first guess is right, band by band, over every labelled frame.</p><svg width="623" height="202" viewBox="0 0 623 202" role="img" aria-label="how often the first guess is right, by the model&#x27;s own confidence">
+<text x="112" y="16" font-size="12" fill="#616161">how often the first guess is right, by the model&#x27;s own confidence</text>
+<text x="104" y="41" font-size="12" fill="#424242" text-anchor="end">under 0.5</text><rect x="112" y="30" width="368" height="16" fill="#f1f3f4" rx="3"/><rect x="112" y="30" width="139" height="16" fill="#1565c0" rx="3"/><text x="488" y="42" font-size="11.5" fill="#616161">37.8% of 842 frames</text>
+<text x="104" y="71" font-size="12" fill="#424242" text-anchor="end">0.5 to 0.7</text><rect x="112" y="60" width="368" height="16" fill="#f1f3f4" rx="3"/><rect x="112" y="60" width="304" height="16" fill="#1565c0" rx="3"/><text x="488" y="72" font-size="11.5" fill="#616161">82.6% of 384 frames</text>
+<text x="104" y="101" font-size="12" fill="#424242" text-anchor="end">0.7 to 0.8</text><rect x="112" y="90" width="368" height="16" fill="#f1f3f4" rx="3"/><rect x="112" y="90" width="328" height="16" fill="#1565c0" rx="3"/><text x="488" y="102" font-size="11.5" fill="#616161">89.2% of 288 frames</text>
+<text x="104" y="131" font-size="12" fill="#424242" text-anchor="end">0.8 to 0.9</text><rect x="112" y="120" width="368" height="16" fill="#f1f3f4" rx="3"/><rect x="112" y="120" width="351" height="16" fill="#1565c0" rx="3"/><text x="488" y="132" font-size="11.5" fill="#616161">95.5% of 573 frames</text>
+<text x="104" y="161" font-size="12" fill="#424242" text-anchor="end">0.9 and up</text><rect x="112" y="150" width="368" height="16" fill="#f1f3f4" rx="3"/><rect x="112" y="150" width="360" height="16" fill="#1565c0" rx="3"/><text x="488" y="162" font-size="11.5" fill="#616161">97.9% of 1,190 frames</text>
+<line x1="112" y1="180" x2="480" y2="180" stroke="#e0e0e0"/>
+<line x1="112.0" y1="180" x2="112.0" y2="184" stroke="#bdbdbd"/><text x="112.0" y="197" font-size="11" fill="#6d6d6d" text-anchor="middle">0%</text>
+<line x1="204.0" y1="180" x2="204.0" y2="184" stroke="#bdbdbd"/><text x="204.0" y="197" font-size="11" fill="#6d6d6d" text-anchor="middle">25%</text>
+<line x1="296.0" y1="180" x2="296.0" y2="184" stroke="#bdbdbd"/><text x="296.0" y="197" font-size="11" fill="#6d6d6d" text-anchor="middle">50%</text>
+<line x1="388.0" y1="180" x2="388.0" y2="184" stroke="#bdbdbd"/><text x="388.0" y="197" font-size="11" fill="#6d6d6d" text-anchor="middle">75%</text>
+<line x1="480.0" y1="180" x2="480.0" y2="184" stroke="#bdbdbd"/><text x="480.0" y="197" font-size="11" fill="#6d6d6d" text-anchor="middle">100%</text>
+</svg><p class="note">All 3,277 labelled frames, one guess each. The bands rise, so a higher score really does mean a likelier answer, which is what makes ordering the label queue on confidence work at all.</p><p class="note"><b>It is not a probability.</b> A band reading 97.9% is not the same claim as a score of 0.9. And this holds in bulk only: on species with few labelled frames a high score is much less reliable, which the label-queue page measures band by band.</p><p class="note">Every band, with the frames and the right guesses behind it, is in <a href="confidence_calibration.csv">confidence_calibration.csv</a>.</p></div></details>
+<details class="panel" id="what-the-words-mean"><summary>What the words mean: frame, label, crown, centre crop</summary><div class="pbody"><p class="ask"><b>Four words do all the work on this page.</b> Which part of a photo was scored, and against which label, is the whole of the difference between the two numbers above.</p><ul class="terms"><li>A <b>frame</b> is one 4000&times;3000 drone photo.</li><li>A <b>crown</b> is one tree canopy a botanist outlined inside a frame.</li><li>A frame's <b>label</b> is the species whose outlined crowns cover the most area in the <i>whole</i> frame.</li><li>The <b>centre crop</b> is the fixed 1280&times;1280 square from the middle of a frame, 13.7% of the frame&rsquo;s area. Every number below that covers all the labelled frames was scored on that square. We ask Pl@ntNet for 5 names per photo (<code>nb-results=5</code>). That is our request setting, not a limit of the model.</li><li>The <b>first guess</b> is the top-ranked of those names, and <b>right</b> means it matches the frame's label.</li><li><b>Outlining the trees first</b> means something else. We ask Pl@ntNet about each crown on its own. Then we combine the answers into one name for the frame, weighted by how much of the frame each crown covers. That is the same rule the label itself is built from, which is why it is the fairer of the two numbers at the top.</li></ul></div></details>
+<details class="panel" id="why-three-different-frame-counts"><summary>Why three different frame counts: 3,277, 3,749 and 3,781</summary><div class="pbody"><p class="ask"><b>They do not contradict each other.</b> Each counts a different thing.</p><p class="note"><b>3,277</b> frames carry a label naming a species. Every accuracy rate on this page is measured on those.</p><p class="note"><b>3,749</b> frames have a cached Pl@ntNet answer: the 3,277 above, plus 384 labelled only to a genus and 88 labelled only to a family.</p><p class="note"><b>3,781</b> frames a botanist has labelled at all, the 32 with no cached answer included.</p><p class="note">Each number on this page says which of the three it is using.</p></div></details></section>
+<section class="grp" id="what-this-cannot-tell-you"><h2>What this cannot tell you</h2><p class="lede">The ceilings on every number above, and where the numbers came from.</p>
+<details class="panel" id="what-labelling-cannot-fix"><summary>What labelling cannot fix: 23 species, 82 frames the model never named</summary><div class="pbody"><p class="ask"><b>Most of these are not proof the model cannot return the species.</b> A checklist from predict/fetch_checklist.py, when on disk, tells a proven absence apart from one we simply never asked enough candidates to find.</p><p class="note"><strong>Those 82 frames are 2.5% of the 3,277 evaluated, and no answer the model gave us named their species.</strong> Leaving them out raises the per-frame rate from 79.5% to 81.5% on 3,195 centre crops.</p><p class="note">A wider count uses every one of the 3,781 frames carrying a botanist label, genus-only frames and the few with no cached answer included. On that set 104 frames carry a name the model never returned to us.</p><div class="warn"><strong>51 of those 82 frames, on 3 species, are proven absent from Pl@ntNet’s own species list for this project.</strong> No re-run can return a name the project does not carry. Do not spend expert time renaming or relabelling these.</div><div class="tscroll"><table>
+<thead><tr>
+<th>Species</th>
+<th class="num">Labelled frames</th>
+</tr></thead><tbody>
+<tr>
+<td><span class="sp">Virola surinamensis</span></td>
+<td class="num">47</td>
+</tr>
+<tr>
+<td><span class="sp">Dendropanax arboreus</span></td>
+<td class="num">2</td>
+</tr>
+<tr>
+<td><span class="sp">Ficus matiziana</span></td>
+<td class="num">2</td>
+</tr>
+</tbody></table></div><p class="note">This table as data: <a href="per_species_health.csv">per_species_health.csv</a>, with the columns it does not show.</p><p class="note"><strong>The other 31 frames, on 20 species, are on the project’s list but never ranked in a sample of 5 candidates per photo.</strong> That is not proof the model cannot return them, only that we never asked for enough candidates to find out. Re-running with a larger candidate count could still recover some of these.</p><div class="tscroll"><table>
+<thead><tr>
+<th>Species</th>
+<th class="num">Labelled frames</th>
+</tr></thead><tbody>
+<tr>
+<td><span class="sp">Virola nobilis</span></td>
+<td class="num">5</td>
+</tr>
+<tr>
+<td><span class="sp">Drypetes standleyi</span></td>
+<td class="num">3</td>
+</tr>
+<tr>
+<td><span class="sp">Trema domingense</span></td>
+<td class="num">3</td>
+</tr>
+<tr>
+<td><span class="sp">Inga acuminata</span></td>
+<td class="num">2</td>
+</tr>
+<tr>
+<td><span class="sp">Platymiscium dimorphandrum</span></td>
+<td class="num">2</td>
+</tr>
+<tr>
+<td><span class="sp">Tetrathylacium johansenii</span></td>
+<td class="num">2</td>
+</tr>
+<tr>
+<td><span class="sp">Adelphia hiraea</span></td>
+<td class="num">1</td>
+</tr>
+<tr>
+<td><span class="sp">Aegiphila cephalophora</span></td>
+<td class="num">1</td>
+</tr>
+<tr>
+<td><span class="sp">Chomelia psilocarpa</span></td>
+<td class="num">1</td>
+</tr>
+<tr>
+<td><span class="sp">Eugenia florida</span></td>
+<td class="num">1</td>
+</tr>
+<tr>
+<td><span class="sp">Eugenia nesiotica</span></td>
+<td class="num">1</td>
+</tr>
+<tr>
+<td><span class="sp">Fevillea cordifolia</span></td>
+<td class="num">1</td>
+</tr>
+<tr>
+<td><span class="sp">Gnetum leyboldii</span></td>
+<td class="num">1</td>
+</tr>
+<tr>
+<td><span class="sp">Inga pezizifera</span></td>
+<td class="num">1</td>
+</tr>
+<tr>
+<td><span class="sp">Ocotea whitei</span></td>
+<td class="num">1</td>
+</tr>
+<tr>
+<td><span class="sp">Passiflora auriculata</span></td>
+<td class="num">1</td>
+</tr>
+<tr>
+<td><span class="sp">Quararibea pterocalyx</span></td>
+<td class="num">1</td>
+</tr>
+<tr>
+<td><span class="sp">Schizolobium parahyba</span></td>
+<td class="num">1</td>
+</tr>
+<tr>
+<td><span class="sp">Schnella guianensis</span></td>
+<td class="num">1</td>
+</tr>
+<tr>
+<td><span class="sp">Tetrapterys tinifolia</span></td>
+<td class="num">1</td>
+</tr>
+</tbody></table></div><p class="note">This table as data: <a href="per_species_health.csv">per_species_health.csv</a>, with the columns it does not show.</p><p class="note">The two flags the lists are split on are the <code>in_project_checklist</code> and <code>in_corpus_vocabulary</code> columns of the file each table above links.</p><p class="note">The cap did not bite everywhere. On 1,487 of the 3,749 frames with a cached answer (39.7%) fewer than 5 came back, so nothing was cut off. On the other 2,262 anything ranked 6 or lower is invisible to us.</p><p class="note"><strong>Spelling and renamed species do not cost us any frames.</strong> Labels and predictions are put into the same standard form before comparison, and old names are resolved to current ones. Raw names would score 78.5% on the centre crop rather than 79.5%, so the matching wins 32 frames. Those 32 are already inside every rate on this page. Every label the botanists wrote, what it was resolved to and how, is in <a href="name_reconciliation.csv">name_reconciliation.csv</a>.</p><p class="note"><strong>384 further frames carry only a genus name</strong> and are left out of every species number above. Scored at genus level they reach 49.0%.</p><p class="note">Of them, 279 have at least one candidate in the right genus among the 5, and <strong>161 have exactly one</strong>. That turns the question into a yes or no. Whether taking them down to species is worth expert time is a question for the label queue page, not a model question.</p><p class="note">A further 88 frames are labelled to 19 <em>families</em> rather than genera, and are left out of the genus rate. A family name can never match a predicted species name, and rolling the predictions up to family needs a list we do not have here. Counting them in would have reported 39.8% instead of 49.0%.</p></div></details>
+<details class="panel" id="how-this-was-measured"><summary>How this was measured: the model, the frames, the files</summary><div class="pbody"><p class="ask"><b>Read this before quoting any number outside the team.</b> It names the model, the request settings, and the one assumption that cannot be checked offline.</p><ul class="prov"><li>Predictions: model run <code>unknown</code>, the Central America regional model, so a regional restriction is already in place. That restriction excludes 3 species BCI has recorded, checked against the region’s own species list. All 3 of them are on the worldwide list, so the region, not the model, is why they never came back.</li><li>Request: <code>nb-results=5</code>, <code>no-reject=true</code>, organs detected automatically, <code>include-related-images=false</code>, on a 1280&nbsp;px centre crop. A correct answer at position 6 or beyond was never returned and cannot be seen here.</li><li>Evaluated set: 3,277 frames across 186 species whose botanist label names a species rather than only a genus. They are the historical labelling record, not a random draw. These rates carry over to unlabelled frames only if unlabelled frames look like labelled ones, and that is not checkable offline.</li><li>Labels, in the merge script’s own words: &ldquo;Ground truth merged from Labelbox export Export  project - 2024_bci - 8_6_2026.ndjson on 2026-08-27.&rdquo; The merge keeps the newer label, and that batch has had no Labelbox review step yet.</li><li>Snapshot: one dated <code>model-health-&lt;date&gt;/</code> folder, the latest state, with no trend over earlier folders. Every number is recomputed from the source data at build time. It is checked against the 5 CSVs the measurement pass wrote there, and a mismatch aborts the build. To rebuild, see the README beside this dashboard&rsquo;s source.</li></ul></div></details></section><script>(function(){
+  var table=document.getElementById('species-table');
+  if(!table) return;
+  var tbody=table.tBodies[0];
+  var rows=Array.prototype.slice.call(tbody.rows);
+  var q=document.getElementById('species-filter');
+  var sel=document.getElementById('status-filter');
+  var count=document.getElementById('species-count');
+  var thin=document.getElementById('show-thin');
+  function statusOf(r){
+    var tag=r.querySelector('.tag');
+    return tag?tag.className.replace('tag','').trim():'';
+  }
+  function apply(){
+    var needle=(q.value||'').trim().toLowerCase();
+    var want=sel?sel.value:'all';
+    var showThin=thin?thin.checked:true;
+    var shown=0;
+    rows.forEach(function(r){
+      var hay=(r.cells[0]?r.cells[0].textContent:'').toLowerCase();
+      var ok=(!needle||hay.indexOf(needle)>=0)&&
+             (want==='all'||statusOf(r)===want)&&
+             (showThin||needle||want!=='all'||
+              r.getAttribute('data-thin')!=='1');
+      r.classList.toggle('hidden',!ok);
+      if(ok) shown++;
+    });
+    count.textContent=shown?(shown+' of '+rows.length+' species shown')
+                           :'No species matches that filter.';
+  }
+  function key(cell){
+    var v=cell.getAttribute('data-sort');
+    return v===null?cell.textContent.trim():v;
+  }
+  var heads=Array.prototype.slice.call(table.tHead.rows[0].cells);
+  heads.forEach(function(th,idx){
+    if(!th.classList.contains('sortable')) return;
+    th.tabIndex=0;
+    th.setAttribute('role','button');
+    th.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){ e.preventDefault(); th.click(); }
+    });
+    th.addEventListener('click',function(){
+      var dir=th.classList.contains('desc')?'asc':'desc';
+      heads.forEach(function(o){
+        o.classList.remove('asc','desc');
+        o.removeAttribute('aria-sort');
+      });
+      th.classList.add(dir);
+      th.setAttribute('aria-sort',dir==='asc'?'ascending':'descending');
+      rows.slice().sort(function(a,b){
+        var x=key(a.cells[idx]),y=key(b.cells[idx]);
+        var nx=parseFloat(x),ny=parseFloat(y);
+        var c=(!isNaN(nx)&&!isNaN(ny))?nx-ny:String(x).localeCompare(String(y));
+        return dir==='asc'?c:-c;
+      }).forEach(function(r){tbody.appendChild(r);});
+    });
+  });
+  q.addEventListener('input',apply);
+  if(sel) sel.addEventListener('change',apply);
+  if(thin) thin.addEventListener('change',apply);
+  apply();
+})();
+(function(){
+  var forced=[];
+  function expand(){
+    forced=[];
+    Array.prototype.forEach.call(document.querySelectorAll('details:not([open])'),
+      function(d){ forced.push(d); d.open=true; });
+  }
+  function restore(){
+    forced.forEach(function(d){ d.open=false; });
+    forced=[];
+  }
+  window.addEventListener('beforeprint',expand);
+  window.addEventListener('afterprint',restore);
+  if(window.matchMedia){
+    var mq=window.matchMedia('print');
+    var onChange=function(e){ e.matches?expand():restore(); };
+    if(mq.addEventListener) mq.addEventListener('change',onChange);
+    else if(mq.addListener) mq.addListener(onChange);
+  }
+  function openHash(){
+    if(!location.hash) return;
+    var el=null;
+    try{ el=document.querySelector(location.hash); }catch(e){ return; }
+    if(el&&el.tagName==='DETAILS'){ el.open=true; el.scrollIntoView(); }
+  }
+  window.addEventListener('hashchange',openHash);
+  openHash();
+})();</script></body></html>
