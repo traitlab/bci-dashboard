@@ -52,7 +52,35 @@ SEND_FIRST_COLUMNS = ["queue", "global_key", "split", "predicted_species", "conf
 SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue", "picked_by"]
 
 # No more than this many crowns per Labelbox batch, one botanist session's worth.
-BATCH_SIZE = 100
+# Overridable because the right number is the labelling team's call, not ours:
+# Etienne asked for many small batches over a few large ones, and Antoine
+# suggested 100, but if either wants 50 or 200 that should not be a source edit.
+# `measure.py` writes the packing and `history.check_send_batches` verifies it
+# against this same constant, so a value changed between those two steps fails
+# the build rather than shipping a page that describes a packing nobody ran.
+#
+# Changing this before batch 1 ships also moves the control slice, which is
+# `CONTROL_FRACTION` of one batch and cannot be reconstructed afterwards. See
+# the note below.
+def _batch_size_from_env(raw: str | None, default: int = 100) -> int:
+    """``BCI_BATCH_SIZE``, or the default when it is unset or empty.
+
+    Rejected loudly rather than coerced: a batch size that silently fell back
+    to 100 because of a typo would repartition the queue against a number
+    nobody chose, and the page would then describe that partition as intended.
+    """
+    if raw is None or not raw.strip():
+        return default
+    try:
+        n = int(raw.strip())
+    except ValueError:
+        raise ValueError(f"BCI_BATCH_SIZE must be a whole number, got {raw!r}") from None
+    if n < 1:
+        raise ValueError(f"BCI_BATCH_SIZE must be at least 1, got {n}")
+    return n
+
+
+BATCH_SIZE = _batch_size_from_env(os.environ.get("BCI_BATCH_SIZE"))
 
 # The share of the first batch drawn at random from the whole unlabelled pool
 # instead of from the head of the queue. Nothing here measures whether the queue
