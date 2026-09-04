@@ -216,6 +216,10 @@ def _queue(h, support, per_species):
         "queue_rows": rows, "queue_counts": counts, "n_no_answer": n_no_answer,
         "n_unlab": sum(counts.values()),
         "n_batches": batch_rows[-1][0] if batch_rows else 0,
+        # Counted, not assumed to be BATCH_SIZE: packing keeps species groups
+        # whole, so a batch stops short whenever the next group would overflow.
+        # The internal page leads with this number, so it has to be the real one.
+        "n_batch1": sum(1 for b in batch_rows if b[0] == 1),
         "lt_species": Counter(r[2] for r in rows if r[0] == "long_tail"),
         "queue_cams": Counter(camera_of(r[1]) for r in rows),
         # How much of the queue the ordering file reaches. A frame with no
