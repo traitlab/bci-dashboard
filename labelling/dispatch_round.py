@@ -30,6 +30,7 @@ from pathlib import Path
 
 import labelbox as lb
 import settings
+from lbox.exceptions import AuthorizationError, MalformedQueryException
 
 # How many metadata rows go up in one bulk_upsert call. Not the botanist-session
 # batch size: `queues.BATCH_SIZE` is that one, and it is a different number for a
@@ -83,23 +84,41 @@ def get_or_create_round_schema(mdo) -> str:
     return schema.uid
 
 
+def page_data_row_ids(dataset) -> dict[str, str]:
+    """The same map, read a row at a time instead of exported in bulk.
+
+    A key can be allowed to read a dataset and still be refused an export task,
+    which is what ours is: every `export` on every project and on this dataset
+    answers "Insufficient permissions", while `data_rows()` pages fine. Paging
+    the whole dataset is the slower route and the only one such a key has, so a
+    refused export falls through to here rather than ending the dispatch.
+    """
+    return {row.global_key: row.uid for row in dataset.data_rows()
+            if row.global_key}
+
+
 def fetch_data_row_ids(client: lb.Client, dataset_name: str) -> dict[str, str]:
     """Map every global key in the dataset to its Labelbox data row id.
 
     The queue names photos by global key; Labelbox wants row ids. Exporting the
-    whole dataset once beats one lookup per photo in a batch of hundreds.
+    whole dataset once beats one lookup per photo in a batch of hundreds, and
+    `page_data_row_ids` is the fallback when the key may not export.
     """
     dataset = next((d for d in client.get_datasets() if d.name == dataset_name), None)
     if dataset is None:
         sys.exit(f"ERROR: Dataset '{dataset_name}' not found.")
 
-    export_task = dataset.export(params={
-        "attachments": False,
-        "metadata_fields": False,
-        "data_row_details": True,
-        "embeddings": False,
-        "labels": False,
-    })
+    try:
+        export_task = dataset.export(params={
+            "attachments": False,
+            "metadata_fields": False,
+            "data_row_details": True,
+            "embeddings": False,
+            "labels": False,
+        })
+    except (AuthorizationError, MalformedQueryException) as refused:
+        print(f"  export refused ({refused}), paging {dataset.name} instead")
+        return page_data_row_ids(dataset)
     export_task.wait_till_done(timeout_seconds=EXPORT_TIMEOUT_SEC)
 
     try:
