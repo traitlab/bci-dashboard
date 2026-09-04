@@ -11,6 +11,7 @@ a number means; it decides which rows there are to measure.
 from __future__ import annotations
 
 import os
+import statistics
 from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -150,6 +151,68 @@ def reconcile_names(gt_rows, predictions, corpus_vocab, crosswalk):
         genus_in_corpus_only=genus_in_corpus_only)
 
 
+def confusion_counts(sp_recs):
+    """Per species: right first guesses, frames guessed, frames labelled.
+
+    The three counts precision, recall and F1 are all built from, in one pass.
+    Recall's denominator is the frames a species was *labelled* on, which is
+    the same denominator the first-guess rate already uses. Precision's is the
+    frames it was *guessed* on, and no per-species row holds that: a wrong
+    first guess lands in the guessed count of a species whose own row it never
+    touches, so it cannot be recovered from the rows afterwards.
+
+    Counted here rather than folded into ``aggregate_per_species``'s own tally,
+    so the two arrive at the frames-labelled count by different routes and a
+    test can check them against each other instead of watching them agree by
+    construction.
+    """
+    tp, guessed, labelled = Counter(), Counter(), Counter()
+    for r in sp_recs:
+        guess = r["ranked"][0][0]
+        guessed[guess] += 1
+        labelled[r["gt"]] += 1
+        if guess == r["gt"]:
+            tp[guess] += 1
+    return tp, guessed, labelled
+
+
+def f_measure(precision, recall):
+    """The harmonic mean of a precision and a recall, and 0.0 when both are 0.
+
+    A species the model never guesses has no right guesses either, so both
+    rates are 0 and the harmonic mean is 0/0. Reporting it as 0.0 is the same
+    reading every confusion-matrix report gives it: nothing was found, so
+    nothing was found well. Written once because per-species F1 and the
+    per-species average of it must not be two different formulas.
+    """
+    total = precision + recall
+    return 0.0 if not total else 2 * precision * recall / total
+
+
+def confidence_spread(values):
+    """Mean, median and the middle half of a list of confidences.
+
+    The mean alone hides the shape. Pl@ntNet spreads its score over every
+    species it knows, so the distribution is skewed and the median says more
+    about a typical frame than the average does. The quartile pair says how
+    wide the middle of it is.
+
+    A single value has no spread to report, and a single-frame species is the
+    commonest row in the table, so that case returns the value itself rather
+    than letting ``statistics.quantiles`` raise on one data point. Empty is
+    ``None`` throughout, never 0.0: no frames means no confidence, not a
+    confidence of zero.
+    """
+    if not values:
+        return {"mean": None, "median": None, "p25": None, "p75": None, "iqr": None}
+    if len(values) == 1:
+        only = values[0]
+        return {"mean": only, "median": only, "p25": only, "p75": only, "iqr": 0.0}
+    q1, _q2, q3 = statistics.quantiles(values, n=4, method="inclusive")
+    return {"mean": statistics.fmean(values), "median": statistics.median(values),
+            "p25": q1, "p75": q3, "iqr": q3 - q1}
+
+
 def aggregate_per_species(sp_recs, corpus_norm, corpus_canon, checklist_canon=None):
     """One row per species, commonest first. The keys are the dict below.
 
@@ -163,6 +226,29 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon, checklist_canon=No
     False against ``core.EVAL_PROJECT``'s own species list, the one source
     that can prove a species absent rather than merely never ranked in an
     ``N_CANDIDATES``-name sample.
+
+    Three more are the confusion-matrix rates, built from ``confusion_counts``.
+    ``recall`` asks how many of a species' own labelled frames the model named
+    right, which is the question ``top1_accuracy`` already answers, here under
+    the name the metric grid uses. ``precision`` asks the opposite question
+    over a different population: of the frames the model *guessed* this species
+    on, how many really were it. ``n_guessed_frames`` is that population and
+    travels beside the rate, because 100% over one guess and 100% over four
+    hundred are not the same claim. A species the model never guesses gets
+    ``precision`` 0.0 rather than ``None``, so the per-species average has a
+    number to average, and ``n_guessed_frames`` is 0 there to say what the 0.0
+    rests on.
+
+    ``f1`` is the harmonic mean of that row's own precision and recall.
+    Averaging that column across species is macro F1. The F1 of the two
+    averaged rates is a different number, and nothing here computes it.
+
+    The confidence columns are a distribution rather than one figure.
+    ``mean_top1_confidence`` is the arithmetic mean it has always been; the
+    median and the quartile pair beside it say what a mean hides on a skewed
+    score. ``mean_top1_confidence_when_correct`` is the same mean over only the
+    frames the first guess got right, so the gap between the two is what being
+    confident is worth on this species.
     """
     def top1(r):
         return r["ranked"][0][0]
@@ -171,12 +257,19 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon, checklist_canon=No
     for r in sp_recs:
         by_sp[r["gt"]].append(r)
 
+    tp, guessed, _labelled = confusion_counts(sp_recs)
+
     per_species = []
     for sp, rs in by_sp.items():
         m = len(rs)
         k1 = sum(1 for r in rs if top1(r) == sp)
         k5 = sum(1 for r in rs if sp in [b for b, _ in r["ranked"][:N_CANDIDATES]])
+        confs = [r["ranked"][0][1] for r in rs]
         confs_ok = [r["ranked"][0][1] for r in rs if top1(r) == sp]
+        spread = confidence_spread(confs)
+        n_guessed = guessed[sp]
+        precision = (tp[sp] / n_guessed) if n_guessed else 0.0
+        recall = tp[sp] / m
         per_species.append({
             "species": sp,
             "gt_raw_labels": "|".join(sorted({r["gt_raw"] for r in rs})),
@@ -185,7 +278,15 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon, checklist_canon=No
             "top1_accuracy": k1 / m,
             "n_correct_top5": k5,
             "top5_accuracy": k5 / m,
-            "mean_top1_confidence": sum(r["ranked"][0][1] for r in rs) / m,
+            "n_guessed_frames": n_guessed,
+            "precision": precision,
+            "recall": recall,
+            "f1": f_measure(precision, recall),
+            "mean_top1_confidence": sum(confs) / m,
+            "median_top1_confidence": spread["median"],
+            "p25_top1_confidence": spread["p25"],
+            "p75_top1_confidence": spread["p75"],
+            "iqr_top1_confidence": spread["iqr"],
             "mean_top1_confidence_when_correct": (sum(confs_ok) / len(confs_ok)) if confs_ok else None,
             "in_corpus_vocabulary": sp in corpus_norm or sp in corpus_canon,
             "in_project_checklist": (None if checklist_canon is None

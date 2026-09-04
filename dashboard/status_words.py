@@ -61,9 +61,10 @@ STATUS_REASON = {
                    "species\u2019 own frames. That is what we saw, not what the model can "
                    f"do. We ask each photo for {hc.N_CANDIDATES} names. A species it "
                    "carries but never ranks that high looks the same to us as one it does "
-                   "not carry at all. Other rows do show 0.0% in the \u201cRight name in "
-                   "the list\u201d column under a different status. There the model did "
-                   "produce the name, just never on the frames of that species.",
+                   "not carry at all. Other rows do show 0.0% in the "
+                   f"\u201cTop-{hc.N_CANDIDATES} accuracy\u201d column under a different "
+                   "status. There the model did produce the name, just never on the "
+                   "frames of that species.",
     "out_of_scope": "Pl@ntNet's own species list, read by predict/fetch_checklist.py, "
                     "does not carry this name. That is a proven absence, not the "
                     "sample effect behind “never returned”.",
