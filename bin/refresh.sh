@@ -87,4 +87,10 @@ else
   cp "$REPO/build/model_health_dashboard.html" "$SNAP/"
   cp "$REPO/build/label_queue_dashboard.html" "$SNAP/"
 fi
+
+# The published copies. Staged into docs/ rather than pushed, because what goes
+# on the public site is a commit somebody made and can point at, not a side
+# effect of a local run.
+"$REPO/bin/publish_pages.sh"
+
 echo "refresh: done"
