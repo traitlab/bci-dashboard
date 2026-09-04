@@ -43,8 +43,8 @@ page prints both from the same source.
    frames, or right less than 70% of the time.
 2. **A usually-right species, guessed weakly.** Right at least 90% of the time
    overall, but confidence under 0.50 here.
-3. **Not sure enough to leave alone.** Neither of the above, and not confident
-   enough to wait.
+3. **Worth a look, confidence under 0.80.** Not in the two queues above, and
+   Pl@ntNet is under 0.80 confident here.
 4. **Confident on a well-covered species.** Confidence 0.80 or more and 10 or
    more labelled frames already. Look at these last.
 

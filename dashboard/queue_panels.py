@@ -29,8 +29,17 @@ QL = {"long_tail": ("Species we barely have, or barely get right",
       # Not "Everything else": a further category follows it. The name says why
       # a botanist should open the queue rather than what is in it, because the
       # rule beside it already draws the line against the queue above.
-      "normal": ("Not sure enough to leave alone",
-                 "Neither of the two above, and not confident enough to wait"),
+      #
+      # It used to read "Not sure enough to leave alone" / "Neither of the two
+      # above, and not confident enough to wait", two negations in the label and
+      # one in the rule. A reader stopped at it on 2026-09-03 and could not say
+      # what it meant. The number was there all along, in `can_wait` below: this
+      # queue is everything the wait rule does not catch, so it is the same
+      # WAIT_CONF read from the other side. Naming the threshold says in one
+      # clause what the negations took two to not say.
+      "normal": (f"Worth a look, confidence under {hc.WAIT_CONF:.2f}",
+                 "Not in the two queues above, and Pl@ntNet is under "
+                 f"{hc.WAIT_CONF:.2f} confident here"),
       "can_wait": ("Confident on a well-covered species",
                    f"Confidence {hc.WAIT_CONF:.2f} or more, and {hc.WELL_SAMPLED_MIN_N} or "
                    f"more labelled frames already")}
