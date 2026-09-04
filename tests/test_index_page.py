@@ -45,6 +45,27 @@ def test_the_date_is_read_off_the_pages_not_typed(build_index, tmp_path):
     assert "2026-09" not in out
 
 
+def test_only_the_build_date_crosses_over(build_index, tmp_path):
+    """The pages' subtitle carries the snapshot date, the model tag and two
+    counts. Each is a number with no provenance beside it here, and the page
+    that can explain it is one click away, so none of them comes across."""
+    out = build_index.build(fake_build(
+        tmp_path, "built 2027-01-01 &middot; snapshot 2026-12-31 &middot; "
+                  "Pl@ntNet model unknown &middot; 3,277 labelled frames &middot; "
+                  "186 species"))
+    assert "built 2027-01-01" in out
+    for carried in ("snapshot", "Pl@ntNet model", "3,277", "186 species"):
+        assert carried not in out, carried
+
+
+def test_the_separator_never_reaches_the_reader_as_text(build_index, tmp_path):
+    """It did. The subtitle was escaped a second time on the way in, and the
+    front door read `built 2026-09-04 &middot; snapshot ...` literally."""
+    out = build_index.build(fake_build(tmp_path))
+    assert "middot" not in out
+    assert "&amp;" not in out
+
+
 def test_a_page_that_carries_no_subtitle_is_not_a_crash(build_index, tmp_path):
     """The index is a signpost. It must not be the thing that fails a publish."""
     for name, _, _ in build_index.PAGES:
@@ -60,9 +81,12 @@ def test_a_missing_page_stops_the_publish(build_index, tmp_path):
         build_index.build(str(tmp_path))
 
 
-def test_it_promises_no_trend(build_index, tmp_path):
-    """The trend was removed because its points were dated by the wrong event.
-    The front door should not reintroduce the claim in a caption."""
+def test_it_claims_nothing_the_pages_have_to_back_up(build_index, tmp_path):
+    """A signpost carries two links and a date. It used to carry a paragraph
+    about the rebuild as well, which said nothing a reader could act on and
+    described the pages instead of pointing at them."""
     out = build_index.build(fake_build(tmp_path)).lower()
-    assert "latest state" in out
     assert "over time" not in out
+    assert "measurement pass" not in out
+    assert "latest state" not in out
+    assert "<p" not in out
