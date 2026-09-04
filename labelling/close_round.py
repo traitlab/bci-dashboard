@@ -26,6 +26,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import labelbox as lb
+import rounds
 import settings
 
 REPO = Path(__file__).resolve().parents[1]
@@ -46,11 +47,29 @@ def load_existing_gt(gt_path: Path) -> set[str]:
 
 
 def find_batch(project, round_num: int):
-    target_prefix = f"Round {round_num} -"
+    """The batch holding round `round_num`, matched on the name it was sent with.
+
+    The prefix comes from `rounds`, the same module `dispatch_round.py` names
+    the batch with, so a rename on one side cannot silently stop the other from
+    finding a round.
+    """
+    prefix = rounds.batch_name_prefix(round_num)
     for batch in project.batches():
-        if batch.name.startswith(target_prefix):
+        if batch.name.startswith(prefix):
             return batch
     return None
+
+
+def near_misses(project, round_num: int) -> list[str]:
+    """Batch names that mention this round but are not named like one.
+
+    A batch built by hand in the Labelbox interface is usually right except for
+    its name: `Round 3`, or `Round 3 - Sept 4`. Nothing can close those, and the
+    fix is a rename, so the names go in the error rather than leaving whoever
+    ran this to guess whether the batch exists at all.
+    """
+    return [b.name for b in project.batches()
+            if str(round_num) in b.name and rounds.round_of(b.name) != round_num]
 
 
 def extract_dominant_species(label_data: dict) -> str | None:
@@ -97,18 +116,21 @@ def find_project(client, name):
     return project
 
 
-def export_rows(project, batch):
+def export_rows(project, batch, metadata=False):
     """Pull one batch's labels out of Labelbox and wait for the export to finish.
 
     Errors are drained from their own stream before the results are: a failed
     export still returns an empty result stream, which would otherwise read as
     a round nobody labelled.
+
+    `metadata` is off for closing a round, which reads labels and not tags, and
+    on for `verify_round.py`, which reads the round tag and not the labels.
     """
     export_task = project.export(
         params={
             "data_row_details": True,
             "label_details": True,
-            "metadata_fields": False,
+            "metadata_fields": metadata,
             "attachments": False,
             "embeddings": False,
         },
@@ -196,7 +218,12 @@ def main() -> None:
     print(f"\nStep 2 - Finding batch for round {args.round}...")
     batch = find_batch(project, args.round)
     if batch is None:
-        sys.exit(f"ERROR: No batch matching 'Round {args.round} -' found in project.")
+        near = near_misses(project, args.round)
+        hint = (f" Named close to it: {near}. A round is named "
+                f"'{rounds.batch_name(args.round)}'; rename it and run this again."
+                if near else "")
+        sys.exit(f"ERROR: no batch named "
+                 f"'{rounds.batch_name_prefix(args.round)}...' in the project.{hint}")
     print(f"  Found batch: {batch.name}")
 
     print("\nStep 3 - Exporting labels from batch...")

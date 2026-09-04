@@ -25,10 +25,10 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
-from datetime import date
 from pathlib import Path
 
 import labelbox as lb
+import rounds
 import settings
 from lbox.exceptions import AuthorizationError, MalformedQueryException
 
@@ -37,7 +37,11 @@ from lbox.exceptions import AuthorizationError, MalformedQueryException
 # different reason, so the two do not share a name.
 UPSERT_CHUNK = 500
 EXPORT_TIMEOUT_SEC = 300
-METADATA_SCHEMA_NAME = "selection_round"
+
+# The batch name and the metadata field are the round's contract with whoever
+# closes it, and with anyone who builds a batch by hand instead of running this.
+# `rounds` holds both so the two scripts cannot drift apart.
+METADATA_SCHEMA_NAME = rounds.METADATA_SCHEMA_NAME
 
 
 def load_selection_csv(csv_path: Path, batch_id: str | None = None) -> list[str]:
@@ -223,13 +227,14 @@ def create_batch(client, project_name, matched_keys, round_no, priority):
     """Put the round in front of the botanists, named so a human can find it.
 
     The name carries the round number and the day it went out, which is what
-    `close_round.py` matches on and what anyone reading the project sees.
+    `close_round.py` matches on and what anyone reading the project sees. Its
+    shape is `rounds.batch_name`, and a batch built by hand has to match it.
     """
     project = next((p for p in client.get_projects() if p.name == project_name), None)
     if project is None:
         sys.exit(f"ERROR: Project '{project_name}' not found.")
 
-    batch_name = f"Round {round_no} - {date.today().isoformat()}"
+    batch_name = rounds.batch_name(round_no)
     batch = project.create_batch(
         name=batch_name,
         global_keys=matched_keys,
