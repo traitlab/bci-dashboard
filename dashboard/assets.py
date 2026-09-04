@@ -74,13 +74,33 @@ def section(title, lede, panels):
 
 def hero(cards):
     """The band of big numbers a page opens with, leading card first.
+
     ``cards`` is ``[(eyebrow, value, label, note), ...]``, and the grid CSS is
-    written against the metric card markup."""
+    written against the metric card markup.
+
+    A card may carry a fifth item, the CSV the number is read off. It renders as
+    a link beside the figure, so the reader who wants the rows behind the
+    headline can take them from the card rather than hunting the panel that
+    names the file. Link only a file the card's own number comes out of: the
+    link reads as provenance, and pointing it at a near-enough file makes the
+    card lie. ``page.copy_linked_csvs`` then carries the file with the page and
+    aborts the build if it is missing, so a linked card cannot ship a 404.
+    """
     out = ['<div class="hero">']
-    for i, (eyebrow, value, label, note) in enumerate(cards):
+    for i, card in enumerate(cards):
+        # A range check, not membership of a two-length tuple: written that way
+        # it reads to test_health's literal guard as a candidate-list length
+        # passed as a literal, and that guard is worth more than the tuple.
+        if not 4 <= len(card) <= 5:
+            raise SystemExit(
+                f"hero card {i} has {len(card)} items: it takes (eyebrow, value, "
+                f"label, note) and an optional source CSV.")
+        eyebrow, value, label, note = card[:4]
+        source = card[4] if len(card) > 4 else ""
+        src = f'<a class="src" href="{source}">{source}</a>' if source else ""
         out.append(f'<div class="metric{" first" if i == 0 else ""}">'
                    f'<div class="e">{eyebrow}</div>'
-                   f'<div class="row"><div class="v">{value}</div></div>'
+                   f'<div class="row"><div class="v">{value}</div>{src}</div>'
                    f'<div class="l">{label}</div>'
                    f'<div class="n">{note}</div></div>')
     out.append("</div>")

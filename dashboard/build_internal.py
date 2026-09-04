@@ -76,14 +76,21 @@ def build(h, *, generated, verify_dir, fallback_tag):
          # through a few hundred a month, so leading with it prices the whole
          # queue as the next task and it is many months of them. The number a
          # reader can act on this week is the one batch that ships.
+         # Each card links the file its own number is counted off, so the reader
+         # who wants the photos behind a headline takes them from the card. Batch
+         # 1 is a batch, so it comes off send_batches.csv; the other two count
+         # the pool in queue order, which is send_first_queue.csv.
          hero([("Send next", f"{c.n_batch1:,}", "photos in batch 1",
                 "One Labelbox batch, the head of the order. Everything below is "
-                "the pool it was drawn from, not this week's work."),
+                "the pool it was drawn from, not this week's work.",
+                "send_batches.csv"),
                ("Worth sending first", f"{send_now:,}", "unlabelled photos",
                 "They point at a species we barely have or barely get right, or at a "
-                "usually-right species the model is unsure of here."),
+                "usually-right species the model is unsure of here.",
+                "send_first_queue.csv"),
                ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
-                "The whole pool this page puts in an order.")]),
+                "The whole pool this page puts in an order.",
+                "send_first_queue.csv")]),
          ('<p class="note"><strong>The prioritised batches are in '
           '<code>build/tables/send_batches.csv</code>.</strong> Send from that file. '
           'This page shows the order and the reason behind each photo\'s place in it. '

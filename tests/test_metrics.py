@@ -224,6 +224,18 @@ def test_the_page_names_the_metric_as_well_as_glossing_it(external_page):
     assert "The first guess is right" in html
 
 
+def test_the_species_table_names_recall_in_the_column_that_holds_it(external_page):
+    """Per species, recall and top-1 accuracy are one number (gate 1 above).
+
+    The page said so in a paragraph above the table, and a reader scanning the
+    column headings still found Precision and F1 with no recall and read it as a
+    missing column. Both names are in the heading, so the identity is where the
+    columns are.
+    """
+    html, _ = external_page
+    assert "<th class=\"num sortable\">Top-1 accuracy (recall)</th>" in html
+
+
 def test_context_md_no_longer_bans_the_metric_names():
     """CONTEXT.md is the source of record for what a page may say.
 

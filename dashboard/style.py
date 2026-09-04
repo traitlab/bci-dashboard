@@ -88,6 +88,11 @@ h1{margin-bottom:2px}
    clearing 4.5:1 on both (5.17 and 4.88), a step quieter than #616161. */
 .hero .metric .n{font-size:0.72rem;color:#6d6d6d;margin-top:4px}
 .hero .metric .row{display:flex;align-items:center;gap:10px;justify-content:space-between}
+/* The CSV a card's figure comes off, on the right of the row the flex above
+   already reserves. Same blue as the eyebrow, which is the one link colour
+   already cleared against white and against the tinted first card. */
+.hero .metric .src{font-size:0.72rem;font-weight:600;color:#1565c0;
+  white-space:nowrap;text-align:right}
 .note{font-size:0.82rem;color:#616161;margin-top:10px}
 .note strong{color:#424242}
 .ask{font-size:0.88rem;color:#37474f;margin-bottom:12px}
