@@ -184,15 +184,16 @@ def test_how_a_photo_looks_never_moves_it_into_another_queue(queues, core):
     predictions = {"a": [("Rare sp", 0.9)], "b": [("Known sp", 0.9)]}
     support = {"Known sp": 500}
     top1 = {"Known sp": 1.0}
-    rows, _ = queues.send_first_rows(predictions, set(), lambda n: n, support, top1,
-                                     novelty={"comb_b": 1}, key_prefix="comb_")
+    rows, _, _ = queues.send_first_rows(predictions, set(), lambda n: n, support, top1,
+                                        novelty={"comb_b": 1}, key_prefix="comb_")
     assert [(r[0], r[1]) for r in rows] == [("long_tail", "a"), ("can_wait", "b")]
 
 
 def test_a_frame_with_no_answer_is_counted_and_not_ranked(queues):
     predictions = {"a": [], "b": [("Sp y", 0.4)]}
-    rows, n_no_answer = queues.send_first_rows(predictions, set(), lambda n: n, {}, {},
-                                               novelty={"comb_a": 1}, key_prefix="comb_")
+    rows, n_no_answer, _ = queues.send_first_rows(
+        predictions, set(), lambda n: n, {}, {},
+        novelty={"comb_a": 1}, key_prefix="comb_")
     assert n_no_answer == 1
     assert [r[1] for r in rows] == ["b"]
 
@@ -209,6 +210,57 @@ def test_load_novelty_reads_the_file_and_survives_it_being_absent(queues, tmp_pa
                     "comb_c,not a number,0.10,tele\n"
                     ",4,0.10,tele\n", encoding="utf-8")
     assert queues.load_novelty(str(path)) == {"comb_a": 1}
+
+
+# ---------------------------------------------------------------------------
+# the split filter: evaluation frames do not go back out for labelling
+# ---------------------------------------------------------------------------
+
+def _decide(queues, frames, splits=None, prefix="comb_"):
+    """`frames` is `{stem: (species, confidence)}`, every species unlabelled."""
+    predictions = {stem: [(sp, conf)] for stem, (sp, conf) in frames.items()}
+    return queues.send_first_rows(predictions, set(), lambda n: n, {}, {},
+                                  key_prefix=prefix, splits=splits)
+
+
+def test_a_frame_carrying_a_split_never_reaches_the_send_queue(queues):
+    """It is one of the frames the per-species statuses and the wait rule are
+    read off. A botanist's answer on it would land inside the set those numbers
+    are graded on, which is what the split was drawn to prevent."""
+    frames = {"a": ("Sp x", 0.9), "b": ("Sp y", 0.1), "c": ("Sp z", 0.5)}
+    rows, _, held = _decide(queues, frames, splits={"comb_a": "train",
+                                                    "comb_c": "test"})
+    assert [r[1] for r in rows] == ["b"]
+    assert dict(held) == {"train": 1, "test": 1}
+
+
+def test_an_empty_split_is_not_a_split(queues):
+    """splits.csv carries a row for every corpus frame and leaves the column
+    blank on the ones no split drew. Blank means unassigned, not held out, and
+    over half the file is blank."""
+    rows, _, held = _decide(queues, {"a": ("Sp x", 0.9)}, splits={"comb_a": ""})
+    assert [r[1] for r in rows] == ["a"]
+    assert not held
+
+
+def test_no_splits_holds_nothing_out(queues):
+    """A caller with no splits file gets the behaviour that was there before
+    the filter, rather than an empty queue."""
+    rows, _, held = _decide(queues, {"a": ("Sp x", 0.9)})
+    assert [r[1] for r in rows] == ["a"]
+    assert not held
+
+
+def test_a_held_out_frame_is_not_counted_as_a_frame_with_no_answer(queues):
+    """Two different exclusions, reported separately. Pooling them would make
+    the no-answer count, which the run log tells a reader to sample by eye,
+    stand for frames there is nothing wrong with."""
+    predictions = {"a": [], "b": [("Sp y", 0.4)]}
+    rows, n_no_answer, held = queues.send_first_rows(
+        predictions, set(), lambda n: n, {}, {}, key_prefix="comb_",
+        splits={"comb_b": "valid"})
+    assert (n_no_answer, dict(held)) == (1, {"valid": 1})
+    assert rows == []
 
 
 # ---------------------------------------------------------------------------

@@ -187,10 +187,34 @@ def send_notes(c):
     return body
 
 
+def held_out_note(c) -> str:
+    """The evaluation frames the queue refused, with the splits they came from.
+
+    Stated, not silent. These frames have a prediction and no label yet, so
+    every rule on this page would put them in a queue; what keeps them out is
+    that they were drawn into a split, and a botanist's answer on one of them
+    would land inside the set the per-species statuses are measured on. A
+    reader who compares the pool here against the unlabelled count elsewhere
+    has to be able to account for the difference without asking.
+    """
+    held = getattr(c, "queue_held_out", None) or {}
+    n = sum(held.values())
+    if not n:
+        return ""
+    by_split = ", ".join(f"{held[k]} {k}" for k in sorted(held))
+    return (f'<p class="note"><strong>{n} frames are held out of this queue.</strong> '
+            f'They carry a split in <code>splits.csv</code> ({by_split}), so they are '
+            f'part of how this page\'s own numbers are graded. Sending one back for '
+            f'labelling would put a new answer into the set those numbers are measured '
+            f'on. They are not lost: they are labelled work already accounted for '
+            f'elsewhere.</p>')
+
+
 def p_send(c):
     """The page's answer to "what do I label next": queue sizes, the head of
     the queue, then the caveats that qualify both."""
-    body = send_pool_table(c) + send_preview_table(c) + DISPATCH + send_notes(c)
+    body = (send_pool_table(c) + send_preview_table(c) + DISPATCH
+            + held_out_note(c) + send_notes(c))
     # The same two queues the hero counts, added the same way, so both agree.
     send_now = (c.queue_counts.get("long_tail", 0)
                 + c.queue_counts.get("low_conf_known", 0))
