@@ -310,6 +310,18 @@ def settings(monkeypatch):
 
 
 @pytest.fixture(scope="session")
+def dispatch_round():
+    """`labelling/dispatch_round.py`, loaded for its pure helpers.
+
+    Nothing here calls Labelbox: the fixture exists so the batch-to-priority
+    mapping is testable without a client, a key, or a project.
+    """
+    _require("labelbox", "yaml", "dotenv", who="labelling")
+    with _on_path(REPO / "labelling"):
+        return load("_dispatch_round_under_test", REPO / "labelling" / "dispatch_round.py")
+
+
+@pytest.fixture(scope="session")
 def draw_confirmatory():
     _require("PIL", "yaml", "dotenv")
     return load("_draw_confirmatory_under_test", REPO / "predict" / "draw_confirmatory.py")
