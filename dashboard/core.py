@@ -63,6 +63,33 @@ THUMBS_PER_QUEUE = 12
 # one offline source for a Labelbox deep link. Silent means the page says so.
 DATA_ROW_IDS_CSV = os.path.join(BASE, "data_row_ids.csv")
 LABELBOX_URL = "https://app.labelbox.com/projects/{project_id}/data-rows/{data_row_id}"
+_LABELBOX_URL_RE = re.compile(
+    r"https://app\.labelbox\.com/projects/([^/]+)/data-rows/([^/?#\s]+)")
+
+# The read-only dataset inventory labelling/fetch_dataset.py pages. Every row
+# migrated into the dispatch dataset kept the URL it had in the project it was
+# labelled in, as ``metadata.original_labelbox_url``, so this file is a second,
+# offline answer to "where does this frame open" and the only one that names the
+# project the botanist's annotations actually live in.
+DATASET_ROWS_JSONL = os.path.join(BASE, "dataset_rows.jsonl")
+
+# Which project a frame's link opens in. Two projects hold the same frame: the
+# dispatch project ``config.yaml`` sends new work to, and the legacy project it
+# was originally labelled in. A data row exists in both, so both URLs resolve;
+# only one of them shows the botanist's boxes, and that is a question about
+# Labelbox's state rather than about this code. So it is a setting, not a
+# constant: ``labelbox.link_project`` in config.yaml, ``legacy`` by default
+# because that is the destination the PI asked for.
+#
+# ``dashboard/`` is stdlib only and cannot import yaml, so the one key is read
+# back with a regex rather than by parsing the document. That keeps the flip a
+# one-line edit in the file every other Labelbox id already lives in, instead of
+# a second copy here that config.yaml could silently disagree with.
+CONFIG_YAML = os.path.join(REPO, "config.yaml")
+LINK_PROJECT_LEGACY = "legacy"
+LINK_PROJECT_CURRENT = "current"
+LINK_PROJECT_DEFAULT = LINK_PROJECT_LEGACY
+_LINK_PROJECT_RE = re.compile(r"^\s+link_project:\s*([A-Za-z_-]+)", re.MULTILINE)
 
 # Botanist verdicts on frames the review queue raised. Without a recorded ruling
 # the queue raises the same frame forever. Tracked in git, or lost on a re-clone.
@@ -232,18 +259,127 @@ def read_csv_rows(path: str) -> list[dict]:
         return list(csv.DictReader(f))
 
 
-def labelbox_urls(path: str = DATA_ROW_IDS_CSV) -> dict[str, str]:
+def link_project_mode(config_path: str = CONFIG_YAML) -> str:
+    """``legacy`` or ``current``: which project a deep link should open in.
+
+    Read from ``labelbox.link_project`` in config.yaml, so flipping the
+    destination is a one-line edit in the file that already names every other
+    Labelbox id. An absent file or an absent key is ``LINK_PROJECT_DEFAULT``,
+    and so is a value nobody recognises: a typo in a setting must not turn the
+    links off, and the fallback is the destination that was asked for, not the
+    one that happened to be there first.
+    """
+    try:
+        with open(config_path, encoding="utf-8") as fh:
+            m = _LINK_PROJECT_RE.search(fh.read())
+    except OSError:
+        return LINK_PROJECT_DEFAULT
+    if not m or m.group(1) not in (LINK_PROJECT_LEGACY, LINK_PROJECT_CURRENT):
+        return LINK_PROJECT_DEFAULT
+    return m.group(1)
+
+
+def frame_key(global_key: str) -> str:
+    """The one name for a frame that both id sources agree on.
+
+    ``data_row_ids.csv`` calls a frame ``comb_DJI_1234.JPG``; the dataset
+    inventory calls the same frame ``migrated/DJI_1234.JPG``. Same photo, two
+    naming eras. Dropping the directory, the ``comb_`` prefix and the extension
+    leaves the stem, which is what a join can key on. Measured on the files as
+    they stand: the two maps then cover exactly the same 1,719 frames, neither
+    adding one the other lacks.
+
+    ``labelling/next_batch.basename`` strips the same two things for the same
+    reason and stops there. This one drops the extension as well, so a frame
+    written ``.jpg`` on one side and ``.JPG`` on the other still joins.
+    """
+    stem = (global_key or "").rsplit("/", 1)[-1].removeprefix(GT_KEY_PREFIX)
+    return os.path.splitext(stem)[0]
+
+
+def legacy_labelbox_urls(path: str = DATASET_ROWS_JSONL) -> dict[str, str]:
+    """frame_key -> the URL the frame had in the project it was labelled in.
+
+    Straight off ``metadata.original_labelbox_url`` in the dataset inventory.
+    Offline, no network, no guessing: a row without that field is simply not in
+    the map, and a value that is not a Labelbox data-row URL is dropped rather
+    than passed through, because a link on the page has to be one this code can
+    name a project and a data row for.
+    """
+    out: dict[str, str] = {}
+    if not os.path.exists(path):
+        return out
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            url = (row.get("metadata") or {}).get("original_labelbox_url")
+            key = row.get("global_key")
+            if key and url and _LABELBOX_URL_RE.fullmatch(str(url).strip()):
+                out[frame_key(key)] = str(url).strip()
+    return out
+
+
+def labelbox_urls(path: str = DATA_ROW_IDS_CSV,
+                  legacy_path: str = DATASET_ROWS_JSONL,
+                  mode: str | None = None) -> dict[str, str]:
     """global_key -> Labelbox URL, where known.
-    Reads the file the fetch step recorded. A missing file is an empty map, and
-    the caller reports coverage."""
+
+    The set of linked frames is decided by ``data_row_ids.csv`` alone: a frame
+    with no recorded ``(data_row_id, project_id)`` pair gets no link, exactly as
+    before. What ``mode`` decides is only where an existing link points. Under
+    ``legacy`` a frame that the dataset inventory carries an original URL for
+    opens in the project it was labelled in; every other frame keeps the
+    dispatch-project URL. So this adds no link and removes none, and the two
+    modes are guaranteed to have identical coverage.
+
+    Per-row, not per-run: the legacy URLs point into more than one project, and
+    a frame has to open in the project it belongs to. Mixed-project output from
+    a single build is the normal case, not an edge one.
+    """
     if not os.path.exists(path):
         return {}
+    legacy = legacy_labelbox_urls(legacy_path) if (
+        mode or link_project_mode()) == LINK_PROJECT_LEGACY else {}
     out = {}
     for r in read_csv_rows(path):
-        if r.get("data_row_id") and r.get("project_id"):
-            out[r["global_key"]] = LABELBOX_URL.format(
-                project_id=r["project_id"], data_row_id=r["data_row_id"])
+        if not (r.get("data_row_id") and r.get("project_id")):
+            continue
+        key = r["global_key"]
+        out[key] = legacy.get(frame_key(key)) or LABELBOX_URL.format(
+            project_id=r["project_id"], data_row_id=r["data_row_id"])
     return out
+
+
+def labelbox_link_coverage(keys, urls: dict[str, str] | None = None) -> dict:
+    """How many of ``keys`` carry a link, and which projects those links open.
+
+    The standing rule is that a link column is never shipped silently half
+    empty, so the page has to be able to state the shortfall in the same breath
+    as the links. ``by_project`` is part of that: a reader who is told the links
+    go to two projects can check one of each, which is the only way to find out
+    that one of them is empty.
+    """
+    urls = labelbox_urls() if urls is None else urls
+    keys = list(keys)
+    projects: dict[str, int] = defaultdict(int)
+    for k in keys:
+        m = _LABELBOX_URL_RE.fullmatch(urls.get(k, ""))
+        if m:
+            projects[m.group(1)] += 1
+    n_linked = sum(projects.values())
+    return {
+        "n_frames": len(keys),
+        "n_linked": n_linked,
+        "n_unlinked": len(keys) - n_linked,
+        "share": ratio(n_linked, len(keys)),
+        "by_project": dict(sorted(projects.items())),
+    }
 
 
 def adjudicated_keys(path: str = ADJUDICATIONS_CSV) -> set[str]:
