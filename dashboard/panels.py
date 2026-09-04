@@ -692,6 +692,71 @@ def p_weighting(c):
                            corpus_block=corpus)
 
 
+def _coverage_words(min_coverage):
+    """The bar, as the condition a reader can check a frame against.
+
+    The lowest bar admits any recorded overlap at all, so it is worded as a
+    presence test rather than as 0%, which reads like a bar nothing can clear.
+    """
+    return ("any of the crop" if min_coverage <= 0
+            else f"{min_coverage:.0%} of the crop")
+
+
+def p_coverage(c):
+    """The four rates again, with the crop required to show the labelled species.
+
+    The house rule is that a gated number travels beside its ungated twin, and
+    until now only the ungated one was on the page while the sweep behind it was
+    measured on every build and published nowhere. It explains the four rates
+    rather than replacing them, so it sits with the explanations and the summary
+    states the cost in the same breath as the gain.
+
+    The per-species column is the one that misleads. It climbs fastest, and most
+    of that climb is the species set shrinking rather than the model improving,
+    so the species count is a column of its own and the closing note says so.
+    """
+    rows = c.coverage_sweep
+    lo, hi = rows[0], rows[-1]
+    drop = c.coverage_dropped
+    dropped = c.n - lo["n_admitted"]
+    body = (
+        table([("The label must cover", False), ("Labelled frames", True),
+               ("Right, per frame", True), ("Right, per species", True),
+               ("Species", True)],
+              [[_coverage_words(r["min_coverage"]), f'{r["n_admitted"]:,}',
+                pctf(r["micro_top1"]), pctf(r["macro_top1"]), f'{r["n_species"]:,}']
+               for r in rows])
+        + f'<p class="note"><strong>Requiring the crop to show the labelled species '
+          f'raises the per-frame rate by '
+          f'{100 * (hi["micro_top1"] - lo["micro_top1"]):.1f} points and costs '
+          f'{lo["n_admitted"] - hi["n_admitted"]:,} of the '
+          f'{lo["n_admitted"]:,} labelled frames.</strong> Every row asks a frame for two '
+          f'things. The labelled species covers at least that much of the centre crop. '
+          f'And it is the largest thing outlined inside it.</p>'
+        + f'<div class="caveat"><p><strong>The per-species column climbs fastest for a '
+          f'reason that is not the model.</strong> It averages every species equally. The '
+          f'bottom row carries {hi["n_species"]:,} species where the top row carries '
+          f'{lo["n_species"]:,}. Every one of the {drop["n"]:,} that leave has at most '
+          f'{drop["max"]:,} labelled frames, and the median among them is '
+          f'{drop["median"]:,.0f}. Those are the species the model gets wrong most often. '
+          f'So read that column as a rate over an easier set of species, not as '
+          f'{100 * (hi["macro_top1"] - lo["macro_top1"]):.1f} points waiting to be '
+          f'collected.</p></div>'
+        + f'<p class="note">{dropped:,} of the {c.n:,} scored frames appear in no row at '
+          f'all. Either no crown geometry was recorded for their crop, or the largest '
+          f'crown inside it carries a different species from the label. '
+          f'The headline rates at the top of this page use no bar, which is the top '
+          f'row.</p>'
+        + '<p class="note">Every bar, with the frames and the right guesses behind it, '
+          'is in <a href="coverage_gate.csv">coverage_gate.csv</a>.</p>')
+    return panel(
+        "What the accuracy becomes if the crop has to show the labelled species",
+        f"<b>The rates above use no such condition.</b> Imposing one moves the per-frame "
+        f"rate from {pctf(lo['micro_top1'])} to {pctf(hi['micro_top1'])} and drops "
+        f"{lo['n_admitted'] - hi['n_admitted']:,} of {lo['n_admitted']:,} labelled "
+        f"frames. Both are published here because neither is the whole answer.", body)
+
+
 def p_method(c):
     if c.checks is None:
         raise SystemExit("the method panel reports the build's own verification lines, so "

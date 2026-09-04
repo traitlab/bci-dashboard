@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import csv
 import os
+import statistics
 from collections import Counter, defaultdict
 from types import SimpleNamespace
 
@@ -194,6 +195,31 @@ def _support_buckets(per_species, sp_recs, support):
         b["n_crowns"] += 1
         b["c1"] += top1(r) == r["gt"]
     return {"buckets": buckets}
+
+
+def _coverage_sweep(sp_recs, per_species):
+    """Accuracy at each crop-coverage bar, the lowest bar included.
+
+    The house rule is that a gated number and its ungated twin are published
+    side by side, and ``measure.write_coverage_gate`` already sweeps the bars.
+    Recomputed here from the records rather than read back out of that CSV, so
+    the page and the file are two counts of one thing and can be caught
+    disagreeing.
+
+    ``coverage_dropped`` describes the species the highest bar loses, by how many
+    labelled frames each of them has. The per-species rate climbs steeply across
+    the sweep and the honest reason is that those species leave, so the panel
+    shows how small they are rather than asserting it.
+    """
+    support = {d["species"]: d["n_labelled_frames"] for d in per_species}
+    kept = {r["gt"] for r in hc.coverage_split(sp_recs, hc.CROP_COVERAGE_SWEEP[-1])[0]}
+    lowest = {r["gt"] for r in hc.coverage_split(sp_recs, hc.CROP_COVERAGE_SWEEP[0])[0]}
+    left = sorted(support.get(sp, 0) for sp in lowest - kept)
+    return {"coverage_sweep": [hc.coverage_gate_stats(sp_recs, t)
+                               for t in hc.CROP_COVERAGE_SWEEP],
+            "coverage_dropped": {"n": len(left),
+                                 "max": max(left) if left else None,
+                                 "median": statistics.median(left) if left else None}}
 
 
 def _confidence_bands(sp_recs):
@@ -514,6 +540,7 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     fig.update(_confidence(sp_recs, per_species))
     fig.update(_species_status(per_species))
     fig.update(_support_buckets(per_species, sp_recs, fig["support"]))
+    fig.update(_coverage_sweep(sp_recs, per_species))
     fig.update(_confidence_bands(sp_recs))
     fig.update(_out_of_reach(h, sp_recs, per_species))
     fig.update(_queue(h, fig["support"], per_species))
