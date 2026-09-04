@@ -121,7 +121,8 @@ def send_pool_table(c):
                     esc(QL[q][1]),
                     f'{c.queue_counts.get(q, 0):,}',
                     pctf(c.queue_counts.get(q, 0) / c.n_unlab if c.n_unlab else None)]
-                   for q in queues.QUEUE_ORDER])
+                   for q in queues.QUEUE_ORDER],
+                  source="send_first_queue.csv")
     # The ladder is tried in this order and the first match wins, which is the
     # only way to read the table without contradiction: a weak guess on a rare
     # species is long tail, not "guessed weakly".
@@ -153,7 +154,8 @@ def send_preview_table(c):
                      [[f"{i}", f'<code class="key">{esc(stem)}</code>',
                        f'<span class="sp">{esc(cap(pred))}</span>', f"{cf:.3f}",
                        f"{c.support.get(pred, 0):,}"]
-                      for i, (_, stem, pred, cf, _rank) in enumerate(head, 1)]))
+                      for i, (_, stem, pred, cf, _rank) in enumerate(head, 1)],
+                     source="send_first_queue.csv"))
     return body
 
 

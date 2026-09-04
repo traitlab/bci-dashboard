@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import core as hc
 from assets import (cap, esc, filterable_table, hero, num_cell, panel, pctf,
-                    status_legend, status_tag, svg_hbar, table)
+                    source_note, status_legend, status_tag, svg_hbar, table)
 from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
 from explain import CONF_BAND_WORDS, method_panel, weighting_panel
 from figures import conf, top1
@@ -223,7 +223,8 @@ def _review_table(groups, urls):
                        f'<td>{esc(r["split"] or "unassigned")}</td>'
                        f'<td>{frame}</td></tr>')
     out.append("</tbody></table>")
-    return '<div class="tscroll">' + "\n".join(out) + "</div>"
+    return ('<div class="tscroll">' + "\n".join(out) + "</div>"
+            + source_note("label_review_queue.csv"))
 
 
 def _link_note(here, wide):
@@ -447,6 +448,7 @@ def p_species(c):
         sp_rows,
         options=filter_options(),
         row_attrs=attrs,
+        source="per_species_health.csv",
         thin_label=f"show all {c.n_sp}",
     ))
     # The colon stays, since slug() cuts there and the anchor keeps its old value.
@@ -509,7 +511,8 @@ def p_ceiling(c):
     def sp_table(rows):
         return table([("Species", False), ("Labelled frames", True)],
                      [[f'<span class="sp">{esc(cap(d["species"]))}</span>',
-                       f'{d["n_labelled_frames"]:,}'] for d in rows])
+                       f'{d["n_labelled_frames"]:,}'] for d in rows],
+                     source="per_species_health.csv")
 
     if c.has_checklist:
         scope_html = (
@@ -527,10 +530,9 @@ def p_ceiling(c):
             f'candidates to find out. Re-running with a larger candidate count could '
             f'still recover some of these.</p>'
             + sp_table(c.unproven_absent)
-            + '<p class="note">Both lists, and the two flags they are split on, are '
-              'columns in <a href="per_species_health.csv">per_species_health.csv</a>: '
-              '<code>in_project_checklist</code> and '
-              '<code>in_corpus_vocabulary</code>.</p>')
+            + '<p class="note">The two flags the lists are split on are the '
+              '<code>in_project_checklist</code> and <code>in_corpus_vocabulary</code> '
+              'columns of the file each table above links.</p>')
     else:
         scope_html = (
             f'<div class="warn"><strong>This is a limit of the question we asked, not proof '
@@ -725,7 +727,7 @@ def p_coverage(c):
                ("Species", True)],
               [[_coverage_words(r["min_coverage"]), f'{r["n_admitted"]:,}',
                 pctf(r["micro_top1"]), pctf(r["macro_top1"]), f'{r["n_species"]:,}']
-               for r in rows])
+               for r in rows], source="coverage_gate.csv")
         + f'<p class="note"><strong>Requiring the crop to show the labelled species '
           f'raises the per-frame rate by '
           f'{100 * (hi["micro_top1"] - lo["micro_top1"]):.1f} points and costs '
@@ -747,8 +749,7 @@ def p_coverage(c):
           f'crown inside it carries a different species from the label. '
           f'The headline rates at the top of this page use no bar, which is the top '
           f'row.</p>'
-        + '<p class="note">Every bar, with the frames and the right guesses behind it, '
-          'is in <a href="coverage_gate.csv">coverage_gate.csv</a>.</p>')
+)
     return panel(
         "What the accuracy becomes if the crop has to show the labelled species",
         f"<b>The rates above use no such condition.</b> Imposing one moves the per-frame "

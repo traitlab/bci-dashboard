@@ -118,8 +118,30 @@ class Cell(NamedTuple):
         return self.html
 
 
-def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
-    """headers = [(text, is_numeric)]; rows = [[cell_html, ...]]."""
+def source_note(source) -> str:
+    """The line under a table naming the file its rows are in, or "" for none.
+
+    Reuses ``.note``, the caption style the panels already write under a figure:
+    a download affordance of its own would be a rule and a colour for a line
+    that says what every other footnote on the page says. Written once here
+    because ``_review_table`` builds its own markup and would otherwise word
+    this differently from every table that goes through ``table``.
+    """
+    return (f'<p class="note">This table as data: <a href="{source}">{source}</a>, '
+            f'with the columns it does not show.</p>') if source else ""
+
+
+def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None, source=None):
+    """headers = [(text, is_numeric)]; rows = [[cell_html, ...]].
+
+    ``source`` names the CSV the rows were counted off, and renders as one line
+    under the table. A reader looking at a table wants the rows, and the rows
+    were on disk all along, named halfway through a paragraph above the table if
+    they were named at all. ``page.copy_linked_csvs`` then carries the file
+    beside the page and aborts the build if it is absent, so a named table
+    cannot ship a 404. Point it only at the file the rows actually come from:
+    the line reads as provenance, and a near-enough file makes the table lie.
+    """
     # A table with an id says "these columns are numbers" once, rather than
     # class="num" on every cell of the 187-row species table. A table with no id
     # has no selector, and is short enough not to need one.
@@ -146,10 +168,12 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None):
         out.append("</tr>")
     out.append("</tbody></table>")
     # Scrolls in its own box, or the 7-column table sets page width on a phone.
-    return rule + '<div class="tscroll">' + "\n".join(out) + "</div>"
+    return (rule + '<div class="tscroll">' + "\n".join(out) + "</div>"
+            + source_note(source))
 
 
-def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None):
+def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None,
+                     source=None):
     """A search/filter strip followed by a sortable table. The page has exactly
     one; element ids use the ``TABLE_ID`` constants, not literals."""
     # No options means no status to filter on, so no select: one holding nothing
@@ -179,7 +203,7 @@ def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None)
     # matches on it, so italics are a column rule, not a span on all 187 rows.
     return (f'<style>#{TABLE_ID} td:nth-child(1){{font-style:italic}}</style>'
             + controls + table(headers, rows, tid=TABLE_ID, sortable_from=0,
-                               row_attrs=row_attrs))
+                               row_attrs=row_attrs, source=source))
 
 
 def funnel_list(steps: list[tuple[int, str]]) -> str:
