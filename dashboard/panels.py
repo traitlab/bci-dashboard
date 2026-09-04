@@ -45,17 +45,27 @@ SPECIES_LOOKUP_LEDE = ("<b>Find a species you care about and read its status.</b
                        "Click any heading to sort, type to filter.")
 
 # A 2x2 grid: question asked (rows) by how it was averaged (columns), as
-# (metric, question, averaged over, note). The rates move with the corpus, so
-# they are rendered from here rather than named.
+# (metric, name, question, averaged over, note). The rates move with the corpus,
+# so they are rendered from here rather than named.
+#
+# The name is the metric's own name and the question is the plain-English gloss
+# under it. Until 2026-09-03 there was no name and the gloss was the label:
+# CONTEXT.md banned "top-1" and "top-5" on a page outright, out of the
+# 2026-09-01 plain-English pass. Etienne asked for the names back on the call
+# ("maybe it's actually simpler, just name the metric") and the user confirmed
+# the reversal, so the ban is gone and the gloss stayed under the name.
+# A botanist still reads the sentence; a PI stops having to translate it.
 HEADLINES = [
-    ("macro_top1", "First guess is right", "per species",
+    ("macro_top1", "Top-1 accuracy", "The first guess is right", "per species",
      "each of the {n_sp} species counts once, however few frames it has"),
-    ("micro_top1", "First guess is right", "per frame",
+    ("micro_top1", "Top-1 accuracy", "The first guess is right", "per frame",
      "one vote per labelled frame, so common species dominate"),
-    ("macro_top5", "Right name is among the {k} requested", "per species",
+    ("macro_top5", "Top-{k} accuracy", "The right name is among the {k} requested",
+     "per species",
      "the best we could do if a botanist picked the right name out of the {k} every "
      "time, so a ceiling on our {k}-name request, not on the model"),
-    ("micro_top5", "Right name is among the {k} requested", "per frame",
+    ("micro_top5", "Top-{k} accuracy", "The right name is among the {k} requested",
+     "per frame",
      "we only ever asked Pl@ntNet for {k} names"),
 ]
 
@@ -240,6 +250,9 @@ def p_species(c):
             num_cell(d["n_labelled_frames"], f'{d["n_labelled_frames"]:,}'),
             num_cell(d["top1_accuracy"], pctf(d["top1_accuracy"])),
             num_cell(d["top5_accuracy"], pctf(d["top5_accuracy"])),
+            num_cell(d["n_guessed_frames"], f'{d["n_guessed_frames"]:,}'),
+            num_cell(d["precision"], pctf(d["precision"])),
+            num_cell(d["f1"], pctf(d["f1"])),
             num_cell(d["mean_top1_confidence"],
                      f'{d["mean_top1_confidence"]:.2f}'),
             status_tag(st, STATUS[st][0])])
@@ -262,11 +275,19 @@ def p_species(c):
               f'They carry fewer than {THIN_MIN_FRAMES} labelled frames each, the same '
               f'cut-off as the &ldquo;too few labels to judge&rdquo; status. On that few '
               f'frames a rate can only land on a handful of values, so it says little '
-              f'about the model. Species the model never returned on any BCI photo stay '
+              f'about the model. F1 suffers most: on one labelled frame it can only '
+              f'come out 0% or 100%. Species the model never returned on any BCI photo stay '
               f'on screen however few frames they carry.</p>'
             + f'<p class="note">Hidden rows are still reachable: type a name, or pick a '
               f'status, and they appear. Tick <i>show all {c.n_sp}</i> to keep them all '
               f'on screen.</p>'
+            + '<p class="note"><b>Top-1 accuracy on a species row is that species&rsquo; '
+              'recall.</b> Of the frames a botanist labelled it, the share the first '
+              'guess got right. <b>Precision</b> asks the reverse: of the frames the '
+              'model guessed that name on, the share it was right. <b>F1</b> is the '
+              'harmonic mean of the two, so a row scores well only when both do. '
+              'Precision is only countable where a botanist has labelled the frame. '
+              'So it is precision over the frames we scored, not over the survey.</p>'
             + '<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own '
               'score for its first guess, averaged over that species&rsquo; frames. '
               'Pl@ntNet spreads 100% of its confidence across every species it '
@@ -274,7 +295,8 @@ def p_species(c):
               'name, and 0.32 means it was spread thin.</p>'
             + filterable_table(
         [("Species", False), ("Labelled frames", True),
-         ("First guess right", True), ("Right name in the list", True),
+         ("Top-1 accuracy", True), (f"Top-{c.n_cand} accuracy", True),
+         ("Frames guessed", True), ("Precision", True), ("F1", True),
          ("Model's confidence", True), ("Status", False)],
         sp_rows,
         options=filter_options(),
@@ -394,25 +416,82 @@ def headline_hero(c):
 
     Built from ``HEADLINES`` rather than typed here, so the cards and the
     four-rate grid in ``p_weighting`` cannot end up calling one number two
-    things. The right-name-in-the-list rates stay in the grid: they are a
-    ceiling on our own request, not a statement about the model.
+    things. The top-5 rates stay in the grid: they are a ceiling on our own
+    request, not a statement about the model.
+
+    The card's eyebrow carries the metric name and how it was averaged, since
+    a top-1 accuracy without the averaging is two different numbers on this
+    corpus. The plain-English sentence sits under the figure as the gloss.
     """
-    return hero([(averaged, pctf(c.now[metric]), question.format(k=c.n_cand),
+    return hero([(f"{name.format(k=c.n_cand)}, {averaged}", pctf(c.now[metric]),
+                  question.format(k=c.n_cand),
                   note.format(n_sp=c.n_sp, k=c.n_cand))
-                 for metric, question, averaged, note in HEADLINES[:2]])
+                 for metric, name, question, averaged, note in HEADLINES[:2]])
+
+
+def _prf_block(c):
+    """Precision, recall and F1 for the whole corpus, both ways of averaging.
+
+    Four cards, not six. Three of them average per species; the fourth is the
+    per-frame figure, and there is only one of it because per frame the three
+    rates are literally the same number. Every frame here carries exactly one
+    botanist label and exactly one first guess, so one wrong guess is one miss
+    for the labelled species and one false alarm for the guessed one. The two
+    denominators are then both the frame count, and the three rates collapse.
+    Printing that number three times under three headings would read as three
+    findings, so it is printed once with the reason beside it.
+
+    This panel is read after the species table now, so the per-species versus
+    per-frame argument is named here rather than referred back to.
+    """
+    return (
+        hero([
+            ("Precision, per species", pctf(c.now["macro_precision"]),
+             "When it offers a name, how often that name is right",
+             f"averaged over the {c.n_sp} species a botanist labelled, each counting "
+             f"once however few frames it has"),
+            ("Recall, per species", pctf(c.now["macro_recall"]),
+             "Of the frames labelled a species, how often the first guess is right",
+             "the same number as top-1 accuracy per species above, under the name a "
+             "confusion matrix gives it"),
+            ("F1, per species", pctf(c.now["macro_f1"]),
+             "The two above balanced against each other, species by species",
+             "each species&rsquo; own F1 first, then the average of those. That is not "
+             "the F1 of the two averages beside it, which is a different number"),
+            ("Precision, recall and F1, per frame", pctf(c.now["micro_prf1"]),
+             "One figure, because per frame all three are the same number",
+             f"over all {c.n:,} labelled frames it is also the per-frame top-1 accuracy"),
+        ])
+        + '<p class="note"><b>Why the per-frame figure is one number and not three.</b> '
+          'Every frame here carries one botanist label and one first guess. A wrong '
+          'guess is one miss for the labelled species and one false alarm for the '
+          'guessed one. Both denominators are then the frame count, and precision, '
+          'recall, F1 and top-1 accuracy work out identical.</p>'
+        + '<p class="note"><b>Precision is measured on the frames we scored.</b> A '
+          'false alarm is only visible where a botanist has labelled the frame. So '
+          'these are rates over the frames we scored, not over the survey. A species '
+          'with no labelled frame has no row here at all: the per-species averages '
+          f'run over the {c.n_sp} labelled species only.</p>'
+        + '<p class="note"><b>A species the model never guesses scores 0% precision, '
+          'not a blank.</b> It has no right guesses to divide, and reading that as '
+          'perfect precision on an empty list would flatter the average. Rows on very '
+          f'few frames are noisy the same way. Under {THIN_MIN_FRAMES} labelled '
+          'frames a row starts hidden in the species table, and its F1 can only land '
+          'on a couple of values.</p>')
 
 
 def p_weighting(c):
     # The four corpus rates and their qualifiers, in the one panel that explains
     # them. The grid reuses the headline card markup, so no new CSS exists.
     corpus = (
-        hero([(averaged, pctf(c.now[metric]), question.format(k=c.n_cand),
-               note.format(n_sp=c.n_sp, k=c.n_cand))
-              for metric, question, averaged, note in HEADLINES])
+        hero([(f"{name.format(k=c.n_cand)}, {averaged}", pctf(c.now[metric]),
+               question.format(k=c.n_cand), note.format(n_sp=c.n_sp, k=c.n_cand))
+              for metric, name, question, averaged, note in HEADLINES])
         + f'<div class="caveat">{hero_region(c)}</div>'
         + f'<p class="note">{HERO_READING}</p>'
         + f'<p class="note">{HERO_WHICH_RATE}</p>'
-        + f'<p class="note">{HERO_WHY_DIFFER}</p>')
+        + f'<p class="note">{HERO_WHY_DIFFER}</p>'
+        + _prf_block(c))
     return weighting_panel(per_species=c.per_species, sp_recs=c.sp_recs, support=c.support,
                            buckets=c.buckets, now=c.now, n=c.n, n_sp=c.n_sp,
                            corpus_block=corpus)

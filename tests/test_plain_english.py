@@ -66,8 +66,11 @@ RETIRED = {
     r"\bbootstrapp?e?d?\b": "the range, and how it was worked out in plain words",
     r"\bmacro\b": "per species",
     r"\bmicro\b": "per frame",
-    r"\btop-?1\b": "first guess",
-    r"\btop-?5\b": "right name in the list",
+    # "top-1" and "top-5" were retired here on 2026-09-01 and brought back on
+    # 2026-09-03: Etienne asked for the metric's own name on the call, and a
+    # page that never names it leaves a reader translating in their head. The
+    # plain-English sentence stayed as the gloss under the name, so nothing was
+    # lost. If you are retiring them again, change CONTEXT.md in the same edit.
     r"\bground truth\b": "label",
     r"\bpre-?registered\b": "fixed in advance / written into the plan",
     r"\bprior[- ]exposure\b": "already seen",
