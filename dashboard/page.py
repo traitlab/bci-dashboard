@@ -27,6 +27,13 @@ from panels import (
 from queue_panels import p_evidence, p_look, p_send, p_todo
 
 
+# Order here is reading order. The measurement comes first and the explanation
+# comes after it, which is the reverse of how this page used to be arranged.
+# Etienne, reading it cold on 2026-09-03: "split it in like a main section
+# that's the actual dashboard at the top ... and then later another section
+# where it's basically finishing the explanations", because "most people, once
+# they get used to it, they will probably not look at [the prose]. They will
+# just go straight for the [numbers]."
 SECTIONS = {
     # The headline band belongs to the cards above it, so no heading of its own:
     # render() emits its panels bare when the title is None.
@@ -35,11 +42,17 @@ SECTIONS = {
         "What to label first",
         "Which frames to send, which can wait, and the evidence behind the wait rule."),
     "model-health": (
-        "How Pl@ntNet is doing against the labels",
+        "The numbers",
         # No live figure in a lede: SECTIONS is a constant, so a number here
         # would not move with the snapshot and nothing would catch it.
-        "Which species it handles well, and which labels look worth a second look. "
-        "Also why two fair ways of averaging the same frames disagree."),
+        "Accuracy species by species, and the labels worth a second look."),
+    "explanations": (
+        "What the words mean, and how the averaging works",
+        # Everything here was above the species table until 2026-09-03. It
+        # explains the numbers rather than reporting them, so it now sits after
+        # the thing it explains and a reader who does not need it can stop.
+        "Read this when a number above surprises you. Nothing here is a new "
+        "measurement."),
     "limits": (
         "What this cannot tell you",
         # The method panel sits here too and is provenance, not a ceiling.
@@ -49,16 +62,23 @@ SECTIONS = {
 # panel id -> (section key, builder). A panel belongs to the goal it serves, so
 # the confidence evidence sits with the queue rule it justifies.
 PANELS = {
+    # "floor" stays in the headline band: it is a correction to the two cards
+    # above it, not an explanation of them, so it has to travel with them.
     "floor": ("headline", p_floor),
-    "terms": ("headline", p_terms),
-    "counts": ("headline", p_counts),
     "todo": ("label-first", p_todo),
     "send": ("label-first", p_send),
     "look": ("label-first", p_look),
     "evidence": ("label-first", p_evidence),
-    "weighting": ("model-health", p_weighting),
     "species": ("model-health", p_species),
     "review": ("model-health", p_review),
+    # The three that moved out of the headline band and out of "model-health".
+    # "weighting" carries the support-vs-accuracy chart, which Etienne could not
+    # read cold ("I don't understand this graph") but kept once it was explained
+    # ("No, I think it's good ... it's good to have all the information"). It is
+    # an explanation of the two headline rates, so it belongs here.
+    "weighting": ("explanations", p_weighting),
+    "terms": ("explanations", p_terms),
+    "counts": ("explanations", p_counts),
     "ceiling": ("limits", p_ceiling),
     "method": ("limits", p_method),
 }
@@ -67,11 +87,14 @@ PANELS = {
 # send_batches.csv. External leaves the lab, carrying the confident
 # disagreements so they can be worked in Labelbox.
 INTERNAL_PANELS = ("todo", "send", "look", "evidence")
-# Order inside a section is the order these ids are listed in. "terms" leads
-# because frame, crown, label and centre crop are load-bearing from the first
-# card down; the species lookup comes before the averaging argument.
-EXTERNAL_PANELS = ("terms", "counts", "floor", "species", "review",
-                   "weighting", "ceiling", "method")
+# Order inside a section is the order these ids are listed in; the sections
+# themselves order the page. The species table now leads, because that is what
+# a reader scrolls to. The glossary and the three-frame-counts panel used to
+# lead and now close: they were put first so that "frame", "crown", "label" and
+# "centre crop" were defined before first use, which is right for a first read
+# and wrong for every read after it.
+EXTERNAL_PANELS = ("floor", "species", "review",
+                   "weighting", "terms", "counts", "ceiling", "method")
 
 if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
     raise SystemExit(f"every panel belongs to a page: "

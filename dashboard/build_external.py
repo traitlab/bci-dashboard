@@ -52,14 +52,16 @@ def build(h, *, generated, verify_dir, fallback_tag):
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
          f'&middot; {c.n:,} labelled frames &middot; {c.n_sp} species</div>',
-         # The two cards are the corpus rates, so the intro says what they are
-         # measured on. What qualifies them is the note under them.
-         f'<p class="intro">This page says how well Pl@ntNet names the trees a botanist '
-         f'labelled. The two numbers at the top are the same rate averaged two ways, over '
-         f'all {c.n:,} labelled frames.</p>'
-         f'<p class="intro">Everything below them covers those {c.n:,} labelled frames, one '
-         f'Pl@ntNet guess per frame. That is what lets the page say, species by species, '
-         f'how often the guess is right. What to label next is a separate page, <code>label_queue_dashboard.html</code>.</p>',
+         # One paragraph, not three. Etienne on 2026-09-03: "there's a lot of
+         # text there ... people don't read stuff, because they'll read if they
+         # need to." It has one job, to say what population every number below
+         # is measured on, because a rate without its denominator is the thing
+         # this repo refuses to publish. The averaging argument moved to the
+         # explanations section, next to the chart that makes it.
+         f'<p class="intro">Pl@ntNet is asked to name the tree in each frame a botanist '
+         f'labelled. Every number below is measured on the same {c.n:,} labelled frames '
+         f'across {c.n_sp} species, one guess per frame. What to label next is a separate '
+         f'page, <code>label_queue_dashboard.html</code>.</p>',
          # The corpus rates lead: they are what this page measures every session
          # and the only rates the deployable path can produce.
          panels.headline_hero(c),
