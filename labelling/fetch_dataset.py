@@ -32,6 +32,9 @@ projects to ask for.
 Usage:
     python labelling/fetch_dataset.py
     python labelling/fetch_dataset.py --dataset-id <id> --out data/other.jsonl
+    # the combined dataset the send queue names its frames from:
+    python labelling/fetch_dataset.py --dataset-id cmn5chixy005u07846jctibv1 \
+        --out data/dataset_rows_combined.jsonl
     python labelling/fetch_dataset.py --project cmbgnzmhu0bed07027vmxezzd \
         --project cme99tjc606h4075147dfd6j6 --out-dir data/exports
 
@@ -46,6 +49,7 @@ import json
 import os
 import sys
 import time
+from datetime import date
 
 import labelbox as lb
 import settings
@@ -133,8 +137,19 @@ def main(argv=None) -> int:
               "which unions them into data/data_row_ids.csv")
         return 0
 
-    dataset_id = args.dataset_id or settings.setting(
-        "labelbox", "dataset_id", env="LABELBOX_DATASET_ID")
+    configured = settings.setting("labelbox", "dataset_id",
+                                  env="LABELBOX_DATASET_ID")
+    dataset_id = args.dataset_id or configured
+    # One dataset per file. `dashboard/core.py` reads every inventory in
+    # `data/` by name and the names are what say which dataset each holds, so
+    # paging a second dataset over the default file would silently replace one
+    # inventory with another and take the deep links of everything only the
+    # first one knows with it. A wrong file here is not an error anywhere
+    # downstream, which is why it is a stop here.
+    if dataset_id != configured and args.out == OUT_PATH:
+        sys.exit(f"ERROR: {OUT_PATH} holds dataset {configured}. Pass --out "
+                 f"with a name for dataset {dataset_id}, for example "
+                 f"data/dataset_rows_<name>.jsonl.")
 
     client = lb.Client(api_key=settings.api_key())
     dataset = client.get_dataset(dataset_id)
@@ -151,6 +166,17 @@ def main(argv=None) -> int:
                 print(f"  {written} rows  {time.time() - started:.0f}s", flush=True)
 
     print(f"wrote {written} rows to {args.out} in {time.time() - started:.0f}s")
+    # Which dataset this file holds, beside the file. The dump itself never
+    # says: a row carries a global key and a URL, not the dataset it came from,
+    # and the name of the file is a convention. Two inventories now sit in
+    # `data/`, both gitignored, so without this the only way to tell them apart
+    # is a live API call. Same idea as gt_dominant_taxon.provenance.txt.
+    provenance = os.path.splitext(args.out)[0] + ".provenance.txt"
+    with open(provenance, "w", encoding="utf-8") as fh:
+        fh.write(f"Paged from Labelbox dataset {dataset.name} ({dataset.uid}) "
+                 f"on {date.today().isoformat()}: {written} rows, "
+                 f"row_count reported {dataset.row_count}.\n")
+    print(f"wrote {provenance}")
     if written != dataset.row_count:
         print(f"WARNING: paged {written} rows but row_count reports "
               f"{dataset.row_count}", file=sys.stderr)

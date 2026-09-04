@@ -49,6 +49,24 @@ def test_the_shipped_config_carries_both_ids(settings):
     assert labelbox["dataset_id"] and labelbox["project_id"]
 
 
+def test_the_config_says_the_two_datasets_are_meant_to_differ():
+    """`combined_dataset_name` and `dataset_id` name different datasets.
+
+    They share no global key, so a reader who assumes they should agree
+    "fixes" the file by pointing `dataset_id` at the dispatch dataset. That
+    re-paged inventory has identical row counts and every deep link on the
+    pages silently changes project, which no gate here can see. The comment is
+    the only thing that stops the edit, so it is asserted.
+    """
+    config = (REPO / "config.yaml").read_text(encoding="utf-8")
+    block = config[config.index("labelbox:"):]
+    block = block[:block.index("\nfolders:")]
+    said = " ".join(line.strip(" #") for line in block.splitlines()
+                    if line.strip().startswith("#"))
+    assert "different Labelbox datasets" in said, (
+        "the labelbox block no longer says the two datasets differ on purpose")
+
+
 def test_the_api_key_has_no_config_default(settings, monkeypatch):
     """A credential is not a setting. It resolves from the environment or not
     at all, so config.yaml can never become a place a key is committed."""

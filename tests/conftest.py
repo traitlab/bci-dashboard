@@ -322,6 +322,15 @@ def dispatch_round():
 
 
 @pytest.fixture(scope="session")
+def fetch_dataset():
+    """`labelling/fetch_dataset.py`, loaded for the checks that run before it
+    reaches Labelbox. Nothing here builds a client or needs a key."""
+    _require("labelbox", "yaml", "dotenv", who="labelling")
+    with _on_path(REPO / "labelling"):
+        return load("_fetch_dataset_under_test", REPO / "labelling" / "fetch_dataset.py")
+
+
+@pytest.fixture(scope="session")
 def draw_confirmatory():
     _require("PIL", "yaml", "dotenv")
     return load("_draw_confirmatory_under_test", REPO / "predict" / "draw_confirmatory.py")

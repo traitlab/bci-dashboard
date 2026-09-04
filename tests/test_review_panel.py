@@ -127,12 +127,28 @@ def test_a_frame_with_a_known_data_row_is_linked(external_page, core):
 
 
 def test_the_links_open_the_legacy_project(external_page, core):
-    """Legacy by default: those are the rows that have been exported, so a link
-    into the other project would be a link to nothing."""
+    """Legacy by default: those are the rows the botanist's boxes were drawn
+    in, so a link into the dispatch project would open a row with no boxes.
+
+    Asserted on the project id in each URL, not on the prefix: every mode
+    produces the same prefix, so a prefix check passes when the destination is
+    wrong. The dispatch project is the one `data_row_ids.csv` stamps on every
+    row, and in legacy mode no published link may land there.
+    """
     assert core.link_project_mode() == core.LINK_PROJECT_LEGACY
+    dispatch = {r["project_id"] for r in core.read_csv_rows(core.DATA_ROW_IDS_CSV)
+                if r.get("project_id")}
+    assert dispatch, f"{core.DATA_ROW_IDS_CSV} names no project"
     panel = review_panel(external_page[0])
-    for url in re.findall(r'href="(https://[^"]+)"', panel):
+    urls = re.findall(r'href="(https://[^"]+)"', panel)
+    assert urls, "no review frame links to Labelbox"
+    seen = set()
+    for url in urls:
         assert url.startswith(core.LABELBOX_URL.split("{", 1)[0]), url
+        project = re.search(r"/projects/([^/]+)/", url).group(1)
+        assert project not in dispatch, f"{url} opens the dispatch project"
+        seen.add(project)
+    assert len(seen) > 1, f"every link went to one project, {seen}"
 
 
 def test_the_panel_states_how_far_the_links_reach(external_page, core):
