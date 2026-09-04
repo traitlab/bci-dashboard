@@ -13,7 +13,11 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD="$REPO/build"
 DOCS="$REPO/docs"
 
-for f in model_health_dashboard.html label_queue_dashboard.html; do
+# The two pages this script publishes, named once: the checks below, the copy,
+# and the CSV scan all read them from here.
+PAGES="model_health_dashboard.html label_queue_dashboard.html"
+
+for f in $PAGES; do
   [ -s "$BUILD/$f" ] || { echo "publish: $BUILD/$f is missing or empty; run bin/refresh.sh first" >&2; exit 1; }
 done
 
@@ -22,17 +26,24 @@ mkdir -p "$DOCS"
 # name starts with an underscore and rewrites nothing else usefully.
 touch "$DOCS/.nojekyll"
 
+for f in $PAGES; do
+  cp "$BUILD/$f" "$DOCS/$f"
+  echo "  published $f"
+done
+
 # The pages link their CSVs relatively, so the CSVs travel with them or the
-# download buttons 404 on the published copy while working locally.
-for f in model_health_dashboard.html label_queue_dashboard.html \
-         per_species_health.csv label_review_queue.csv \
-         send_batches.csv send_first_queue.csv; do
-  if [ -s "$BUILD/$f" ]; then
-    cp "$BUILD/$f" "$DOCS/$f"
-    echo "  published $f"
-  else
-    echo "  SKIPPED  $f (not in build/)" >&2
-  fi
+# links 404 on the published copy while working locally. The list is read out of
+# the built pages, not kept here: a list written here drifts the moment a panel
+# adds a link, and it drifts into a 404 on the public site rather than into an
+# error anybody sees. dashboard/page.py reads the same links for build/, for the
+# same reason. A linked file missing from build/ stops the publish: the builder
+# already refused to write a page whose CSV was absent, so by here it means
+# build/ was changed underneath us.
+for f in $(cd "$BUILD" && grep -ho 'href="[A-Za-z0-9_]*\.csv"' $PAGES \
+           | sed 's/.*"\(.*\)"/\1/' | sort -u); do
+  [ -s "$BUILD/$f" ] || { echo "publish: the pages link $f, absent from $BUILD" >&2; exit 1; }
+  cp "$BUILD/$f" "$DOCS/$f"
+  echo "  published $f"
 done
 
 python3 "$REPO/dashboard/build_index.py" --build "$BUILD" --out "$DOCS/index.html"
