@@ -34,7 +34,7 @@ def call_recorder(ingest, monkeypatch):
     # between them is exercised rather than stepped over.
     replies = {
         "call_survey": {"results": {"species": [{"binomial": "Hura crepitans"}]}},
-        "call_identify": {"results": [{
+        "call_identify": {"version": "2026-03-20 (7.5)", "results": [{
             "score": 0.8, "gbif": {"id": 3055009},
             "species": {"scientificNameWithoutAuthor": "Hura crepitans",
                         "commonNames": ["sandbox tree"]},
@@ -94,3 +94,30 @@ def test_the_cache_records_what_the_model_was_shown(
     box = answer["crop"]["box"]
     assert box == {"x_min": 1360, "y_min": 860, "x_max": 2640, "y_max": 2140}
     assert not list(tmp_path.glob("*.tmp")), "a temporary file was left behind"
+
+
+def test_the_cache_records_which_model_answered(
+        ingest, tmp_path, jpeg, call_recorder, config):
+    """The model identity is read off the answer, not typed into config.yaml.
+
+    config.yaml says ``v7.4-2026-03-27`` and the live endpoint reports
+    ``2026-03-20 (7.5)``: an earlier date on a later version, because the
+    config string dates the run rather than the model. A trend across model
+    versions cannot be built on the string that disagrees with the API, so the
+    cache keeps the API's own.
+    """
+    ingest.process_image("v.jpg", lambda: jpeg(800, 600), "key", config,
+                         tmp_path)
+    answer = json.loads((tmp_path / "v.jpg.json").read_text())
+    assert answer["model_version"] == "2026-03-20 (7.5)"
+
+
+def test_an_answer_without_a_version_is_still_cached(
+        ingest, tmp_path, jpeg, call_recorder):
+    """The survey endpoint names no version and older cached answers carry
+    none. Absence is recorded as absence rather than as an empty string, so a
+    later read can tell "not reported" from "reported as nothing"."""
+    ingest.process_image("n.jpg", lambda: jpeg(800, 600), "key", {},
+                         tmp_path, survey_url="https://example.invalid/survey")
+    answer = json.loads((tmp_path / "n.jpg.json").read_text())
+    assert "model_version" not in answer

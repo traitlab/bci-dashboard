@@ -162,12 +162,22 @@ def identify_to_survey_json(identify_resp: dict, emb_resp: dict) -> dict:
     if emb_vector:
         per_tiles.append({"embeddings": emb_vector})
 
-    return {
+    out = {
         "results": {
             "species": species,
             "per_tiles_embeddings": per_tiles,
         }
     }
+    # The model that answered, as the model reports it. config.yaml carries a
+    # hand-typed single_model_run_name and the two disagree: the config says
+    # v7.4-2026-03-27 while /v2/identify returns "2026-03-20 (7.5)", an earlier
+    # date on a later version, because the config string is the date of the run
+    # and not of the model. A published number naming the wrong model is the
+    # defect that removed the trend page, so record what the API said.
+    version = identify_resp.get("version")
+    if version:
+        out["model_version"] = version
+    return out
 
 
 def stamp_geometry(result: dict, frame_w: int, frame_h: int, box: tuple) -> dict:
