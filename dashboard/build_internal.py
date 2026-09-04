@@ -20,11 +20,13 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import core as hc
 import figures
 import page as pg
+import queues
 from assets import esc, hero
 from queues import BATCH_SIZE
-from history import verify_snapshot
+from history import fail, verify_snapshot
 
 OUT_NAME = "label_queue_dashboard.html"
 TITLE = "BCI labelling: what to label next"
@@ -36,6 +38,16 @@ def build(h, *, generated, verify_dir, fallback_tag):
     The review queue belongs to the model-health page, so it is not gated here.
     """
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
+
+    # Before anything is rendered. This page's leading claim is that inside each
+    # queue the photo least like everything already labelled comes first, and
+    # that ordering is read from a file bin/refresh.sh does not write. Missing,
+    # the loader falls back to confidence order without a word and the sentence
+    # above becomes false. Refuse the build instead: nobody reads a page for the
+    # ordering it quietly stopped using.
+    complaint = queues.novelty_complaint(hc.QUEUE_NOVELTY_CSV, c.n_ranked, c.n_unlab)
+    if complaint:
+        fail(complaint)
 
     c.checks = verify_snapshot(
         verify_dir, per_species=c.per_species, buckets=c.buckets, bins_all=c.bins_all,
