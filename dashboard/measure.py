@@ -30,7 +30,8 @@ from core import (
 )
 from queues import (
     BATCH_SIZE, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_FIRST_COLUMNS,
-    chunk_send_batches, load_novelty, send_first_rows,
+    chunk_send_batches, load_novelty, novelty_provenance, send_first_rows,
+    with_batch_ids,
 )
 
 # Generated tables go where the repo's other generated files go, not beside the
@@ -348,22 +349,32 @@ def send_queue(h):
     a prediction. The queue decision and its order live in ``queues``, which
     figures.py reads too; the columns are this file's own.
 
-    Also returns how many of those frames carried a novelty rank, so the run log
-    can say how much of the queue the ordering file actually reaches.
+    Also returns how many of those frames carried a novelty rank, what the
+    ordering file's sidecar says about itself, and how many frames were held
+    out for carrying a split. The first two let the run log report how much of
+    the queue the ordering reaches and how old that ordering is, since the
+    ranker runs outside bin/refresh.sh and nothing else in the log would. The
+    third is reported because a frame that leaves a work queue silently is how
+    a count moves with no one able to say why.
     """
     per_species = h.per_species
     support = {d["species"]: d["n_labelled_frames"] for d in per_species}
     top1_of = {d["species"]: d["top1_accuracy"] for d in per_species}
-    decided, n_no_answer = send_first_rows(
+    decided, n_no_answer, held_out = send_first_rows(
         h.predictions, {stem for _, stem, _ in h.joined}, h.canon, support, top1_of,
-        novelty=load_novelty(QUEUE_NOVELTY_CSV), key_prefix=GT_KEY_PREFIX)
+        novelty=load_novelty(QUEUE_NOVELTY_CSV), key_prefix=GT_KEY_PREFIX,
+        splits=h.split_of)
+    # The `split` column stays even though the filter above guarantees it is
+    # empty on every row now. It is the proof the filter ran: a non-empty value
+    # here is an evaluation frame that reached the queue anyway.
     rows = [[q, GT_KEY_PREFIX + stem, h.split_of.get(GT_KEY_PREFIX + stem, ""),
              pred, f"{conf:.6f}", support.get(pred, 0),
              fmt(top1_of.get(pred)) if pred in top1_of else "",
              "" if rank == NO_NOVELTY else rank]
             for q, stem, pred, conf, rank in decided]
     n_ranked = sum(1 for r in decided if r[4] != NO_NOVELTY)
-    return rows, Counter(r[0] for r in decided), n_no_answer, n_ranked
+    return (rows, Counter(r[0] for r in decided), n_no_answer, n_ranked,
+            novelty_provenance(QUEUE_NOVELTY_CSV), held_out)
 
 
 def review_queue(h):
@@ -431,13 +442,16 @@ def main() -> None:
                        gain.sw_short, gain.sw_full_unreachable)
     rl.log_calibration(log, scopes, top1, head.n, good, good_recs)
 
-    queue_rows, q_counts, n_no_answer, n_ranked = send_queue(h)
-    write_send_first_queue(out_dir, queue_rows)
+    queue_rows, q_counts, n_no_answer, n_ranked, novelty_prov, held_out = send_queue(h)
     # Send batches over the same priority order, capped at BATCH_SIZE rows:
     # priority-first globally, one species per batch, never a mixed bag.
+    # Batched before the queue is written, because the queue row now carries the
+    # batch it landed in and that is only known once the packing has run.
     batch_rows = chunk_send_batches(queue_rows, batch_size=BATCH_SIZE)
+    write_send_first_queue(out_dir, with_batch_ids(queue_rows, batch_rows))
     write_send_batches(out_dir, batch_rows)
-    rl.log_send_queue(log, q_counts, batch_rows, n_no_answer, n_ranked)
+    rl.log_send_queue(log, q_counts, batch_rows, n_no_answer, n_ranked,
+                      novelty=novelty_prov, held_out=held_out)
 
     review_rows, n_adjudicated = review_queue(h)
     write_label_review_queue(out_dir, review_rows)

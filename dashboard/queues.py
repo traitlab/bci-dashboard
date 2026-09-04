@@ -20,7 +20,8 @@ from __future__ import annotations
 import csv
 import os
 import random
-from collections import defaultdict
+import re
+from collections import Counter, defaultdict
 
 from core import (
     HARD_MAX_TOP1,
@@ -36,8 +37,17 @@ QUEUE_ORDER = ["long_tail", "low_conf_known", "normal", "can_wait"]
 
 # send_first_queue.csv's columns, in order. `measure.py` writes the header and
 # `chunk_send_batches` below reads rows by position, so the order is named once.
+#
+# `batch_id` is last, and it is filled in after the batching runs rather than
+# computed with the rest of the row. Without it the two files could only be
+# joined by re-running the batcher, which is exactly the recomputation that
+# `history.check_send_batches` exists to police: anyone wanting to know which
+# batch a queued frame is in had to either trust a second implementation of the
+# packing or open both files and match on global_key by hand. Reading it off
+# the row it belongs to is the whole point.
 SEND_FIRST_COLUMNS = ["queue", "global_key", "split", "predicted_species", "confidence",
-                      "species_labelled_crowns", "species_top1_accuracy", "novelty_rank"]
+                      "species_labelled_crowns", "species_top1_accuracy", "novelty_rank",
+                      "batch_id"]
 # send_batches.csv's columns, likewise: returned in this order, written as that header.
 SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue", "picked_by"]
 
@@ -67,6 +77,13 @@ CONTROL_GROUP = "control"
 # than any rank the ranker can assign, since the pool is four figures.
 NO_NOVELTY = 10 ** 9
 
+# The sidecar `labelling/rank_queue.py` writes beside the ordering file, and the
+# `rows=N` it puts on each source line. The ranker runs outside bin/refresh.sh,
+# so this file is the only record of when the ordering was last rebuilt and
+# against what.
+NOVELTY_PROVENANCE_SUFFIX = ".provenance.txt"
+_PROVENANCE_ROWS = re.compile(r"\brows=(\d+)\b")
+
 
 def load_novelty(path: str) -> dict:
     """``global_key`` -> how unlike the labelled frames a photo looks, 1 first.
@@ -90,6 +107,65 @@ def load_novelty(path: str) -> dict:
             except ValueError:
                 continue
     return out
+
+
+def novelty_provenance(path: str) -> dict:
+    """What the ordering file was built from: written date, anchors, pool.
+
+    ``labelling/rank_queue.py`` writes the sidecar beside the CSV because the
+    ranker runs outside ``bin/refresh.sh``, in its own virtualenv, and nothing
+    else on disk records when it last ran. Every value is ``None`` when the
+    sidecar is absent or does not carry that line: a missing number is reported
+    as missing, never guessed at from the CSV, because the two counts a reader
+    wants (how many labelled frames anchored the ranking, how many photos were
+    ranked against them) are properties of the embedding files and not of this
+    CSV's row count.
+    """
+    out: dict = {"written": None, "anchors": None, "pool": None}
+    sidecar = os.path.splitext(path)[0] + NOVELTY_PROVENANCE_SUFFIX
+    if not os.path.exists(sidecar):
+        return out
+    with open(sidecar, encoding="utf-8") as f:
+        for line in f:
+            role, sep, rest = line.partition(":")
+            if not sep:
+                continue
+            role = role.strip()
+            if role == "written":
+                out["written"] = rest.strip() or None
+            elif role in ("anchors", "pool"):
+                found = _PROVENANCE_ROWS.search(rest)
+                if found:
+                    out[role] = int(found.group(1))
+    return out
+
+
+def novelty_complaint(path: str, n_ranked: int, n_unlab: int) -> str:
+    """Why a page must not be built off this ordering file, or ``""``.
+
+    ``queues.load_novelty`` is deliberately forgiving: an absent file is the
+    normal state of a fresh clone, and it returns ``{}`` so the queue still
+    comes out in confidence order. That forgiveness is the hazard. The ranker
+    is not in ``bin/refresh.sh``, so the file can go missing between two builds
+    without anything else changing, and the page goes on saying the photo least
+    like everything already labelled comes first while the order behind that
+    sentence has silently reverted to the one it replaced.
+
+    So the loader keeps falling back and the *builder* refuses instead. A page
+    that describes an ordering it is not using is worse than a page that will
+    not build: the first is read and believed, the second is fixed.
+    """
+    if not os.path.exists(path):
+        return (f"{path} is missing, so every frame ties on novelty and the queue "
+                f"has silently fallen back to confidence order, which is not the "
+                f"order this page describes. Re-run labelling/rank_queue.py, or "
+                f"take the ordering claim off the page.")
+    if n_unlab and not n_ranked:
+        return (f"{path} is present but ranks none of the {n_unlab:,} queued frames, "
+                f"so the queue is in confidence order while the page describes an "
+                f"embedding order. The file is stale against this pool: re-run "
+                f"labelling/rank_queue.py.")
+    return ""
 
 
 def control_size(batch_size: int = BATCH_SIZE,
@@ -197,6 +273,43 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
             + batches[at:])
 
 
+def with_batch_ids(queue_rows: list, batch_rows: list) -> list:
+    """``queue_rows`` again, each row carrying the batch it was packed into.
+
+    The batcher is the only thing that knows the answer, so the column is filled
+    from its output rather than derived a second time. Deriving it twice is how
+    two files that are supposed to agree stop agreeing.
+
+    Every queued frame is packed exactly once, so a frame the batcher never
+    named, or named twice, means the packing and the queue have come apart and
+    there is no honest value to write. That is a build failure, not a blank
+    cell: a blank one would be read as "not scheduled yet".
+    """
+    key_at = SEND_FIRST_COLUMNS.index("global_key")
+    batch_at = SEND_BATCH_COLUMNS.index("batch_id")
+    of_key: dict[str, int] = {}
+    for b in batch_rows:
+        key = b[SEND_BATCH_COLUMNS.index("global_key")]
+        if key in of_key:
+            raise ValueError(f"{key} is in more than one send batch")
+        of_key[key] = b[batch_at]
+    missing = [r[key_at] for r in queue_rows if r[key_at] not in of_key]
+    if missing:
+        raise ValueError(f"{len(missing)} queued frames were never packed into a "
+                         f"batch, first {missing[0]}")
+    # Set by position, and short rows padded first: the batcher runs on rows
+    # that do not have the column yet, and verify_snapshot re-packs rows read
+    # back out of the file that do. Both come through here and both leave the
+    # same width as the header.
+    at = SEND_FIRST_COLUMNS.index("batch_id")
+    out = []
+    for r in queue_rows:
+        row = list(r) + [""] * (len(SEND_FIRST_COLUMNS) - len(r))
+        row[at] = of_key[r[key_at]]
+        out.append(row)
+    return out
+
+
 def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> str:
     """Which queue an unlabelled crown lands in, from its first guess alone.
 
@@ -216,25 +329,42 @@ def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> st
 
 
 def send_first_rows(predictions, joined_stems, canon, support, top1,
-                    novelty=None, key_prefix="") -> tuple:
+                    novelty=None, key_prefix="", splits=None) -> tuple:
     """Every unlabelled frame's queue, in the order send_first_queue.csv writes.
 
     Returns ``([(queue, stem, species, confidence, novelty_rank), ...],
-    n_no_answer)``. Order is queue first, then least like the frames already
-    labelled, then least confident, then the stem. Confidence says nothing about
-    a species with almost no labels, and on the long-lens camera it is not
-    trustworthy at all, so what a photo looks like leads and confidence breaks
-    the tie. A frame the model answered nothing for is counted, not queued.
+    n_no_answer, held_out)``. Order is queue first, then least like the frames
+    already labelled, then least confident, then the stem. Confidence says
+    nothing about a species with almost no labels, and on the long-lens camera
+    it is not trustworthy at all, so what a photo looks like leads and
+    confidence breaks the tie. A frame the model answered nothing for is
+    counted, not queued.
 
     ``novelty`` is the map ``load_novelty`` returns, keyed the way the CSV
     writes a photo, hence ``key_prefix``. Empty, or missing a frame, and that
     frame sorts to the back of its queue in confidence order: the behaviour
     before there were any vectors, and the way to undo this ordering.
+
+    ``splits`` is ``global_key -> split`` from ``data/splits.csv``, keyed the
+    same way. A frame carrying a split is an evaluation frame and is held out
+    of the queue rather than queued: it is one of the frames the per-species
+    statuses and the wait rule are read off, and sending it back for labelling
+    puts a botanist's new answer into the set those numbers are measured on.
+    ``held_out`` counts what was dropped, by split, because a frame that
+    vanishes from a work queue with nothing said is how a count moves and
+    nobody can explain why. ``None`` holds nothing out, which is the behaviour
+    a caller with no splits file gets.
     """
     novelty = novelty or {}
+    splits = splits or {}
     rows, n_no_answer = [], 0
+    held_out: Counter = Counter()
     for stem in sorted(predictions):
         if stem in joined_stems:
+            continue
+        split = splits.get(key_prefix + stem, "")
+        if split:
+            held_out[split] += 1
             continue
         ranked = [(canon(name), score) for name, score in predictions[stem]]
         if not ranked:
@@ -244,4 +374,4 @@ def send_first_rows(predictions, joined_stems, canon, support, top1,
         rows.append((queue_of_prediction(pred, conf, support, top1), stem, pred, conf,
                      novelty.get(key_prefix + stem, NO_NOVELTY)))
     rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), r[4], r[3], r[1]))
-    return rows, n_no_answer
+    return rows, n_no_answer, held_out

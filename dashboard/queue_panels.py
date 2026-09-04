@@ -29,8 +29,17 @@ QL = {"long_tail": ("Species we barely have, or barely get right",
       # Not "Everything else": a further category follows it. The name says why
       # a botanist should open the queue rather than what is in it, because the
       # rule beside it already draws the line against the queue above.
-      "normal": ("Not sure enough to leave alone",
-                 "Neither of the two above, and not confident enough to wait"),
+      #
+      # It used to read "Not sure enough to leave alone" / "Neither of the two
+      # above, and not confident enough to wait", two negations in the label and
+      # one in the rule. A reader stopped at it on 2026-09-03 and could not say
+      # what it meant. The number was there all along, in `can_wait` below: this
+      # queue is everything the wait rule does not catch, so it is the same
+      # WAIT_CONF read from the other side. Naming the threshold says in one
+      # clause what the negations took two to not say.
+      "normal": (f"Worth a look, confidence under {hc.WAIT_CONF:.2f}",
+                 "Not in the two queues above, and Pl@ntNet is under "
+                 f"{hc.WAIT_CONF:.2f} confident here"),
       "can_wait": ("Confident on a well-covered species",
                    f"Confidence {hc.WAIT_CONF:.2f} or more, and {hc.WELL_SAMPLED_MIN_N} or "
                    f"more labelled frames already")}
@@ -178,10 +187,34 @@ def send_notes(c):
     return body
 
 
+def held_out_note(c) -> str:
+    """The evaluation frames the queue refused, with the splits they came from.
+
+    Stated, not silent. These frames have a prediction and no label yet, so
+    every rule on this page would put them in a queue; what keeps them out is
+    that they were drawn into a split, and a botanist's answer on one of them
+    would land inside the set the per-species statuses are measured on. A
+    reader who compares the pool here against the unlabelled count elsewhere
+    has to be able to account for the difference without asking.
+    """
+    held = getattr(c, "queue_held_out", None) or {}
+    n = sum(held.values())
+    if not n:
+        return ""
+    by_split = ", ".join(f"{held[k]} {k}" for k in sorted(held))
+    return (f'<p class="note"><strong>{n} frames are held out of this queue.</strong> '
+            f'They carry a split in <code>splits.csv</code> ({by_split}), so they are '
+            f'part of how this page\'s own numbers are graded. Sending one back for '
+            f'labelling would put a new answer into the set those numbers are measured '
+            f'on. They are not lost: they are labelled work already accounted for '
+            f'elsewhere.</p>')
+
+
 def p_send(c):
     """The page's answer to "what do I label next": queue sizes, the head of
     the queue, then the caveats that qualify both."""
-    body = send_pool_table(c) + send_preview_table(c) + DISPATCH + send_notes(c)
+    body = (send_pool_table(c) + send_preview_table(c) + DISPATCH
+            + held_out_note(c) + send_notes(c))
     # The same two queues the hero counts, added the same way, so both agree.
     send_now = (c.queue_counts.get("long_tail", 0)
                 + c.queue_counts.get("low_conf_known", 0))

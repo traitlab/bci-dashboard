@@ -264,9 +264,13 @@ def _queue(h, support, per_species):
     # The same file measure.py reads, through the same loader. Two readings
     # would order the page and send_first_queue.csv differently, and
     # verify_snapshot aborts the build on the first row where they diverge.
-    rows, n_no_answer = queues.send_first_rows(
+    # `splits` too, for the same reason: the queue holds evaluation frames out,
+    # and a page that held out a different set from the CSV would fail
+    # history.check_send_batches on the first row where the two diverge.
+    rows, n_no_answer, held_out = queues.send_first_rows(
         h.predictions, joined_stems, h.canon, support, acc_of,
-        novelty=queues.load_novelty(hc.QUEUE_NOVELTY_CSV), key_prefix=hc.GT_KEY_PREFIX)
+        novelty=queues.load_novelty(hc.QUEUE_NOVELTY_CSV), key_prefix=hc.GT_KEY_PREFIX,
+        splits=h.split_of)
     counts = Counter(r[0] for r in rows)
     # The batch count the note quotes, from the same call measure.py makes, so
     # the number on the page is the number of batches in send_batches.csv.
@@ -287,11 +291,18 @@ def _queue(h, support, per_species):
         "queue_rows": rows, "queue_counts": counts, "n_no_answer": n_no_answer,
         "n_unlab": sum(counts.values()),
         "n_batches": batch_rows[-1][0] if batch_rows else 0,
+        # Counted, not assumed to be BATCH_SIZE: packing keeps species groups
+        # whole, so a batch stops short whenever the next group would overflow.
+        # The internal page leads with this number, so it has to be the real one.
+        "n_batch1": sum(1 for b in batch_rows if b[0] == 1),
         "lt_species": Counter(r[2] for r in rows if r[0] == "long_tail"),
         "queue_cams": Counter(camera_of(r[1]) for r in rows),
         # How much of the queue the ordering file reaches. A frame with no
         # vector keeps its old place, so the page must not claim otherwise.
         "n_ranked": sum(1 for r in rows if r[4] != queues.NO_NOVELTY),
+        # The evaluation frames the queue refused, by split. The page states
+        # this rather than letting the pool quietly come out 44 short.
+        "queue_held_out": held_out,
         # In the form send_first_queue.csv writes them, for verify_snapshot.
         "queue_keys": [hc.GT_KEY_PREFIX + r[1] for r in rows]}
 

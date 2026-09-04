@@ -184,15 +184,16 @@ def test_how_a_photo_looks_never_moves_it_into_another_queue(queues, core):
     predictions = {"a": [("Rare sp", 0.9)], "b": [("Known sp", 0.9)]}
     support = {"Known sp": 500}
     top1 = {"Known sp": 1.0}
-    rows, _ = queues.send_first_rows(predictions, set(), lambda n: n, support, top1,
-                                     novelty={"comb_b": 1}, key_prefix="comb_")
+    rows, _, _ = queues.send_first_rows(predictions, set(), lambda n: n, support, top1,
+                                        novelty={"comb_b": 1}, key_prefix="comb_")
     assert [(r[0], r[1]) for r in rows] == [("long_tail", "a"), ("can_wait", "b")]
 
 
 def test_a_frame_with_no_answer_is_counted_and_not_ranked(queues):
     predictions = {"a": [], "b": [("Sp y", 0.4)]}
-    rows, n_no_answer = queues.send_first_rows(predictions, set(), lambda n: n, {}, {},
-                                               novelty={"comb_a": 1}, key_prefix="comb_")
+    rows, n_no_answer, _ = queues.send_first_rows(
+        predictions, set(), lambda n: n, {}, {},
+        novelty={"comb_a": 1}, key_prefix="comb_")
     assert n_no_answer == 1
     assert [r[1] for r in rows] == ["b"]
 
@@ -209,3 +210,116 @@ def test_load_novelty_reads_the_file_and_survives_it_being_absent(queues, tmp_pa
                     "comb_c,not a number,0.10,tele\n"
                     ",4,0.10,tele\n", encoding="utf-8")
     assert queues.load_novelty(str(path)) == {"comb_a": 1}
+
+
+# ---------------------------------------------------------------------------
+# the split filter: evaluation frames do not go back out for labelling
+# ---------------------------------------------------------------------------
+
+def _decide(queues, frames, splits=None, prefix="comb_"):
+    """`frames` is `{stem: (species, confidence)}`, every species unlabelled."""
+    predictions = {stem: [(sp, conf)] for stem, (sp, conf) in frames.items()}
+    return queues.send_first_rows(predictions, set(), lambda n: n, {}, {},
+                                  key_prefix=prefix, splits=splits)
+
+
+def test_a_frame_carrying_a_split_never_reaches_the_send_queue(queues):
+    """It is one of the frames the per-species statuses and the wait rule are
+    read off. A botanist's answer on it would land inside the set those numbers
+    are graded on, which is what the split was drawn to prevent."""
+    frames = {"a": ("Sp x", 0.9), "b": ("Sp y", 0.1), "c": ("Sp z", 0.5)}
+    rows, _, held = _decide(queues, frames, splits={"comb_a": "train",
+                                                    "comb_c": "test"})
+    assert [r[1] for r in rows] == ["b"]
+    assert dict(held) == {"train": 1, "test": 1}
+
+
+def test_an_empty_split_is_not_a_split(queues):
+    """splits.csv carries a row for every corpus frame and leaves the column
+    blank on the ones no split drew. Blank means unassigned, not held out, and
+    over half the file is blank."""
+    rows, _, held = _decide(queues, {"a": ("Sp x", 0.9)}, splits={"comb_a": ""})
+    assert [r[1] for r in rows] == ["a"]
+    assert not held
+
+
+def test_no_splits_holds_nothing_out(queues):
+    """A caller with no splits file gets the behaviour that was there before
+    the filter, rather than an empty queue."""
+    rows, _, held = _decide(queues, {"a": ("Sp x", 0.9)})
+    assert [r[1] for r in rows] == ["a"]
+    assert not held
+
+
+def test_a_held_out_frame_is_not_counted_as_a_frame_with_no_answer(queues):
+    """Two different exclusions, reported separately. Pooling them would make
+    the no-answer count, which the run log tells a reader to sample by eye,
+    stand for frames there is nothing wrong with."""
+    predictions = {"a": [], "b": [("Sp y", 0.4)]}
+    rows, n_no_answer, held = queues.send_first_rows(
+        predictions, set(), lambda n: n, {}, {}, key_prefix="comb_",
+        splits={"comb_b": "valid"})
+    assert (n_no_answer, dict(held)) == (1, {"valid": 1})
+    assert rows == []
+
+
+# ---------------------------------------------------------------------------
+# the ordering file's provenance, and the build gate that reads it
+# ---------------------------------------------------------------------------
+
+def _sidecar(tmp_path, text):
+    """A queue_novelty.csv path whose sidecar holds `text`. The CSV itself is
+    written too, since `novelty_complaint` checks for it first."""
+    csv_path = tmp_path / "queue_novelty.csv"
+    csv_path.write_text("global_key,novelty_rank\ncomb_a,1\n", encoding="utf-8")
+    (tmp_path / "queue_novelty.provenance.txt").write_text(text, encoding="utf-8")
+    return str(csv_path)
+
+
+def test_novelty_provenance_reads_the_date_and_the_two_row_counts(queues, tmp_path):
+    """The sidecar is the only record of when the ranking was last rebuilt: the
+    ranker is not in bin/refresh.sh. Anchors and pool are different populations
+    and are read separately, which is the whole point of printing them."""
+    path = _sidecar(tmp_path,
+                    "written: 2026-09-03\n"
+                    "by: rank_queue.py\n"
+                    "pool: /x/embeddings_queue/embeddings.npz rows=3934 "
+                    "mtime=2026-09-03T02:53:15+00:00\n"
+                    "anchors: /x/embeddings_labelled/embeddings.npz rows=1719 "
+                    "mtime=2026-08-20T03:18:39+00:00\n")
+    assert queues.novelty_provenance(path) == {
+        "written": "2026-09-03", "anchors": 1719, "pool": 3934}
+
+
+def test_novelty_provenance_reports_a_missing_number_as_missing(queues, tmp_path):
+    """Never guessed at from the CSV's row count. The pool is what the ranker
+    was given, which is not the same population as the rows it wrote."""
+    assert queues.novelty_provenance(str(tmp_path / "queue_novelty.csv")) == {
+        "written": None, "anchors": None, "pool": None}
+    path = _sidecar(tmp_path, "written: 2026-09-03\nby: rank_queue.py\n")
+    assert queues.novelty_provenance(path) == {
+        "written": "2026-09-03", "anchors": None, "pool": None}
+
+
+def test_a_missing_ordering_file_is_a_complaint_the_builder_can_fail_on(queues,
+                                                                       tmp_path):
+    """`load_novelty` falls back silently, on purpose, so the builder is where
+    the refusal lives. Absent file, and the page's ordering sentence is false."""
+    missing = str(tmp_path / "nothing.csv")
+    assert "missing" in queues.novelty_complaint(missing, n_ranked=0, n_unlab=3919)
+
+
+def test_an_ordering_file_that_reaches_nothing_is_also_a_complaint(queues, tmp_path):
+    """Stale rather than absent: the file is there but keyed to a pool that has
+    moved on, so every frame ties and the order is confidence again."""
+    path = _sidecar(tmp_path, "written: 2026-09-03\n")
+    assert "stale" in queues.novelty_complaint(path, n_ranked=0, n_unlab=3919)
+
+
+def test_a_ranking_that_reaches_part_of_the_queue_is_not_a_complaint(queues, tmp_path):
+    """Partial coverage is the normal state and the page prints the share. Only
+    an ordering that reaches nothing at all is a false claim."""
+    path = _sidecar(tmp_path, "written: 2026-09-03\n")
+    assert queues.novelty_complaint(path, n_ranked=3917, n_unlab=3919) == ""
+    # An empty pool cannot make the claim false either: there is nothing to order.
+    assert queues.novelty_complaint(path, n_ranked=0, n_unlab=0) == ""
