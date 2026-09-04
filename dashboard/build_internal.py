@@ -57,11 +57,29 @@ def build(h, *, generated, verify_dir, fallback_tag):
 
     # Two counts and one line: the reasoning lives in the panels that state it.
     send_now = c.queue_counts.get("long_tail", 0) + c.queue_counts.get("low_conf_known", 0)
+    # The subtitle used to read "{c.n:,} labelled frames behind the ranking",
+    # which was one number standing for two. `c.n` is the species-level
+    # evaluation set: it is what every per-species status is measured on, and
+    # those statuses are what sorts a frame into a queue. The ranking is the
+    # other half, the order inside a queue, and it is anchored on the labelled
+    # frames that have an embedding, a smaller and differently-selected set.
+    # Both are load-bearing here, so both are named, each against its own work.
+    anchors = queues.novelty_provenance(hc.QUEUE_NOVELTY_CSV)["anchors"]
+    anchor_words = (f"{anchors:,} labelled frames anchor the ranking"
+                    if anchors else "anchor count unrecorded")
     P = ['<h1>What to label next</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
-         f'&middot; {c.n:,} labelled frames behind the ranking</div>',
-         hero([("Worth sending first", f"{send_now:,}", "unlabelled photos",
+         f'&middot; {anchor_words} &middot; {c.n:,} labelled frames behind the '
+         f'species statuses that sort the queues</div>',
+         # Batch 1 leads, not the pool. The pool is 3,919 and a botanist works
+         # through a few hundred a month, so leading with it prices the whole
+         # queue as the next task and it is many months of them. The number a
+         # reader can act on this week is the one batch that ships.
+         hero([("Send next", f"{c.n_batch1:,}", "photos in batch 1",
+                "One Labelbox batch, the head of the order. Everything below is "
+                "the pool it was drawn from, not this week's work."),
+               ("Worth sending first", f"{send_now:,}", "unlabelled photos",
                 "They point at a species we barely have or barely get right, or at a "
                 "usually-right species the model is unsure of here."),
                ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
@@ -77,6 +95,15 @@ def build(h, *, generated, verify_dir, fallback_tag):
           'photos only, then the same command with no <code>--test</code> sends the '
           'rest. How Pl@ntNet scores against the labels is a separate page, '
           '<code>model_health_dashboard.html</code>.</p>'),
+         # Cadence, because the obvious guess is a monthly rebuild and that is
+         # wrong. Nothing about this order changes until the model does: the
+         # queues come from Pl@ntNet's own answers, so re-ranking against an
+         # unchanged model reproduces the order it already gave.
+         ('<p class="note"><strong>This order is recomputed when the Pl@ntNet model '
+          'tag changes, not on a calendar.</strong> Pl@ntNet ships a new model when '
+          'its authors have one, roughly every two months. Until the tag above moves, '
+          're-running this page returns the same order, so work through the batches '
+          'rather than waiting for a refresh.</p>'),
          pg.render(c, pg.INTERNAL_PANELS)]
 
     return pg.document(TITLE, "\n".join(P)), c.checks
