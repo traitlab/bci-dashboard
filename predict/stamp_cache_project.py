@@ -14,9 +14,11 @@ and assumed answers separately. Do not promote one to the other.
 
 Idempotent. An answer that already names a project is left exactly as it is,
 including one naming a different project, because overwriting that is how a real
-mismatch would be hidden. Nothing else in the file is touched: the key order is
-preserved and the ranked names are re-serialised byte-for-byte from what was
-read, so a salvaged or truncated payload is skipped rather than rewritten.
+mismatch would be hidden. No other key is added, removed or reordered. The file
+is re-serialised rather than patched in place, so it is equal to what was read
+apart from the two new keys, not byte-identical to it; a payload that does not
+parse is skipped rather than rewritten, since a file that cannot be read cannot
+be given provenance.
 
     python3 predict/stamp_cache_project.py                          # report only
     python3 predict/stamp_cache_project.py --write
