@@ -21,7 +21,7 @@ import csv
 import os
 import random
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from core import (
     HARD_MAX_TOP1,
@@ -283,25 +283,42 @@ def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> st
 
 
 def send_first_rows(predictions, joined_stems, canon, support, top1,
-                    novelty=None, key_prefix="") -> tuple:
+                    novelty=None, key_prefix="", splits=None) -> tuple:
     """Every unlabelled frame's queue, in the order send_first_queue.csv writes.
 
     Returns ``([(queue, stem, species, confidence, novelty_rank), ...],
-    n_no_answer)``. Order is queue first, then least like the frames already
-    labelled, then least confident, then the stem. Confidence says nothing about
-    a species with almost no labels, and on the long-lens camera it is not
-    trustworthy at all, so what a photo looks like leads and confidence breaks
-    the tie. A frame the model answered nothing for is counted, not queued.
+    n_no_answer, held_out)``. Order is queue first, then least like the frames
+    already labelled, then least confident, then the stem. Confidence says
+    nothing about a species with almost no labels, and on the long-lens camera
+    it is not trustworthy at all, so what a photo looks like leads and
+    confidence breaks the tie. A frame the model answered nothing for is
+    counted, not queued.
 
     ``novelty`` is the map ``load_novelty`` returns, keyed the way the CSV
     writes a photo, hence ``key_prefix``. Empty, or missing a frame, and that
     frame sorts to the back of its queue in confidence order: the behaviour
     before there were any vectors, and the way to undo this ordering.
+
+    ``splits`` is ``global_key -> split`` from ``data/splits.csv``, keyed the
+    same way. A frame carrying a split is an evaluation frame and is held out
+    of the queue rather than queued: it is one of the frames the per-species
+    statuses and the wait rule are read off, and sending it back for labelling
+    puts a botanist's new answer into the set those numbers are measured on.
+    ``held_out`` counts what was dropped, by split, because a frame that
+    vanishes from a work queue with nothing said is how a count moves and
+    nobody can explain why. ``None`` holds nothing out, which is the behaviour
+    a caller with no splits file gets.
     """
     novelty = novelty or {}
+    splits = splits or {}
     rows, n_no_answer = [], 0
+    held_out: Counter = Counter()
     for stem in sorted(predictions):
         if stem in joined_stems:
+            continue
+        split = splits.get(key_prefix + stem, "")
+        if split:
+            held_out[split] += 1
             continue
         ranked = [(canon(name), score) for name, score in predictions[stem]]
         if not ranked:
@@ -311,4 +328,4 @@ def send_first_rows(predictions, joined_stems, canon, support, top1,
         rows.append((queue_of_prediction(pred, conf, support, top1), stem, pred, conf,
                      novelty.get(key_prefix + stem, NO_NOVELTY)))
     rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), r[4], r[3], r[1]))
-    return rows, n_no_answer
+    return rows, n_no_answer, held_out

@@ -391,7 +391,7 @@ def log_calibration(_log, scopes, top1, n, good, good_recs):
 
 
 def log_send_queue(_log, q_counts, batch_rows, n_no_answer, n_ranked=0,
-                   novelty=None):
+                   novelty=None, held_out=None):
     """The unlabelled pool, by queue, and how it was batched.
 
     ``novelty`` is what ``queues.novelty_provenance`` read off the sidecar
@@ -400,6 +400,10 @@ def log_send_queue(_log, q_counts, batch_rows, n_no_answer, n_ranked=0,
     because ``labelling/rank_queue.py`` is not in ``bin/refresh.sh`` and needs a
     virtualenv this one is not: the ordering file can therefore be months older
     than every other number in this log, and nothing else here would say so.
+
+    ``held_out`` is the split-tagged frames the queue refused, by split. Printed
+    even at zero, like every other exclusion in this file: a queue that quietly
+    shrank is the one nobody can account for later.
     """
     n_unlab = sum(q_counts.values())
     n_batches = batch_rows[-1][0] if batch_rows else 0
@@ -419,6 +423,11 @@ def log_send_queue(_log, q_counts, batch_rows, n_no_answer, n_ranked=0,
     _log(f"    labelled frames anchoring it     : {p.get('anchors') or 'unknown'}")
     _log(f"    photos ranked against them       : {p.get('pool') or 'unknown'}")
     _log("    (labelling/rank_queue.py writes these, outside bin/refresh.sh)")
+    held = held_out or Counter()
+    by_split = ", ".join(f"{k} {held[k]}" for k in sorted(held)) or "none"
+    _log(f"  held out, already in an eval split  : {sum(held.values())}  ({by_split})")
+    _log("    Sending an evaluation frame back for labelling would put a new")
+    _log("    answer into the set the per-species statuses are measured on.")
     _log(f"  send_batches.csv                    : {len(batch_rows)} rows in {n_batches} "
         f"batches, max {BATCH_SIZE}/batch, species groups packed whole")
     _log(f"  unlabelled frames with NO answer    : {n_no_answer}  (empty candidate list;")
