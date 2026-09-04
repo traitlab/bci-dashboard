@@ -131,9 +131,35 @@ def parse_args():
     ap.add_argument("--batch", help="send one batch_id out of the CSV (send_batches.csv "
                     "holds all of them; one batch is one Labelbox batch)")
     ap.add_argument("--test", action="store_true", help="process first 5 rows only (Stage 1)")
-    ap.add_argument("--priority", type=int, default=1, choices=[1, 2, 3, 4, 5],
-                    help="labelling priority (1=highest, default 1)")
+    ap.add_argument("--priority", type=int, default=None, choices=[1, 2, 3, 4, 5],
+                    help="labelling priority (1=highest). Default: derived from "
+                         "--batch, so the queue order survives into Labelbox")
     return ap.parse_args()
+
+
+# Labelbox has five priority levels and the queue has fifty batches, so the
+# mapping saturates: batch 1 is priority 1, batch 4 is priority 4, and every
+# batch from 5 on is priority 5. Sending every batch at priority 1 is what
+# throws the queue order away at the Labelbox door, which is the whole point of
+# ordering it.
+MAX_PRIORITY = 5
+
+
+def priority_for_batch(batch_id, explicit=None):
+    """The Labelbox priority to send a batch at.
+
+    An explicit --priority always wins: a batch re-sent out of order is a human
+    decision. Without one, the batch number is the priority, capped at
+    `MAX_PRIORITY`. A run with no --batch has no order to preserve and goes out
+    at 1, which is what this script did for every batch before.
+    """
+    if explicit is not None:
+        return explicit
+    try:
+        n = int(str(batch_id).strip())
+    except (TypeError, ValueError):
+        return 1
+    return min(max(n, 1), MAX_PRIORITY)
 
 
 def match_keys(global_keys, key_to_id):
@@ -225,9 +251,10 @@ def main() -> None:
     print(f"\nStep 3 - Upserting '{METADATA_SCHEMA_NAME}' = {args.round} on {len(matched_keys)} rows...")
     tag_round(client, matched_keys, key_to_id, args.round)
 
-    print("\nStep 4 - Creating labelling batch in Project B...")
+    priority = priority_for_batch(args.batch, args.priority)
+    print(f"\nStep 4 - Creating labelling batch in Project B at priority {priority}...")
     batch_name = create_batch(client, project_b_name, matched_keys,
-                              args.round, args.priority)
+                              args.round, priority)
 
     rule = "=" * 50
     print(f"\n{rule}\nDISPATCH COMPLETE\n{rule}")
@@ -237,6 +264,9 @@ def main() -> None:
     print(f"  Missing keys:   {len(missing)}")
     print(f"  Project:        {project_b_name}")
     print(f"  Metadata field: {METADATA_SCHEMA_NAME} = {args.round}")
+    print(f"  Priority:       {priority}"
+          + ("" if args.priority is not None else f" (from batch {args.batch})"
+             if args.batch else " (no batch given)"))
     print(rule)
 
 
