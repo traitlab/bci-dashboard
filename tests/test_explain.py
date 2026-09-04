@@ -103,6 +103,14 @@ def test_weighting_panel_returns_a_balanced_string_with_the_given_numbers(explai
     assert "2" in out
 
 
+def test_weighting_panel_links_the_groups_its_bars_are_drawn_from(explain):
+    """The two bars are shares of a whole. support_buckets.csv holds the species
+    count, frame count and rate for each group, so the reader who wants to check
+    a group takes the file off the panel."""
+    out = explain.weighting_panel(**_weighting_kwargs())
+    assert 'href="support_buckets.csv"' in out
+
+
 def test_weighting_panel_raises_zero_division_when_no_species_is_well_sampled(explain):
     # well = [r for r in sp_recs if support[r["gt"]] >= WELL_SAMPLED_MIN_N (10)].
     # With every species under that threshold, `well` and `well_sp` are both

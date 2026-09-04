@@ -137,7 +137,11 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           f'Pl@ntNet regional model that has never seen a BCI label; common species simply '
           f'have more reference photos inside Pl@ntNet already. Extra labels buy knowledge '
           f'instead: under about {hc.WELL_SAMPLED_MIN_N} frames a per-species accuracy '
-          f'jumps around too much to act on.</div>',
+          f'jumps around too much to act on.</div>'
+          # The two bars are shares. The file behind them holds the counts, so a
+          # group can be checked rather than read off a bar.
+          + '<p class="note">Each group, with its species count, frame count and '
+            'rates, is in <a href="support_buckets.csv">support_buckets.csv</a>.</p>',
         # Both headline rates are in the summary and both move every snapshot.
         anchor="why-the-two-headline-scores-differ")
 
