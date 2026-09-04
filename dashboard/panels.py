@@ -488,7 +488,12 @@ def p_calibration(c):
         f'{pctf(c.bins_all[-1][2] / c.bins_all[-1][1]) if c.bins_all[-1][1] else "n/a"} '
         f'is not the same claim as a score of {c.bins_all[-1][0][1:4]}. And this holds in '
         f'bulk only: on species with few labelled frames a high score is much less '
-        f'reliable, which the label-queue page measures band by band.</p>')
+        f'reliable, which the label-queue page measures band by band.</p>'
+        # The bars round to one figure a band. The file carries the counts they
+        # were drawn from, so a reader can check a band rather than trust a bar.
+        f'<p class="note">Every band, with the frames and the right guesses behind '
+        f'it, is in <a href="confidence_calibration.csv">confidence_calibration.csv'
+        f'</a>.</p>')
 
 
 def p_ceiling(c):
@@ -521,7 +526,11 @@ def p_ceiling(c):
             f'proof the model cannot return them, only that we never asked for enough '
             f'candidates to find out. Re-running with a larger candidate count could '
             f'still recover some of these.</p>'
-            + sp_table(c.unproven_absent))
+            + sp_table(c.unproven_absent)
+            + '<p class="note">Both lists, and the two flags they are split on, are '
+              'columns in <a href="per_species_health.csv">per_species_health.csv</a>: '
+              '<code>in_project_checklist</code> and '
+              '<code>in_corpus_vocabulary</code>.</p>')
     else:
         scope_html = (
             f'<div class="warn"><strong>This is a limit of the question we asked, not proof '

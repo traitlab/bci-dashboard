@@ -67,6 +67,14 @@ def test_the_panel_is_a_balanced_details_block(panels, bins):
     assert out.count("<details") == out.count("</details") == 1
 
 
+def test_the_panel_links_the_file_its_bars_were_drawn_from(panels, bins):
+    """A bar carries one rounded figure a band. The counts behind it are already
+    on disk and already cross-checked against this panel's own build, so the
+    file travels with the page rather than being named in a handover note."""
+    out = panels.p_calibration(_ctx(panels, bins))
+    assert 'href="confidence_calibration.csv"' in out
+
+
 def test_the_external_page_draws_the_chart_it_already_measured(pagemod):
     """The measurement was verified against confidence_calibration.csv on this
     page's own build and then drawn only on the other page."""
