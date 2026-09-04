@@ -266,3 +266,25 @@ def test_every_csv_a_panel_links_is_one_measure_writes(pagemod, measure):
     assert linked, "no panel links a CSV; this test has stopped covering anything"
     unknown = linked - set(measure.OUTPUTS)
     assert not unknown, f"linked CSVs that measure.py never writes: {sorted(unknown)}"
+
+
+def test_the_publish_script_reads_the_links_rather_than_listing_them(measure):
+    """The other half of the copy, and the half that fails on the public site.
+
+    ``copy_linked_csvs`` puts a linked CSV beside the page in build/;
+    ``bin/publish_pages.sh`` is what puts it in docs/, which is what GitHub
+    Pages serves. It used to name the four files it copied. That list was a
+    second copy of a fact the pages already state, and the way it broke was a
+    panel adding a link and the file never reaching docs/: a 404 for every
+    reader, and nothing local to notice it. So the names must not be back.
+    """
+    script = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "bin", "publish_pages.sh")
+    with open(script, encoding="utf-8") as f:
+        text = f.read()
+    named = [name for name in measure.OUTPUTS if name in text]
+    assert not named, (
+        f"publish_pages.sh names {named} instead of reading the links out of the "
+        f"built pages; add one link to a panel and these stop reaching docs/")
+    assert "grep" in text and "href=" in text, \
+        "publish_pages.sh no longer scans the pages for the CSVs they link"
