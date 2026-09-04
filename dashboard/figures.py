@@ -15,6 +15,11 @@ from types import SimpleNamespace
 import core as hc
 import queues
 from checklist import load_checklist
+# The three arithmetic helpers behind the confusion-matrix rates. They live in
+# health.py because that is where the per-species rows are built from the same
+# counts, and importing them keeps the corpus figure and the table row from
+# being two spellings of one formula.
+from health import confidence_spread, confusion_counts, f_measure
 from history import model_tag_of, snapshot_date_of
 
 # A species is "rarely labelled" below this many frames, and a frame can be
@@ -89,17 +94,83 @@ WORLD_PROJECT = "k-world-flora"
 
 
 def _rates(sp_recs, per_species):
-    """The four corpus rates, and the two counts they are over.
+    """Every corpus rate, and the two counts they are over.
     One question two ways: per species, so a rare one weighs as much as a common
-    one, and per frame. Both, because neither alone says how the model does."""
+    one, and per frame. Both, because neither alone says how the model does.
+
+    Top-1 and top-5 are accuracy: how often the label is the first guess, and
+    how often it is among the names we asked for. Precision, recall and F1 come
+    off the same frames through ``health.confusion_counts``, and answer the
+    question accuracy cannot: not "how often is the model right" but "when it
+    says Terminalia, is it Terminalia".
+
+    Two identities are worth knowing before reading what comes back.
+
+    Per species, recall *is* the first-guess rate. Both count a species' right
+    first guesses over its own labelled frames. ``macro_recall`` is computed
+    from the confusion counts rather than copied off ``macro_top1``, so the two
+    routes can be checked against each other; they must agree.
+
+    Per frame, precision, recall and F1 are one number, and that number is the
+    per-frame first-guess rate. Every frame in ``sp_recs`` carries exactly one
+    label and exactly one first guess, since ``health.load_health`` admits a
+    frame only when it has both, so a wrong guess is one miss for the labelled
+    species and one false positive for the guessed one at the same time. The
+    two counts are the same count, so their rates are the same rate. It is
+    returned once, as ``micro_prf1``, rather than three times.
+    """
     n, n_sp = len(sp_recs), len(per_species)
     c1 = sum(1 for r in sp_recs if top1(r) == r["gt"])
     c5 = sum(1 for r in sp_recs if r["gt"] in [b for b, _ in r["ranked"][:N_CANDIDATES]])
+    tp, guessed, labelled = confusion_counts(sp_recs)
+    # Averaged over the labelled species, the same population macro_top1 uses,
+    # so the two per-species columns are comparable row for row. A species the
+    # model only ever guesses wrongly has no row of its own and no recall to
+    # average; its guesses are already counted as another species' misses.
+    precisions = [(tp[s] / guessed[s]) if guessed[s] else 0.0 for s in labelled]
+    recalls = [tp[s] / labelled[s] for s in labelled]
+    # F1 per species, then averaged. Averaging first and taking the F1 of the
+    # two averages is a different number, and is the way this ships wrong.
+    f1s = [f_measure(p, r) for p, r in zip(precisions, recalls)]
     return {
         "n": n, "n_sp": n_sp, "c1": c1,
         "now": {"macro_top1": hc.ratio(sum(d["top1_accuracy"] for d in per_species), n_sp),
                 "macro_top5": hc.ratio(sum(d["top5_accuracy"] for d in per_species), n_sp),
-                "micro_top1": hc.ratio(c1, n), "micro_top5": hc.ratio(c5, n)}}
+                "micro_top1": hc.ratio(c1, n), "micro_top5": hc.ratio(c5, n),
+                "macro_precision": hc.ratio(sum(precisions), len(precisions)),
+                "macro_recall": hc.ratio(sum(recalls), len(recalls)),
+                "macro_f1": hc.ratio(sum(f1s), len(f1s)),
+                "micro_prf1": hc.ratio(c1, n)},
+        # How many frames the model guessed each labelled species on: the
+        # denominator under every per-species precision, carried so a panel can
+        # print a rate beside the population it was measured on.
+        "n_guessed": {s: guessed[s] for s in labelled}}
+
+
+def _confidence(sp_recs, per_species):
+    """The corpus confidence distribution, and the same for the right guesses.
+
+    The species table has carried a mean since the first build and nothing else.
+    A mean is the wrong single figure for this score: Pl@ntNet spreads its
+    confidence over every species it knows, so the distribution is skewed and
+    the median lands somewhere else. The middle half is carried with it, since
+    a median without a spread is one number standing in for a shape again.
+
+    ``when_correct`` is the mean over only the frames the first guess got
+    right. ``health.aggregate_per_species`` has computed it per species from
+    the beginning and no page has ever shown it; the corpus figure is here so
+    one can.
+    """
+    confs = [conf(r) for r in sp_recs]
+    ok = [conf(r) for r in sp_recs if top1(r) == r["gt"]]
+    when_correct = [d["mean_top1_confidence_when_correct"] for d in per_species
+                    if d["mean_top1_confidence_when_correct"] is not None]
+    return {"conf_spread": confidence_spread(confs),
+            "conf_spread_correct": confidence_spread(ok),
+            "n_conf_correct": len(ok),
+            # Per species rather than per frame, so a common species cannot
+            # decide it. Only the species that ever get one right have a value.
+            "n_species_with_a_right_guess": len(when_correct)}
 
 
 def _species_status(per_species):
@@ -429,6 +500,7 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
            "n_gt": len(h.gt_rows)}
 
     fig.update(_rates(sp_recs, per_species))
+    fig.update(_confidence(sp_recs, per_species))
     fig.update(_species_status(per_species))
     fig.update(_support_buckets(per_species, sp_recs, fig["support"]))
     fig.update(_confidence_bands(sp_recs))
