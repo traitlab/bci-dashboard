@@ -230,7 +230,7 @@ def test_the_id_table_is_built_from_the_union_of_every_export(tmp_path):
     b.write_text(export_line("DJI_2.JPG", "dr2", LEGACY_B)
                  + export_line("DJI_3.JPG", "dr3", LEGACY_B), encoding="utf-8")
 
-    dominants, boxes, row_ids = gt_from_export.union_exports([str(a), str(b)])
+    dominants, boxes, row_ids, _ = gt_from_export.union_exports([str(a), str(b)])
     assert sorted(dominants) == ["DJI_1.JPG", "DJI_2.JPG", "DJI_3.JPG"]
     assert len(boxes) == 3
     assert row_ids == {"DJI_1.JPG": ("dr1", LEGACY_A),
@@ -259,6 +259,6 @@ def test_a_later_export_wins_over_an_earlier_one_for_the_same_frame(tmp_path):
     new = tmp_path / "new.ndjson"
     new.write_text(export_line("DJI_1.JPG", "dr_new", LEGACY_B, "Ficus insipida"),
                    encoding="utf-8")
-    dominants, _, row_ids = gt_from_export.union_exports([str(old), str(new)])
+    dominants, _, row_ids, _ = gt_from_export.union_exports([str(old), str(new)])
     assert dominants == {"DJI_1.JPG": "Ficus insipida"}
     assert row_ids == {"DJI_1.JPG": ("dr_new", LEGACY_B)}
