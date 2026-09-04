@@ -296,7 +296,7 @@ def _confidence_evidence(c) -> str:
     flat = c.flat
     return ('<h3 class="sub">Can we trust the confidence? In bulk yes, on rare species no</h3>'
             + svg_hbar([(CONF_BAND_WORDS[band], k / nn if nn else 0.0,
-                         f'{pctf(k / nn) if nn else "n/a"}  &middot;  {nn:,} frames', "#1565c0")
+                         f'{pctf(k / nn) if nn else "n/a"} of {nn:,} frames', "#1565c0")
                         for band, nn, k in c.bins_all],
                        title="how often the first guess is right, "
                              "by the model's own confidence")
