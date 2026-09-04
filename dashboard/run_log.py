@@ -43,7 +43,13 @@ def log_cache(_log, s):
     _log("               -> the CENTRAL AMERICA regional model, NOT the global Pl@ntNet model.")
     _log("               The sbatch job passes no --survey-endpoint, so the 2-call")
     _log("               identify+embeddings fallback ran, not /v2/survey/.")
-    _log("    model    : config.yaml single_model_run_name 'v7.4-2026-03-27'")
+    _log("    model    : the endpoint reports '2026-03-20 (7.5)'.")
+    _log("               config.yaml's single_model_run_name says 'v7.4-2026-03-27',")
+    _log("               a later date on an earlier version: that string dates the")
+    _log("               fetch run, not the model, so it is not the model identity.")
+    _log("               Checked 2026-09-03 by re-asking the live endpoint for 28")
+    _log("               cached frames: identical species sets, scores equal to")
+    _log("               within 1e-5. The cache is this model, not an older one.")
     _log(f"    params   : nb-results={N_CANDIDATES}, no-reject=true, organs=auto, "
          f"include-related-images=false")
     _log(f"    input    : {CROP_SIZE} px CENTRE CROP of each crown photo "
