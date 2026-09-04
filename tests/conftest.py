@@ -337,15 +337,15 @@ def draw_confirmatory():
 
 
 @pytest.fixture(scope="session")
-def draw_frozen_eval():
-    """`labelling/draw_frozen_eval.py`. Stdlib only, and it reaches nothing live.
+def draw_field_sample():
+    """`labelling/draw_field_sample.py`. Stdlib only, and it reaches nothing live.
 
     It imports the confirmatory draw for the shared allocation, which is stdlib
     at import time even though that script's own fixture needs Pillow for the
     pool it derives.
     """
-    return load("_draw_frozen_eval_under_test",
-                REPO / "labelling" / "draw_frozen_eval.py")
+    return load("_draw_field_sample_under_test",
+                REPO / "labelling" / "draw_field_sample.py")
 
 
 @pytest.fixture(scope="session")

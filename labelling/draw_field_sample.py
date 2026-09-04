@@ -1,4 +1,4 @@
-"""Draw the frozen evaluation set from today's unlabelled pool, before it moves.
+"""Draw the field sample from today's unlabelled pool, before it moves.
 
 Every number on the model-health page is read off the historical labelling
 record, and that record was never a random sample: a botanist labelled what was
@@ -21,13 +21,13 @@ queue and a Labelbox inventory, both of which move. The manifest is the frozen
 record of what the pool was on the day of the draw, so `--verify` re-draws from
 it rather than re-deriving it.
 
-Sending is not this script's job and the queue is not changed. A frozen frame
+Sending is not this script's job and the queue is not changed. A drawn frame
 rides in whatever batch it lands in; what makes the set an evaluation set is
 that the draw was recorded before the pool moved, not the order it goes out in.
 
-    python3 labelling/draw_frozen_eval.py --rebuild-pool          # derive, report
-    python3 labelling/draw_frozen_eval.py --rebuild-pool --write  # commit both
-    python3 labelling/draw_frozen_eval.py --verify                # re-draw, compare
+    python3 labelling/draw_field_sample.py --rebuild-pool          # derive, report
+    python3 labelling/draw_field_sample.py --rebuild-pool --write  # commit both
+    python3 labelling/draw_field_sample.py --verify                # re-draw, compare
 """
 
 from __future__ import annotations
@@ -42,8 +42,8 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-OUT = REPO / "input" / "frozen_eval_2026-09.csv"
-POOL = REPO / "input" / "frozen_eval_pool_2026-09.csv"
+OUT = REPO / "input" / "field_sample_2026-09.csv"
+POOL = REPO / "input" / "field_sample_pool_2026-09.csv"
 
 # The send queue as the page published it, and the Labelbox inventory that says
 # which mission a frame was flown on. Both are generated and gitignored, which
@@ -82,7 +82,7 @@ def _load(name: str, path: Path):
 # `allocate` and `draw` are the stratified draw the confirmatory sample was made
 # with, reviewed once and left alone since. A second copy of a largest-remainder
 # allocation is a second thing to get wrong, so this imports them.
-_confirmatory = _load("_draw_confirmatory_for_frozen_eval",
+_confirmatory = _load("_draw_confirmatory_for_field_sample",
                       REPO / "predict" / "draw_confirmatory.py")
 allocate = _confirmatory.allocate
 
@@ -118,7 +118,7 @@ def eligible(queue_csv: Path = QUEUE_CSV, inventory: Path = INVENTORY) -> list[d
             key = row["global_key"]
             # A frame already carrying a split belongs to another evaluation and
             # is held out of sends, so it cannot be labelled next round and
-            # cannot be frozen into this set as well.
+            # cannot be drawn into this set as well.
             if (row.get("split") or "").strip():
                 spoken_for += 1
                 continue
@@ -140,9 +140,9 @@ def eligible(queue_csv: Path = QUEUE_CSV, inventory: Path = INVENTORY) -> list[d
 
 
 def draw(pool: list[dict], n: int = N, seed: int = SEED, cap: float = CAP):
-    """The frozen list and the per-site quota it was drawn under.
+    """The drawn list and the per-site quota it was drawn under.
 
-    Delegates to the confirmatory draw so the two frozen sets are drawn the same
+    Delegates to the method sample's draw so the two samples are drawn the same
     way. That one keys a row by ``base_image``; ours are global keys, so the key
     is aliased for the length of the call rather than renamed on disk.
     """
@@ -174,7 +174,7 @@ def report(pool: list[dict], rows: list[dict], quota: dict) -> None:
     """The four facts a later reader needs to trust the set."""
     print(f"pool            : {len(pool):,} unlabelled frames, "
           f"{len({r['site'] for r in pool})} sites")
-    print(f"frozen          : {len(rows)} frames, {len(quota)} sites, "
+    print(f"field sample    : {len(rows)} frames, {len(quota)} sites, "
           f"seed {SEED}, cap {CAP:.0%}")
     print(f"sha256          : {sha256(to_csv_text(rows))}")
     biggest = max(quota.items(), key=lambda kv: (kv[1], kv[0]))
@@ -190,7 +190,7 @@ def parse_args(argv=None):
                          "instead of reading the committed manifest. Only "
                          "correct before the freeze")
     ap.add_argument("--write", action="store_true",
-                    help="write the pool manifest and the frozen list")
+                    help="write the pool manifest and the drawn list")
     ap.add_argument("--verify", action="store_true",
                     help="re-draw from the committed manifest and exit "
                          "non-zero on any drift")
