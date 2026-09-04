@@ -1,6 +1,6 @@
 """Switching the Pl@ntNet flora is one line in config.yaml.
 
-Etienne asked for the BCNM micro-project over `k-central-america`, and the
+The reviewer asked for the BCNM micro-project over `k-central-america`, and the
 reason that was not a one-line change is recorded here as tests. The slug used
 to be typed in four places, one of them load-bearing: `run_log.py` printed the
 endpoint as a literal and `history.model_tag_of` regexes the flora back out of

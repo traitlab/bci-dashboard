@@ -29,7 +29,7 @@ from queue_panels import p_evidence, p_look, p_send, p_todo
 
 # Order here is reading order. The measurement comes first and the explanation
 # comes after it, which is the reverse of how this page used to be arranged.
-# Etienne, reading it cold on 2026-09-03: "split it in like a main section
+# The reviewer, reading it cold on 2026-09-03: "split it in like a main section
 # that's the actual dashboard at the top ... and then later another section
 # where it's basically finishing the explanations", because "most people, once
 # they get used to it, they will probably not look at [the prose]. They will
@@ -72,7 +72,7 @@ PANELS = {
     "species": ("model-health", p_species),
     "review": ("model-health", p_review),
     # The three that moved out of the headline band and out of "model-health".
-    # "weighting" carries the support-vs-accuracy chart, which Etienne could not
+    # "weighting" carries the support-vs-accuracy chart, which the reviewer could not
     # read cold ("I don't understand this graph") but kept once it was explained
     # ("No, I think it's good ... it's good to have all the information"). It is
     # an explanation of the two headline rates, so it belongs here.

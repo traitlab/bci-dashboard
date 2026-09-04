@@ -52,7 +52,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
          f'&middot; {c.n:,} labelled frames &middot; {c.n_sp} species</div>',
-         # One paragraph, not three. Etienne on 2026-09-03: "there's a lot of
+         # One paragraph, not three. The reviewer on 2026-09-03: "there's a lot of
          # text there ... people don't read stuff, because they'll read if they
          # need to." It has one job, to say what population every number below
          # is measured on, because a rate without its denominator is the thing

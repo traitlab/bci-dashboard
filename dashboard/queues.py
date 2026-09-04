@@ -53,8 +53,8 @@ SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue", "picke
 
 # No more than this many crowns per Labelbox batch, one botanist session's worth.
 # Overridable because the right number is the labelling team's call, not ours:
-# Etienne asked for many small batches over a few large ones, and Antoine
-# suggested 100, but if either wants 50 or 200 that should not be a source edit.
+# The reviewer asked for many small batches over a few large ones, and the
+# labelling lead suggested 100, but if either wants 50 or 200 that should not be a source edit.
 # `measure.py` writes the packing and `history.check_send_batches` verifies it
 # against this same constant, so a value changed between those two steps fails
 # the build rather than shipping a page that describes a packing nobody ran.

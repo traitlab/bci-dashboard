@@ -1,7 +1,7 @@
 """How the send queue is cut into Labelbox batches.
 
-A batch is one push to a botanist session, so its size is the thing Antoine
-asked about on 2026-08-27: batches of about a hundred pictures, with lookalike
+A batch is one push to a botanist session, so its size is the thing the
+labelling lead asked about on 2026-08-27: batches of about a hundred pictures, with lookalike
 photos sitting together. Cutting per species gave neither -- 170 of 357 batches
 held a single photo -- so the groups are now packed. The invariant that matters
 is unchanged: the batches are a repartition of the queue, nothing lost, nothing
@@ -267,14 +267,14 @@ def test_a_frame_two_batches_claim_is_a_build_failure(queues):
 
 # --- The cap itself is the labelling team's number ---
 def test_the_cap_defaults_to_a_hundred_when_nothing_is_set(queues):
-    """Antoine's number. An unset or empty variable is not a choice."""
+    """The labelling lead's number. An unset or empty variable is not a choice."""
     assert queues._batch_size_from_env(None) == 100
     assert queues._batch_size_from_env("") == 100
     assert queues._batch_size_from_env("   ") == 100
 
 
 def test_the_cap_can_be_set_without_editing_source(queues):
-    """Etienne wanted many small batches over few large ones. Trying 50 or 200
+    """The reviewer wanted many small batches over few large ones. Trying 50 or 200
     should not be a code change, because it is not our call to make."""
     assert queues._batch_size_from_env("50") == 50
     assert queues._batch_size_from_env(" 200 ") == 200
