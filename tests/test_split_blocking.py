@@ -6,7 +6,7 @@ from one flight over one site overlap, so a held-out frame can be a near-copy of
 a frame the rule learned from.
 
 This file is the caveat's expiry date. When the split is redrawn by whole sites
-the first test fails, and the failure message says to delete the caveat.
+the first test fails, and the failure message says what to write in its place.
 """
 
 import csv
@@ -50,14 +50,14 @@ def _split_by_site():
 
 def test_the_split_is_not_blocked_by_site_so_the_caveat_still_applies():
     """Fails the day someone redraws the split by whole sites. That is good
-    news, and the fix is to delete the caveat, not to relax this test."""
+    news, and the fix is to rewrite the caveat, not to relax this test."""
     counts = _split_by_site()
     shared = sorted(s for s, c in counts.items() if c["train"] and c["test"])
     assert shared, (
         "No site has frames in both train and test any more. The split looks "
-        "blocked by site now, so delete the floor caveat in "
-        "dashboard/queue_panels.py, delete this test, and re-read the wait-rule "
-        "number as an estimate rather than a floor.")
+        "blocked by site now, so rewrite the floor caveat in "
+        "dashboard/queue_panels.py: a site-blocked score is still not "
+        "unbiased, and it now answers a different question.")
 
 
 def test_every_held_out_frame_sits_at_a_site_the_rule_also_learned_from():
