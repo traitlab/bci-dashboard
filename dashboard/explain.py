@@ -133,8 +133,9 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           f'one-frame species scores only 0% or 100%, so those {singles} votes are coin '
           f'flips.</p>'
           f'<div class="warn"><strong>Read those rows as how common a species is, not as '
-          f'something labelling changed.</strong> These predictions come from a frozen '
-          f'Pl@ntNet regional model that has never seen a BCI label; common species simply '
+          f'something labelling changed.</strong> These predictions come from one Pl@ntNet '
+          f'regional model, dated {hc.PLANTNET_MODEL_VERSION}. Our own labelling did not '
+          f'move it. Common species simply '
           f'have more reference photos inside Pl@ntNet already. Extra labels buy knowledge '
           f'instead: under about {hc.WELL_SAMPLED_MIN_N} frames a per-species accuracy '
           f'jumps around too much to act on.</div>',
@@ -159,6 +160,17 @@ def method_panel(*, tag, n, n_sp, n_cand, checks, out_of_scope=None, out_of_scop
             f'<li>Predictions: model run <code>{esc(tag)}</code>, the '
             f'{esc(hc.flora_name())} model, so a regional restriction is already '
             f'in place.{scope_sentence}</li>'
+            # The date is the whole point of this item. Without it the claim
+            # underneath is an assertion; with it, it is a comparison of two
+            # dates a reader can check.
+            f'<li>Model version: Pl@ntNet reports '
+            f'<code>{esc(hc.PLANTNET_MODEL_VERSION)}</code>. Asked again on '
+            f'{esc(hc.PLANTNET_VERSION_CHECKED)} and it had not moved. BCI labels were '
+            f'first sent to Pl@ntNet in July 2026. That is after this model\u2019s date, so '
+            f'no label from this project is in it. Whether BCI photos reached Pl@ntNet by '
+            f'some other route before then, we cannot say. The {n:,} cached answers here '
+            f'record no version of their own. That field was added later. Every dated '
+            f'answer we hold names this same one.</li>'
             f'<li>Request: <code>nb-results={n_cand}</code>, <code>no-reject=true</code>, '
             f'organs detected automatically, <code>include-related-images=false</code>, on a '
             f'{CROP_SIZE}&nbsp;px centre crop. A correct answer at position {n_cand + 1} or '
