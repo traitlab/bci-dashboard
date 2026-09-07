@@ -64,11 +64,15 @@ def panel(summary, ask, body, *, open_=False, anchor=None):
             f'<div class="pbody"><p class="ask">{ask}</p>{body}</div></details>')
 
 
-def section(title, lede, panels):
+def section(title, lede, panels, *, anchor=None):
     """A named group of panels: heading band, one orienting line, panels.
     ``panels`` is already-rendered HTML. The band carries the group's question,
-    not a label: that is what makes a closed page scannable."""
-    return (f'<section class="grp" id="{slug(title)}"><h2>{title}</h2>'
+    not a label: that is what makes a closed page scannable.
+
+    ``anchor`` names the id outright, for the same reason ``panel`` takes one: a
+    heading over eight words long slugs to a truncated phrase, and the id is a
+    link someone pastes into a message."""
+    return (f'<section class="grp" id="{anchor or slug(title)}"><h2>{title}</h2>'
             f'<p class="lede">{lede}</p>\n{panels}</section>')
 
 
@@ -201,7 +205,12 @@ def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None,
     )
     # Every caller puts the species name in the first column and the filter
     # matches on it, so italics are a column rule, not a span on all 187 rows.
-    return (f'<style>#{TABLE_ID} td:nth-child(1){{font-style:italic}}</style>'
+    # The status labels are sentences ("Never returned on any BCI photo"), and a
+    # pill that cannot wrap makes the last column twice the width of any other.
+    # Scoped here rather than on `.tag`: everywhere else a tag sits in prose,
+    # where a break mid-phrase is worse than the width.
+    return (f'<style>#{TABLE_ID} td:nth-child(1){{font-style:italic}}'
+            f'#{TABLE_ID} .tag{{white-space:normal}}</style>'
             + controls + table(headers, rows, tid=TABLE_ID, sortable_from=0,
                                row_attrs=row_attrs, source=source))
 
@@ -371,54 +380,6 @@ def svg_hbar(rows, *, title=""):
                    f'text-anchor="middle">{t}%</text>')
     out.append("</svg>")
     return "\n".join(out)
-
-
-def svg_weight_pair(rows, *, label_a, label_b):
-    """Two full-width bars over the same bands, split by a different weight each.
-    ``rows`` = ``[(band, share_a, share_b, note, colour)]``, shares summing to 1
-    per column, so the reader sees the weight move without arithmetic. Each
-    column asserts that sum: a wrong denominator draws a short bar, not a wrong
-    number, which no recompute check would catch. ``pad_l`` fits the longer row
-    label; labels are right-anchored, so an overlong one silently loses its
-    first character off the viewBox."""
-    if not rows:
-        return ""
-    width, bar_h, pad_l = 620, 28, 168
-    for key in (1, 2):
-        total = sum(float(r[key]) for r in rows)
-        if abs(total - 1.0) > 1e-6:
-            raise ValueError(f"weight column {key} sums to {total}, not 1; "
-                             "the shares are against the wrong denominator")
-    bar_w = width - pad_l - 10
-    pad_l = max(pad_l, math.ceil(2 + max(_text_w(label_a, 11.5), _text_w(label_b, 11.5)) + 10))
-    width = pad_l + bar_w + 10
-    leg_h, gap = 19, 12
-    height = 8 + 2 * bar_h + gap + 16 + leg_h * len(rows)
-    o = [f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
-         f'role="img" aria-label="{esc(label_a)} against {esc(label_b)}">']
-    for i, (label, key) in enumerate(((label_a, 1), (label_b, 2))):
-        y = 8 + i * (bar_h + gap)
-        o.append(f'<text x="{pad_l - 10}" y="{y + bar_h / 2 + 4:.0f}" font-size="11.5" '
-                 f'fill="#424242" text-anchor="end">{esc(label)}</text>')
-        x = pad_l
-        for r in rows:
-            w = bar_w * float(r[key])
-            o.append(f'<rect x="{x:.1f}" y="{y}" width="{max(0.7, w):.1f}" '
-                     f'height="{bar_h}" fill="{r[4]}"/>')
-            # Below this a two-character percentage collides with the band edges.
-            if w >= 25:
-                o.append(f'<text x="{x + w / 2:.1f}" y="{y + bar_h / 2 + 4:.0f}" '
-                         f'font-size="11" fill="#fff" text-anchor="middle">'
-                         f'{100 * float(r[key]):.0f}%</text>')
-            x += w
-    y = 8 + 2 * bar_h + gap + 14
-    for i, r in enumerate(rows):
-        o.append(f'<rect x="{pad_l - 10}" y="{y + i * leg_h - 8}" width="10" height="10" '
-                 f'fill="{r[4]}" rx="2"/>'
-                 f'<text x="{pad_l + 6}" y="{y + i * leg_h}" font-size="11" fill="#616161">'
-                 f'{esc(r[0])}: {esc(r[3])}</text>')
-    o.append("</svg>")
-    return "\n".join(o)
 
 
 def svg_curve(series, *, title="", x_title="", y_title="", rules=(), marks=()):

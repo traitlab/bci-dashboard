@@ -41,13 +41,16 @@ SECTIONS = {
     "label-first": (
         "What to label first",
         "Which frames to send, which can wait, and the evidence behind the wait rule."),
+    # A third item names the id: this heading runs past the eight words slug()
+    # keeps and would otherwise ship as "...and-where-it".
     "model-health": (
-        "The numbers",
+        "Where the model is right, and where it is not",
         # No live figure in a lede: SECTIONS is a constant, so a number here
         # would not move with the snapshot and nothing would catch it.
-        "Accuracy species by species, and the labels worth a second look."),
+        "Accuracy species by species, and the labels worth a second look.",
+        "where-the-model-is-right"),
     "explanations": (
-        "What the words mean, and how the averaging works",
+        "How to read the numbers above",
         # Everything here was above the species table until 2026-09-03. It
         # explains the numbers rather than reporting them, so it now sits after
         # the thing it explains and a reader who does not need it can stop.
@@ -121,12 +124,14 @@ def render(c, ids) -> str:
     if unknown:
         raise SystemExit(f"no such panel: {unknown}. Known: {sorted(PANELS)}")
     out = []
-    for key, (title, lede) in SECTIONS.items():
+    for key, entry in SECTIONS.items():
+        title, lede = entry[:2]
+        anchor = entry[2] if len(entry) > 2 else None
         chosen = [PANELS[i][1](c) for i in ids if PANELS[i][0] == key]
         if not chosen:
             continue
         body = "\n".join(chosen)
-        out.append(body if title is None else section(title, lede, body))
+        out.append(body if title is None else section(title, lede, body, anchor=anchor))
     return "\n".join(out)
 
 

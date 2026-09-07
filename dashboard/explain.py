@@ -14,18 +14,10 @@ panel, and it is a genuine leak this does not bless.
 """
 
 import core as hc
-from assets import esc, panel, pctf, svg_weight_pair
+from assets import esc, panel, pctf, table
 from crop_overlap import CROP_SIZE
 
-# One colour and name per labelled-frame band, both bars of the weighting chart.
-# All 4.5:1 against white so the in-bar number is readable.
-#
-# Known limitation: the ramp does not order by lightness (luminance 0.110, 0.179,
-# 0.168, 0.175, 0.083; the two ends sit at 1.20:1 and the closest pair, 2-4
-# against 10-24, at 1.02:1), so without hue it carries no order. Fixing that is a
-# new palette, not a contrast tweak.
-BAND_COLOR = {"1": "#b71c1c", "2-4": "#d44215", "5-9": "#8d6e00",
-              "10-24": "#4f812c", "25+": "#1b5e20"}
+
 def _band_words():
     """Each labelled-frame band in words, and short enough for a chart label.
 
@@ -86,11 +78,10 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
         b = buckets.get(lab)
         if not b or not b["n_crowns"]:
             continue
-        rows.append((BAND_WORD[lab], b["n_species"] / n_sp, b["n_crowns"] / n,
-                     f'{b["n_species"]} species, '
-                     + ('one frame each, ' if b["n_species"] == b["n_crowns"]
-                        else f'{b["n_crowns"]:,} frames, ')
-                     + f'{pctf(b["c1"] / b["n_crowns"])} right', BAND_COLOR[lab]))
+        rows.append([BAND_WORD[lab], f'{b["n_species"]:,}', f'{b["n_crowns"]:,}',
+                     f'{100 * b["n_species"] / n_sp:.0f}%',
+                     f'{100 * b["n_crowns"] / n:.0f}%',
+                     pctf(b["c1"] / b["n_crowns"])])
     thin, fat = hc.BUCKET_ORDER[0], hc.BUCKET_ORDER[-1]
     thin_n, thin_in5 = _near_miss([r for r in sp_recs if support[r["gt"]] <= THIN_MAX])
     fat_n, fat_in5 = _near_miss([r for r in sp_recs if support[r["gt"]] >= FAT_MIN])
@@ -101,24 +92,33 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
     gap = 100 * (now["micro_top1"] - now["macro_top1"])
     singles = buckets[thin]["n_species"]
     return panel(
-        "Every labelled frame, scored on the centre crop: four rates",
-        "<b>Quote the number at the top of the page, not these four.</b> These cover "
-        "every labelled frame instead of the frozen sample, so they answer a different "
-        # What the two rates each ask is said once, next to the headline cards,
-        # where a reader is looking at the numbers it explains.
-        "question. If you cite one anyway, cite the per-species rate.",
+        "Why the two headline scores differ: the same frames, four rates",
+        # The first two of the four are the headline cards themselves, over the
+        # same frames, so the old lede telling a reader not to quote them was
+        # pointing at numbers the page quotes at the top.
+        "<b>The first two of these four are the two rates at the top of the page.</b> "
+        "This panel says what each averaging asks and why they differ. If you cite one "
+        "rate, cite the per-species one.",
         corpus_block
-        + svg_weight_pair(rows,
-                          label_a=f"one vote per species ({n_sp} votes)",
-                          label_b=f"one vote per frame ({n:,} votes)")
-          # Name the bars by their own labels, not by position: the second share
-          # is a sliver too thin to carry a printed label.
-        + f'<p class="note">The {singles} single-frame species are '
-          f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the per-species bar and '
-          f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the per-frame one. Pl@ntNet is '
-          f'right {pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} of the time on '
-          f'them, against {pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at '
-          f'{BAND_WORD[fat]}.</p>'
+        # A table rather than the two stacked bars this used to draw. The shares
+        # the argument turns on are 2% and 6%, too thin to carry a printed label
+        # in a bar, so the bars had to be read back out in a sentence underneath.
+        # Side by side in two columns they are read off directly.
+        + f'<p class="note"><b>Every species casts one vote in the per-species rate, '
+          f'every frame one vote in the per-frame rate.</b> That is {n_sp} votes '
+          f'against {n:,}, and the two share columns show where each set sits.</p>'
+        + table([("Labelled frames per species", False), ("Species", True),
+                 ("Frames", True), ("Share of the per-species vote", True),
+                 ("Share of the per-frame vote", True), ("First guess right", True)],
+                rows, source="support_buckets.csv")
+        + f'<p class="note"><b>Read the two share columns against each other.</b> The '
+          f'{singles} single-frame species carry '
+          f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the per-species vote and '
+          f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the per-frame one. They are '
+          f'also the row Pl@ntNet gets right least often, '
+          f'{pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} against '
+          f'{pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at {BAND_WORD[fat]}. '
+          f'That is the gap between the two headline rates.</p>'
           # No cause asserted here: the warning block below gives that claim
           # with its reason attached, where a reader can weigh it.
           f'<p class="note">Misses differ at each end. On species with {THIN_MAX} frames '
@@ -137,11 +137,7 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           f'Pl@ntNet regional model that has never seen a BCI label; common species simply '
           f'have more reference photos inside Pl@ntNet already. Extra labels buy knowledge '
           f'instead: under about {hc.WELL_SAMPLED_MIN_N} frames a per-species accuracy '
-          f'jumps around too much to act on.</div>'
-          # The two bars are shares. The file behind them holds the counts, so a
-          # group can be checked rather than read off a bar.
-          + '<p class="note">Each group, with its species count, frame count and '
-            'rates, is in <a href="support_buckets.csv">support_buckets.csv</a>.</p>',
+          f'jumps around too much to act on.</div>',
         # Both headline rates are in the summary and both move every snapshot.
         anchor="why-the-two-headline-scores-differ")
 

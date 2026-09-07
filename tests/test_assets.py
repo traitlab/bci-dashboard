@@ -409,48 +409,6 @@ def test_svg_curve_rule_lifts_the_axis_when_it_sits_above_every_point(assets):
     assert '>4<' in out, "the rule's own value has to appear on the y axis"
 
 
-def test_svg_weight_pair_of_no_rows_is_empty(assets):
-    assert assets.svg_weight_pair([], label_a="A", label_b="B") == ""
-
-
-def test_svg_weight_pair_requires_each_column_to_sum_to_one(assets):
-    with pytest.raises(ValueError):
-        assets.svg_weight_pair([("a", 0.5, 0.6, "", "#111")], label_a="A", label_b="B")
-
-
-def test_svg_weight_pair_top_bar_keeps_band_colour_and_widens_with_its_share(assets):
-    # Swapping the two share columns, or reading a share off the wrong
-    # denominator, would still draw *a* bar, just the wrong shape, and no
-    # printed number would catch it -- so the geometry itself is the check.
-    rows = [("a", 0.25, 0.75, "", "#111111"), ("b", 0.75, 0.25, "", "#222222")]
-    svg = assets.svg_weight_pair(rows, label_a="A", label_b="B")
-    got = re.findall(r'<rect x="([\d.]+)" y="(\d+)" width="([\d.]+)"[^>]*fill="(#\w+)"', svg)
-    top = [g for g in got if g[1] == "8"]
-    assert len(top) == 2
-    assert top[0][3] == "#111111" and top[1][3] == "#222222"  # band keeps its colour
-    assert float(top[0][2]) < float(top[1][2])  # a's 0.25 share draws narrower than b's 0.75
-    assert float(top[0][0]) < float(top[1][0])  # a is still drawn first, starting further left
-
-
-def test_svg_weight_pair_bottom_bar_mirrors_the_weight_moving_across(assets):
-    # Same bands, same colours, but the shares are swapped between the two
-    # bars -- the whole point of the pair is that the reader sees the weight
-    # move from one bar to the other without doing arithmetic.
-    rows = [("a", 0.25, 0.75, "", "#111111"), ("b", 0.75, 0.25, "", "#222222")]
-    svg = assets.svg_weight_pair(rows, label_a="A", label_b="B")
-    got = re.findall(r'<rect x="([\d.]+)" y="(\d+)" width="([\d.]+)"[^>]*fill="(#\w+)"', svg)
-    bottom = [g for g in got if g[1] == "48"]
-    assert len(bottom) == 2
-    assert bottom[0][3] == "#111111" and bottom[1][3] == "#222222"  # band keeps its colour
-    assert float(bottom[0][2]) > float(bottom[1][2])  # a's 0.75 share now wider than b's 0.25
-
-
-def test_svg_weight_pair_escapes_the_axis_labels(assets):
-    rows = [("a", 1.0, 1.0, "note", "#111111")]
-    out = assets.svg_weight_pair(rows, label_a=INJECT, label_b="B")
-    assert "<script>&" not in out
-
-
 def test_css_for_drops_only_the_rules_the_page_has_nothing_to_style(assets):
     """One stylesheet covers every page and the pages are no longer alike. A
     rule goes only when every selector in it names a class the page never
@@ -518,43 +476,6 @@ def test_a_stated_contrast_ratio_is_the_one_the_two_colours_have(where, phrase, 
         f"{where} states a contrast for {fg} on {bg} that is not {ratio}:1, which "
         f"is what those two colours measure.")
 
-
-def test_the_band_palette_is_as_readable_and_as_unordered_as_its_comment_says(explain):
-    """Both halves of the BAND_COLOR comment are measurements, not choices.
-
-    It promises every band clears 4.5:1 against white, which is what makes the
-    number inside the bar readable, and it admits the ramp carries no order by
-    listing the luminances and the closest pair. Swap one hex and the promise
-    can break while the admission keeps quoting the old palette.
-    """
-    import pathlib
-    import re
-
-    colors = list(explain.BAND_COLOR.values())
-    worst = min(_contrast(c, "#ffffff") for c in colors)
-    assert worst >= 4.5, (
-        f"the comment promises all {len(colors)} bands clear 4.5:1 against white; "
-        f"the weakest is {worst:.2f}:1.")
-
-    src = pathlib.Path(explain.__file__).read_text(encoding="utf-8")
-    said = re.search(r"luminance ([\d., \n#]+?);", src)
-    assert said, "explain.py no longer lists the band luminances"
-    listed = [x for x in re.findall(r"0\.\d+", said.group(1))]
-    assert listed == [f"{_relative_luminance(c):.3f}" for c in colors], (
-        f"the comment lists luminances {listed}, the palette measures "
-        f"{[f'{_relative_luminance(c):.3f}' for c in colors]}.")
-
-    ends = f"{_contrast(colors[0], colors[-1]):.2f}"
-    closest = min(_contrast(a, b) for i, a in enumerate(colors) for b in colors[i + 1:])
-    assert f"the two ends sit at {ends}:1" in src, (
-        f"the comment misstates the end-to-end contrast, which is {ends}:1.")
-    assert f"at {closest:.2f}:1" in src, (
-        f"the comment misstates the closest pair, which is {closest:.2f}:1.")
-
-
-# ---------------------------------------------------------------------------
-# table(source=...): the file a table's rows are in
-# ---------------------------------------------------------------------------
 
 def test_a_table_names_no_file_unless_one_is_passed(assets):
     """Most tables are counted off a figure with no file of its own, and a

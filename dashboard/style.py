@@ -117,7 +117,15 @@ details.panel[open]>summary{border-bottom:1px solid #f0f0f0;margin-bottom:4px}
 }
 .controls .count{font-size:0.8rem;color:#757575}
 .controls .showall{font-size:0.85rem;color:#37474f;display:flex;align-items:center;gap:6px}
-th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+/* The headings wrap, so the table fits the page. Ten columns of headings on one
+   line each made the widest thing on the page a row of words, and pushed the
+   species name off the left edge of its own scroll box the moment a reader
+   looked at the right-hand columns. The definitions moved into the tooltips, so
+   what is left here is a label and it can take two lines. The abbr is an
+   inline-block so the sort arrow sits beside the wrapped label rather than
+   wrapping onto a line of its own. */
+th.sortable{cursor:pointer;user-select:none}
+th.sortable abbr{display:inline-block}
 th.sortable:focus-visible{outline:2px solid #1565c0;outline-offset:-2px}
 /* The arrow is the only thing telling the reader these headings sort, so it has
    to survive the #f5f5f5 header fill: 4.75:1 here against 1.72:1 before. */

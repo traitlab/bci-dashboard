@@ -61,7 +61,7 @@ def floor_note(cf):
     reasonably reads a correction as a pending gain.
     """
     return (
-        f'<p class="note"><strong>The middle square is {CENTRE_CROP_IS.split(", ")[-1]}, '
+        f'<p class="note"><strong>The centre crop is {CENTRE_CROP_IS.split(", ")[-1]}, '
         f'and the label describes all of it.</strong> On {int(cf["n_frames"])} frames set '
         f'aside before either number existed, sending the outlined crowns instead moved the '
         f'rate by {100 * cf["crown_minus_photo"]:+.1f} points. So read the rates above as a '
@@ -96,7 +96,7 @@ def p_floor(c):
         f'time redrawing the {int(cf["n_sites"])} sites with replacement. We kept the '
         f'middle 95% of the answers.</p>'
         f'<p class="note">On {int(cf["crown_only_hits"])} frames outlining got the name '
-        f'right where the middle square got it wrong. On {int(cf["photo_only_hits"])} it '
+        f'right where the centre crop got it wrong. On {int(cf["photo_only_hits"])} it '
         f'went the other way.</p>'
         f'<div class="warn"><p><strong>How far the gap reaches.</strong></p><ul>'
         f'<li><strong>One export batch.</strong> Every frame here carries '
@@ -114,11 +114,11 @@ def p_floor(c):
         f'read, both averagings, and the warnings the design requires verbatim sit with '
         f'that design, and we send it on request.</p>')
     return panel(
-        'What the middle square costs, and how far that number reaches',
+        'What the centre crop costs, and how far that number reaches',
         f"<b>One question, asked once, on {int(cf['n_frames'])} frames fixed in "
-        f"advance.</b> Scoring the middle square instead of a botanist&rsquo;s outlines "
-        f"costs {100 * cf['crown_minus_photo']:.1f} points. This is where that comes "
-        f"from, and how far it reaches.", body,
+        f"advance.</b> Scoring the centre crop instead of a botanist&rsquo;s outlines "
+        f"costs {100 * cf['crown_minus_photo']:.1f} points. Which frames it was "
+        f"measured on, and where it stops applying.", body,
         # The id predates this panel. A saved link should still land on the
         # question it was saved for, which is the one narrowed here.
         anchor="where-the-headline-comes-from")
