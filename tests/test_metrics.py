@@ -233,7 +233,11 @@ def test_the_species_table_names_recall_in_the_column_that_holds_it(external_pag
     columns are.
     """
     html, _ = external_page
-    assert "<th class=\"num sortable\">Top-1 accuracy (recall)</th>" in html
+    # The heading also carries its own definition as a tooltip, so the assertion
+    # is on the heading cell around it rather than on the cell's whole text.
+    assert ('<th class="num sortable"><abbr title="Of the frames a botanist '
+            'labelled this species, the share the first guess got right.">'
+            'Top-1 accuracy (recall)</abbr></th>') in html
 
 
 def test_context_md_no_longer_bans_the_metric_names():
