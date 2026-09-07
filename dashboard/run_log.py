@@ -23,6 +23,8 @@ from core import (
     IDENTIFY_URL,
     MIN_CROP_COVERAGE,
     N_CANDIDATES,
+    PLANTNET_MODEL_VERSION,
+    PLANTNET_VERSION_CHECKED,
     RELIABLE_MIN_TOP1,
     REVIEW_CONF,
     WELL_SAMPLED_MIN_N,
@@ -170,8 +172,13 @@ def log_inputs(_log, gt_rows, split_rows, split_of):
     _log("  random draw, so per-species rates transfer to the unlabelled remainder only")
     _log("  under an assumption that cannot be tested offline.")
     _log("  NOTE: all evaluation below pools train+valid+test. The cached predictions")
-    _log("  come from a frozen third-party API that never saw these splits, so there is")
-    _log("  no train/test leakage to control for; splits are reported for traceability only.")
+    _log(f"  come from Pl@ntNet model {PLANTNET_MODEL_VERSION}, still the version the")
+    _log(f"  endpoint reported on {PLANTNET_VERSION_CHECKED}. BCI labels first reached")
+    _log("  Pl@ntNet in 2026-07, after that date, so no label from this project trained the")
+    _log("  model that answered and these splits control nothing on the prediction side.")
+    _log("  They are NOT spatially blocked: every site with labelled frames has frames in")
+    _log("  train, test and valid at once, so any rule graded on `test` alone is graded")
+    _log("  against near-duplicates of its own training frames. See tests/test_split_blocking.py.")
     _log("")
 
 

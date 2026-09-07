@@ -50,6 +50,18 @@ SEND_FIRST_COLUMNS = ["queue", "global_key", "split", "predicted_species", "conf
                       "batch_id"]
 # send_batches.csv's columns, likewise: returned in this order, written as that header.
 SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue", "picked_by"]
+# Two more columns the file carries and the packing does not decide. They are
+# looked up per frame at write time, so `chunk_send_batches` stays a pure
+# function of the queue and `history.check_send_batches` can keep comparing its
+# output to the file column by column. The header is the two lists joined.
+#
+# Both links, not one. `image_url` opens for anyone with a browser and covers
+# every row; `labelbox_url` covers about seven rows in eight and is the only one
+# that shows which crown in the frame is the one being asked about. Shipping the
+# first alone would put a 7MB photo of a whole canopy in front of a botanist with
+# no mark on it, and the code for the second already exists.
+SEND_BATCH_LINK_COLUMNS = ["image_url", "labelbox_url"]
+SEND_BATCH_HEADER = SEND_BATCH_COLUMNS + SEND_BATCH_LINK_COLUMNS
 
 # No more than this many crowns per Labelbox batch, one botanist session's worth.
 # Overridable because the right number is the labelling team's call, not ours:

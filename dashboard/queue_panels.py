@@ -71,6 +71,28 @@ DISPATCH = (
     '<p class="note">Drop <code>--test</code> once the dry run looks right.</p>')
 
 
+def links_note(c) -> str:
+    """What the two link columns in send_batches.csv reach, and what they do not.
+
+    The standing rule is that a link column is never shipped silently half
+    empty. The CSV has nowhere to say so, so the page says it for both columns
+    at once, next to the link to the file.
+    """
+    at = queues.SEND_FIRST_COLUMNS.index("global_key")
+    keys = [r[at] for r in c.queue_rows]
+    box = hc.labelbox_link_coverage(keys)
+    images = hc.inventory_image_urls()
+    n_img = sum(1 for k in keys if images.get(k))
+    return (f'<p class="note"><strong>Every row carries two links.</strong> '
+            f'<code>image_url</code> opens the whole frame in any browser, no Labelbox '
+            f'seat and no login, and it is filled on {n_img:,} of {len(keys):,} rows. '
+            f'<code>labelbox_url</code> opens the frame in the project it was labelled '
+            f'in, which is the only view that draws the crown being asked about, and it '
+            f'is filled on {box["n_linked"]:,}. The {box["n_unlinked"]:,} rows without one '
+            f'are frames no Labelbox project on disk names. Those cells are empty rather '
+            f'than guessed: a guessed link is a 404 in front of a botanist.</p>')
+
+
 def p_todo(c):
     """The species statuses as a to-do list, cheapest useful work first."""
     # These rows are species statuses. How the pool is ordered is the next
@@ -217,7 +239,7 @@ def held_out_note(c) -> str:
 def p_send(c):
     """The page's answer to "what do I label next": queue sizes, the head of
     the queue, then the caveats that qualify both."""
-    body = (send_pool_table(c) + send_preview_table(c) + DISPATCH
+    body = (send_pool_table(c) + send_preview_table(c) + DISPATCH + links_note(c)
             + held_out_note(c) + send_notes(c))
     # The same two queues the hero counts, added the same way, so both agree.
     send_now = (c.queue_counts.get("long_tail", 0)
@@ -251,13 +273,22 @@ def _wait_rule(c) -> str:
             # Every share in the comparison table below is out of this count.
             f'<p class="note"><strong>What those {len(c.test_recs):,} frames are.</strong> '
             f'The labelled frames marked <code>test</code> in <code>splits.csv</code>. The '
-            f'rule was chosen on the other frames, so nothing here is graded on the frames '
-            f'that picked it. Every count below is out of those {len(c.test_recs):,}. '
+            f'rule was chosen on the other frames, so no frame here helped pick the rule. '
+            f'Every count below is out of those {len(c.test_recs):,}. '
             # Two hold-outs, described in almost the same words on two pages that
             # link to each other. A reader assumes one is a subset of the other.
             f'They are not the model-health page\'s hold-out, a separate draw of '
             f'{int(c.cf["n_frames"])} frames; the two overlap and neither contains the '
             f'other.</p>'
+            '<p class="note"><strong>Why the wrong-guess share is a floor, not an '
+            'estimate.</strong> The split was drawn frame by frame, not site by site. Every '
+            'site with labelled frames has frames in <code>train</code>, <code>test</code> '
+            'and <code>valid</code> at once. Drone frames from one flight over one site '
+            'overlap, so a held-out frame can be a near-copy of a frame the rule learned '
+            'from. That flatters the model, and the rule rides on the model. So the share '
+            'above is the least the rule gets wrong, and we have not measured how much more. '
+            'Redrawing <code>splits.csv</code> by whole sites is what fixes it. Until then '
+            'this caveat stands and the number is re-read when it lands.</p>'
             '<p class="note"><strong>Nothing here is a label.</strong> A frame that can wait '
             "keeps whatever label it has, or none; the rule only pushes it down the "
             "queue. The decision also expires with the model. Pl@ntNet ships a new one "

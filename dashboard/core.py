@@ -147,6 +147,21 @@ def gt_provenance(gt_csv: str = GT_CSV) -> str:
 # table's top-N accuracy column is measured at.
 N_CANDIDATES = 5
 
+# The model version Pl@ntNet's identify endpoint reports, and the day we last
+# asked it. Typed here rather than measured, because `dashboard/` makes no
+# network call and the 7,702 cached answers behind every published number carry
+# no version field at all: `predict/ingest_photos.py` only started lifting one in
+# 2026-08. What is on disk agrees, though. All 18,105 cached answers that do name
+# a version name this one, across seven cache directories and three fetch paths.
+#
+# It is here because a claim about what the model has seen is only as good as its
+# date. BCI labels reached Pl@ntNet in 2026-07, after 2026-03-20, so they are not
+# in the model that answered. Re-check by re-querying a frame and reading
+# `.model_version`; if the date has moved, change it here and re-read the claim
+# in `explain.py` rather than leaving both.
+PLANTNET_MODEL_VERSION = "2026-03-20 (7.5)"
+PLANTNET_VERSION_CHECKED = "2026-09-07"
+
 # The Pl@ntNet project our predictions came from (config.yaml plantnet.identify_url,
 # the segment after /identify/). predict/fetch_checklist.py downloads its species
 # list to data/checklist_<EVAL_PROJECT>.json; dashboard/checklist.py reads that back
@@ -407,6 +422,37 @@ def _inventory_pairs(paths):
                 key = row.get("global_key")
                 if key and url and _LABELBOX_URL_RE.fullmatch(str(url).strip()):
                     yield key, str(url).strip()
+
+
+def inventory_image_urls(path=LEGACY_INVENTORIES) -> dict[str, str]:
+    """global_key -> the whole frame, straight off the inventory's ``row_data``.
+
+    The queue file goes to a botanist who has no Labelbox seat and no checkout,
+    so a row without a link is a row nobody can act on. This link is the one the
+    inventory states for every frame it lists, where the Labelbox link is stated
+    for 88.5% of the queue, so it is the column that can be shipped whole.
+
+    Offline, like every other link this module builds: a row without a
+    ``row_data`` field, or with one that is not an http URL, yields nothing
+    rather than a guessed path.
+    """
+    out = {}
+    for path_ in ((path,) if isinstance(path, str) else path):
+        if not os.path.exists(path_):
+            continue
+        with open(path_, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                key, url = row.get("global_key"), str(row.get("row_data") or "").strip()
+                if key and url.startswith(("http://", "https://")):
+                    out[key] = url
+    return out
 
 
 def legacy_labelbox_urls(path=LEGACY_INVENTORIES) -> dict[str, str]:

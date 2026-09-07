@@ -22,14 +22,16 @@ from health import load_health
 from core import (
     add_input_flags, summarise,
     ratio, fmt, genus_of, normalize,
-    coverage_gate_stats, diagnose, labelbox_urls, adjudicated_keys,
+    coverage_gate_stats, diagnose, labelbox_urls, inventory_image_urls,
+    adjudicated_keys,
     CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
     REVIEW_CONF, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
     GT_KEY_PREFIX, N_CANDIDATES, QUEUE_NOVELTY_CSV,
 )
 from queues import (
-    BATCH_SIZE, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_FIRST_COLUMNS,
+    BATCH_SIZE, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_BATCH_HEADER,
+    SEND_FIRST_COLUMNS,
     chunk_send_batches, load_novelty, novelty_provenance, send_first_rows,
     with_batch_ids,
 )
@@ -190,11 +192,22 @@ def write_send_first_queue(out_dir, queue_rows):
 
 
 def write_send_batches(out_dir, batch_rows):
-    """The send-first queue, batched to one botanist sitting."""
+    """The send-first queue, batched to one botanist sitting, each row linked.
+
+    The links are joined on here rather than inside the batcher, so the packing
+    stays a pure function of the queue and the build's identity check keeps
+    comparing that function's output to this file. A frame the inventory does
+    not name leaves an empty cell: a blank is honest, a guessed URL is a 404 in
+    front of a botanist.
+    """
+    images, boxes = inventory_image_urls(), labelbox_urls()
+    key_at = SEND_BATCH_COLUMNS.index("global_key")
     with _csv(out_dir, "send_batches.csv") as f:
         w = csv.writer(f)
-        w.writerow(SEND_BATCH_COLUMNS)
-        w.writerows(batch_rows)
+        w.writerow(SEND_BATCH_HEADER)
+        for row in batch_rows:
+            key = row[key_at]
+            w.writerow(list(row) + [images.get(key, ""), boxes.get(key, "")])
 
 
 def write_label_review_queue(out_dir, review_rows):
