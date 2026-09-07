@@ -191,9 +191,38 @@ pre.cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.76re
 code.key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.72rem;
   color:#37474f;word-break:break-all}
 
-.tscroll{overflow-x:auto}
+/* Freeze the top row, as a spreadsheet does. A sticky heading sticks to its
+   nearest scrolling ancestor, and this box is already one (`overflow-x:auto`
+   creates a scrollport on both axes), so the box has to be what scrolls
+   vertically too or the heading never leaves the top of a table nobody can see
+   the top of. Hence a height cap here rather than a sticky heading alone.
+   The 2px border under a heading does not survive `position:sticky` under
+   `border-collapse:collapse`, so it is drawn as an inset shadow instead. */
+.tscroll{overflow:auto;max-height:80vh}
+thead th{position:sticky;top:0;z-index:2;box-shadow:inset 0 -2px 0 #e0e0e0}
+/* A recurring label-and-guess pair is written once and spanned down its own
+   frames, so the pair cells align to the first of them and the block that
+   starts a new pair carries the rule between pairs. */
+td.pair{vertical-align:top}
+tr.pair>td{border-top:1px solid #cfd8dc}
+.tally{font-size:0.74rem;color:#6d6d6d;white-space:nowrap;margin-left:6px}
+/* A definition block for the reader who wants all of them at once. Closed, so
+   the table it sits above starts on the first screen. */
+details.more{margin:2px 0 12px}
+details.more>summary{font-size:0.84rem;font-weight:600}
+/* A column heading that carries its own definition in its title. The dotted
+   underline is the long-standing "there is a definition here" mark; no
+   cursor:help, because the heading is still a click target that sorts. */
+th abbr{text-decoration:underline dotted;text-underline-offset:3px}
 /* Every panel carries an id, so it must be findable once scrolled to. */
 details.panel:target>summary{background:#e3f2fd}
+
+/* Paper does not scroll, so the height cap and the sticky heading both come
+   off: a capped box prints as a clipped table. */
+@media print{
+  .tscroll{overflow:visible;max-height:none}
+  thead th{position:static}
+}
 
 /* No room for two columns on a phone; the vendored 640px query stays as it is. */
 @media(max-width:640px){

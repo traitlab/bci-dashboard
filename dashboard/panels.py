@@ -190,18 +190,26 @@ def _project_split(cov):
 
 
 # The columns of the one review table, numeric flag second, as ``table`` takes
-# them. Written once so the group heading's colspan cannot drift from them.
+# them. The first two are the pair, and a pair with several frames writes them
+# once and spans them down its own rows.
 REVIEW_COLUMNS = [("botanist label", False), ("Pl@ntNet's first guess", False),
                   ("confidence", True), ("split", False), ("frame", False)]
 
 
 def _review_table(groups, urls):
-    """One table, every review frame, each pair a heading over its own frames.
+    """One table, every review frame, a recurring pair written once over its rows.
 
     Not two tables: a pairs table capped at one number beside a frames table
     capped at another reads as two populations, and the pair a reader goes
-    looking for is the one outside the first cap. A heading row inside the one
-    table keeps the pair counts without a second denominator.
+    looking for is the one outside the first cap. The pair counts therefore stay
+    inside the one table, without a second denominator.
+
+    They stay as the row's own first two cells, spanned down the frames that
+    share them, rather than as a full-width heading row above them. Most pairs
+    here carry a single frame, so a heading row was a row restating the two
+    names of the one row under it: double the height and the species name
+    written twice. Spanned cells keep a recurring pair reading as one block and
+    leave a one-frame pair as one line.
     """
     out = ["<table><thead><tr>"]
     for text, num in REVIEW_COLUMNS:
@@ -209,16 +217,20 @@ def _review_table(groups, urls):
         out.append(f"<th{cls}>{text}</th>")
     out.append("</tr></thead><tbody>")
     for (gt, pr), rows in groups:
-        out.append(f'<tr><th colspan="{len(REVIEW_COLUMNS)}">'
-                   f'<span class="sp">{esc(cap(gt))}</span> labelled, '
-                   f'<span class="sp">{esc(cap(pr))}</span> guessed: {len(rows)} '
-                   f'frame{"" if len(rows) == 1 else "s"}</th></tr>')
-        for r in rows:
+        n = len(rows)
+        # The count rides the pair it belongs to, and only where there is one to
+        # make: "1 frame" beside a single row says nothing the row does not.
+        span = f' rowspan="{n}"' if n > 1 else ""
+        tally = f'<span class="tally">{n} frames</span>' if n > 1 else ""
+        first = ' class="pair"'
+        for i, r in enumerate(rows):
             key = r["global_key"]
             frame = (f'<a href="{esc(urls[key])}" target="_blank" rel="noopener">'
                      f'{esc(key)}</a>') if key in urls else esc(key)
-            out.append(f'<tr><td><span class="sp">{esc(cap(r["gt"]))}</span></td>'
-                       f'<td><span class="sp">{esc(cap(top1(r)))}</span></td>'
+            pair = (f'<td class="pair"{span}><span class="sp">{esc(cap(gt))}</span></td>'
+                    f'<td class="pair"{span}><span class="sp">{esc(cap(pr))}</span>'
+                    f'{tally}</td>') if i == 0 else ""
+            out.append(f'<tr{first if i == 0 else ""}>{pair}'
                        f'<td class="num">{conf(r):.2f}</td>'
                        f'<td>{esc(r["split"] or "unassigned")}</td>'
                        f'<td>{frame}</td></tr>')
@@ -267,10 +279,9 @@ def p_review(c):
             f'A first guess this confident is right {pctf(c.confident_ok)} of the time '
             f'in bulk ({c.confident_hits:,} of {len(c.confident):,}). A wrong label '
             f'found this way is the cheapest label fix available.</p>'
-            f'<p class="note">All {n} frames are here, grouped under their '
-            f'{len(groups)} label-and-guess pairs, the pairs that recur first. '
-            f'{len(recur)} pairs carry more than one frame and cover {covered} of the '
-            f'{n} frames; the other {len(groups) - len(recur)} carry one frame '
+            f'<p class="note">All {n} frames are here, under {len(groups)} '
+            f'label-and-guess pairs, the pairs that recur first: {len(recur)} pairs '
+            f'cover {covered} frames, the other {len(groups) - len(recur)} one frame '
             f'each.</p>'
             + _link_note(here, wide)
             + (_review_table(groups, urls) if groups
@@ -376,6 +387,48 @@ def _starts_hidden(d, status):
     return status != "unreachable" and d["n_labelled_frames"] < THIN_MIN_FRAMES
 
 
+def _hint(text, definition):
+    """A column heading that carries its own definition, one hover away.
+
+    ``abbr`` rather than a superscript marker: it is the element that means
+    exactly this, it needs no markup inside the cell a reader clicks to sort,
+    and a phone that cannot hover still has the block below. The same sentence
+    appears in both places, written once here.
+    """
+    return f'<abbr title="{esc(definition)}">{esc(text)}</abbr>'
+
+
+def _species_columns_note():
+    """The column definitions, closed. Four paragraphs of them stood open above
+    the table and pushed it off the first screen; a reader who already knows
+    what precision is was paying for the reader who does not."""
+    return ('<details class="more"><summary>What the columns mean</summary>'
+            '<p class="note"><b>Top-1 accuracy on a species row is that '
+            'species&rsquo; recall</b>: of the frames a botanist labelled it, the '
+            'share the first guess got right. <b>Precision</b> asks the reverse, over '
+            'the frames the model guessed that name on, and is only countable where a '
+            'botanist has labelled the frame. So it is precision over the frames we '
+            'scored, not over the survey. <b>F1</b> is their harmonic mean, so a row '
+            'scores well only when both do.</p>'
+            '<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own '
+            'score for its first guess, averaged over that species&rsquo; frames. '
+            'Pl@ntNet spreads 100% of it across every species it knows. So 0.86 means '
+            'nearly all of that went on one name, and 0.32 means it was spread thin. '
+            '<b>Middle half</b> is where the middle 50% of that species&rsquo; frames '
+            'fall, the 25th to the 75th percentile. A mean of 0.60 over a middle half '
+            'of 0.55 to 0.65 is a steady score. The same mean over 0.20 to 0.95 is two '
+            'behaviours averaged into one number, and the column sorts on that '
+            'width.</p></details>')
+
+
+def _species_status_note():
+    """The status legend and its precedence rule, closed. The colours are on the
+    rows either way; this is what a reader opens once and then does not need."""
+    return ('<details class="more"><summary>What the statuses mean</summary>'
+            + status_legend(legend_entries())
+            + f'<p class="note">{status_precedence_note()}</p></details>')
+
+
 def p_species(c):
     """One row per species, so a reader can look up the tree they care about
     instead of taking the corpus average on trust."""
@@ -404,47 +457,53 @@ def p_species(c):
     # Counted off the marks just made, so the prose below cannot name a
     # different number from the table.
     n_thin = sum(1 for a in attrs if a)
-    # Three paragraphs before the table: how to work it, how a status is chosen,
-    # and what the rates are scored on. The counts themselves stay in the head
-    # panel, which says them once.
+    # The table is what this panel is for, so what stands above it is the one
+    # caveat that changes how every number reads, the control, and the line
+    # about the hidden rows. The definitions used to stand there too, four
+    # paragraphs of them, and pushed the table off the first screen. They are
+    # now a heading's own tooltip for the reader who stumbles on one column, and
+    # a closed block for the reader who wants all of them.
     body = ('<p class="note"><b>Every rate here is scored on the fixed centre square, '
-            'not on outlined crowns.</b> So a low rate can mean the crop missed the tree '
-            'rather than that the model missed the name. Read a row as a flag for a '
-            'second look, not as that species&rsquo; identification accuracy.</p>'
-            + status_legend(legend_entries())
-            + f'<p class="note">{status_precedence_note()}</p>'
-            + f'<p class="note"><b>{n_thin} of these {c.n_sp} species start hidden.</b> '
-              f'They carry fewer than {THIN_MIN_FRAMES} labelled frames each, the same '
-              f'cut-off as the &ldquo;too few labels to judge&rdquo; status. On that few '
-              f'frames a rate lands on a handful of values: F1 on one labelled frame can '
-              f'only be 0% or 100%. Species the model never returned stay on screen '
-              f'however few frames they carry. Type a name or pick a status to reach a '
-              f'hidden row, or tick <i>show all {c.n_sp}</i>.</p>'
-            + '<p class="note"><b>Top-1 accuracy on a species row is that species&rsquo; '
-              'recall</b>: of the frames a botanist labelled it, the share the first '
-              'guess got right. <b>Precision</b> asks the reverse, over the frames the '
-              'model guessed that name on, and is only countable where a botanist has '
-              'labelled the frame. So it is precision over the frames we scored, not '
-              'over the survey. <b>F1</b> is their harmonic mean, so a row scores well '
-              'only when both do.</p>'
-            + '<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s own '
-              'score for its first guess, averaged over that species&rsquo; frames. '
-              'Pl@ntNet spreads 100% of it across every species it knows. So 0.86 means '
-              'nearly all of that went on one name, and 0.32 means it was spread thin. '
-              '<b>Middle half</b> is where the middle 50% of that species&rsquo; frames '
-              'fall, the 25th to the 75th percentile. A mean of 0.60 over a middle half '
-              'of 0.55 to 0.65 is a steady score. The same mean over 0.20 to 0.95 is two '
-              'behaviours averaged into one number, and the column sorts on that '
-              'width.</p>'
+            'not on outlined crowns.</b> Read a row as a flag for a second look, not as '
+            'that species&rsquo; identification accuracy.</p>'
+            + _species_columns_note()
+            + _species_status_note()
             + threshold_control(c)
+            + f'<p class="note"><b>{n_thin} of these {c.n_sp} species start hidden.</b> '
+              f'They carry fewer than {THIN_MIN_FRAMES} labelled frames each. On that '
+              f'few a rate says little: F1 on one labelled frame can only be 0% or 100%. '
+              f'Type a name, pick a status, or tick <i>show all {c.n_sp}</i> to reach '
+              f'one. Species the model never returned stay on screen however few frames '
+              f'they carry.</p>'
             + filterable_table(
-        # "(recall)" is in the header, not only in the paragraph above: a reader
+        # "(recall)" is in the header, not only in the block below: a reader
         # scanning the columns found Precision and F1, no recall, and read that
         # as a missing column rather than as the one it shares a number with.
-        [("Species", False), ("Labelled frames", True),
-         ("Top-1 accuracy (recall)", True), (f"Top-{c.n_cand} accuracy", True),
-         ("Frames guessed", True), ("Precision", True), ("F1", True),
-         ("Model's confidence", True), ("Middle half", True), ("Status", False)],
+        # Every heading a reader can misread carries its own definition as a
+        # tooltip, so the common case needs neither the block nor a scroll back.
+        [("Species", False),
+         (_hint("Labelled frames", "Frames a botanist labelled this species."), True),
+         (_hint("Top-1 accuracy (recall)",
+                "Of the frames a botanist labelled this species, the share the "
+                "first guess got right."), True),
+         (_hint(f"Top-{c.n_cand} accuracy",
+                f"The share of those frames where the right name is among the "
+                f"{c.n_cand} names requested."), True),
+         (_hint("Frames guessed",
+                "Labelled frames the model returned this name on, right or "
+                "wrong. The population precision is scored over."), True),
+         (_hint("Precision",
+                "Of the frames the model guessed this name on, the share that "
+                "really were it."), True),
+         (_hint("F1", "The harmonic mean of precision and recall, so a row "
+                      "scores well only when both do."), True),
+         (_hint("Model's confidence",
+                "Pl@ntNet's own score for its first guess, averaged over this "
+                "species' frames."), True),
+         (_hint("Middle half",
+                "Where the middle 50% of this species' frames fall, the 25th to "
+                "the 75th percentile. Sorts on the width, not the ends."), True),
+         ("Status", False)],
         sp_rows,
         options=filter_options(),
         row_attrs=attrs,

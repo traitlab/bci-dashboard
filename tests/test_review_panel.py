@@ -4,7 +4,7 @@ The panel used to print two tables, a confusion-pairs table capped at ten and a
 frames table capped at fifteen. Two caps over one population read as two
 populations, and the pair a reader goes looking for is the one outside the
 first cap. There is now one table, every frame in it, each label-and-guess pair
-a heading over its own frames.
+written once in the first two cells of its own frames and spanned down them.
 
 The row count is the gate. It has to equal the row count of
 label_review_queue.csv, which the page also links, because a reader who opens
@@ -23,7 +23,7 @@ import pytest
 from conftest import SNAPSHOT_DIR
 
 PANEL = re.compile(r'id="labels-worth-a-second-look".*?</details>', re.S)
-HEADING = re.compile(r"<th colspan=")
+PAIR_CELL = re.compile(r'<td class="pair"')
 FRAME_ROW = re.compile(r'<td class="num">\d\.\d\d</td>')
 
 
@@ -57,12 +57,15 @@ def test_every_review_frame_is_in_the_table(external_page):
     assert len(FRAME_ROW.findall(panel)) == len(rows) > 0
 
 
-def test_one_heading_per_label_and_guess_pair(external_page):
-    """A heading row carries the pair and its own frame count, so the pair
-    counts survive without a second table and a second denominator."""
+def test_each_label_and_guess_pair_is_written_once(external_page):
+    """Two spanned cells per pair, not a full-width heading row above it and the
+    same two names again in the row under it. The pair counts survive without a
+    second table and a second denominator; the duplication does not."""
     rows = queue_rows()
     pairs = {(r["gt_species"], r["predicted_species"]) for r in rows}
-    assert len(HEADING.findall(review_panel(external_page[0]))) == len(pairs)
+    panel = review_panel(external_page[0])
+    assert len(PAIR_CELL.findall(panel)) == 2 * len(pairs)
+    assert "<th colspan=" not in panel, "the pair heading rows are back"
 
 
 def test_the_pair_coverage_sentence_counts_the_recurring_pairs(panels):
