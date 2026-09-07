@@ -68,7 +68,8 @@ def test_section_headings_are_non_empty_except_the_headline_band(pagemod):
     # `render()` treats a title of None as the un-headed band the headline
     # cards sit in; every other section must carry a real heading and lede,
     # since a blank one would print an empty <h2> or <p class="lede">.
-    for key, (title, lede) in pagemod.SECTIONS.items():
+    for key, entry in pagemod.SECTIONS.items():
+        title, lede = entry[:2]
         if key == "headline":
             assert title is None and lede is None
             continue

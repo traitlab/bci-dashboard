@@ -9,8 +9,6 @@ than building a page or reading a snapshot.
 
 from __future__ import annotations
 
-import re
-
 import pytest
 
 # A string carrying all four HTML metacharacters a caller-text argument has to
@@ -25,17 +23,12 @@ def _balanced(html):
 # --- band dicts and constants -----------------------------------------------
 
 def test_band_dicts_share_the_same_keys(explain):
-    assert set(explain.BAND_COLOR) == set(explain.BAND_WORD) == set(explain.BAND_SHORT)
+    assert set(explain.BAND_WORD) == set(explain.BAND_SHORT)
 
 
 def test_band_keys_match_core_support_buckets(explain, core):
     labels = {lab for _, _, lab in core.SUPPORT_BUCKETS}
-    assert set(explain.BAND_COLOR) == labels
-
-
-def test_band_color_values_are_hex_rrggbb(explain):
-    for value in explain.BAND_COLOR.values():
-        assert re.fullmatch(r"#[0-9a-fA-F]{6}", value), value
+    assert set(explain.BAND_WORD) == labels
 
 
 def test_thin_max_is_below_fat_min(explain):

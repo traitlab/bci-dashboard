@@ -463,7 +463,7 @@ def p_species(c):
     # paragraphs of them, and pushed the table off the first screen. They are
     # now a heading's own tooltip for the reader who stumbles on one column, and
     # a closed block for the reader who wants all of them.
-    body = ('<p class="note"><b>Every rate here is scored on the fixed centre square, '
+    body = ('<p class="note"><b>Every rate here is scored on the fixed centre crop, '
             'not on outlined crowns.</b> Read a row as a flag for a second look, not as '
             'that species&rsquo; identification accuracy.</p>'
             + _species_columns_note()
@@ -537,7 +537,7 @@ def p_calibration(c):
             for band, nn, k in c.bins_all]
     graded = sum(nn for _, nn, _ in c.bins_all)
     return panel(
-        "Is the confidence score worth anything: mostly yes",
+        "Is the confidence score worth anything: in bulk yes, on rare species no",
         "<b>Read this before treating a confidence as a probability.</b> How often "
         "the first guess is right, band by band, over every labelled frame.",
         svg_hbar(rows, title="how often the first guess is right, "
@@ -643,8 +643,8 @@ def p_ceiling(c):
     return panel(f"What labelling cannot fix: {len(c.never)} species, {c.never_frames} frames "
                  f"the model never named",
                  "<b>Most of these are not proof the model cannot return the species.</b> "
-                 "A checklist from predict/fetch_checklist.py, when on disk, tells a proven "
-                 "absence apart from one we simply never asked enough candidates to find.",
+                 "Which of them are proven absent from the project's own list, and which "
+                 "we simply never asked enough candidates to find.",
                  body)
 
 
@@ -810,11 +810,15 @@ def p_coverage(c):
           f'row.</p>'
 )
     return panel(
-        "What the accuracy becomes if the crop has to show the labelled species",
-        f"<b>The rates above use no such condition.</b> Imposing one moves the per-frame "
-        f"rate from {pctf(lo['micro_top1'])} to {pctf(hi['micro_top1'])} and drops "
+        "What the rates become when the crop really shows the labelled tree",
+        f"<b>Every rate above admits a frame whatever its crop shows.</b> Require it and "
+        f"the per-frame rate moves from {pctf(lo['micro_top1'])} to "
+        f"{pctf(hi['micro_top1'])}, at the cost of "
         f"{lo['n_admitted'] - hi['n_admitted']:,} of {lo['n_admitted']:,} labelled "
-        f"frames. Both are published here because neither is the whole answer.", body)
+        f"frames. Both are published here because neither is the whole answer.", body,
+        # Named rather than slugged: slug() cuts at eight words and this heading
+        # would ship as "...when-the-crop-really", a phrase broken mid-clause.
+        anchor="when-the-crop-shows-the-labelled-tree")
 
 
 def p_method(c):

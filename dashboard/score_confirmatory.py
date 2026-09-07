@@ -3,7 +3,7 @@
 Two arms, one label:
 
     crown   one identify call per labelled crown, aggregated to the frame
-    photo   the centre square crop_overlap.CROP_SIZE names, the legacy reference
+    photo   the centre crop crop_overlap.CROP_SIZE names, the legacy reference
 
 The label names the species whose crowns hold the largest summed box area over
 the frame. The crown rule mirrors that criterion at its own unit and the photo

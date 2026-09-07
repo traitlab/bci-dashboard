@@ -91,7 +91,9 @@ def test_no_anchor_carries_a_number(page):
     snapshot, and every saved link to it breaks. `panel()` rejects those, so
     this is the assertion that the guard is actually wired up."""
     html, _, _ = page
-    for eid in re.findall(r'<details class="panel" id="([^"]+)"', html):
+    ids = (re.findall(r'<details class="panel" id="([^"]+)"', html)
+           + re.findall(r'<section class="grp" id="([^"]+)"', html))
+    for eid in ids:
         assert not any(c.isdigit() for c in eid), f"anchor {eid!r} carries a number"
 
 
@@ -104,7 +106,9 @@ def test_no_anchor_ends_mid_phrase(page):
     html, _, _ = page
     dangling = {"and", "or", "but", "with", "in", "of", "the", "a", "an", "it",
                 "for", "to", "on", "at", "is", "that", "what"}
-    for eid in re.findall(r'<details class="panel" id="([^"]+)"', html):
+    ids = (re.findall(r'<details class="panel" id="([^"]+)"', html)
+           + re.findall(r'<section class="grp" id="([^"]+)"', html))
+    for eid in ids:
         last = eid.rsplit("-", 1)[-1]
         assert last not in dangling, (
             f"anchor {eid!r} ends on {last!r}, so the link reads as half a "
@@ -119,7 +123,7 @@ def test_a_page_only_names_a_section_it_carries(page, pagemod):
     naming a heading this page does not have is not."""
     html, _, _ = page
     headings = set(re.findall(r"<h2[^>]*>(.*?)</h2>", html, re.DOTALL))
-    for title, _lede in pagemod.SECTIONS.values():
+    for title in (entry[0] for entry in pagemod.SECTIONS.values()):
         if title is None or title in headings:
             continue
         assert f"&ldquo;{title}&rdquo;" not in html, (
