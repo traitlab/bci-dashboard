@@ -46,13 +46,15 @@ def log_cache(_log, s):
     _log("  + bin/sbatch_ingest.sh (the run that filled this cache):")
     # Both lines derive from config.yaml. history.model_tag_of regexes the flora
     # back out of the first one, so a literal here is how the page comes to name
-    # a flora nothing was predicted through.
+    # a flora nothing was predicted through. It reads the model version out of
+    # the `model` line below for the same reason, so that one prints from the
+    # constant too.
     _log(f"    endpoint : {IDENTIFY_URL}")
     _log(f"               -> the {flora_name().upper()} model, "
          f"NOT the global Pl@ntNet model.")
     _log("               The sbatch job passes no --survey-endpoint, so the 2-call")
     _log("               identify+embeddings fallback ran, not /v2/survey/.")
-    _log("    model    : the endpoint reports '2026-03-20 (7.5)'.")
+    _log(f"    model    : the endpoint reports '{PLANTNET_MODEL_VERSION}'.")
     _log("               config.yaml's single_model_run_name says 'v7.4-2026-03-27',")
     _log("               a later date on an earlier version: that string dates the")
     _log("               fetch run, not the model, so it is not the model identity.")

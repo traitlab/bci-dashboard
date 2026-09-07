@@ -68,6 +68,35 @@ def test_the_model_tag_survives_a_flora_switch(history, tmp_path):
     assert history.model_tag_of(str(snap), "fallback") == "bcnm@v7.5-2026-09-01"
 
 
+def test_the_tag_names_the_version_the_endpoint_reported(history, core, tmp_path):
+    """The published tag broke silently once already.
+
+    `run_log.py` was reworded to say what the endpoint reports, the regex still
+    looked for `single_model_run_name '...'`, nothing matched, and the page
+    subtitle published `unknown` as the model. The line read back is printed
+    from `core.PLANTNET_MODEL_VERSION`, so both halves move together.
+    """
+    from conftest import REPO, _on_path
+
+    snap = tmp_path / "snap"
+    snap.mkdir()
+    (snap / "run_log.txt").write_text(
+        "    endpoint : https://my-api.plantnet.org/v2/identify/k-central-america\n"
+        f"    model    : the endpoint reports '{core.PLANTNET_MODEL_VERSION}'.\n"
+        "               config.yaml's single_model_run_name says 'v7.4-2026-03-27',\n",
+        encoding="utf-8")
+    assert history.model_tag_of(str(snap), "fallback") == (
+        f"k-central-america@{core.PLANTNET_MODEL_VERSION}")
+
+    src = (REPO / "dashboard" / "run_log.py").read_text(encoding="utf-8")
+    assert "{PLANTNET_MODEL_VERSION}" in src, (
+        "run_log.py types the model version instead of printing the constant, "
+        "so history.model_tag_of can read back a version core.py has moved on from.")
+    with _on_path(REPO / "dashboard"):
+        import run_log
+        assert run_log.PLANTNET_MODEL_VERSION == core.PLANTNET_MODEL_VERSION
+
+
 def test_the_run_log_endpoint_line_is_the_one_that_was_read(core):
     """The line `model_tag_of` reads back is printed from the constant, so the
     flora on the page and the flora that was called are the same string."""

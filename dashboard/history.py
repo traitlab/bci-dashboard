@@ -258,16 +258,22 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
 def model_tag_of(snap_dir: str, fallback: str) -> str:
     """Which Pl@ntNet model iteration produced a snapshot.
 
-    Reads the endpoint and config.yaml's ``single_model_run_name`` from
-    run_log.txt, the only things on disk distinguishing iterations. Tag is
-    ``<endpoint-slug>@<run-name>``, else ``--model-tag``.
+    Reads the endpoint and the model identity out of run_log.txt, the only
+    things on disk distinguishing iterations. Tag is ``<endpoint-slug>@<model>``,
+    else ``--model-tag``.
+
+    The model is the version the endpoint itself reports. Snapshots written
+    before that was measured name only config.yaml's ``single_model_run_name``,
+    which dates the fetch run rather than the model, so it is read as a second
+    choice and not as the answer.
     """
     try:
         with open(os.path.join(snap_dir, "run_log.txt"), encoding="utf-8") as f:
             text = f.read()
     except OSError:
         return fallback
-    run = re.search(r"single_model_run_name '([^']+)'", text)
+    run = (re.search(r"the endpoint reports '([^']+)'", text)
+           or re.search(r"single_model_run_name '([^']+)'", text))
     if not run:
         return fallback
     region = re.search(r"identify/([A-Za-z0-9-]+)", text)
