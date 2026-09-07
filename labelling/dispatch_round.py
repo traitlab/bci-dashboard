@@ -30,7 +30,8 @@ from pathlib import Path
 import labelbox as lb
 import rounds
 import settings
-from lbox.exceptions import AuthorizationError, MalformedQueryException
+from lbox.exceptions import (
+    AuthorizationError, LabelboxError, MalformedQueryException)
 
 # How many metadata rows go up in one bulk_upsert call. Not the botanist-session
 # batch size: `queues.BATCH_SIZE` is that one, and it is a different number for a
@@ -76,7 +77,18 @@ def load_selection_csv(csv_path: Path, batch_id: str | None = None) -> list[str]
 
 
 def get_or_create_round_schema(mdo) -> str:
-    existing = mdo.get_by_name(METADATA_SCHEMA_NAME)
+    """The `selection_round` field's id, creating the field the first time.
+
+    `get_by_name` RAISES on a field that does not exist, it does not return
+    None, so the create half of this function was unreachable and every first
+    dispatch died on a KeyError before writing anything. That is the whole
+    reason no round has ever gone out. Catch it and create, which is what the
+    name of this function has always promised.
+    """
+    try:
+        existing = mdo.get_by_name(METADATA_SCHEMA_NAME)
+    except KeyError:
+        existing = None
     if existing:
         return existing.uid
     from labelbox.schema.data_row_metadata import DataRowMetadataKind
@@ -86,6 +98,20 @@ def get_or_create_round_schema(mdo) -> str:
     )
     print(f"  Created metadata schema '{METADATA_SCHEMA_NAME}' (id={schema.uid})")
     return schema.uid
+
+
+# What creating the field needs, said in the script rather than only in a
+# handover: on 2026-09-07 our key read the ontology fine, found no
+# `selection_round`, and was refused the create with `Forbidden resource`. The
+# same key is refused `export` on every project and pages instead. So the field
+# has to be made once by someone with organisation rights, and after that this
+# function takes the reuse path. Until then no round can go out, whatever the
+# queue says.
+FORBIDDEN_HELP = (
+    f"Creating the '{METADATA_SCHEMA_NAME}' field was refused. This key can read the "
+    f"metadata ontology but not add to it. Ask whoever administers the Labelbox "
+    f"organisation to create a Data Row Metadata field named '{METADATA_SCHEMA_NAME}' "
+    f"of kind Number, once, then run this again: it will find the field and reuse it.")
 
 
 def page_data_row_ids(dataset) -> dict[str, str]:
@@ -208,7 +234,15 @@ def tag_round(client, matched_keys, key_to_id, round_no):
     the batch, and the metadata is what survives if the batch is renamed.
     """
     mdo = client.get_data_row_metadata_ontology()
-    schema_id = get_or_create_round_schema(mdo)
+    try:
+        schema_id = get_or_create_round_schema(mdo)
+    except LabelboxError as e:
+        # A stack trace ending in "Unknown error: Forbidden resource" says
+        # nothing a reader can act on. This is the one refusal we have met, and
+        # it has a one-sentence fix somebody else has to make.
+        if "FORBIDDEN" in str(e).upper():
+            sys.exit(f"ERROR: {FORBIDDEN_HELP}")
+        raise
 
     updates = [
         lb.DataRowMetadata(
