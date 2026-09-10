@@ -92,16 +92,35 @@ def site_of(url: str) -> str:
     return m.group(2) if m else ""
 
 
-def load_sites(path: Path = INVENTORY) -> dict[str, str]:
-    """global_key -> site, read from the Labelbox inventory's frame URLs."""
-    sites = {}
+def flight_of(url: str) -> str:
+    """The flight as "yyyymmdd/site", or "" when the URL carries no mission
+    folder. One site flown on two dates is two flights: the confound audit
+    holds the flight fixed to ask whether a photo looks new for the day it was
+    taken rather than for what grows in it."""
+    m = MISSION_RE.search(url or "")
+    return f"{m.group(1)}/{m.group(2)}" if m else ""
+
+
+def _from_inventory(path: Path, read) -> dict[str, str]:
+    """global_key -> read(frame URL), over the Labelbox inventory."""
+    out = {}
     with open(path, encoding="utf-8") as fh:
         for line in fh:
             row = json.loads(line)
             key = row.get("global_key")
             if key:
-                sites[key] = site_of(row.get("row_data") or "")
-    return sites
+                out[key] = read(row.get("row_data") or "")
+    return out
+
+
+def load_sites(path: Path = INVENTORY) -> dict[str, str]:
+    """global_key -> site, read from the Labelbox inventory's frame URLs."""
+    return _from_inventory(path, site_of)
+
+
+def load_flights(path: Path = INVENTORY) -> dict[str, str]:
+    """global_key -> "yyyymmdd/site", read the same way as `load_sites`."""
+    return _from_inventory(path, flight_of)
 
 
 def eligible(queue_csv: Path = QUEUE_CSV, inventory: Path = INVENTORY) -> list[dict]:

@@ -38,8 +38,8 @@ sendable frames behind them never get.
 reads beside the ordering: whether this order finds rare species faster than a
 random one on the labelled frames, over several random starts, and whether
 "looks unlike the labelled frames" tracks a rarely-labelled species once the
-site, or the export batch, is held fixed. Both are labelfirst's own tests, so
-the page quotes a number it did not make up.
+site, the flight, or the export batch, is held fixed. Both are labelfirst's own
+tests, so the page quotes a number it did not make up.
 """
 
 from __future__ import annotations
@@ -57,15 +57,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np
-from draw_field_sample import load_sites
+from draw_field_sample import load_flights, load_sites
 from embeddings_io import l2_normalise, load_embeddings
 from labelfirst.eval.audit import audit, render_markdown
-from labelfirst.eval.confound import confound_audit
 from labelfirst.eval.diagnose.separability import predict_al_benefit
 from labelfirst.eval.efficiency import annotation_efficiency
 from labelfirst.eval.simulate import simulate
 from labelfirst.io.queue import RunRecord, sha256_file
 from labelfirst.strategies.kcenter import greedy_kcenter
+from rank_confound import loo_distance, one_confound, rarity
 from speciesfirst import backtest_species_coverage
 
 REPO = Path(__file__).resolve().parents[1]
@@ -409,42 +409,21 @@ def run_audit(args) -> int:
     return 0
 
 
-def loo_distance(X: np.ndarray) -> np.ndarray:
-    """Each labelled frame's distance to the nearest *other* labelled frame:
-    the score the queue uses, measured where the species is known."""
-    sim = X @ X.T
-    np.fill_diagonal(sim, -np.inf)
-    return 1.0 - sim.max(axis=1)
-
-
-def rarity(counts: dict[str, int], names) -> np.ndarray:
-    """Higher for a species with fewer labelled frames. The audit's target: what
-    the ordering claims to reach first."""
-    return np.array([-np.log1p(counts.get(n, 0)) for n in names], dtype=np.float64)
-
-
-def one_confound(population, score, target, covariate, *, score_name, target_name,
-                 covariate_name) -> dict:
-    res = confound_audit(score, target, covariate)
-    d = asdict(res)
-    d["within_group"] = {g: {"spearman": r, "n": n} for g, (r, n) in res.within_group.items()}
-    return {"population": population, "score": score_name, "target": target_name,
-            "covariate": covariate_name, "n_groups": len(res.within_group), **d}
-
-
 def run_confound(args) -> int:
     """Does "looks unlike the labelled frames" track a rarely-labelled species
-    once the site, or the export batch, is held fixed.
+    once the site, the flight, or the export batch, is held fixed.
 
-    Three of labelfirst's confound audits, written as one JSON for the page:
-    on the labelled frames with site held fixed, and on the queue with the
-    export batch held fixed and with site held fixed. The queue's target is the
-    labelled-frame count of the species the model guessed, read off
-    send_first_queue.csv, since no queued frame carries a label yet.
+    Four of labelfirst's confound audits, written as one JSON for the page: on
+    the labelled frames with site held fixed, and on the queue with the export
+    batch, the site, and the flight (one date at one site) held fixed. The
+    queue's target is the labelled-frame count of the species the model
+    guessed, read off send_first_queue.csv, since no queued frame carries a
+    label yet. A frame whose site cannot be read leaves the site and flight
+    audits and is counted in the record as n_unreconciled.
     """
     keys, X, labels = labelled_rows(args)
     counts = Counter(labels)
-    sites = load_sites(args.inventory)
+    sites, flights = load_sites(args.inventory), load_flights(args.inventory)
     audits = []
     site_of_anchor = [sites.get(k, "") for k in keys]
     audits.append(one_confound(
@@ -465,7 +444,8 @@ def run_confound(args) -> int:
     q_score = np.array([distance[k] for k in queued])
     q_target = np.array([-np.log1p(support[k]) for k in queued])
     for name, cov in (("export batch", [camera_of(k) for k in queued]),
-                      ("site", [sites.get(k, "") for k in queued])):
+                      ("site", [sites.get(k, "") for k in queued]),
+                      ("flight", [flights.get(k, "") for k in queued])):
         audits.append(one_confound(
             "queued photos", q_score, q_target, cov,
             score_name="distance to the nearest labelled frame",
@@ -475,7 +455,8 @@ def run_confound(args) -> int:
         print(f"{a['population']}, {a['covariate']} held fixed: {a['verdict']}, "
               f"raw {a['raw_corr']:+.3f} -> partial {a['partial_corr']:+.3f} "
               f"(p={a['partial_p']:.3g}), covariate explains {a['covariate_eta2']:.0%} "
-              f"of the score, n={a['n']}")
+              f"of the score, n={a['n']}, {a['n_unreconciled']} left out with no "
+              f"readable {a['covariate']}")
     out = {"audits": audits,
            "run": asdict(run_record(args.pool_npz, len(queued), args.anchor_npz,
                                     len(keys)))}
