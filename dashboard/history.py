@@ -283,19 +283,44 @@ def check_reject_sweep(directory, sweep):
     return f"reject_sweep.csv: {len(ref)} plausible-name caps match"
 
 
+def check_held_out(directory, result):
+    """The held-out line: same frame counts and rates per population as
+    held_out.csv. Snapshots written before the file existed have none, so an
+    absent file is skipped with a line saying so rather than a failure."""
+    path = os.path.join(directory, "held_out.csv")
+    if not os.path.exists(path):
+        return "held_out.csv: not in this snapshot (older than the file), check skipped"
+    import held_out
+    ref = {r["population"]: r for r in hc.read_csv_rows(path)}
+    for w in held_out.rows(result):
+        r = ref.get(w["population"])
+        if r is None:
+            fail(f"held_out.csv: population {w['population']!r} absent from {path}")
+        if int(r["n_frames"]) != w["n_frames"]:
+            fail(f"held_out.csv: {w['population']} frames: {w['n_frames']} here vs "
+                 f"{r['n_frames']} in {path}")
+        if str(r["n_correct_top1"]) != str(w["n_correct_top1"]):
+            fail(f"held_out.csv: {w['population']} right first guesses in {path}")
+        if (r["top1_accuracy"] or w["top1_accuracy"]) and not close(
+                r["top1_accuracy"], w["top1_accuracy"]):
+            fail(f"held_out.csv: {w['population']} top-1 in {path}")
+    return f"held_out.csv: {len(ref)} populations match"
+
+
 def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
                     unscoreable, strict_hits,
                     queue_counts=None, n_no_answer=None, review_counts=None,
                     queue_keys=None, limits=None, review_mechanisms=None,
-                    reject_sweep=None):
+                    reject_sweep=None, held_out=None):
     """Abort the build if the page disagrees with measure.py's snapshot.
 
     One check per file the snapshot holds, each returning the line the page
     prints when it passes. ``queue_counts`` maps queue to frame count,
     ``review_counts`` is (frames, confusion pairs), ``queue_keys`` the order,
     ``limits`` species to (limit, agreement) and ``review_mechanisms`` mechanism
-    to frame count, ``reject_sweep`` the sidecar behind reject_sweep.csv, each
-    only when the page prints from it.
+    to frame count, ``reject_sweep`` the sidecar behind reject_sweep.csv and
+    ``held_out`` the populations behind held_out.csv, each only when the page
+    prints from it.
     """
     checks = [check_per_species(directory, per_species, limits),
               check_support_buckets(directory, buckets),
@@ -318,6 +343,8 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
         checks.append(check_review_queue(directory, review_counts, review_mechanisms))
     if reject_sweep is not None:
         checks.append(check_reject_sweep(directory, reject_sweep))
+    if held_out is not None:
+        checks.append(check_held_out(directory, held_out))
 
     return checks
 

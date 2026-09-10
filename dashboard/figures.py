@@ -23,6 +23,8 @@ from selection_panels import selection_audit, selection_confound
 # counts, and importing them keeps the corpus figure and the table row from
 # being two spellings of one formula.
 from health import confidence_spread, confusion_counts, f_measure
+from held_out import load_flights
+from held_out import measure as held_out_measure
 from history import model_tag_of, snapshot_date_of
 
 # A species is "rarely labelled" below this many frames, and a frame can be
@@ -554,5 +556,8 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     fig.update(am.prepared(per_species, fig["review"]))
     fig.update(_error_by_support(sp_recs, fig["support"]))
     fig.update(_wait_rules(sp_recs, fig["support"]))
+    # Test top-1 on frames from flights the train set never saw, beside the
+    # overall one every test frame today leans on. Measured in held_out.py.
+    fig["held_out"] = held_out_measure(sp_recs, load_flights())
     fig.update(_genus_and_family(h))
     return SimpleNamespace(**fig)
