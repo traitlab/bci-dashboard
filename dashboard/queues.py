@@ -18,6 +18,7 @@ indexes them by position, which is how they last drifted apart.
 from __future__ import annotations
 
 import csv
+import json
 import os
 import random
 import re
@@ -45,11 +46,21 @@ QUEUE_ORDER = ["long_tail", "low_conf_known", "normal", "can_wait"]
 # batch a queued frame is in had to either trust a second implementation of the
 # packing or open both files and match on global_key by hand. Reading it off
 # the row it belongs to is the whole point.
+#
+# `how_new_it_looks` sits beside the rank it explains: the distance from the
+# photo to the nearest labelled one, which is what the rank was sorted on. The
+# rank says a photo is 12th; the distance says by how much, and lets a reader
+# see that the 12th and the 400th are far apart while the 2,000th and the
+# 3,000th are not. Three decimals, since the file is read by people.
 SEND_FIRST_COLUMNS = ["queue", "global_key", "split", "predicted_species", "confidence",
                       "species_labelled_crowns", "species_top1_accuracy", "novelty_rank",
-                      "batch_id"]
+                      "how_new_it_looks", "batch_id"]
 # send_batches.csv's columns, likewise: returned in this order, written as that header.
 SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue", "picked_by"]
+# The same distance on the batch file, since that is the file the botanist
+# opens and the one place the question "why is this row first" gets asked.
+# Looked up per frame at write time like the links below, for the same reason.
+SEND_BATCH_LOOKUP_COLUMNS = ["how_new_it_looks"]
 # Two more columns the file carries and the packing does not decide. They are
 # looked up per frame at write time, so `chunk_send_batches` stays a pure
 # function of the queue and `history.check_send_batches` can keep comparing its
@@ -61,7 +72,7 @@ SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue", "picke
 # first alone would put a 7MB photo of a whole canopy in front of a botanist with
 # no mark on it, and the code for the second already exists.
 SEND_BATCH_LINK_COLUMNS = ["image_url", "labelbox_url"]
-SEND_BATCH_HEADER = SEND_BATCH_COLUMNS + SEND_BATCH_LINK_COLUMNS
+SEND_BATCH_HEADER = SEND_BATCH_COLUMNS + SEND_BATCH_LOOKUP_COLUMNS + SEND_BATCH_LINK_COLUMNS
 
 # No more than this many crowns per Labelbox batch, one botanist session's worth.
 # Overridable because the right number is the labelling team's call, not ours:
@@ -117,12 +128,17 @@ CONTROL_GROUP = "control"
 # than any rank the ranker can assign, since the pool is four figures.
 NO_NOVELTY = 10 ** 9
 
-# The sidecar `labelling/rank_queue.py` writes beside the ordering file, and the
-# `rows=N` it puts on each source line. The ranker runs outside bin/refresh.sh,
-# so this file is the only record of when the ordering was last rebuilt and
-# against what.
+# The sidecar `labelling/rank_queue.py` writes beside the ordering file: the
+# run record labelfirst lays down next to any queue it saves, `<csv>.run.json`.
+# The ranker runs outside bin/refresh.sh, so this file is the only record of
+# when the ordering was last rebuilt and against what. The older hand-written
+# `.provenance.txt`, with a `rows=N` on each source line, is still read one
+# release on, so a checkout ranked before the switch keeps its date.
+NOVELTY_RUN_SUFFIX = ".run.json"
 NOVELTY_PROVENANCE_SUFFIX = ".provenance.txt"
 _PROVENANCE_ROWS = re.compile(r"\brows=(\d+)\b")
+# The distance column the ordering file carries beside the rank.
+NOVELTY_DISTANCE_COLUMN = "distance_to_nearest_labelled"
 
 
 def load_novelty(path: str) -> dict:
@@ -149,19 +165,59 @@ def load_novelty(path: str) -> dict:
     return out
 
 
+def load_novelty_distance(path: str) -> dict:
+    """``global_key`` -> how far the photo is from the nearest labelled one, as
+    the ordering file wrote it. Same forgiveness as ``load_novelty``: an absent
+    file, or a row without a usable number, is simply not in the map."""
+    if not os.path.exists(path):
+        return {}
+    out = {}
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            key, d = row.get("global_key"), row.get(NOVELTY_DISTANCE_COLUMN)
+            if not key or d is None:
+                continue
+            try:
+                out[key] = float(d)
+            except ValueError:
+                continue
+    return out
+
+
 def novelty_provenance(path: str) -> dict:
-    """What the ordering file was built from: written date, anchors, pool.
+    """What the ordering file was built from: written date, anchors, pool, and
+    the hash and library version that make a re-run tell apart from a copy.
 
     ``labelling/rank_queue.py`` writes the sidecar beside the CSV because the
     ranker runs outside ``bin/refresh.sh``, in its own virtualenv, and nothing
     else on disk records when it last ran. Every value is ``None`` when the
-    sidecar is absent or does not carry that line: a missing number is reported
-    as missing, never guessed at from the CSV, because the two counts a reader
-    wants (how many labelled frames anchored the ranking, how many photos were
-    ranked against them) are properties of the embedding files and not of this
-    CSV's row count.
+    sidecar is absent or does not carry that field: a missing number is
+    reported as missing, never guessed at from the CSV, because the two counts
+    a reader wants (how many labelled frames anchored the ranking, how many
+    photos were ranked against them) are properties of the embedding files and
+    not of this CSV's row count.
+
+    The run record is read first. The hand-written text sidecar is the fallback
+    for a checkout ranked before the record existed, and carries no hash.
     """
-    out: dict = {"written": None, "anchors": None, "pool": None}
+    out: dict = {"written": None, "anchors": None, "pool": None,
+                 "sha": None, "anchor_sha": None, "library": None}
+    record = path + NOVELTY_RUN_SUFFIX
+    if os.path.exists(record):
+        with open(record, encoding="utf-8") as f:
+            try:
+                rec = json.load(f)
+            except ValueError:
+                rec = {}
+        if isinstance(rec, dict):
+            extra = rec.get("extra") if isinstance(rec.get("extra"), dict) else {}
+            out["written"] = extra.get("written") or (rec.get("timestamp_utc") or "")[:10] or None
+            out["anchors"] = _whole(rec.get("n_labeled"))
+            out["pool"] = _whole(rec.get("n_pool"))
+            out["sha"] = rec.get("embedding_sha256") or None
+            out["anchor_sha"] = extra.get("anchor_sha256") or None
+            out["library"] = rec.get("library_version") or None
+        return out
     sidecar = os.path.splitext(path)[0] + NOVELTY_PROVENANCE_SUFFIX
     if not os.path.exists(sidecar):
         return out
@@ -178,6 +234,12 @@ def novelty_provenance(path: str) -> dict:
                 if found:
                     out[role] = int(found.group(1))
     return out
+
+
+def _whole(v) -> int | None:
+    """An int, or None for anything that is not one. A count read off a record
+    is either a whole number or not there."""
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
 
 
 def novelty_complaint(path: str, n_ranked: int, n_unlab: int) -> str:

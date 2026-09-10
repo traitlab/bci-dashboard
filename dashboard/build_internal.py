@@ -26,6 +26,7 @@ import page as pg
 import queues
 from assets import esc, hero
 from queues import BATCH_SIZE
+from selection_panels import selection_complaint
 from history import fail, verify_snapshot
 
 OUT_NAME = "label_queue_dashboard.html"
@@ -46,6 +47,13 @@ def build(h, *, generated, verify_dir, fallback_tag):
     # above becomes false. Refuse the build instead: nobody reads a page for the
     # ordering it quietly stopped using.
     complaint = queues.novelty_complaint(hc.QUEUE_NOVELTY_CSV, c.n_ranked, c.n_unlab)
+    if complaint:
+        fail(complaint)
+    # Same refusal for the evidence beside the ordering: an audit or confound
+    # file run against a different pool, or different labelled photos, from
+    # the ones the ordering file names is stale evidence under a fresh order.
+    complaint = selection_complaint(c.selection_audit, c.selection_confound,
+                                    queues.novelty_provenance(hc.QUEUE_NOVELTY_CSV))
     if complaint:
         fail(complaint)
 

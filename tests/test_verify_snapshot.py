@@ -36,7 +36,9 @@ from snapshot_harness import (
 def test_a_consistent_snapshot_returns_a_check_string_per_file(history, tmp_path):
     kwargs, _ = write_snapshot(tmp_path)
     checks = run(history, tmp_path, kwargs)
-    assert len(checks) == 7  # 4 unconditional + send_first_queue + send_batches + review
+    # 4 unconditional + send_first_queue (counts, order, how_new_it_looks)
+    # + send_batches + review
+    assert len(checks) == 8
 
 
 def test_each_returned_check_names_the_file_it_came_from(history, tmp_path):
@@ -96,7 +98,7 @@ def test_queue_counts_alone_adds_the_two_queue_csv_checks(history, tmp_path):
     kwargs, _ = write_snapshot(
         tmp_path, with_queue_counts=True, with_no_answer=False, with_review_counts=False)
     checks = run(history, tmp_path, kwargs)
-    assert len(checks) == 6
+    assert len(checks) == 7
 
 
 def test_review_counts_alone_adds_one_check(history, tmp_path):

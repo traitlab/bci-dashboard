@@ -288,17 +288,52 @@ def test_novelty_provenance_reads_the_date_and_the_two_row_counts(queues, tmp_pa
                     "anchors: /x/embeddings_labelled/embeddings.npz rows=1719 "
                     "mtime=2026-08-20T03:18:39+00:00\n")
     assert queues.novelty_provenance(path) == {
-        "written": "2026-09-03", "anchors": 1719, "pool": 3934}
+        "written": "2026-09-03", "anchors": 1719, "pool": 3934,
+        "sha": None, "anchor_sha": None, "library": None}
 
 
 def test_novelty_provenance_reports_a_missing_number_as_missing(queues, tmp_path):
     """Never guessed at from the CSV's row count. The pool is what the ranker
     was given, which is not the same population as the rows it wrote."""
     assert queues.novelty_provenance(str(tmp_path / "queue_novelty.csv")) == {
-        "written": None, "anchors": None, "pool": None}
+        "written": None, "anchors": None, "pool": None, "sha": None,
+        "anchor_sha": None, "library": None}
     path = _sidecar(tmp_path, "written: 2026-09-03\nby: rank_queue.py\n")
     assert queues.novelty_provenance(path) == {
-        "written": "2026-09-03", "anchors": None, "pool": None}
+        "written": "2026-09-03", "anchors": None, "pool": None,
+        "sha": None, "anchor_sha": None, "library": None}
+
+
+def test_novelty_provenance_prefers_the_run_record(queues, tmp_path):
+    """labelfirst's `<csv>.run.json` carries the same three facts plus the hash
+    and version that tell a re-run from a copy. It wins over the older text
+    sidecar when both are present, and a count that is not a whole number is
+    reported as missing rather than coerced."""
+    import json
+    path = _sidecar(tmp_path, "written: 2026-01-01\npool: x rows=1\n")
+    (tmp_path / "queue_novelty.csv.run.json").write_text(json.dumps({
+        "strategy": "coreset", "seed": 0, "k": 3934, "n_pool": 3934,
+        "n_labeled": 1719, "embedding_sha256": "abc123", "library_version": "0.9.0",
+        "timestamp_utc": "2026-09-10T12:00:00+00:00",
+        "extra": {"written": "2026-09-10", "anchor_sha256": "def456"}}),
+        encoding="utf-8")
+    assert queues.novelty_provenance(path) == {
+        "written": "2026-09-10", "anchors": 1719, "pool": 3934,
+        "sha": "abc123", "anchor_sha": "def456", "library": "0.9.0"}
+    (tmp_path / "queue_novelty.csv.run.json").write_text(json.dumps({
+        "n_pool": "3934", "timestamp_utc": "2026-09-10T12:00:00+00:00"}))
+    assert queues.novelty_provenance(path) == {
+        "written": "2026-09-10", "anchors": None, "pool": None,
+        "sha": None, "anchor_sha": None, "library": None}
+
+
+def test_load_novelty_distance_reads_the_column_and_skips_what_it_cannot(queues,
+                                                                        tmp_path):
+    path = tmp_path / "queue_novelty.csv"
+    path.write_text("global_key,novelty_rank,distance_to_nearest_labelled,camera\n"
+                    "comb_a,1,0.4213,zoom\ncomb_b,2,,zoom\ncomb_c,3,nan?,zoom\n")
+    assert queues.load_novelty_distance(str(path)) == {"comb_a": 0.4213}
+    assert queues.load_novelty_distance(str(tmp_path / "none.csv")) == {}
 
 
 def test_a_missing_ordering_file_is_a_complaint_the_builder_can_fail_on(queues,

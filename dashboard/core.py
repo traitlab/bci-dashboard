@@ -34,6 +34,12 @@ CACHE_DIR = os.path.join(BASE, "predictions", "cache")
 # labelling/rank_queue.py. Orders the send-first queue inside each queue.
 # Optional: absent, every frame ties and the order falls back to confidence.
 QUEUE_NOVELTY_CSV = os.path.join(BASE, "next_batch", "queue_novelty.csv")
+# Two more files the same ranker writes on request: whether this order finds
+# rare species faster than random on the labelled frames, and whether "looks
+# new" survives holding the site or the export batch fixed. Read by the queue
+# page's evidence panel; absent on a fresh clone, and the panel says so.
+SELECTION_AUDIT_JSON = os.path.join(BASE, "next_batch", "selection_audit.json")
+SELECTION_CONFOUND_JSON = os.path.join(BASE, "next_batch", "selection_confound.json")
 
 # The two curves the queue page draws, both written by labelling/rank_queue.py
 # and both optional: absent, the panel says the ordering has not been scored

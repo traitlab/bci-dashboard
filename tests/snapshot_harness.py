@@ -119,7 +119,7 @@ def queue_rows_for(counts=QUEUE_COUNTS):
             rows.append({"queue": q, "global_key": f"{q}_{i}.JPG", "split": "unlabelled",
                          "predicted_species": f"species_{q}", "confidence": "0.500000",
                          "species_labelled_crowns": "0", "species_top1_accuracy": "",
-                         "novelty_rank": ""})
+                         "novelty_rank": "", "how_new_it_looks": ""})
     unbatched = [c for c in queues.SEND_FIRST_COLUMNS if c != "batch_id"]
     packed = queues.chunk_send_batches([[r[c] for c in unbatched] for r in rows])
     id_at = queues.SEND_BATCH_COLUMNS.index("batch_id")

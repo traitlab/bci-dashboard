@@ -30,6 +30,9 @@ def look(monkeypatch, figures, tmp_path):
     """
     monkeypatch.setattr(figures.hc, "DISCOVERY_CURVE_CSV", str(tmp_path / "discovery.csv"))
     monkeypatch.setattr(figures.hc, "NOVELTY_CURVE_CSV", str(tmp_path / "novelty.csv"))
+    monkeypatch.setattr(figures.hc, "SELECTION_AUDIT_JSON", str(tmp_path / "audit.json"))
+    monkeypatch.setattr(figures.hc, "SELECTION_CONFOUND_JSON",
+                        str(tmp_path / "confound.json"))
     monkeypatch.setattr(figures.hc, "THUMB_DIR", str(tmp_path / "thumbs"))
     return figures, tmp_path
 

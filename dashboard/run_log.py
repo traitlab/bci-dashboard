@@ -452,6 +452,10 @@ def log_send_queue(_log, q_counts, batch_rows, n_no_answer, n_ranked=0,
     _log(f"    ordering file written            : {p.get('written') or 'unknown'}")
     _log(f"    labelled frames anchoring it     : {p.get('anchors') or 'unknown'}")
     _log(f"    photos ranked against them       : {p.get('pool') or 'unknown'}")
+    # The hash and version are what tell a re-run from a copy of the old file.
+    sha = p.get("sha") or ""
+    _log(f"    ranked with labelfirst           : {p.get('library') or 'unknown'}"
+         f"{', embeddings ' + sha[:12] if sha else ''}")
     _log("    (labelling/rank_queue.py writes these, outside bin/refresh.sh)")
     held = held_out or Counter()
     by_split = ", ".join(f"{k} {held[k]}" for k in sorted(held)) or "none"

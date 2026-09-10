@@ -16,6 +16,7 @@ from types import SimpleNamespace
 import core as hc
 import queues
 from checklist import load_checklist
+from selection_panels import selection_audit, selection_confound
 # The three arithmetic helpers behind the confusion-matrix rates. They live in
 # health.py because that is where the per-species rows are built from the same
 # counts, and importing them keeps the corpus figure and the table row from
@@ -419,6 +420,9 @@ def _look(rows, queue_cams, n_ranked):
         "head_tele_share": hc.ratio(sum(1 for r in head if camera_of(r[1]) == "tele"),
                                     len(head)),
         "queue_tele_share": hc.ratio(queue_cams.get("tele", 0), n_queue),
+        # The two measured tests behind the panel, or None where not run.
+        "selection_audit": selection_audit(),
+        "selection_confound": selection_confound(),
         "thumbs": _thumbs(rows, hc.THUMBS_PER_QUEUE)}
 
 
