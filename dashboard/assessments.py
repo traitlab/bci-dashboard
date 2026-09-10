@@ -96,6 +96,15 @@ def limit_of(transductive: dict | None, species: str) -> tuple[str, str]:
     return rec["limit"], f"{rec['seeds_agreeing']}/{n_seeds}"
 
 
+# The two columns ``per_species_health.csv`` carries for it, in order.
+LIMIT_COLUMNS = ("limit", "limit_agreement")
+
+
+def limit_columns(transductive: dict | None, species: str) -> dict:
+    """``limit_of`` as the two CSV cells."""
+    return dict(zip(LIMIT_COLUMNS, limit_of(transductive, species)))
+
+
 def limits_for(transductive: dict | None, per_species) -> dict:
     """``species -> (limit, agreement)`` for every row of the species table."""
     return {d["species"]: limit_of(transductive, d["species"]) for d in per_species}
@@ -130,6 +139,19 @@ def sweep_rows(sweep: dict | None) -> list[dict]:
     return [{"max_set_size": r["max_set_size"], "n_accepted": r["n_accepted"],
              "n_frames": n, "accept_rate": r["accept_rate"],
              "accepted_accuracy": r["accepted_accuracy"]} for r in sweep["rows"]]
+
+
+def write_label_review_queue(out_dir: str, review_rows, disagreement: dict | None) -> None:
+    """Confident model/label disagreements, most confident first, each with the
+    mechanism the disagreement file gives it, or blank when unassessed. Here
+    beside the other sidecar-backed table only because measure.py is at the
+    500-line rule; the rows are measure.py's."""
+    with open(os.path.join(out_dir, "label_review_queue.csv"), "w", newline="",
+              encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["global_key", "split", "gt_species", "predicted_species",
+                    "confidence", "labelbox_url", "mechanism"])
+        w.writerows([*r, mechanism_of(disagreement, r[0])] for r in review_rows)
 
 
 def write_reject_sweep(out_dir: str, sweep: dict | None) -> None:

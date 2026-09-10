@@ -136,8 +136,10 @@ def test_the_csv_carries_the_column_the_table_shows(measure, tmp_path):
     rows = [{"species": "a b", "n_labelled_frames": 12, "top1_accuracy": 0.9,
              "top5_accuracy": 0.95, "in_corpus_vocabulary": True,
              "in_project_checklist": True}]
-    measure.write_per_species_health(str(tmp_path), rows,
-                                     {"a b": ("classifier_limited", "7/8")})
+    transductive = {"population": {"n_seeds": 8},
+                    "per_species": {"a b": {"n_frames": 12, "limit": "classifier_limited",
+                                            "seeds_agreeing": 7}}}
+    measure.write_per_species_health(str(tmp_path), rows, transductive)
     got = list(csv.DictReader((tmp_path / "per_species_health.csv").open()))
     assert got[0]["limit"] == "classifier_limited"
     assert got[0]["limit_agreement"] == "7/8"
@@ -281,3 +283,17 @@ def test_the_legend_counts_the_words_the_column_shows_and_not_the_file(assess_pa
     limits = {"a b": ("resolved", "8/8"), "c d": ("", ""), "e f": ("", "")}
     html = assess_panels.limit_note(t, limits)
     assert "Over the 1 species with that many: 1 no gap found, 0 better model, 0 more labels" in html
+
+
+def test_the_review_csv_stamps_each_row_with_its_mechanism(assessments, tmp_path):
+    """The mechanism is added at write time off the frame key, so the rows
+    measure.py builds stay the six columns they were, and a frame the file
+    never saw gets a blank rather than a guess."""
+    rows = [["k1", "train", "a b", "c d", "0.990000", ""],
+            ["k2", "val", "e f", "g h", "0.950000", ""]]
+    assessments.write_label_review_queue(
+        str(tmp_path), rows, {"frames": {"k1": {"mechanism": "species_conflict"}}})
+    got = list(csv.DictReader((tmp_path / "label_review_queue.csv").open()))
+    assert [d["mechanism"] for d in got] == ["species_conflict", ""]
+    assert list(got[0]) == ["global_key", "split", "gt_species", "predicted_species",
+                            "confidence", "labelbox_url", "mechanism"]
