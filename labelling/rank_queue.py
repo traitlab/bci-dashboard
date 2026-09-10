@@ -65,7 +65,7 @@ from labelfirst.eval.efficiency import annotation_efficiency
 from labelfirst.eval.simulate import simulate
 from labelfirst.io.queue import RunRecord, sha256_file
 from labelfirst.strategies.kcenter import greedy_kcenter
-from rank_confound import loo_distance, one_confound, rarity
+from rank_confound import loo_distance, one_confound, rarity, seeds_agreeing
 from speciesfirst import backtest_species_coverage
 
 REPO = Path(__file__).resolve().parents[1]
@@ -391,8 +391,14 @@ def run_audit(args) -> int:
     efficiency = annotation_efficiency(panel.per_seed_trajectories, STRATEGY, "random",
                                        AUDIT_K)
     preflight = predict_al_benefit(X, labels)
+    # labelfirst's panel carries every start's area under the curve but not
+    # the count of starts this order won, and that count is what the page
+    # prints beside the gain. Written next to library_version, in the audit.
+    report = json.loads(panel.to_json())
+    report["n_seeds_agreeing"] = seeds_agreeing(panel.per_seed_aucs[STRATEGY],
+                                                panel.per_seed_aucs["random"])
     out = {
-        "audit": json.loads(panel.to_json()),
+        "audit": report,
         "efficiency": asdict(efficiency),
         "preflight": preflight,
         "population": {"n_frames": len(keys), "n_species": len(counts),

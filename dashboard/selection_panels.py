@@ -7,9 +7,11 @@ Two files ``labelling/rank_queue.py`` writes on request, outside
   order find rare species faster than a random one, over several random
   starts, and is the difference more than chance.
 - ``selection_confound.json``: does "looks unlike the labelled photos" still
-  track a rarely-labelled species once the site, or the export batch, is held
-  fixed. Three tests: the labelled photos by site, the queue by export batch,
-  the queue by site.
+  track a rarely-labelled species once the site, the flight, or the export
+  batch, is held fixed. Four tests: the labelled photos by site, the queue by
+  export batch, the queue by site, the queue by flight (one date at one site).
+  A photo whose site could not be read is left out of the site and flight
+  tests, and each test says how many.
 
 Both are labelfirst's own tests, run on this checkout's photos. The page never
 quotes a number from a paper for a different model: the only gain it prints is
@@ -30,7 +32,10 @@ import core as hc
 from assets import esc
 
 # The covariates the ranker tests, in the plural the page needs for a count.
-PLURAL = {"site": "sites", "export batch": "export batches"}
+PLURAL = {"site": "sites", "export batch": "export batches", "flight": "flights"}
+# How many hex digits of a file hash the page prints: enough to tell two files
+# apart, short enough to read against the ordering file's own record.
+SHA_SHOWN = 12
 # How labelfirst names each verdict, and what the page says instead.
 VERDICT_WORDS = {
     "robust": "holds once the {cov} is held fixed",
@@ -89,6 +94,7 @@ def selection_audit(path: str | None = None) -> dict | None:
         "separability_pct": _num(pre.get("separability_pct")),
         "on_ladder": pre.get("gain_on_ladder"),
         "library": a.get("library_version"), "sha": a.get("embedding_sha256"),
+        "n_seeds_agreeing": a.get("n_seeds_agreeing"),
         "written": (run.get("extra") or {}).get("written"),
     }
     out["passed"] = (out["ci_low"] is not None and out["p"] is not None
@@ -110,10 +116,11 @@ def selection_confound(path: str | None = None) -> dict | None:
             "verdict": t.get("verdict"), "raw": _num(t.get("raw_corr")),
             "partial": _num(t.get("partial_corr")), "p": _num(t.get("partial_p")),
             "eta2": _num(t.get("covariate_eta2")), "n": t.get("n"),
-            "n_groups": t.get("n_groups")})
+            "n_groups": t.get("n_groups"), "n_unreconciled": t.get("n_unreconciled")})
     run = d.get("run") or {}
     return {"tests": tests, "sha": run.get("embedding_sha256"),
             "anchor_sha": (run.get("extra") or {}).get("anchor_sha256"),
+            "library": run.get("library_version"),
             "written": (run.get("extra") or {}).get("written")}
 
 
@@ -160,8 +167,8 @@ NOT_AUDITED = (
     'panel prints it when the file is there.</p>')
 
 NOT_CONFOUNDED = (
-    '<p class="note"><b>Not yet tested against the site and the export batch on this '
-    'checkout.</b> <code>labelling/rank_queue.py --confound</code> writes that test, '
+    '<p class="note"><b>Not yet tested against the site, the flight and the export batch '
+    'on this checkout.</b> <code>labelling/rank_queue.py --confound</code> writes that test, '
     'and this panel prints it when the file is there.</p>')
 
 
@@ -180,6 +187,10 @@ def audit_note(c) -> str:
              f'{_pct(a["ci_low"])} to {_pct(a["ci_high"])}, p {_p(a["p"])}) is not more '
              f'than chance gives at {a["n_seeds"]} starts, so the page claims nothing '
              f'from it.')
+    agree = ""
+    if a["n_seeds_agreeing"] is not None:
+        agree = (f' {a["n_seeds_agreeing"]} of {a["n_seeds"]} starts favoured this order '
+                 f'over the random one.')
     saved = ""
     if a["passed"] and a["rounds_to_match"] is not None and a["baseline_rounds"]:
         saved = (f' It reached in {a["rounds_to_match"]:.0f} rounds what the random order '
@@ -198,8 +209,9 @@ def audit_note(c) -> str:
             f'{a["rare_threshold"]} or fewer labelled frames. Each run starts from '
             f'{a["seed_pool"]} photos picked at random and adds {a["k_per_round"]} a '
             f'round for {a["rounds"]} rounds, and there are {a["n_seeds"]} such starts. '
-            f'Over those starts, {claim}{saved}{ladder} Measured with labelfirst '
-            f'{esc(a["library"] or "unknown")} on this checkout, written '
+            f'Over those starts, {claim}{agree}{saved}{ladder} Measured with labelfirst '
+            f'{esc(a["library"] or "unknown")} on this checkout, against the file of '
+            f'photo vectors {_sha(a["sha"])}, written '
             f'{esc(a["written"] or "on an unrecorded date")}. No number here comes from a '
             f'paper or from a different model.</p>')
 
@@ -210,7 +222,9 @@ def confound_note(c) -> str:
     The two hand-counted shares (how much of the head carries the newer file
     naming, against the whole queue) stay as the raw fact. The measured test
     under them says whether the link between "looks new" and "rarely labelled"
-    survives holding the site, or the export batch, fixed.
+    survives holding the site, the flight, or the export batch, fixed. A test
+    that left photos out for having no readable site says how many, so the
+    count beside it is never quietly short.
     """
     f = getattr(c, "selection_confound", None)
     head = ""
@@ -229,21 +243,33 @@ def confound_note(c) -> str:
         many = PLURAL.get(t["covariate"], cov + "s")
         words = VERDICT_WORDS.get(t["verdict"] or "", "gave a verdict this page does "
                                   "not know, {cov}").format(cov=cov)
+        left_out = ""
+        if t["n_unreconciled"]:
+            left_out = (f' {t["n_unreconciled"]:,} photos were left out because their '
+                        f'site could not be read.')
         lines.append(
             f'<li>On the {esc(t["population"])} ({t["n"] or 0:,}, {t["n_groups"] or 0} '
             f'{many}): the link {words}. Rank correlation {_corr(t["raw"])} before, '
             f'{_corr(t["partial"])} after, p {_p(t["p"])}; the {cov} explains '
-            f'{_pct(100 * (t["eta2"] or 0))} of how new a photo looks.</li>')
+            f'{_pct(100 * (t["eta2"] or 0))} of how new a photo looks.{left_out}</li>')
     return (f'<p class="note"><b>Is it the species, or the batch?</b> {head}'
             f'A photo can look new for the batch it came from rather than for what grows '
             f'in it. So the link between "looks unlike the labelled photos" and "its '
-            f'species has few labels" was tested twice over. Once with the site held '
-            f'fixed, once with the export batch held fixed. On the labelled photos the '
-            f'species is known; on the queue it is the one the model guessed.</p>'
+            f'species has few labels" was tested three times over. Once with the site '
+            f'held fixed, once with the export batch held fixed. And once with the '
+            f'flight, meaning the date and the site, held fixed. On the labelled photos '
+            f'the species is known; on the queue it is the one the model guessed.</p>'
             f'<ul class="note">{"".join(lines)}</ul>'
-            f'<p class="note">Tested with labelfirst on this checkout, written '
-            f'{esc(f["written"] or "on an unrecorded date")}.</p>')
+            f'<p class="note">Tested with labelfirst {esc(f["library"] or "unknown")} on '
+            f'this checkout, written {esc(f["written"] or "on an unrecorded date")}. The '
+            f'file of photo vectors was {_sha(f["sha"])} for the queue and '
+            f'{_sha(f["anchor_sha"])} for the labelled photos.</p>')
 
 
 def _corr(x) -> str:
     return "n/a" if x is None else f"{x:+.2f}"
+
+
+def _sha(x) -> str:
+    """The first SHA_SHOWN hex of a file hash, or a plain "unrecorded"."""
+    return esc(x[:SHA_SHOWN]) if x else "an unrecorded hash"

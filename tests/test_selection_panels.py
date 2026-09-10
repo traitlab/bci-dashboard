@@ -14,8 +14,9 @@ from types import SimpleNamespace
 def _audit(tmp_path, **over):
     d = {"audit": {"h1_sustainability": {"pct_gain": 162.4, "ci_low": 138.9,
                                          "ci_high": 193.3, "wilcoxon_p": 0.0039},
-                   "alpha": 0.05, "n_seeds": 8, "rounds": 20,
-                   "library_version": "0.9.0", "embedding_sha256": "anchor-sha"},
+                   "alpha": 0.05, "n_seeds": 8, "rounds": 20, "n_seeds_agreeing": 8,
+                   "library_version": "0.9.0",
+                   "embedding_sha256": "anchor-sha0123456789abcdef"},
          "efficiency": {"labels_saved_pct": 70.0, "challenger_rounds_to_match": 6.0,
                         "baseline_rounds": 20},
          "preflight": {"separability_pct": 81.8, "gain_on_ladder": False},
@@ -30,13 +31,19 @@ def _audit(tmp_path, **over):
     return str(p)
 
 
-def _confound(tmp_path, verdict="robust"):
+def _confound(tmp_path, verdict="robust", flight=False):
     d = {"audits": [{"population": "queued photos", "covariate": "export batch",
                      "verdict": verdict, "raw_corr": 0.445, "partial_corr": 0.452,
                      "partial_p": 0.0002, "covariate_eta2": 0.004, "n": 3873,
-                     "n_groups": 2}],
-         "run": {"embedding_sha256": "pool-sha",
-                 "extra": {"anchor_sha256": "anchor-sha", "written": "2026-09-10"}}}
+                     "n_groups": 2, "n_unreconciled": 0}],
+         "run": {"embedding_sha256": "pool-sha0123456789abcdef", "library_version": "0.9.0",
+                 "extra": {"anchor_sha256": "anchor-sha0123456789abcdef",
+                           "written": "2026-09-10"}}}
+    if flight:
+        d["audits"].append({"population": "queued photos", "covariate": "flight",
+                            "verdict": "robust", "raw_corr": 0.445, "partial_corr": 0.30,
+                            "partial_p": 0.0002, "covariate_eta2": 0.12, "n": 3871,
+                            "n_groups": 40, "n_unreconciled": 2})
     p = tmp_path / "confound.json"
     p.write_text(json.dumps(d))
     return str(p)
@@ -60,7 +67,8 @@ def test_the_audit_is_flattened_and_the_pass_rule_is_read_off_the_numbers(
         selection_panels, tmp_path):
     a = selection_panels.selection_audit(_audit(tmp_path))
     assert a["gain"] == 162.4 and a["n_frames"] == 1719 and a["n_rare"] == 107
-    assert a["labels_saved_pct"] == 70.0 and a["sha"] == "anchor-sha"
+    assert a["labels_saved_pct"] == 70.0 and a["sha"] == "anchor-sha0123456789abcdef"
+    assert a["n_seeds_agreeing"] == 8
     assert a["passed"] is True
     # Range crossing zero: no claim, whatever the p-value says.
     assert selection_panels.selection_audit(_audit(tmp_path, ci_low=-2.0))["passed"] is False
@@ -116,15 +124,63 @@ def test_evidence_run_against_other_photos_is_a_complaint_naming_the_file(
     sp = selection_panels
     audit = sp.selection_audit(_audit(tmp_path))
     conf = sp.selection_confound(_confound(tmp_path))
-    fresh = {"sha": "pool-sha", "anchor_sha": "anchor-sha"}
+    fresh = {"sha": "pool-sha0123456789abcdef", "anchor_sha": "anchor-sha0123456789abcdef"}
     assert sp.selection_complaint(audit, conf, fresh) == ""
     # The audit ran on other labelled photos than the ordering was anchored on.
-    got = sp.selection_complaint(audit, conf, {"sha": "pool-sha", "anchor_sha": "other"})
+    got = sp.selection_complaint(audit, conf, dict(fresh, anchor_sha="other"))
     assert "selection_audit.json" in got and "--audit" in got
     # The confound ran on another pool.
-    got = sp.selection_complaint(audit, conf, {"sha": "other", "anchor_sha": "anchor-sha"})
+    got = sp.selection_complaint(audit, conf, dict(fresh, sha="other"))
     assert "selection_confound.json" in got and "--confound" in got
     # The older text sidecar carries no hash, so nothing can be checked.
     assert sp.selection_complaint(audit, conf, {"sha": None, "anchor_sha": None}) == ""
     # Absent evidence is not stale evidence.
     assert sp.selection_complaint(None, None, fresh) == ""
+
+
+def test_the_audit_note_says_how_many_starts_favoured_this_order(selection_panels,
+                                                                  tmp_path):
+    """The plan called this "seeds agreeing": a gain averaged over eight starts
+    could hide one start where the random order won."""
+    c = SimpleNamespace(selection_audit=selection_panels.selection_audit(_audit(tmp_path)))
+    assert "8 of 8 starts favoured this order over the random one" in \
+        selection_panels.audit_note(c)
+    # An older audit file without the count says nothing about it, rather than
+    # printing "None of 8".
+    p = tmp_path / "audit.json"
+    d = json.loads(p.read_text())
+    del d["audit"]["n_seeds_agreeing"]
+    p.write_text(json.dumps(d))
+    c = SimpleNamespace(selection_audit=selection_panels.selection_audit(str(p)))
+    assert "starts favoured" not in selection_panels.audit_note(c)
+
+
+def test_both_notes_name_the_file_of_photo_vectors_they_were_run_against(
+        selection_panels, tmp_path):
+    """Beside the library version, the first twelve hex of the hash the audit
+    and the confound were run on, so a reader can match them to the ordering
+    file's own record without opening the JSON."""
+    sp = selection_panels
+    c = SimpleNamespace(selection_audit=sp.selection_audit(_audit(tmp_path)),
+                        selection_confound=sp.selection_confound(_confound(tmp_path)),
+                        head_n=0)
+    note = sp.audit_note(c)
+    assert "labelfirst 0.9.0" in note and "anchor-sha01," in note
+    assert "anchor-sha0123456789abcdef" not in note
+    cf = sp.confound_note(c)
+    assert "labelfirst 0.9.0" in cf and "pool-sha0123 " in cf and "anchor-sha01 " in cf
+
+
+def test_the_flight_reads_as_the_date_and_the_site_and_the_left_out_are_counted(
+        selection_panels, tmp_path):
+    sp = selection_panels
+    f = sp.selection_confound(_confound(tmp_path, flight=True))
+    assert [t["n_unreconciled"] for t in f["tests"]] == [0, 2]
+    c = SimpleNamespace(selection_confound=f, head_n=0)
+    cf = sp.confound_note(c)
+    assert "the flight, meaning the date and the site, held fixed" in cf
+    assert "40 flights" in cf and "holds once the flight is held fixed" in cf
+    assert "2 photos were left out because their site could not be read" in cf
+    # The export-batch line, where nothing was left out, says nothing about it.
+    batch_line = cf.split("<li>")[1]
+    assert "left out" not in batch_line
