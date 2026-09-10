@@ -92,24 +92,29 @@ def note(result: dict) -> str:
     """The one paragraph the species panel prints from this file. Every rate
     names its population and n, and the empty case is said in words."""
     t, u = result["test"], result["unseen"]
-    line = (f'<p class="note"><b>Scored on frames from flights the labels never saw.</b> '
-            f'The first guess is right on {_pct(t["top1"])} of the {t["n"]:,} test frames. ')
+    unplaced = result["unplaced"]
+    line = (f'<p class="note"><b>Does the test score lean on flights the labels already '
+            f'know?</b> A flight is one date over one site. The first guess is right on '
+            f'{_pct(t["top1"])} of the {t["n"]:,} test frames. ')
     if u["n"]:
         line += (f'On the {u["n"]:,} test frames from flights with no train frame it is '
-                 f'right on {_pct(u["top1"])}. ')
+                 f'right on {_pct(u["top1"])}. A large gap between the two rates means '
+                 f'the test score leans on near-copies of train frames, and the lower '
+                 f'rate is the one a new flight would get. ')
     else:
-        line += ('A flight is one date over one site. Every test frame shares its flight '
-                 'with a train frame, so no test frame comes from a flight the labels '
-                 'never saw. ')
-    line += (f'{result["unplaced"]:,} test frame{"s" if result["unplaced"] != 1 else ""} '
-             f'could not be placed on a flight and {"are" if result["unplaced"] != 1 else "is"} '
-             f'left out of that comparison. ')
+        line += ('Every one of them shares its flight with a train frame, so no test '
+                 'frame comes from a flight the labels never saw. There is nothing to '
+                 'score a new flight on yet. A large gap would show once a held-back '
+                 'set from unseen flights exists. ')
+    if unplaced:
+        line += (f'{unplaced:,} test frame{"s" if unplaced != 1 else ""} could not be '
+                 f'placed on a flight and {"are" if unplaced != 1 else "is"} left out. ')
+    else:
+        line += 'Every test frame could be placed on a flight. '
     if result["unplaced_train"]:
         line += (f'{result["unplaced_train"]:,} train frames could not be placed either, '
                  f'so their flights read as unseen. ')
-    return line + ('A large gap between the two rates would mean the test score leans '
-                   'on near-copies of train frames. The rate on new flights would then '
-                   'be closer to the lower one.</p>')
+    return line.rstrip() + '</p>'
 
 
 def write_held_out(out_dir: str, result: dict) -> None:
