@@ -224,10 +224,24 @@ def check_send_batches(directory, queue_path, n_unlab):
         fail(f"send_batches.csv is a valid repartition of {queue_path} but not the "
              f"one queues.chunk_send_batches makes from it. Re-run measure.py.")
 
+    # The packing columns above are recomputed; the distance is not, it is a
+    # lookup joined on at write time. So it is the one column the botanist
+    # reads that the recomputation cannot vouch for, and a batch file written
+    # against an older ordering would carry a distance the queue no longer has.
+    how_new = {r["global_key"]: r["how_new_it_looks"] for r in qrows}
+    for r in brows:
+        if "how_new_it_looks" not in r:
+            fail("send_batches.csv carries no how_new_it_looks column. Re-run measure.py.")
+        if r["how_new_it_looks"] != how_new[r["global_key"]]:
+            fail(f"send_batches.csv: how_new_it_looks for {r['global_key']} is "
+                 f"{r['how_new_it_looks']!r} but {queue_path} has "
+                 f"{how_new[r['global_key']]!r}")
+
     n_control = sum(1 for r in brows if r["picked_by"] == "control")
     return (f"send_batches.csv: {len(brows):,} rows in {len(by_batch)} batches, "
             f"the assignment chunk_send_batches makes, at most "
-            f"{queues.BATCH_SIZE} rows each, {n_control} of batch 1 drawn at random")
+            f"{queues.BATCH_SIZE} rows each, {n_control} of batch 1 drawn at random, "
+            f"how_new_it_looks the same as {os.path.basename(queue_path)} row for row")
 
 
 def check_review_queue(directory, review_counts, review_mechanisms=None):
