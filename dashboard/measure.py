@@ -91,7 +91,7 @@ def write_name_reconciliation(out_dir, h):
                         (m or nn) in h.corpus_norm])
 
 
-def write_per_species_health(out_dir, per_species, limits):
+def write_per_species_health(out_dir, per_species, transductive):
     """The page's table: one row per species from the aggregation.
 
     The ``status`` column is the one figure the aggregation does not carry. Both
@@ -99,7 +99,7 @@ def write_per_species_health(out_dir, per_species, limits):
     the to-do list, and a reader who took the file got every column except the
     one they were reading rows by. Written from ``core.diagnose``, the same rule
     the pages call, so a status here and a status on a page cannot differ.
-    ``limit`` is what would help, off ``assessments.limits_for``, same as the page.
+    ``limit`` is what would help, off ``assessments.limit_of``, same as the page.
     """
     if not per_species:
         # Like health.scan_cache and health.require_inputs on the same no-data
@@ -110,14 +110,12 @@ def write_per_species_health(out_dir, per_species, limits):
             "labelled species. Run bin/refresh.sh to fetch and build the inputs, or "
             "point at an existing copy with the flags --help lists.")
     with _csv(out_dir, "per_species_health.csv") as f:
-        w = csv.DictWriter(f, fieldnames=[*per_species[0], "status", "limit",
-                                          "limit_agreement"])
+        w = csv.DictWriter(f, fieldnames=[*per_species[0], "status", *am.LIMIT_COLUMNS])
         w.writeheader()
         for d in per_species:
             row = {k: (fmt(v) if isinstance(v, float) else v) for k, v in d.items()}
-            limit, agreement = limits[d["species"]]
-            w.writerow({**row, "status": diagnose(d), "limit": limit,
-                        "limit_agreement": agreement})
+            w.writerow({**row, "status": diagnose(d),
+                        **am.limit_columns(transductive, d["species"])})
 
 
 def write_support_buckets(out_dir, B):
@@ -223,15 +221,6 @@ def how_new(distance: dict, key: str) -> str:
     ordering file never scored. Blank and not zero, since zero is a photo that
     looks exactly like a labelled one."""
     return f"{distance[key]:.3f}" if key in distance else ""
-
-
-def write_label_review_queue(out_dir, review_rows):
-    """Confident model/label disagreements, most confident first."""
-    with _csv(out_dir, "label_review_queue.csv") as f:
-        w = csv.writer(f)
-        w.writerow(["global_key", "split", "gt_species", "predicted_species",
-                    "confidence", "labelbox_url", "mechanism"])
-        w.writerows(review_rows)
 
 
 def top1(r, key="ranked"):
@@ -415,19 +404,17 @@ def send_queue(h):
             novelty_provenance(QUEUE_NOVELTY_CSV), held_out)
 
 
-def review_queue(h, disagreement):
+def review_queue(h):
     """First guess wrong at high confidence: either the label or the model is
     wrong. Worked after the cheap queues, most confident first, and frames a
-    botanist has already adjudicated are dropped. ``mechanism`` is why the two
-    names conflict, off ``assessments.mechanism_of``; blank when unassessed.
+    botanist has already adjudicated are dropped.
     """
     urls = labelbox_urls()
     adjudicated = adjudicated_keys()
     raised = [r for r in h.sp_recs
               if top1(r) != r["gt"] and r["ranked"][0][1] >= REVIEW_CONF]
     rows = [[r["global_key"], r["split"], r["gt"], top1(r),
-             f"{r['ranked'][0][1]:.6f}", urls.get(r["global_key"], ""),
-             am.mechanism_of(disagreement, r["global_key"])]
+             f"{r['ranked'][0][1]:.6f}", urls.get(r["global_key"], "")]
             for r in raised if r["global_key"] not in adjudicated]
     rows.sort(key=lambda r: (-float(r[4]), r[1], r[0]))
     return rows, len(raised) - len(rows)
@@ -452,11 +439,9 @@ def main() -> None:
     rl.log_evaluable_sets(log, h)
 
     head = headline_counts(h)
-    # Read, never required: a fresh clone still gets its tables. The builder refuses.
     transductive = am.load(am.TRANSDUCTIVE_JSON)
     disagreement = am.load(am.DISAGREEMENT_JSON)
-    write_per_species_health(out_dir, h.per_species,
-                             am.limits_for(transductive, h.per_species))
+    write_per_species_health(out_dir, h.per_species, transductive)
 
     gain = bci_list_filter(h)
     B = support_bucket_totals(h, gain.filt)
@@ -497,8 +482,8 @@ def main() -> None:
     rl.log_send_queue(log, q_counts, batch_rows, n_no_answer, n_ranked,
                       novelty=novelty_prov, held_out=held_out)
 
-    review_rows, n_adjudicated = review_queue(h, disagreement)
-    write_label_review_queue(out_dir, review_rows)
+    review_rows, n_adjudicated = review_queue(h)
+    am.write_label_review_queue(out_dir, review_rows, disagreement)
     rl.log_review_queue(log, review_rows, head.n, n_adjudicated)
     am.write_reject_sweep(out_dir, am.load(am.REJECT_SWEEP_JSON))
     am.log_assessments(log, transductive, disagreement, h.per_species, review_rows)
