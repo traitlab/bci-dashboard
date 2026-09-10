@@ -14,8 +14,9 @@ from assets import (cap, esc, filterable_table, hero, num_cell, panel, pctf,
                     source_note, status_legend, status_tag, svg_hbar, table)
 from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
 from explain import CONF_BAND_WORDS, method_panel, weighting_panel
-from figures import conf, top1
+from figures import WAIT_SUPPORT_MIN, conf, top1
 from held_out import note as held_out_note
+from snapshot_delta import note as delta_note
 from status_words import (STATUS, filter_options, legend_entries,
                           status_precedence_note)
 
@@ -857,4 +858,6 @@ def p_counts(c):
         f'{c.n_gt - c.n_pred} with no cached answer included.</p>'
         f'<p class="note">Each number on this page says which of the three it is '
         f'using.</p>'
-        + ap.richness_note(c.richness))
+        + ap.richness_note(c.richness)
+        # Then and now, beside the counts it is a change in.
+        + delta_note(c.delta, floor=WAIT_SUPPORT_MIN))

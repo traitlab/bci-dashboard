@@ -22,9 +22,11 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import confirmatory_panels as cp
+import core as hc
 import figures
 import panels
 import page as pg
+import snapshot_delta
 from assets import esc
 from history import fail, verify_snapshot
 
@@ -55,6 +57,14 @@ def build(h, *, generated, verify_dir, fallback_tag):
         review_counts=c.review_counts, limits=c.limits,
         review_mechanisms=c.review_mechanisms, reject_sweep=c.reject_sweep,
         held_out=c.held_out)
+
+    # Then and now, against the newest snapshot dated before this build. Here
+    # and not in figures.prepare because only the builder knows the build date.
+    c.delta = snapshot_delta.compute(
+        {"n_species_floor": sum(1 for d in c.per_species
+                                if d["n_labelled_frames"] >= figures.WAIT_SUPPORT_MIN),
+         "test_n": c.held_out["test"]["n"], "test_top1": c.held_out["test"]["top1"]},
+        hc.SNAPSHOT_DIR, generated, floor=figures.WAIT_SUPPORT_MIN)
 
     # The head is two numbers and one line saying which to quote. Everything
     # that qualifies them is a panel below.
