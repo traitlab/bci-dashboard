@@ -32,6 +32,8 @@ bin/refresh.sh path/to/export.ndjson                  # a named export instead o
 `bin/refresh.sh` takes the newest export in `data/exports` or `~/Downloads` when
 given no path.
 
+`dashboard/build_external.py` refuses to build when `data/model_health/` is missing or older than the labels. Regenerate it with `labelling/assess_species.py` in the speciesfirst virtualenv, or set `SPECIESFIRST_PYTHON` so `bin/refresh.sh` does it.
+
 ## What to label next
 
 Every unlabelled photo with a cached Pl@ntNet answer falls into one of four

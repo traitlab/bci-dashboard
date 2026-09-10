@@ -31,14 +31,9 @@ def sweep(core):
             for t, n, r, s in zip(core.CROP_COVERAGE_SWEEP, counts, rates, species)]
 
 
-RICHNESS = {"population": {"n_labelled": 3781, "n_species_level": 3304},
-            "richness": {"observed": 186, "singletons": 51, "doubletons": 20,
-                         "unseen_estimate": 65, "completeness": 0.74}}
-
-
 def _ctx(sweep, dropped=None):
     return SimpleNamespace(
-        n=3277, coverage_sweep=sweep, richness=RICHNESS,
+        n=3277, coverage_sweep=sweep,
         coverage_dropped=dropped or {"n": 49, "max": 6, "median": 1})
 
 
