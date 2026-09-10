@@ -103,7 +103,8 @@ def test_the_file_carries_the_status_the_table_shows(measure, core, tmp_path):
     rows = [_species_row(), _species_row(species="Ceiba pentandra",
                                         n_labelled_frames=2, top1_accuracy=0.0,
                                         top5_accuracy=0.0)]
-    measure.write_per_species_health(str(tmp_path), rows)
+    measure.write_per_species_health(str(tmp_path), rows,
+                                     {r["species"]: ("", "") for r in rows})
     import csv
     got = list(csv.DictReader((tmp_path / "per_species_health.csv").open()))
     assert [d["status"] for d in got] == [core.diagnose(r) for r in rows]
