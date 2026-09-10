@@ -145,3 +145,34 @@ class TestTheCommittedListIsTheOneThatWasDrawn:
             pytest.skip("the drawn list is not present")
         counts = collections.Counter(r["site"] for r in rows_of(FIELD))
         assert max(counts.values()) <= draw_field_sample.CAP * draw_field_sample.N
+
+
+class TestTheFlightIsTheDateAndTheSite:
+    """The confound audit holds the flight fixed, and a flight is one date at one
+    site: two sorties on the same site a month apart are two flights, and the
+    mission folder in the Labelbox URL carries both halves."""
+
+    def test_a_flight_is_the_date_and_the_site_from_the_mission_folder(
+            self, draw_field_sample):
+        url = "http://x/20240912_bciarmour_1_v/b.JPG"
+        assert draw_field_sample.site_of(url) == "bciarmour"
+        assert draw_field_sample.flight_of(url) == "20240912/bciarmour"
+
+    def test_a_url_with_no_mission_folder_reads_as_no_flight_not_a_guess(
+            self, draw_field_sample):
+        assert draw_field_sample.flight_of("http://x/no-mission-folder.JPG") == ""
+        assert draw_field_sample.flight_of("") == ""
+        assert draw_field_sample.flight_of(None) == ""
+
+    def test_load_flights_reads_the_same_inventory_as_load_sites(
+            self, draw_field_sample, tmp_path):
+        inventory = tmp_path / "rows.jsonl"
+        inventory.write_text(
+            '{"global_key":"a.JPG","row_data":"http://x/20240912_bciarmour_1_v/a.JPG"}\n'
+            '{"global_key":"b.JPG","row_data":"http://x/20241003_bciarmour_2_v/b.JPG"}\n'
+            '{"global_key":"c.JPG","row_data":"http://x/no-mission-folder.JPG"}\n',
+            encoding="utf-8")
+        assert draw_field_sample.load_sites(inventory) == {
+            "a.JPG": "bciarmour", "b.JPG": "bciarmour", "c.JPG": ""}
+        assert draw_field_sample.load_flights(inventory) == {
+            "a.JPG": "20240912/bciarmour", "b.JPG": "20241003/bciarmour", "c.JPG": ""}
