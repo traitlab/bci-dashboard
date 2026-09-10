@@ -322,6 +322,26 @@ def test_send_batches_global_key_set_disagreeing_aborts(history, tmp_path):
     assert "global_key set does not match" in msg
 
 
+def test_a_batch_row_whose_how_new_it_looks_differs_from_the_queue_aborts(history,
+                                                                          tmp_path):
+    """The batch file carries the distance as a lookup from the queue, and the
+    recomputed-assignment check compares the packing columns only. So a batch
+    file whose distance column went stale against send_first_queue.csv was a
+    file every check let through, and the one the botanist reads."""
+    qrows = queue_rows_for()
+    for i, r in enumerate(qrows):
+        r["novelty_rank"], r["how_new_it_looks"] = str(i + 1), f"0.{i + 1:03d}"
+    brows = batch_rows_for(qrows)
+    brows[2] = dict(brows[2], how_new_it_looks="0.999")
+    kwargs, _ = write_snapshot(tmp_path, queue_rows=qrows, batch_rows=brows)
+    msg = assert_aborts(history, tmp_path, kwargs)
+    assert "how_new_it_looks" in msg and brows[2]["global_key"] in msg
+    # Agreeing, the check says it looked.
+    kwargs, _ = write_snapshot(tmp_path, queue_rows=qrows, batch_rows=batch_rows_for(qrows))
+    line = next(c for c in run(history, tmp_path, kwargs) if "send_batches.csv" in c)
+    assert "how_new_it_looks" in line
+
+
 def test_batch_ids_not_the_current_assignment_abort(history, tmp_path):
     """A structurally valid repartition is not enough: the batch_id assignment
     has to be the one queues.chunk_send_batches makes from those same rows.

@@ -141,10 +141,14 @@ def batch_rows_for(queue_rows, batch_id=None):
     if batch_id is not None:
         return [{"batch_id": batch_id, "species_group": r["predicted_species"],
                  "global_key": r["global_key"], "queue": r["queue"],
-                 "picked_by": "queue"}
+                 "picked_by": "queue", "how_new_it_looks": r["how_new_it_looks"]}
                 for r in queue_rows]
     rows = [[r[c] for c in queues.SEND_FIRST_COLUMNS] for r in queue_rows]
-    return [dict(zip(queues.SEND_BATCH_COLUMNS, b))
+    # The distance rides on the batch file as a lookup from the queue, the way
+    # measure.py joins it on, so verify_snapshot can hold the two to agree.
+    how_new = {r["global_key"]: r["how_new_it_looks"] for r in queue_rows}
+    return [dict(zip(queues.SEND_BATCH_COLUMNS, b),
+                 how_new_it_looks=how_new[b[queues.SEND_BATCH_COLUMNS.index("global_key")]])
             for b in queues.chunk_send_batches(rows)]
 
 
@@ -204,7 +208,8 @@ def write_snapshot(tmp_path, *, per_species_rows=None, bucket_rows=None, bin_row
         # The headers come from queues, not a second copy here: a column added
         # there and not here writes a file the fixture cannot fill.
         write_csv(d / "send_first_queue.csv", qrows, queues.SEND_FIRST_COLUMNS)
-        write_csv(d / "send_batches.csv", brows, queues.SEND_BATCH_COLUMNS)
+        write_csv(d / "send_batches.csv", brows,
+                  queues.SEND_BATCH_COLUMNS + queues.SEND_BATCH_LOOKUP_COLUMNS)
         files["queue"], files["batches"] = qrows, brows
         kwargs["queue_counts"] = dict(QUEUE_COUNTS)
         if queue_keys is not None:
