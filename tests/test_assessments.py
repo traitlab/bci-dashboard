@@ -194,17 +194,16 @@ def test_verify_compares_mechanism_counts_when_the_page_groups_by_them(history, 
 
 
 def test_every_mechanism_the_file_can_carry_has_a_page_word():
-    """speciesfirst's four mechanisms, in the page's words, read off the two
-    sources so a fifth added upstream shows up here."""
+    """The mechanisms the script gives, in the page's words, read off the two
+    sources so one added upstream shows up here."""
     script = (REPO / "labelling" / "assess_species.py").read_text(encoding="utf-8")
     page = (REPO / "dashboard" / "assess_panels.py").read_text(encoding="utf-8")
     named = set(re.findall(r'"(species_conflict|synonym_artifact|coarser_label|'
                            r'liana_overgrowth)"', script))
     worded = set(re.findall(r'^\s+"(\w+)": "', page, re.MULTILINE))
-    assert named <= worded
-    # The page words all four of speciesfirst's mechanisms; the script gives
-    # three, since liana_overgrowth needs a growth-habit table nothing writes yet.
-    assert len(worded) == 4 and len(named) == 3
+    # The same three on both sides. speciesfirst's fourth, liana_overgrowth,
+    # needs a growth-habit table nothing writes, so neither side names it.
+    assert named == worded and len(named) == 3
 
 
 # ---------------------------------------------------------------------------

@@ -814,7 +814,6 @@ def p_coverage(c):
           f'crown inside it carries a different species from the label. '
           f'The headline rates at the top of this page use no bar, which is the top '
           f'row.</p>'
-        + ap.richness_note(c.richness)
 )
     return panel(
         "What the rates become when the crop really shows the labelled tree",
@@ -855,4 +854,5 @@ def p_counts(c):
         f'<p class="note"><b>{c.n_gt:,}</b> frames a botanist has labelled at all, the '
         f'{c.n_gt - c.n_pred} with no cached answer included.</p>'
         f'<p class="note">Each number on this page says which of the three it is '
-        f'using.</p>')
+        f'using.</p>'
+        + ap.richness_note(c.richness))

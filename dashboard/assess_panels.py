@@ -12,12 +12,13 @@ from __future__ import annotations
 from assessments import LIMIT_MIN_FRAMES, LIMIT_WORDS
 from assets import esc, table
 
-# What the disagreement file's four words mean on the page.
+# What the disagreement file's words mean on the page. speciesfirst has a fourth,
+# liana_overgrowth, which the script never gives without a growth-habit table,
+# so the page does not word it: a word with no row behind it is a claim.
 MECHANISM_WORDS = {
     "species_conflict": "two different species",
     "synonym_artifact": "one species under two names",
     "coarser_label": "a label that stops at genus or family",
-    "liana_overgrowth": "a climber over the crown",
 }
 
 LIMIT_HINT = ("Whether more labels or a better model would move this row. "
@@ -79,9 +80,6 @@ def mechanism_note(disagreement: dict, counts) -> str:
            f'this list. That check reads the accepted name in '
            f'<code>{esc(method["synonyms_from"].split("/")[-1])}</code>, and dropped '
            f'{pop["n_conflicts"] - pop["n_flagged"]} of {pop["n_conflicts"]} conflicts.')
-    if not method.get("habit_source"):
-        out += (' A climber over the crown cannot be told apart yet. No growth-habit '
-                'table is on disk, so that reason is never given.')
     return out + '</p>'
 
 
@@ -112,9 +110,10 @@ def reject_table(sweep: dict) -> str:
 
 def richness_note(status: dict) -> str:
     """How many species the labels have reached, and how many the singletons say
-    are still out there. Chao1 over every frame labelled to species."""
+    are still out there. Chao1 over every frame labelled to species. Sits in
+    the frame-counts panel, beside the count it qualifies."""
     r, pop = status["richness"], status["population"]
-    return (f'<p class="note"><b>Coverage of species, not of crops:</b> the labels so far '
+    return (f'<p class="note"><b>Species the labels have reached:</b> the labels so far '
             f'name {r["observed"]} species over the {pop["n_species_level"]:,} of '
             f'{pop["n_labelled"]:,} labelled frames that reach a species. '
             f'{r["singletons"]} of those species were seen once and {r["doubletons"]} '
