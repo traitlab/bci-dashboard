@@ -34,9 +34,17 @@ def limit_cell(limit: str, agreement: str) -> str:
     return f'{esc(LIMIT_WORDS[limit])} <span class="tally">{n} of {of} draws</span>'
 
 
-def limit_note(transductive: dict) -> str:
-    """The one-line legend for that column, population and count included."""
-    pop, summary = transductive["population"], transductive["summary"]
+def limit_note(transductive: dict, limits: dict) -> str:
+    """The one-line legend for that column, population and count included.
+
+    The counts are taken off ``limits``, the words the table prints, and not
+    off the sidecar's summary, which covers every species down to one frame:
+    a legend saying 22 rows read "more labels" over a column showing none
+    would be the page describing a file it is not using.
+    """
+    pop = transductive["population"]
+    shown = [v for v, _ in limits.values() if v]
+    count = {k: sum(1 for v in shown if v == k) for k in LIMIT_WORDS}
     return (f'<p class="note"><b>What would help</b> is judged on the '
             f'{pop["n_frames"]:,} labelled frames the model has a view of, '
             f'{pop["n_species"]} species. Half the labels are hidden. Each hidden '
@@ -46,10 +54,10 @@ def limit_note(transductive: dict) -> str:
             f'<i>{LIMIT_WORDS["classifier_limited"]}</i>: the labels are there and the '
             f'nearest-photo rule still misses, so more labels will not close it. '
             f'<i>{LIMIT_WORDS["sampling_limited"]}</i>: too few labels for the rule to '
-            f'work from. Blank under {LIMIT_MIN_FRAMES} viewed frames. Over every '
-            f'species judged: {summary.get("resolved", 0)} no gap found, '
-            f'{summary.get("classifier_limited", 0)} better model, '
-            f'{summary.get("sampling_limited", 0)} more labels.</p>')
+            f'work from. Blank under {LIMIT_MIN_FRAMES} viewed frames. Over the '
+            f'{len(shown)} species with that many: {count["resolved"]} no gap found, '
+            f'{count["classifier_limited"]} better model, '
+            f'{count["sampling_limited"]} more labels.</p>')
 
 
 def mechanism_note(disagreement: dict, counts) -> str:
