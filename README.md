@@ -90,7 +90,7 @@ Crop and box geometry comes from what the fetch recorded, never a constant.
    needs API keys                      reads the files on disk
 
    predict/    ─┐
-   labelling/   ├─>  files  ─> measure.py ─> ten CSVs  ─> build_*.py ─> HTML page
+   labelling/   ├─>  files  ─> measure.py ─> eleven CSVs ─> build_*.py ─> HTML page
    (Pl@ntNet,  ─┘    on disk    (score      (build/        (render and
     Labelbox)                    every       tables)        cross-check)
                                  photo)

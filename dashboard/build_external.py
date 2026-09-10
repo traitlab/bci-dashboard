@@ -53,7 +53,8 @@ def build(h, *, generated, verify_dir, fallback_tag):
         verify_dir, per_species=c.per_species, buckets=c.buckets, bins_all=c.bins_all,
         never_all=c.never_all, unscoreable=c.unscoreable, strict_hits=c.strict1,
         review_counts=c.review_counts, limits=c.limits,
-        review_mechanisms=c.review_mechanisms, reject_sweep=c.reject_sweep)
+        review_mechanisms=c.review_mechanisms, reject_sweep=c.reject_sweep,
+        held_out=c.held_out)
 
     # The head is two numbers and one line saying which to quote. Everything
     # that qualifies them is a panel below.
