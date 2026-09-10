@@ -67,3 +67,16 @@ def test_the_ranker_holds_the_flight_fixed_as_well_as_the_site_and_the_batch():
     src = (REPO / "labelling" / "rank_queue.py").read_text(encoding="utf-8")
     assert re.search(r'\("flight",', src), "run_confound no longer audits the flight"
     assert "load_flights" in src
+
+
+def test_seeds_agreeing_counts_the_starts_where_this_order_beat_the_random_one(
+        rank_confound):
+    """The audit page says "N of M starts favoured this order". A tie is not a
+    start in this order's favour."""
+    assert rank_confound.seeds_agreeing([3.0, 2.0, 5.0], [1.0, 2.0, 4.0]) == 2
+    assert rank_confound.seeds_agreeing([], []) == 0
+
+
+def test_the_audit_writes_seeds_agreeing_beside_the_library_version():
+    src = (REPO / "labelling" / "rank_queue.py").read_text(encoding="utf-8")
+    assert '"n_seeds_agreeing"' in src and "seeds_agreeing(" in src

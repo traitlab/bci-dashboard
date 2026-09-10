@@ -1,4 +1,4 @@
-"""The pieces of the queue's confound audit that are not the ranker.
+"""The pieces of the queue's evidence audits that are not the ranker.
 
 ``labelling/rank_queue.py --confound`` asks whether "looks unlike the labelled
 photos" still tracks a rarely-labelled species once a covariate is held fixed.
@@ -6,6 +6,10 @@ This module holds the score, the target and the one-audit record it writes,
 and the rule for a photo whose covariate cannot be read: it leaves the audit
 and is counted, never grouped under "". A group named "" would be a site that
 means "we did not look", and today two queued photos have no readable site.
+
+``seeds_agreeing`` serves the other sidecar, ``--audit``: how many of the
+random starts came out in this order's favour, which a gain averaged over
+starts cannot show.
 
 Needs numpy and labelfirst, like the ranker that imports it.
 """
@@ -57,3 +61,9 @@ def one_confound(population, score, target, covariate, *, score_name, target_nam
     return {"population": population, "score": score_name, "target": target_name,
             "covariate": covariate_name, "n_groups": len(res.within_group),
             "n_unreconciled": n_unreconciled, **d}
+
+
+def seeds_agreeing(challenger_aucs, baseline_aucs) -> int:
+    """How many random starts this order beat the random one on, by area under
+    the rare-species curve. A tie is not a start in this order's favour."""
+    return sum(1 for c, b in zip(challenger_aucs, baseline_aucs) if c > b)
