@@ -262,6 +262,15 @@ def pagemod():
 
 
 @pytest.fixture(scope="session")
+def selection_panels():
+    """The queue page's measured selection evidence: two JSON sidecars from
+    labelling/rank_queue.py, read here with the standard library."""
+    with _on_path(REPO / "dashboard"):
+        import selection_panels
+        yield selection_panels
+
+
+@pytest.fixture(scope="session")
 def queue_panels():
     """The internal queue page\'s own panels, split out of `panels` so the two
     audiences do not share a 1,100-line module. Same path dance as `panels`."""

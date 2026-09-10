@@ -163,6 +163,18 @@ def check_send_first(directory, queue_counts, queue_keys):
                  f"has {want[i] if i < len(want) else 'nothing'}")
         checks.append(f"send_first_queue.csv: all {len(want):,} rows in the same "
                       f"order as the page")
+
+    # The distance is what the rank was sorted on, so a row has both or neither.
+    # A rank with no distance is a file written by an older ranker; a distance
+    # with no rank is a lookup that outran the ordering. Either way the column
+    # the botanist reads would be explaining an order it did not produce.
+    odd = [r["global_key"] for r in hc.read_csv_rows(path)
+           if bool(r.get("novelty_rank")) != bool(r.get("how_new_it_looks"))]
+    if odd:
+        fail(f"send_first_queue.csv: {len(odd)} rows carry a novelty rank without "
+             f"how_new_it_looks or the reverse, first {odd[0]}")
+    checks.append("send_first_queue.csv: how_new_it_looks is filled exactly where "
+                  "novelty_rank is")
     return checks, n_unlab
 
 

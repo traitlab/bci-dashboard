@@ -197,13 +197,37 @@ def test_an_empty_pool_has_no_distance_curve(rank_queue):
     assert rank_queue.bin_means([]) == []
 
 
-def test_provenance_records_an_absent_npz_rather_than_stopping(rank_queue, tmp_path):
+def test_the_run_record_notes_an_absent_npz_rather_than_stopping(rank_queue, tmp_path):
     """`load_embeddings` reads the per-photo cache when the npz is not there, so
     every run before the fetch finishes reaches this with a path that does not
     exist. Stopping there loses the sidecar for exactly the ranking that needs
-    one most."""
-    out = tmp_path / "p.txt"
-    rank_queue.write_provenance(out, [("pool", tmp_path / "missing.npz", 12)])
-    text = out.read_text()
-    assert "rows=12" in text
-    assert "absent" in text
+    one most. The record lands beside the CSV as `<csv>.run.json`, where
+    `dashboard/queues.novelty_provenance` looks for it."""
+    import json
+    rec = rank_queue.run_record(tmp_path / "missing.npz", 12, tmp_path / "anchors.npz", 7,
+                                dropped_for_split=3)
+    path = rank_queue.write_run_record(tmp_path / "queue_novelty.csv", rec)
+    assert path.name == "queue_novelty.csv.run.json"
+    d = json.loads(path.read_text())
+    assert d["n_pool"] == 12 and d["n_labeled"] == 7 and d["strategy"] == "coreset"
+    assert "absent" in d["embedding_sha256"] and "absent" in d["extra"]["anchor_sha256"]
+    assert d["extra"]["dropped_for_split"] == 3 and d["library_version"]
+
+
+def test_split_frames_leave_the_pool_before_ranking(rank_queue):
+    """A frame carrying a split is never sent, and left in the pool it takes a
+    rank a sendable frame never gets, then pushes its neighbours down."""
+    import numpy as np
+    keys = ["comb_a", "comb_b", "comb_c"]
+    emb = np.eye(3, dtype=np.float32)
+    kept, kept_emb, n = rank_queue.drop_split_frames(keys, emb, {"comb_b": "test"})
+    assert kept == ["comb_a", "comb_c"] and n == 1
+    assert kept_emb.shape == (2, 3) and kept_emb[1, 2] == 1.0
+    assert rank_queue.drop_split_frames(keys, emb, {}) [2] == 0
+
+
+def test_load_splits_returns_nothing_for_an_absent_file(rank_queue, tmp_path):
+    assert rank_queue.load_splits(tmp_path / "none.csv") == {}
+    p = tmp_path / "splits.csv"
+    p.write_text("global_key,split\ncomb_a,test\ncomb_b,\n")
+    assert rank_queue.load_splits(p) == {"comb_a": "test"}

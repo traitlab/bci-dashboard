@@ -10,6 +10,7 @@ from assets import cap, esc, panel, pctf, svg_curve, svg_hbar, table
 from explain import BAND_SHORT, CONF_BAND_WORDS
 from figures import RARE_MAX_SUPPORT, RECOMMENDED_CONF, WAIT_SUPPORT_MIN
 from panels import NAMING_IS, NAMING_NOTE
+from selection_panels import audit_note, confound_note
 from status_words import STATUS, SKIP_STATUSES, uncap
 
 # Enough to answer "what do I send next" without a CSV reader. A batch is 100
@@ -436,25 +437,6 @@ def novelty_chart(c) -> str:
               'at the head do.</p>')
 
 
-def camera_note(c) -> str:
-    """The cost of this ordering, in the summary rather than a chart.
-
-    The `tele` in a file name is a naming change, not a second camera: the
-    flights that carry it also produced `zoom` names, and the two namings differ
-    by the month the frames were exported. So the risk this note carries is that
-    a photo reads as new for the batch it came from. Two numbers, so a sentence
-    carries it and a chart would only decorate it.
-    """
-    if not c.head_n:
-        return ""
-    return (f'<p class="note"><b>What this ordering costs.</b> Of the {c.head_n:,} photos '
-            f'it puts first, {pctf(c.head_tele_share)} carry the newer file naming, '
-            f'against {pctf(c.queue_tele_share)} across the whole queue. That naming '
-            f'marks a later batch of flights, not a different camera. Where the first '
-            f'share is the bigger one, the head leans on that batch. Some of what makes '
-            f'those photos look new is then the batch, not the species.</p>')
-
-
 def contact_sheet(c) -> str:
     """The head of each queue, as pictures.
 
@@ -500,7 +482,12 @@ def p_look(c):
     it must not assert the finding on a checkout where nothing has been scored.
     """
     charts = discovery_chart(c) + novelty_chart(c)
-    body = (charts or NO_CURVES) + camera_note(c) + contact_sheet(c)
+    # The discovery curve is one run from nothing. The audit under it is the
+    # same question asked properly: several random starts, against a random
+    # order, with a range and a p-value. The confound test is the cost side,
+    # and replaces the two hand-counted shares that used to stand alone.
+    body = ((charts or NO_CURVES) + audit_note(c) + confound_note(c)
+            + contact_sheet(c))
     return panel("Why the queue is in this order",
                  SCORED if c.discovery else UNSCORED,
                  body, open_=False, anchor="why-this-order")

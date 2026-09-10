@@ -32,7 +32,8 @@ from core import (
 from queues import (
     BATCH_SIZE, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_BATCH_HEADER,
     SEND_FIRST_COLUMNS,
-    chunk_send_batches, load_novelty, novelty_provenance, send_first_rows,
+    chunk_send_batches, load_novelty, load_novelty_distance, novelty_provenance,
+    send_first_rows,
     with_batch_ids,
 )
 
@@ -201,13 +202,22 @@ def write_send_batches(out_dir, batch_rows):
     front of a botanist.
     """
     images, boxes = inventory_image_urls(), labelbox_urls()
+    distance = load_novelty_distance(QUEUE_NOVELTY_CSV)
     key_at = SEND_BATCH_COLUMNS.index("global_key")
     with _csv(out_dir, "send_batches.csv") as f:
         w = csv.writer(f)
         w.writerow(SEND_BATCH_HEADER)
         for row in batch_rows:
             key = row[key_at]
-            w.writerow(list(row) + [images.get(key, ""), boxes.get(key, "")])
+            w.writerow(list(row) + [how_new(distance, key),
+                                    images.get(key, ""), boxes.get(key, "")])
+
+
+def how_new(distance: dict, key: str) -> str:
+    """The distance column as written: three decimals, or blank for a frame the
+    ordering file never scored. Blank and not zero, since zero is a photo that
+    looks exactly like a labelled one."""
+    return f"{distance[key]:.3f}" if key in distance else ""
 
 
 def write_label_review_queue(out_dir, review_rows):
@@ -385,13 +395,15 @@ def send_queue(h):
         h.predictions, {stem for _, stem, _ in h.joined}, h.canon, support, top1_of,
         novelty=load_novelty(QUEUE_NOVELTY_CSV), key_prefix=GT_KEY_PREFIX,
         splits=h.split_of)
+    distance = load_novelty_distance(QUEUE_NOVELTY_CSV)
     # The `split` column stays even though the filter above guarantees it is
     # empty on every row now. It is the proof the filter ran: a non-empty value
     # here is an evaluation frame that reached the queue anyway.
     rows = [[q, GT_KEY_PREFIX + stem, h.split_of.get(GT_KEY_PREFIX + stem, ""),
              pred, f"{conf:.6f}", support.get(pred, 0),
              fmt(top1_of.get(pred)) if pred in top1_of else "",
-             "" if rank == NO_NOVELTY else rank]
+             "" if rank == NO_NOVELTY else rank,
+             how_new(distance, GT_KEY_PREFIX + stem)]
             for q, stem, pred, conf, rank in decided]
     n_ranked = sum(1 for r in decided if r[4] != NO_NOVELTY)
     return (rows, Counter(r[0] for r in decided), n_no_answer, n_ranked,

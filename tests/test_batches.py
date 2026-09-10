@@ -29,7 +29,7 @@ def rows(*counts):
     for i, n in enumerate(counts):
         for k in range(n):
             out.append(["long_tail", f"s{i}_{k}.JPG", "train", f"species {i}", 0.5, 0, 0.0,
-                        k + 1, ""])
+                        k + 1, "", ""])
     return out
 
 
