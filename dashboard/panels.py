@@ -8,6 +8,7 @@ in ``status_words.py``, the other pages' panels in ``queue_panels.py`` and
 
 from __future__ import annotations
 
+import assess_panels as ap
 import core as hc
 from assets import (cap, esc, filterable_table, hero, num_cell, panel, pctf,
                     source_note, status_legend, status_tag, svg_hbar, table)
@@ -283,6 +284,7 @@ def p_review(c):
             f'label-and-guess pairs, the pairs that recur first: {len(recur)} pairs '
             f'cover {covered} frames, the other {len(groups) - len(recur)} one frame '
             f'each.</p>'
+            + ap.mechanism_note(c.disagreement, c.review_mechanisms)
             + _link_note(here, wide)
             + (_review_table(groups, urls) if groups
                else '<p class="note">None at this confidence.</p>')
@@ -450,7 +452,8 @@ def p_species(c):
             # and a reader reading one row wants the two ends.
             num_cell(d["iqr_top1_confidence"],
                      f'{d["p25_top1_confidence"]:.2f} to {d["p75_top1_confidence"]:.2f}'),
-            status_tag(st, STATUS[st][0])])
+            status_tag(st, STATUS[st][0]),
+            ap.limit_cell(*c.limits[sp])])
         # No data-status: the row's status tag carries it and the filter reads
         # it from there, rather than 4KB of markup saying it twice.
         attrs.append(' data-thin="1"' if _starts_hidden(d, st) else "")
@@ -468,6 +471,7 @@ def p_species(c):
             'that species&rsquo; identification accuracy.</p>'
             + _species_columns_note()
             + _species_status_note()
+            + ap.limit_note(c.transductive)
             + threshold_control(c)
             + f'<p class="note"><b>{n_thin} of these {c.n_sp} species start hidden.</b> '
               f'They carry fewer than {THIN_MIN_FRAMES} labelled frames each. On that '
@@ -503,7 +507,8 @@ def p_species(c):
          (_hint("Middle half",
                 "Where the middle 50% of this species' frames fall, the 25th to "
                 "the 75th percentile. Sorts on the width, not the ends."), True),
-         ("Status", False)],
+         ("Status", False),
+         (_hint("What would help", ap.LIMIT_HINT), False)],
         sp_rows,
         options=filter_options(),
         row_attrs=attrs,
@@ -554,7 +559,8 @@ def p_calibration(c):
         # were drawn from, so a reader can check a band rather than trust a bar.
         f'<p class="note">Every band, with the frames and the right guesses behind '
         f'it, is in <a href="confidence_calibration.csv">confidence_calibration.csv'
-        f'</a>.</p>')
+        f'</a>.</p>'
+        + ap.reject_table(c.reject_sweep))
 
 
 def p_ceiling(c):
@@ -808,6 +814,7 @@ def p_coverage(c):
           f'crown inside it carries a different species from the label. '
           f'The headline rates at the top of this page use no bar, which is the top '
           f'row.</p>'
+        + ap.richness_note(c.richness)
 )
     return panel(
         "What the rates become when the crop really shows the labelled tree",

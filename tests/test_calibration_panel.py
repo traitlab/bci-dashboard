@@ -12,6 +12,15 @@ from __future__ import annotations
 
 import pytest
 
+# The plausible-name sweep the panel prints under the chart, in the shape
+# `labelling/assess_species.py` writes it.
+SWEEP = {"population": {"n_frames": 500, "n_species": 20},
+         "method": {"n_folds": 5, "alpha": 0.1},
+         "rows": [{"max_set_size": 1, "n_accepted": 400, "accept_rate": 0.8,
+                   "accepted_accuracy": 0.95},
+                  {"max_set_size": 3, "n_accepted": 500, "accept_rate": 1.0,
+                   "accepted_accuracy": 0.9}]}
+
 
 @pytest.fixture
 def bins(explain):
@@ -30,6 +39,7 @@ def bins(explain):
 def _ctx(panels, bins):
     class C:
         bins_all = bins
+        reject_sweep = SWEEP
     return C()
 
 

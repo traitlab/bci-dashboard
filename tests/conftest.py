@@ -156,6 +156,15 @@ def crop_overlap():
 
 
 @pytest.fixture(scope="session")
+def assessments():
+    """The stdlib reader for what `labelling/assess_species.py` wrote. On the
+    path because it reads its floor from core as a sibling."""
+    with _on_path(REPO / "dashboard"):
+        import assessments
+        yield assessments
+
+
+@pytest.fixture(scope="session")
 def history():
     with _on_path(REPO / "dashboard"):
         import history

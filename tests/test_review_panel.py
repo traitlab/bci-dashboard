@@ -82,11 +82,19 @@ def test_the_pair_coverage_sentence_counts_the_recurring_pairs(panels):
     assert [r["global_key"] for r in groups[0][1]] == ["k2", "k1"]
 
 
-def fake_context(review, n_adjudicated=0):
+DISAGREEMENT = {"method": {"synonyms_from": "data/wcvp_cache.json",
+                           "habit_source": None},
+                "population": {"n_conflicts": 3, "n_flagged": 3}}
+
+
+def fake_context(review, n_adjudicated=0, mechanisms=None):
     """The figures a review panel reads, and nothing else."""
+    from collections import Counter
     return SimpleNamespace(review=review, n_adjudicated=n_adjudicated,
                            confident=review, confident_hits=len(review),
-                           confident_ok=1.0,
+                           confident_ok=1.0, disagreement=DISAGREEMENT,
+                           review_mechanisms=Counter(
+                               mechanisms or ["species_conflict"] * len(review)),
                            h=SimpleNamespace(gt_rows=list(review)))
 
 

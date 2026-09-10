@@ -13,6 +13,7 @@ import os
 import re
 from collections import Counter
 
+import assessments
 import core as hc
 import queues
 
@@ -57,8 +58,9 @@ def close(a, b, tol=5e-5):
     return abs(float(a) - float(b)) <= tol
 
 
-def check_per_species(directory, per_species):
-    """The species table: same species, same labelled-frame counts, same rates."""
+def check_per_species(directory, per_species, limits=None):
+    """The species table: same species, same labelled-frame counts, same rates,
+    and, when the page prints one, the same ``limit`` word per species."""
     path = os.path.join(directory, "per_species_health.csv")
     ref = {r["species"]: r for r in hc.read_csv_rows(path)}
     if len(ref) != len(per_species):
@@ -72,8 +74,15 @@ def check_per_species(directory, per_species):
         for col in ("top1_accuracy", "top5_accuracy"):
             if not close(r[col], row[col]):
                 fail(f"{col} for {row['species']!r}")
+        if limits is not None:
+            if "limit" not in r:
+                fail(f"{path} has no limit column; re-run dashboard/measure.py")
+            if r["limit"] != limits[row["species"]][0]:
+                fail(f"limit for {row['species']!r}: {limits[row['species']][0]!r} "
+                     f"here vs {r['limit']!r} in {path}")
+    limit_words = "" if limits is None else ", limit words"
     return (f"per_species_health.csv: {len(ref)} species, labelled frames and "
-            f"both rates match")
+            f"both rates{limit_words} match")
 
 
 def check_support_buckets(directory, buckets):
@@ -221,8 +230,9 @@ def check_send_batches(directory, queue_path, n_unlab):
             f"{queues.BATCH_SIZE} rows each, {n_control} of batch 1 drawn at random")
 
 
-def check_review_queue(directory, review_counts):
-    """Confident model/label disagreements: how many frames, how many pairs."""
+def check_review_queue(directory, review_counts, review_mechanisms=None):
+    """Confident model/label disagreements: how many frames, how many pairs,
+    and, when the page groups by it, how many frames under each mechanism."""
     path = os.path.join(directory, "label_review_queue.csv")
     ref = hc.read_csv_rows(path)
     pairs = {(r["gt_species"], r["predicted_species"]) for r in ref}
@@ -230,21 +240,50 @@ def check_review_queue(directory, review_counts):
         fail(f"label review queue: {review_counts[0]} here vs {len(ref)} in {path}")
     if len(pairs) != review_counts[1]:
         fail(f"label review pairs: {review_counts[1]} here vs {len(pairs)} in {path}")
+    if review_mechanisms is not None:
+        if ref and "mechanism" not in ref[0]:
+            fail(f"{path} has no mechanism column; re-run dashboard/measure.py")
+        by = Counter(r["mechanism"] for r in ref)
+        if by != Counter(review_mechanisms):
+            fail(f"review mechanisms: {dict(review_mechanisms)} here vs {dict(by)} in {path}")
+    mech = "" if review_mechanisms is None else ", mechanism counts"
     return (f"label_review_queue.csv: {len(ref)} frames, {len(pairs)} confusion "
-            f"pairs match")
+            f"pairs{mech} match")
+
+
+def check_reject_sweep(directory, sweep):
+    """The plausible-name sweep: same caps, same kept counts, same rates as the
+    sidecar the page reads."""
+    path = os.path.join(directory, "reject_sweep.csv")
+    ref = hc.read_csv_rows(path)
+    want = assessments.sweep_rows(sweep)
+    if len(ref) != len(want):
+        fail(f"reject sweep: {len(want)} rows here vs {len(ref)} in {path}")
+    for r, w in zip(ref, want):
+        if (int(r["max_set_size"]), int(r["n_accepted"]), int(r["n_frames"])) != (
+                w["max_set_size"], w["n_accepted"], w["n_frames"]):
+            fail(f"reject sweep row {w['max_set_size']} counts in {path}")
+        if not (close(r["accept_rate"], w["accept_rate"])
+                and close(r["accepted_accuracy"], w["accepted_accuracy"])):
+            fail(f"reject sweep row {w['max_set_size']} rates in {path}")
+    return f"reject_sweep.csv: {len(ref)} plausible-name caps match"
 
 
 def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
                     unscoreable, strict_hits,
                     queue_counts=None, n_no_answer=None, review_counts=None,
-                    queue_keys=None):
+                    queue_keys=None, limits=None, review_mechanisms=None,
+                    reject_sweep=None):
     """Abort the build if the page disagrees with measure.py's snapshot.
 
     One check per file the snapshot holds, each returning the line the page
     prints when it passes. ``queue_counts`` maps queue to frame count,
-    ``review_counts`` is (frames, confusion pairs), ``queue_keys`` the order.
+    ``review_counts`` is (frames, confusion pairs), ``queue_keys`` the order,
+    ``limits`` species to (limit, agreement) and ``review_mechanisms`` mechanism
+    to frame count, ``reject_sweep`` the sidecar behind reject_sweep.csv, each
+    only when the page prints from it.
     """
-    checks = [check_per_species(directory, per_species),
+    checks = [check_per_species(directory, per_species, limits),
               check_support_buckets(directory, buckets),
               check_confidence_bands(directory, bins_all)]
 
@@ -262,7 +301,9 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
             directory, os.path.join(directory, "send_first_queue.csv"), n_unlab))
 
     if review_counts is not None:
-        checks.append(check_review_queue(directory, review_counts))
+        checks.append(check_review_queue(directory, review_counts, review_mechanisms))
+    if reject_sweep is not None:
+        checks.append(check_reject_sweep(directory, reject_sweep))
 
     return checks
 

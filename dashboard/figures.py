@@ -13,6 +13,7 @@ import statistics
 from collections import Counter, defaultdict
 from types import SimpleNamespace
 
+import assessments as am
 import core as hc
 import queues
 from checklist import load_checklist
@@ -550,6 +551,7 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     fig.update(_queue(h, fig["support"], per_species))
     fig.update(_look(fig["queue_rows"], fig["queue_cams"], fig["n_ranked"]))
     fig.update(_review(sp_recs))
+    fig.update(am.prepared(per_species, fig["review"]))
     fig.update(_error_by_support(sp_recs, fig["support"]))
     fig.update(_wait_rules(sp_recs, fig["support"]))
     fig.update(_genus_and_family(h))
