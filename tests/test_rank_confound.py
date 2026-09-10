@@ -21,6 +21,7 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 @pytest.fixture(scope="module")
 def rank_confound():
     pytest.importorskip("numpy", reason="numpy is not in this virtualenv")
+    pytest.importorskip("labelfirst", reason="labelfirst is not in this virtualenv")
     from conftest import load
     return load("_rank_confound_under_test", REPO / "labelling" / "rank_confound.py")
 
@@ -48,7 +49,6 @@ def test_nothing_is_left_out_when_every_photo_has_a_covariate(rank_confound):
 def test_the_audit_record_carries_how_many_were_left_out(rank_confound):
     """The page prints the count beside each test, so it has to be in the JSON
     under a name the page reads."""
-    pytest.importorskip("labelfirst", reason="labelfirst is not in this virtualenv")
     import numpy as np
     rng = np.random.default_rng(0)
     target = rng.normal(size=80)
