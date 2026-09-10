@@ -154,8 +154,11 @@ def test_the_page_prints_the_numbers_the_csv_holds(external_page):
     else:
         assert re.search(rf"the {n_unseen:,} test frames from flights with no train", html)
     n_unplaced = int(by["test_unplaced"]["n_frames"])
-    m = UNPLACED.search(html)
-    assert m and int(m.group(1).replace(",", "")) == n_unplaced
+    if n_unplaced == 0:
+        assert "Every test frame could be placed on a flight" in html
+    else:
+        m = UNPLACED.search(html)
+        assert m and int(m.group(1).replace(",", "")) == n_unplaced
 
 
 def test_the_page_says_what_a_gap_would_mean(external_page):
