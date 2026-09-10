@@ -165,6 +165,14 @@ def assessments():
 
 
 @pytest.fixture(scope="session")
+def assess_panels():
+    """The fragments the model-health page renders off the assessments."""
+    with _on_path(REPO / "dashboard"):
+        import assess_panels
+        yield assess_panels
+
+
+@pytest.fixture(scope="session")
 def history():
     with _on_path(REPO / "dashboard"):
         import history

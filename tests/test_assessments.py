@@ -272,3 +272,13 @@ def test_a_sidecar_on_disk_matches_what_the_reader_expects(assessments):
     rec = next(iter(d["per_species"].values()))
     assert {"limit", "n_frames", "seeds_agreeing"} <= set(rec)
     assert set(d["summary"]) <= set(assessments.LIMIT_WORDS)
+
+
+def test_the_legend_counts_the_words_the_column_shows_and_not_the_file(assess_panels):
+    """The sidecar summarises every species down to one frame; the column is
+    blank under the floor. The legend's counts are the column's."""
+    t = {"population": {"n_frames": 100, "n_species": 3, "n_seeds": 8},
+         "summary": {"resolved": 2, "sampling_limited": 1}, "method": {"k": 5}}
+    limits = {"a b": ("resolved", "8/8"), "c d": ("", ""), "e f": ("", "")}
+    html = assess_panels.limit_note(t, limits)
+    assert "Over the 1 species with that many: 1 no gap found, 0 better model, 0 more labels" in html

@@ -471,7 +471,7 @@ def p_species(c):
             'that species&rsquo; identification accuracy.</p>'
             + _species_columns_note()
             + _species_status_note()
-            + ap.limit_note(c.transductive)
+            + ap.limit_note(c.transductive, c.limits)
             + threshold_control(c)
             + f'<p class="note"><b>{n_thin} of these {c.n_sp} species start hidden.</b> '
               f'They carry fewer than {THIN_MIN_FRAMES} labelled frames each. On that '
