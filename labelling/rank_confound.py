@@ -9,7 +9,9 @@ means "we did not look", and today two queued photos have no readable site.
 
 ``seeds_agreeing`` serves the other sidecar, ``--audit``: how many of the
 random starts came out in this order's favour, which a gain averaged over
-starts cannot show.
+starts cannot show. ``separability_other_flight`` serves it too: the
+preflight's same-species-neighbour rate, with every neighbour from the frame's
+own flight taken away, because frames from one flight overlap.
 
 Needs numpy and labelfirst, like the ranker that imports it.
 """
@@ -28,6 +30,32 @@ def loo_distance(X: np.ndarray) -> np.ndarray:
     sim = X @ X.T
     np.fill_diagonal(sim, -np.inf)
     return 1.0 - sim.max(axis=1)
+
+
+def separability_other_flight(X: np.ndarray, labels, flights: list[str]) -> dict:
+    """How often a labelled frame's nearest other frame has its species, as
+    labelfirst's preflight counts it, and again with only frames from another
+    flight allowed as that neighbour.
+
+    Frames from one flight (one date at one site) overlap, so the first rate
+    can rest on near-copies. Both rates are over the same rows: a frame whose
+    flight cannot be read leaves both and is counted, as in ``one_confound``.
+    """
+    keep = [i for i, f in enumerate(flights) if f]
+    y = np.asarray(labels)[keep]
+    group = np.asarray([flights[i] for i in keep])
+    sim = X[keep] @ X[keep].T
+    np.fill_diagonal(sim, -np.inf)
+    any_flight = float((y[sim.argmax(axis=1)] == y).mean())
+    sim[group[:, None] == group[None, :]] = -np.inf
+    # A frame on a flight that holds every labelled frame has no other-flight
+    # neighbour; argmax would pick one at -inf, so it is refused instead.
+    if not np.isfinite(sim.max(axis=1)).all():
+        raise SystemExit("a labelled frame has no frame from another flight to compare with")
+    other_flight = float((y[sim.argmax(axis=1)] == y).mean())
+    return {"pct_any_flight": 100 * any_flight, "pct_other_flight": 100 * other_flight,
+            "n_frames": len(keep), "n_flights": len(set(group)),
+            "n_unreconciled": len(flights) - len(keep)}
 
 
 def rarity(counts: dict[str, int], names) -> np.ndarray:

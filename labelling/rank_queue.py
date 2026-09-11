@@ -69,7 +69,8 @@ from labelfirst.io.queue import RunRecord, sha256_file
 from labelfirst.strategies.kcenter import greedy_kcenter
 from pool_filters import (
     drop_holdout_frames, drop_split_frames, load_holdout, load_splits)
-from rank_confound import loo_distance, one_confound, rarity, seeds_agreeing
+from rank_confound import (loo_distance, one_confound, rarity, seeds_agreeing,
+                           separability_other_flight)
 from speciesfirst import backtest_species_coverage
 
 REPO = Path(__file__).resolve().parents[1]
@@ -376,6 +377,7 @@ def run_audit(args) -> int:
     efficiency = annotation_efficiency(panel.per_seed_trajectories, STRATEGY, "random",
                                        AUDIT_K)
     preflight = predict_al_benefit(X, labels)
+    flights = load_flights(args.inventory)
     # labelfirst's panel carries every start's area under the curve but not
     # the count of starts this order won, and that count is what the page
     # prints beside the gain. Written next to library_version, in the audit.
@@ -386,6 +388,8 @@ def run_audit(args) -> int:
         "audit": report,
         "efficiency": asdict(efficiency),
         "preflight": preflight,
+        "separability_other_flight": separability_other_flight(
+            X, labels, [flights.get(k, "") for k in keys]),
         "population": {"n_frames": len(keys), "n_species": len(counts),
                        "n_rare_species": len(rare), "rare_threshold": RARE_THRESHOLD},
         "params": {"seeds": AUDIT_SEEDS, "rounds": AUDIT_ROUNDS, "k_per_round": AUDIT_K,
