@@ -32,7 +32,10 @@ Four files, one question each:
     names fit in a set of k are trusted, how many frames is that and how often
     is the first of them right. The classifier swept is a logistic regression
     over the embeddings, cross-validated, not Pl@ntNet's own answer. The page
-    says so, and reads it as queue position, never as a label.
+    says so, and reads it as queue position, never as a label. Swept twice:
+    ``rows`` with folds drawn frame by frame, ``grouped_rows`` with every
+    flight whole in one fold, so no frame is judged by a model that trained on
+    its near-copies from the same flight.
 
 ``status.json``
     Chao1 over every frame labelled to species: how many species the labels
@@ -67,6 +70,7 @@ import labelfirst
 import numpy as np
 import sklearn
 import speciesfirst
+from draw_field_sample import load_flights
 from embeddings_io import l2_normalise, load_embeddings
 from labelfirst.eval.diagnose.richness import estimate_richness
 from labelfirst.eval.transductive import (
@@ -217,18 +221,31 @@ def assess_disagreement(h) -> dict:
     }
 
 
-def assess_reject_sweep(X, labels: list[str]) -> dict:
+def flight_groups(keys: list[str], flights: dict[str, str]) -> list[str]:
+    """One fold group per frame: its flight, or the frame itself when its URL
+    carries no mission folder. An unplaced frame can share a fold with nothing
+    it is known to be a near-copy of, so it stands alone and is counted."""
+    return [flights.get(k) or f"unplaced:{k}" for k in keys]
+
+
+def assess_reject_sweep(X, labels: list[str], groups: list[str]) -> dict:
     y = LabelEncoder().fit_transform(labels)
-    rows = sweep_thresholds_cv(X, y, alpha=SWEEP_ALPHA, n_folds=SWEEP_FOLDS,
-                               seed=SWEEP_SEED, thresholds=list(SWEEP_SIZES))
+    kw = {"alpha": SWEEP_ALPHA, "n_folds": SWEEP_FOLDS, "seed": SWEEP_SEED,
+          "thresholds": list(SWEEP_SIZES)}
+    unplaced = sum(1 for g in groups if g.startswith("unplaced:"))
     return {
         "method": {"rule": "speciesfirst.reject.sweep_thresholds_cv",
                    "classifier": "StandardScaler + LogisticRegression(C=1.0) over "
                                  "the embeddings, cross-conformal; not Pl@ntNet",
                    "alpha": SWEEP_ALPHA, "n_folds": SWEEP_FOLDS, "seed": SWEEP_SEED,
-                   "max_set_sizes": list(SWEEP_SIZES)},
-        "population": {"n_frames": len(labels), "n_species": len(set(labels))},
-        "rows": rows,
+                   "max_set_sizes": list(SWEEP_SIZES),
+                   "grouped_by": "flight (yyyymmdd/site from the frame URL's mission "
+                                 "folder), GroupKFold"},
+        "population": {"n_frames": len(labels), "n_species": len(set(labels)),
+                       "n_flights": len(set(groups)) - unplaced,
+                       "n_unplaced": unplaced},
+        "rows": sweep_thresholds_cv(X, y, **kw),
+        "grouped_rows": sweep_thresholds_cv(X, y, groups=np.asarray(groups), **kw),
     }
 
 
@@ -275,7 +292,9 @@ def main(argv=None) -> int:
         "disagreement.json": {"kind": "disagreement", **without,
                               **assess_disagreement(h)},
         "reject_sweep.json": {"kind": "reject_sweep", **with_emb,
-                              **assess_reject_sweep(X, labels)},
+                              **assess_reject_sweep(
+                                  X, labels, flight_groups(
+                                      [r["global_key"] for r in recs], load_flights()))},
         "status.json": {"kind": "status", **without, **assess_status(h)},
     }
     for name, doc in files.items():

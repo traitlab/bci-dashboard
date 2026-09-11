@@ -126,9 +126,11 @@ def unassessed(disagreement: dict | None, keys) -> list:
 
 
 # The sweep table's columns, in the order the page shows them. The CSV is the
-# sidecar's rows and nothing else, so the page can link a file beside it.
+# sidecar's rows and nothing else, so the page can link a file beside it. The
+# new_flight_ columns are the same sweep with every flight whole in one fold.
 REJECT_SWEEP_COLUMNS = ("max_set_size", "n_accepted", "n_frames", "accept_rate",
-                        "accepted_accuracy")
+                        "accepted_accuracy", "new_flight_n_accepted",
+                        "new_flight_accept_rate", "new_flight_accepted_accuracy")
 
 
 def sweep_rows(sweep: dict | None) -> list[dict]:
@@ -138,7 +140,11 @@ def sweep_rows(sweep: dict | None) -> list[dict]:
     n = sweep["population"]["n_frames"]
     return [{"max_set_size": r["max_set_size"], "n_accepted": r["n_accepted"],
              "n_frames": n, "accept_rate": r["accept_rate"],
-             "accepted_accuracy": r["accepted_accuracy"]} for r in sweep["rows"]]
+             "accepted_accuracy": r["accepted_accuracy"],
+             "new_flight_n_accepted": g["n_accepted"],
+             "new_flight_accept_rate": g["accept_rate"],
+             "new_flight_accepted_accuracy": g["accepted_accuracy"]}
+            for r, g in zip(sweep["rows"], sweep["grouped_rows"], strict=True)]
 
 
 def write_label_review_queue(out_dir: str, review_rows, disagreement: dict | None) -> None:
@@ -179,6 +185,11 @@ def prepared(per_species, review) -> dict:
                   complaint(REJECT_SWEEP_JSON, docs["reject_sweep"], gt_sha=gt_sha,
                             embeddings_sha=emb_sha),
                   complaint(STATUS_JSON, docs["richness"], gt_sha=gt_sha)]
+    if docs["reject_sweep"] and "grouped_rows" not in docs["reject_sweep"]:
+        # The frame-by-frame rate is never printed without its new-flight twin.
+        complaints.append(f"{REJECT_SWEEP_JSON} has no flight-grouped sweep, so the "
+                          f"page would print only the rate that leans on near-copies "
+                          f"from the same flight. {RERUN}.")
     keys = [r["global_key"] for r in review]
     missing = unassessed(docs["disagreement"], keys) if docs["disagreement"] else []
     if missing:

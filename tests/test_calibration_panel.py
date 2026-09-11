@@ -19,7 +19,11 @@ SWEEP = {"population": {"n_frames": 500, "n_species": 20},
          "rows": [{"max_set_size": 1, "n_accepted": 400, "accept_rate": 0.8,
                    "accepted_accuracy": 0.95},
                   {"max_set_size": 3, "n_accepted": 500, "accept_rate": 1.0,
-                   "accepted_accuracy": 0.9}]}
+                   "accepted_accuracy": 0.9}],
+         "grouped_rows": [{"max_set_size": 1, "n_accepted": 330, "accept_rate": 0.66,
+                           "accepted_accuracy": 0.97},
+                          {"max_set_size": 3, "n_accepted": 420, "accept_rate": 0.84,
+                           "accepted_accuracy": 0.92}]}
 
 
 @pytest.fixture
@@ -103,3 +107,12 @@ def test_the_internal_page_does_not_draw_it_twice(pagemod):
     """The queue page has its own calibration block, with the rare-species
     breakdown this one does not carry."""
     assert "calibration" not in pagemod.INTERNAL_PANELS
+
+
+def test_the_sweep_prints_the_new_flight_rate_beside_every_row(panels, bins):
+    """The frame-by-frame rate leans on near-copies from the same flight, and
+    the frames a queue orders are on new flights, so the two sit side by side."""
+    out = panels.p_calibration(_ctx(panels, bins))
+    assert "Frames kept, new flight" in out
+    assert "66.0% (330)" in out and "97.0%" in out
+    assert "84.0% (420)" in out and "92.0%" in out
