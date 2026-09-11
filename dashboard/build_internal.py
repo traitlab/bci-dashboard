@@ -148,10 +148,10 @@ def batches_note(c, team):
     detail = (' One batch there is one Labelbox batch, and <code>global_key</code> is '
               'the column Labelbox is given.' if team else '')
     return (f'<p class="note"><strong>The prioritised batches are in {where}.</strong> '
-            f'Send from that file. This page shows the order and the reason behind each '
-            f'photo\u2019s place in it. The file holds {c.n_batches} batches of at most '
-            f'{BATCH_SIZE} photos, each species group kept together.{detail} How Pl@ntNet '
-            f'scores against the labels is a separate page, '
+            f'Send from that file: it holds {c.n_batches} batches of at most '
+            f'{BATCH_SIZE} photos, each species group kept together.{detail} This page '
+            f'shows the order and the reason behind each photo\u2019s place in it. '
+            f'How Pl@ntNet scores against the labels is a separate page, '
             f'<a href="model_health_dashboard.html">model_health_dashboard.html</a>.</p>')
 
 

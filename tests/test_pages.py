@@ -388,7 +388,7 @@ def test_the_file_naming_note_counts_the_frames_it_describes(internal_page, pane
     naming a camera the build aborts, so this checks the number that survived
     is the number of keys actually rendered as tele."""
     html, _ = internal_page
-    m = re.search(r"They are (\d[\d,]*) of the queue \(([\d.]+)%\)", html)
+    m = re.search(r"which is (\d[\d,]*) of the queue frames \(([\d.]+)%\)", html)
     assert m, "the file-naming note is not on the page"
     tele = int(m.group(1).replace(",", ""))
     # The denominator is no longer printed beside the share, so take it from the

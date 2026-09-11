@@ -264,6 +264,114 @@ def test_the_readme_uses_no_word_context_md_retired(readme_prose, pattern, inste
         + "\n".join(f"  {block[:160]}" for block in hits[:5]))
 
 
+# How much a reader is asked to read before they reach the thing they came for.
+#
+# Two caps, both on the page rather than on the source, and both counted in
+# sentences because that is the unit a reader gives up in.
+#
+#   * A `<p class="note">` is an aside. Four sentences is an aside; the fifth
+#     is a second paragraph wearing the first one's clothes.
+#   * A panel's intro is every paragraph between the panel's summary and its
+#     first table. Eight sentences in total, because the table is what the
+#     panel is for and a reader who has to scroll past a page of prose to
+#     reach it reads neither.
+#
+# Text worth keeping and over a cap goes into a `<details class="more">` block,
+# which this skips: a reader who wants the long version opens it, and a reader
+# who does not is not charged for it. That is the one escape, and it is an
+# escape from the length rule only. Everything inside such a block is still
+# prose and is still held to every other rule in this file.
+MAX_NOTE_SENTENCES = 4
+MAX_PANEL_INTRO_SENTENCES = 8
+
+# The notes the sentence cap does not reach, each named by how it opens and
+# each with the reason it is here. A guard is not an aside: it exists to stop
+# one specific misreading, it has to name both populations it is separating,
+# and a guard a reader has to open is not a guard. Cutting one to four
+# sentences would cost a sentence a reader needs to not subtract one rate from
+# the other. This list is the place that decision is made out loud. Do not add
+# to it to get a long note past the cap: the cap is the rule, and `more()` is
+# the escape.
+GUARD_NOTES = (
+    "Does the test score lean on flights the labels already know?",
+)
+
+_MORE = re.compile(r'<details class="more".*?</details>', re.DOTALL | re.IGNORECASE)
+_NOTE = re.compile(r'<p class="note"[^>]*>(.*?)</p>', re.DOTALL | re.IGNORECASE)
+_PANEL_SUMMARY = re.compile(r"<summary\b[^>]*>(.*?)</summary>", re.DOTALL | re.IGNORECASE)
+
+
+def _without_the_long_version(html: str) -> str:
+    """The page minus every block a reader has to open to read."""
+    return _MORE.sub(" ", html)
+
+
+def test_no_note_on_a_public_page_runs_past_four_sentences(public_page):
+    """An aside is four sentences. The fifth is a paragraph in disguise."""
+    name, html = public_page
+    over = []
+    for body in _NOTE.findall(_without_the_long_version(html)):
+        found = sentences(prose(f"<p>{body}</p>"))
+        if found and found[0] in GUARD_NOTES:
+            continue
+        if len(found) > MAX_NOTE_SENTENCES:
+            over.append((len(found), " ".join(found)))
+    assert not over, (
+        f"{name}: {len(over)} note(s) over {MAX_NOTE_SENTENCES} sentences. Cut them, "
+        f"or move the long version into a <details class=\"more\"> block:\n"
+        + "\n".join(f"  [{n} sentences] {t[:200]}" for n, t in sorted(over, reverse=True)))
+
+
+def test_the_long_version_is_still_prose_every_other_rule_reads(public_page):
+    """The escape is from the sentence count, and from nothing else.
+
+    A block a reader has to open is the one place on the page where a sentence
+    could be parked out of reach: the two caps skip it, and if `prose` skipped
+    it too, a retired word or a 40-word sentence would live there unmeasured.
+    So this holds the other direction. Every block carries a summary line a
+    reader can decide on, it carries prose behind it, and every sentence of
+    that prose is in what `prose` returns for the whole page, which is what
+    every other check in this file reads.
+    """
+    name, html = public_page
+    reads = set(prose(html))
+    for block in _MORE.findall(html):
+        title = _PANEL_SUMMARY.search(block)
+        assert title and _text(title.group(1)), (
+            f"{name}: a <details class=\"more\"> block with no summary line. A reader "
+            f"decides whether to open it on that line, so it has to say what is inside.")
+        body = sentences(prose(_PANEL_SUMMARY.sub(" ", block)))
+        assert body, (
+            f"{name}: <details class=\"more\"> block \"{_text(title.group(1))}\" holds no "
+            f"prose. Either it is empty or its text is outside a paragraph, and text "
+            f"outside a paragraph is text no check in this file reads.")
+        unread = [s for s in body if not any(s in block for block in reads)]
+        assert not unread, (
+            f"{name}: {len(unread)} sentence(s) behind \"{_text(title.group(1))}\" are "
+            f"invisible to prose(), so the retired words and the sentence length are "
+            f"unmeasured there:\n" + "\n".join(f"  {s[:160]}" for s in unread[:5]))
+
+
+def test_no_panel_on_a_public_page_buries_its_table_under_its_intro(public_page):
+    """What a panel is for is its table. The prose above it is the toll."""
+    name, html = public_page
+    over = []
+    # Split rather than match a closing tag: panels nest, and the intro is
+    # everything from this panel's own summary to the first table under it.
+    for chunk in _without_the_long_version(html).split('<details class="panel"')[1:]:
+        if "<table" not in chunk:
+            continue
+        intro = chunk.split("<table", 1)[0]
+        title = _PANEL_SUMMARY.search(intro)
+        found = sentences(prose(_PANEL_SUMMARY.sub(" ", intro)))
+        if len(found) > MAX_PANEL_INTRO_SENTENCES:
+            over.append((len(found), _text(title.group(1)) if title else "?"))
+    assert not over, (
+        f"{name}: {len(over)} panel intro(s) over {MAX_PANEL_INTRO_SENTENCES} "
+        f"sentences before the table the panel exists for:\n"
+        + "\n".join(f"  [{n} sentences] {t}" for n, t in sorted(over, reverse=True)))
+
+
 # What a backticked span on a public page is allowed to be.
 #
 # A `<code>` span is how this repository writes an identifier: a repository

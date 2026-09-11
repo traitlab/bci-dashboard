@@ -22,15 +22,28 @@ from types import SimpleNamespace
 import pytest
 from conftest import SNAPSHOT_DIR
 
-PANEL = re.compile(r'id="labels-worth-a-second-look".*?</details>', re.S)
+PANEL_START = re.compile(r'id="labels-worth-a-second-look"')
+TAG = re.compile(r"<details\b|</details>")
 PAIR_CELL = re.compile(r'<td class="pair"')
 FRAME_ROW = re.compile(r'<td class="num">\d\.\d\d</td>')
 
 
 def review_panel(html: str) -> str:
-    found = PANEL.search(html)
+    """The panel, to its own closing tag rather than to the first one.
+
+    This used to be one non-greedy regex. The panel now holds a `more()`
+    block, which is a nested `<details>`, and a non-greedy match ended at
+    the inner close: the slice lost the table, and the tests over it failed
+    for a reason that had nothing to do with the table.
+    """
+    found = PANEL_START.search(html)
     assert found, "the external page carries no review panel"
-    return found.group(0)
+    depth = 1
+    for tag in TAG.finditer(html, found.end()):
+        depth += 1 if tag.group(0) == "<details" else -1
+        if not depth:
+            return html[found.start():tag.end()]
+    raise AssertionError("the review panel is never closed")
 
 
 def queue_rows():
