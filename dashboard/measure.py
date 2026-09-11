@@ -46,9 +46,9 @@ OUT_DIR = os.path.join(
 
 # Every file a run produces, in the order it reports them, named once.
 OUTPUTS = ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
-           "confidence_calibration.csv", "name_reconciliation.csv",
-           "send_first_queue.csv", "send_batches.csv", "label_review_queue.csv",
-           "coverage_gate.csv", "reject_sweep.csv", "held_out.csv", "run_log.txt")
+           "confidence_calibration.csv", "name_reconciliation.csv", "send_first_queue.csv",
+           "send_batches.csv", "label_review_queue.csv", "coverage_gate.csv",
+           "reject_sweep.csv", "held_out.csv", "flight_holdout.csv", "run_log.txt")
 
 # Three of those no build reads back. They are evidence a person opens: what
 # restricting candidates to the BCI list is worth, which tier matched every label
@@ -487,7 +487,7 @@ def main() -> None:
     am.write_label_review_queue(out_dir, review_rows, disagreement)
     rl.log_review_queue(log, review_rows, head.n, n_adjudicated)
     am.write_reject_sweep(out_dir, am.load(am.REJECT_SWEEP_JSON))
-    ho.write_held_out(out_dir, ho.measure(h.sp_recs, ho.load_flights()))
+    ho.write_tables(out_dir, h.sp_recs)
     am.log_assessments(log, transductive, disagreement, h.per_species, review_rows)
 
     rl.log_files_written(log, out_dir, OUTPUTS)

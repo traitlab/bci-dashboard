@@ -307,11 +307,36 @@ def check_held_out(directory, result):
     return f"held_out.csv: {len(ref)} populations match"
 
 
+def check_flight_holdout(directory, flight):
+    """The flight-holdout line: same frame counts and rate as
+    flight_holdout.csv. A snapshot taken before the holdout was drawn has no
+    such file, so an absent one is skipped with a line saying so."""
+    path = os.path.join(directory, "flight_holdout.csv")
+    if not os.path.exists(path):
+        return ("flight_holdout.csv: not in this snapshot (no holdout when it was "
+                "taken), check skipped")
+    import held_out
+    ref = {r["population"]: r for r in hc.read_csv_rows(path)}
+    for w in held_out.flight_rows(flight):
+        r = ref.get(w["population"])
+        if r is None:
+            fail(f"flight_holdout.csv: population {w['population']!r} absent from {path}")
+        if int(r["n_frames"]) != w["n_frames"]:
+            fail(f"flight_holdout.csv: {w['population']} frames: {w['n_frames']} here "
+                 f"vs {r['n_frames']} in {path}")
+        if str(r["n_correct_top1"]) != str(w["n_correct_top1"]):
+            fail(f"flight_holdout.csv: {w['population']} right first guesses in {path}")
+        if (r["top1_accuracy"] or w["top1_accuracy"]) and not close(
+                r["top1_accuracy"], w["top1_accuracy"]):
+            fail(f"flight_holdout.csv: {w['population']} top-1 in {path}")
+    return f"flight_holdout.csv: {len(ref)} populations match"
+
+
 def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
                     unscoreable, strict_hits,
                     queue_counts=None, n_no_answer=None, review_counts=None,
                     queue_keys=None, limits=None, review_mechanisms=None,
-                    reject_sweep=None, held_out=None):
+                    reject_sweep=None, held_out=None, flight_holdout=None):
     """Abort the build if the page disagrees with measure.py's snapshot.
 
     One check per file the snapshot holds, each returning the line the page
@@ -319,8 +344,8 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
     ``review_counts`` is (frames, confusion pairs), ``queue_keys`` the order,
     ``limits`` species to (limit, agreement) and ``review_mechanisms`` mechanism
     to frame count, ``reject_sweep`` the sidecar behind reject_sweep.csv and
-    ``held_out`` the populations behind held_out.csv, each only when the page
-    prints from it.
+    ``held_out`` the populations behind held_out.csv and ``flight_holdout``
+    those behind flight_holdout.csv, each only when the page prints from it.
     """
     checks = [check_per_species(directory, per_species, limits),
               check_support_buckets(directory, buckets),
@@ -345,6 +370,8 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
         checks.append(check_reject_sweep(directory, reject_sweep))
     if held_out is not None:
         checks.append(check_held_out(directory, held_out))
+    if flight_holdout is not None:
+        checks.append(check_flight_holdout(directory, flight_holdout))
 
     return checks
 

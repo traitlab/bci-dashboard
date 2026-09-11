@@ -327,5 +327,11 @@ def test_readme_names_the_csvs_no_build_reads_back(readme, measure):
             f"measure.NOT_READ_BACK_BY_A_BUILD holds {name} and the README no "
             f"longer names it among the CSVs no build reads back.")
     words = {2: "Two", 3: "Three", 4: "Four", 5: "Five"}
-    assert readme.count(f"{words[len(named)]} of the nine CSVs") == 1, (
-        f"{len(named)} CSVs go unread and the README counts a different number.")
+    # Both halves of the sentence are counts the code holds: how many go unread
+    # and how many there are. The second was written as a literal and went
+    # stale the first time measure.OUTPUTS grew.
+    total = len([name for name in measure.OUTPUTS if name.endswith(".csv")])
+    totals = {9: "nine", 10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen"}
+    assert readme.count(f"{words[len(named)]} of the {totals[total]} CSVs") == 1, (
+        f"{len(named)} of {total} CSVs go unread and the README counts "
+        f"different numbers.")
