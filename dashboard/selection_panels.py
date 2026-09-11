@@ -77,6 +77,7 @@ def selection_audit(path: str | None = None) -> dict | None:
     h1 = a.get("h1_sustainability") or {}
     eff = d.get("efficiency") or {}
     pre = d.get("preflight") or {}
+    other = d.get("separability_other_flight") or {}
     pop = d.get("population") or {}
     prm = d.get("params") or {}
     run = d.get("run") or {}
@@ -93,6 +94,8 @@ def selection_audit(path: str | None = None) -> dict | None:
         "baseline_rounds": eff.get("baseline_rounds"),
         "separability_pct": _num(pre.get("separability_pct")),
         "on_ladder": pre.get("gain_on_ladder"),
+        "separability_other_flight_pct": _num(other.get("pct_other_flight")),
+        "separability_unplaced": other.get("n_unreconciled"),
         "library": a.get("library_version"), "sha": a.get("embedding_sha256"),
         "n_seeds_agreeing": a.get("n_seeds_agreeing"),
         "written": (run.get("extra") or {}).get("written"),
@@ -200,9 +203,23 @@ def audit_note(c) -> str:
     if a["separability_pct"] is not None:
         where = ("inside" if a["on_ladder"] else "outside")
         ladder = (f' A separate check: {_pct(a["separability_pct"])} of these photos '
-                  f'have a same-species nearest photo as the model sees them. That is '
-                  f'{where} the range where labelfirst can predict a gain in advance, so '
-                  f'the number above is a measurement with no prediction beside it.')
+                  f'have a same-species nearest photo as the model sees them.')
+        # Photos from one flight overlap, so that nearest photo can be a
+        # near-copy. The rate with it drawn from another flight is measured,
+        # not assumed; an audit written before it was measured says so.
+        if a["separability_other_flight_pct"] is not None:
+            ladder += (f' When that photo must come from another flight, meaning '
+                       f'another date or another site, it is '
+                       f'{_pct(a["separability_other_flight_pct"])}.')
+            if a["separability_unplaced"]:
+                ladder += (f' {a["separability_unplaced"]:,} photos with no readable '
+                           f'flight are left out of that second rate.')
+        else:
+            ladder += (' Photos from one flight overlap, and this audit does not say '
+                       'how much of that rate rests on them.')
+        ladder += (f' The first rate is '
+                   f'{where} the range where labelfirst can predict a gain in advance, so '
+                   f'the number above is a measurement with no prediction beside it.')
     # The answer and what it was measured on stay open. The shape of a run, the
     # labels it saves, the separability check and the provenance are what a
     # reader checking the answer asks for next, and they wait behind a summary.

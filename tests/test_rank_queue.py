@@ -231,3 +231,23 @@ def test_load_splits_returns_nothing_for_an_absent_file(rank_queue, tmp_path):
     p = tmp_path / "splits.csv"
     p.write_text("global_key,split\ncomb_a,test\ncomb_b,\n")
     assert rank_queue.load_splits(p) == {"comb_a": "test"}
+
+
+def test_the_other_flight_rate_takes_away_near_copies_from_the_same_flight(rank_queue):
+    """Two frames on one flight are near-copies of each other; the other flight
+    holds a different species. With any neighbour every frame finds its twin;
+    with neighbours from another flight none can, so the rate drops to zero."""
+    import numpy as np
+    from rank_confound import separability_other_flight
+    X = np.array([[1.0, 0.0], [0.999, 0.045], [0.0, 1.0], [0.045, 0.999]])
+    X /= np.linalg.norm(X, axis=1, keepdims=True)
+    labels = ["a", "a", "b", "b"]
+    got = separability_other_flight(X, labels, ["f1", "f1", "f2", "f2"])
+    assert got["pct_any_flight"] == 100.0 and got["pct_other_flight"] == 0.0
+    assert got["n_frames"] == 4 and got["n_flights"] == 2 and got["n_unreconciled"] == 0
+    # A frame with no readable flight leaves both rates and is counted.
+    got = separability_other_flight(X, labels, ["f1", "f1", "f2", ""])
+    assert got["n_frames"] == 3 and got["n_unreconciled"] == 1
+    # One flight holding every frame leaves nothing to compare with: a stop.
+    with pytest.raises(SystemExit):
+        separability_other_flight(X, labels, ["f1"] * 4)

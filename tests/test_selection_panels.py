@@ -11,7 +11,7 @@ import json
 from types import SimpleNamespace
 
 
-def _audit(tmp_path, **over):
+def _audit(tmp_path, other_flight=True, **over):
     d = {"audit": {"h1_sustainability": {"pct_gain": 162.4, "ci_low": 138.9,
                                          "ci_high": 193.3, "wilcoxon_p": 0.0039},
                    "alpha": 0.05, "n_seeds": 8, "rounds": 20, "n_seeds_agreeing": 8,
@@ -20,12 +20,15 @@ def _audit(tmp_path, **over):
          "efficiency": {"labels_saved_pct": 70.0, "challenger_rounds_to_match": 6.0,
                         "baseline_rounds": 20},
          "preflight": {"separability_pct": 81.8, "gain_on_ladder": False},
+         "separability_other_flight": {"pct_other_flight": 79.1, "n_unreconciled": 0},
          "population": {"n_frames": 1719, "n_species": 155, "n_rare_species": 107,
                         "rare_threshold": 5},
          "params": {"k_per_round": 20, "seed_pool_size": 200},
          "run": {"extra": {"written": "2026-09-10"}}}
     for k, v in over.items():
         d["audit"]["h1_sustainability"][k] = v
+    if not other_flight:
+        del d["separability_other_flight"]
     p = tmp_path / "audit.json"
     p.write_text(json.dumps(d))
     return str(p)
@@ -104,6 +107,21 @@ def test_the_notes_carry_the_number_its_population_and_its_range(selection_panel
     assert "holds once the export batch is held fixed" in cf
     assert "3,873" in cf and "+0.45 before, +0.45 after" in cf
     assert "19% carry the newer file naming" in cf
+
+
+def test_the_nearest_photo_rate_is_never_printed_without_its_other_flight_twin(
+        selection_panels, tmp_path):
+    # Photos from one flight overlap, so a same-species nearest photo can be a
+    # near-copy. Wherever the page prints that rate, it prints the rate with
+    # the nearest photo drawn from another flight, or says it was not measured.
+    sp = selection_panels
+    note = sp.audit_note(SimpleNamespace(selection_audit=sp.selection_audit(_audit(tmp_path))))
+    assert "82% of these photos" in note
+    assert "must come from another flight" in note and "it is 79%" in note
+    old = sp.audit_note(SimpleNamespace(
+        selection_audit=sp.selection_audit(_audit(tmp_path, other_flight=False))))
+    assert "82% of these photos" in old and "another flight" not in old
+    assert "does not say how much of that rate rests on them" in old
 
 
 def test_a_failed_audit_claims_nothing(selection_panels, tmp_path):
