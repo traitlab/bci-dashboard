@@ -17,10 +17,12 @@ out of the mission folder in each frame's Labelbox URL, the same way
 labelling/draw_field_sample.py reads it.
 
 Around every held frame a 30 m buffer drops train frames from another flight.
-labelling/measure_similarity_range.py measured how far two frames of one species
-still look alike to the model: the lift is inside the same hover, under 30 m,
-and past it a nearer frame adds nothing the flight did not. Frames in the
-buffer are neither held nor train; they are listed under `buffered` so the
+Two flights can pass over the same crowns, and a train frame a few metres from
+a held one is the near-copy the flight unit exists to exclude. The 30 m is a
+chosen default at the scale of one hover, not a measured number: nothing in
+this repo has measured how far apart two frames of one species stop looking
+alike, so read it as a setting to revisit, and `--buffer` moves it. Frames in
+the buffer are neither held nor train; they are listed under `buffered` so the
 count is on record.
 
 The draw is stratified by species. Every species with two or more flights keeps
