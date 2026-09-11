@@ -82,24 +82,35 @@ def dispatch(c) -> str:
 
 
 def links_note(c) -> str:
-    """What the two link columns in send_batches.csv reach, and what they do not.
+    """What the two link columns in the send file reach, and what they do not.
 
     The standing rule is that a link column is never shipped silently half
-    empty. The CSV has nowhere to say so, so the page says it for both columns
+    empty. The file has nowhere to say so, so the page says it for both columns
     at once, next to the link to the file.
+
+    The paragraph used to open "Every row carries two links" and then report
+    both columns filled on no row at all, which is a panel arguing with itself
+    in three sentences. A reader believes the first sentence, opens the file,
+    finds two empty columns and stops believing the rest of the page. So the
+    explanation is rendered only once there is a link to explain. With none
+    filled there is one sentence, which is the whole truth and is not
+    contradicted two lines later.
     """
     at = queues.SEND_FIRST_COLUMNS.index("global_key")
     keys = [r[at] for r in c.queue_rows]
     box = hc.labelbox_link_coverage(keys)
     images = hc.inventory_image_urls()
     n_img = sum(1 for k in keys if images.get(k))
-    return (f'<p class="note"><strong>Every row carries two links.</strong> '
+    if not n_img and not box["n_linked"]:
+        return ('<p class="note">No frame links to its photo or its Labelbox row '
+                'yet.</p>')
+    return (f'<p class="note"><strong>Two link columns, filled where we have one.</strong> '
             f'The first opens the whole frame in any browser, no Labelbox '
             f'seat and no login, and it is filled on {n_img:,} of {len(keys):,} rows. '
             f'The second opens the frame in the project it was labelled '
             f'in, which is the only view that draws the crown being asked about, and it '
             f'is filled on {box["n_linked"]:,}. The {box["n_unlinked"]:,} rows without one '
-            f'are frames no Labelbox project on disk names. Those cells are empty rather '
+            f'are frames no Labelbox export names. Those cells are empty rather '
             f'than guessed: a guessed link is a 404 in front of a botanist.</p>')
 
 
