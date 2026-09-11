@@ -214,14 +214,18 @@ def test_every_mechanism_the_file_can_carry_has_a_page_word():
 
 SWEEP = {"population": {"n_frames": 100, "n_species": 5},
          "rows": [{"max_set_size": 1, "n_accepted": 80, "accept_rate": 0.8,
-                   "accepted_accuracy": 0.95}]}
+                   "accepted_accuracy": 0.95}],
+         "grouped_rows": [{"max_set_size": 1, "n_accepted": 70, "accept_rate": 0.7,
+                           "accepted_accuracy": 0.97}]}
 
 
 def test_the_sweep_csv_is_the_sidecar_rows_and_nothing_else(assessments, tmp_path):
     assessments.write_reject_sweep(str(tmp_path), SWEEP)
     got = list(csv.DictReader((tmp_path / "reject_sweep.csv").open()))
     assert got == [{"max_set_size": "1", "n_accepted": "80", "n_frames": "100",
-                    "accept_rate": "0.8", "accepted_accuracy": "0.95"}]
+                    "accept_rate": "0.8", "accepted_accuracy": "0.95",
+                    "new_flight_n_accepted": "70", "new_flight_accept_rate": "0.7",
+                    "new_flight_accepted_accuracy": "0.97"}]
 
 
 def test_an_absent_sidecar_writes_a_header_only_csv(assessments, tmp_path):
@@ -237,6 +241,29 @@ def test_verify_compares_the_sweep_against_the_sidecar(assessments, history, tmp
     moved = {**SWEEP, "rows": [{**SWEEP["rows"][0], "n_accepted": 81}]}
     with pytest.raises(SystemExit, match="reject sweep row 1 counts"):
         history.check_reject_sweep(str(tmp_path), moved)
+    moved = {**SWEEP, "grouped_rows": [{**SWEEP["grouped_rows"][0], "accept_rate": 0.6}]}
+    with pytest.raises(SystemExit, match="reject sweep row 1 rates"):
+        history.check_reject_sweep(str(tmp_path), moved)
+
+
+def test_verify_says_so_when_a_snapshot_predates_the_new_flight_columns(
+        assessments, history, tmp_path):
+    (tmp_path / "reject_sweep.csv").write_text(
+        "max_set_size,n_accepted,n_frames,accept_rate,accepted_accuracy\n"
+        "1,80,100,0.8,0.95\n")
+    assert "written before the new-flight columns" in history.check_reject_sweep(
+        str(tmp_path), SWEEP)
+
+
+def test_a_sidecar_without_the_new_flight_sweep_stops_the_build(
+        assessments, monkeypatch, tmp_path):
+    """The frame-by-frame rate is never printed without its new-flight twin."""
+    old = {k: v for k, v in SWEEP.items() if k != "grouped_rows"}
+    monkeypatch.setattr(assessments, "load",
+                        lambda path: old if path == assessments.REJECT_SWEEP_JSON else None)
+    monkeypatch.setattr(assessments, "sha256_of", lambda path: "sha")
+    got = assessments.prepared([], [])["assessment_complaints"]
+    assert any("no flight-grouped sweep" in m for m in got)
 
 
 # ---------------------------------------------------------------------------
@@ -252,7 +279,8 @@ def test_the_script_writes_the_files_the_reader_names(assessments):
 
 def test_the_script_records_what_the_reader_checks():
     src = (REPO / "labelling" / "assess_species.py").read_text(encoding="utf-8")
-    for key in ("gt_sha256", "embeddings_sha256", "speciesfirst", "labelfirst"):
+    for key in ("gt_sha256", "embeddings_sha256", "speciesfirst", "labelfirst",
+                "grouped_rows"):
         assert f'"{key}"' in src
 
 

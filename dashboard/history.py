@@ -273,14 +273,20 @@ def check_reject_sweep(directory, sweep):
     want = assessments.sweep_rows(sweep)
     if len(ref) != len(want):
         fail(f"reject sweep: {len(want)} rows here vs {len(ref)} in {path}")
+    # Snapshots written before the new-flight columns carry none; say so
+    # rather than compare a blank.
+    grouped = bool(ref) and "new_flight_n_accepted" in ref[0]
     for r, w in zip(ref, want):
         if (int(r["max_set_size"]), int(r["n_accepted"]), int(r["n_frames"])) != (
-                w["max_set_size"], w["n_accepted"], w["n_frames"]):
+                w["max_set_size"], w["n_accepted"], w["n_frames"]) or (
+                grouped and int(r["new_flight_n_accepted"]) != w["new_flight_n_accepted"]):
             fail(f"reject sweep row {w['max_set_size']} counts in {path}")
-        if not (close(r["accept_rate"], w["accept_rate"])
-                and close(r["accepted_accuracy"], w["accepted_accuracy"])):
+        rates = ["accept_rate", "accepted_accuracy"]
+        rates += ["new_flight_accept_rate", "new_flight_accepted_accuracy"] if grouped else []
+        if not all(close(r[c], w[c]) for c in rates):
             fail(f"reject sweep row {w['max_set_size']} rates in {path}")
-    return f"reject_sweep.csv: {len(ref)} plausible-name caps match"
+    tail = "" if grouped else ", written before the new-flight columns"
+    return f"reject_sweep.csv: {len(ref)} plausible-name caps match{tail}"
 
 
 def check_held_out(directory, result):

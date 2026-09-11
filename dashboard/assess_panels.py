@@ -87,15 +87,28 @@ def mechanism_note(disagreement: dict, counts) -> str:
                    f'{pop["n_conflicts"]} conflicts.</p>'))
 
 
+def unplaced_note(pop: dict) -> str:
+    """How many frames the new-flight columns could not place on a flight, or
+    nothing when every one was placed."""
+    n = pop.get("n_unplaced", 0)
+    if not n:
+        return ""
+    return (f'<p class="note">{n:,} frame{"s" if n != 1 else ""} could not be placed '
+            f'on a flight. In the new-flight columns each stands alone.</p>')
+
+
 def reject_table(sweep: dict) -> str:
     """If only frames with at most k plausible names are trusted: what share of
     frames that keeps and how often their first guess is right. A queue
     position, never a label: it says which frames a botanist can look at last."""
     pop, method = sweep["population"], sweep["method"]
-    rows = [[f'{r["max_set_size"]}', f'{100 * r["accept_rate"]:.1f}%',
-             f'{100 * r["accepted_accuracy"]:.1f}%',
-             f'{r["n_accepted"]:,} of {pop["n_frames"]:,}']
-            for r in sweep["rows"]]
+
+    def kept(r):
+        return f'{100 * r["accept_rate"]:.1f}% ({r["n_accepted"]:,})'
+
+    rows = [[f'{r["max_set_size"]}', kept(r), kept(g),
+             f'{100 * r["accepted_accuracy"]:.1f}%', f'{100 * g["accepted_accuracy"]:.1f}%']
+            for r, g in zip(sweep["rows"], sweep["grouped_rows"], strict=True)]
     return (f'<p class="note"><b>Trusting a frame only when few names are plausible:</b> '
             f'how far a plausible-name count could order a queue. A separate check over '
             f'the {pop["n_frames"]:,} labelled frames the model has a view of, '
@@ -110,8 +123,20 @@ def reject_table(sweep: dict) -> str:
                    f'{100 * (1 - method["alpha"]):.0f}% coverage. This is not Pl@ntNet '
                    f'and its first guess is not Pl@ntNet&rsquo;s.</p>')
             + table([("At most this many plausible names", True),
-                     ("Frames kept", True), ("First guess right, kept frames", True),
-                     ("Frames", True)], rows, source="reject_sweep.csv")
+                     ("Frames kept", True), ("Frames kept, new flight", True),
+                     ("First guess right, kept frames", True),
+                     ("First guess right, new flight", True)], rows,
+                    source="reject_sweep.csv")
+            # The frames a queue orders sit on flights with no labelled frame, so
+            # the rate beside the frame-by-frame one is the one that describes
+            # them. Never printed alone: assessments.prepared refuses a sidecar
+            # without it.
+            + '<p class="note">Photos from one flight overlap. In the new-flight '
+              'columns, each frame is judged by a classifier that saw no photo from '
+              'its flight. In the others, a frame can be judged by one that learned '
+              'from its near-copies on that flight. A frame on a flight with no '
+              'labels yet is in the new-flight case.</p>'
+            + unplaced_note(pop)
             + '<p class="note">Read a row as a queue position: frames with many '
               'plausible names go in front of a botanist first. Nothing here labels a '
               'frame. The classifier and the random seed behind the rows are recorded '
