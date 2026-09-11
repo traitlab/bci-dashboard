@@ -15,7 +15,15 @@ real one raises.
 from __future__ import annotations
 
 import pytest
-from lbox.exceptions import AuthorizationError, MalformedQueryException
+
+# lbox ships with labelbox, which is not in every virtualenv this suite runs
+# in. Imported at module level the whole file fails to collect rather than
+# skipping, which is how it sat uncollected. tests/test_round_contract.py skips
+# the same way for the same reason.
+lbox_exceptions = pytest.importorskip(
+    "lbox.exceptions", reason="the dispatch tests need labelbox")
+AuthorizationError = lbox_exceptions.AuthorizationError
+MalformedQueryException = lbox_exceptions.MalformedQueryException
 
 
 class Row:
