@@ -161,8 +161,7 @@ def test_the_filter_can_reach_every_row(page):
             f"row has no species name to match: {row}")
 
 
-def test_the_stylesheet_has_no_rule_no_page_uses(external_page, internal_page,
-                                                team_page, style):
+def test_the_stylesheet_has_no_rule_no_page_uses(external_page, internal_page, style):
     """Dead CSS is invisible bloat: it survives every rewrite because nothing
     fails when it stops matching anything. Two classes did survive that way.
 
@@ -170,7 +169,7 @@ def test_the_stylesheet_has_no_rule_no_page_uses(external_page, internal_page,
     absent from the built HTML and still live."""
     JS_APPLIED = {"asc", "desc", "hidden"}
     styled = set(re.findall(r"\.([a-zA-Z][\w-]*)", style.CSS))
-    html = external_page[0] + internal_page[0] + team_page[0]
+    html = external_page[0] + internal_page[0]
     used = set()
     for group in re.findall(r'class="([^"]+)"', html):
         used.update(group.split())

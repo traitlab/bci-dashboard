@@ -21,8 +21,7 @@ def fake_build(tmp_path, subtitle="built 2026-09-04 &middot; snapshot 2026-08-27
     return str(tmp_path)
 
 
-_PAGES = ["model_health_dashboard.html", "label_queue_dashboard.html",
-          "label_queue_team.html"]
+_PAGES = ["model_health_dashboard.html", "label_queue_dashboard.html"]
 
 
 def test_it_links_every_dashboard(build_index, tmp_path):
@@ -31,13 +30,14 @@ def test_it_links_every_dashboard(build_index, tmp_path):
         assert f'href="{name}"' in out
 
 
-def test_the_team_page_is_marked_as_the_team_one(build_index, tmp_path):
-    """Three cards, two audiences. A visitor who is not in the labelling team
-    should be able to see which card is not addressed to them before they open
-    it, so the one team page carries a label and the public pages carry none."""
+def test_two_cards_and_no_team_card(build_index, tmp_path):
+    """Two cards, one audience. The labelling team's commands are a closed
+    block on the queue page, so the old team copy gets no card of its own: its
+    address only redirects to that block."""
     out = build_index.build(fake_build(tmp_path))
-    assert "<em>team</em>" in out
-    assert out.count("<em>") == 1
+    assert out.count('class="card"') == 2
+    assert "label_queue_team.html" not in out
+    assert "<em>" not in out
 
 
 def test_it_names_every_page_it_ships(build_index):

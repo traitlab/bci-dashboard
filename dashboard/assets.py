@@ -64,7 +64,7 @@ def panel(summary, ask, body, *, open_=False, anchor=None):
             f'<div class="pbody"><p class="ask">{ask}</p>{body}</div></details>')
 
 
-def more(summary, body):
+def more(summary, body, *, anchor=None):
     """Text worth keeping that is too long to stand open.
 
     A panel earns a reader's attention with the thing it is for, its table or
@@ -72,8 +72,12 @@ def more(summary, body):
     once, or needs only if they are checking us, goes behind a summary line
     they can open. `tests/test_plain_english.py` skips what is in here when it
     counts sentences, and holds it to every other rule.
+
+    ``anchor`` gives the block an id, for a block a link has to open: the
+    page's script opens a closed ``<details>`` the address names.
     """
-    return (f'<details class="more"><summary>{summary}</summary>'
+    pid = f' id="{anchor}"' if anchor else ""
+    return (f'<details class="more"{pid}><summary>{summary}</summary>'
             f'{body}</details>')
 
 

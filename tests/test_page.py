@@ -144,15 +144,15 @@ def test_ql_long_tail_quotes_the_well_sampled_constant(queue_panels):
     assert str(hc.WELL_SAMPLED_MIN_N) in queue_panels.QL["long_tail"][1]
 
 
-def test_rare_and_wait_thresholds_are_the_well_sampled_constant(queue_panels):
+def test_rare_and_wait_thresholds_are_the_well_sampled_constant(queue_why_panels):
     # RARE_MAX_SUPPORT and WAIT_SUPPORT_MIN both alias hc.WELL_SAMPLED_MIN_N
     # rather than restating it, per the comment above their definition --
     # if either drifted into its own literal, a page could show a status
     # that disagrees with the rule hc.diagnose actually applied.
     import core as hc
 
-    assert queue_panels.RARE_MAX_SUPPORT == hc.WELL_SAMPLED_MIN_N
-    assert queue_panels.WAIT_SUPPORT_MIN == hc.WELL_SAMPLED_MIN_N
+    assert queue_why_panels.RARE_MAX_SUPPORT == hc.WELL_SAMPLED_MIN_N
+    assert queue_why_panels.WAIT_SUPPORT_MIN == hc.WELL_SAMPLED_MIN_N
 
 
 # ---------------------------------------------------------------------------

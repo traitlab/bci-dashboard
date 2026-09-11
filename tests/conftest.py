@@ -297,6 +297,15 @@ def queue_panels():
 
 
 @pytest.fixture(scope="session")
+def queue_why_panels():
+    """The queue page's second part, the closed panels that argue for the
+    order, split out of `queue_panels` when the page put them last."""
+    with _on_path(REPO / "dashboard"):
+        import queue_why_panels
+        yield queue_why_panels
+
+
+@pytest.fixture(scope="session")
 def explain():
     """`dashboard/` on the path, because explain imports `core` and `assets` as
     siblings. `_near_miss`, the band dicts and constants, and the three panel
@@ -472,17 +481,15 @@ def species_rows(html: str) -> list[str]:
 
 
 # fixture name -> (builder, filename, panels it verifies, extra builder flags).
-# The queue builder writes two files: the public page and the labelling team's
-# copy, which carries the repository commands the public one leaves out. Both
-# are here so a shared assertion reaches both.
+# One queue page: the labelling team's commands are a closed block on it, and
+# the address their own copy used to have is a redirect the builder writes
+# beside it, not a page.
 PAGES = {
     "external_page": ("build_external.py", "model_health_dashboard.html",
                       {"species", "species_status", "species_thin",
                        "floor", "snapshot"}, ()),
     "internal_page": ("build_internal.py", "label_queue_dashboard.html",
                       {"queue_counts", "queue_keys", "snapshot"}, ()),
-    "team_page": ("build_internal.py", "label_queue_team.html",
-                  {"queue_counts", "queue_keys", "snapshot"}, ("--team",)),
 }
 
 
@@ -553,22 +560,13 @@ def internal_page(tmp_path_factory):
     return build_page(tmp_path_factory, name, out, flags)
 
 
-@pytest.fixture(scope="session")
-def team_page(tmp_path_factory):
-    """The labelling team's copy of the queue page: everything the public one
-    carries, plus the commands that need the repository checked out."""
-    require_buildable()
-    name, out, _panels, flags = PAGES["team_page"]
-    return build_page(tmp_path_factory, name, out, flags)
-
-
 @pytest.fixture(params=sorted(PAGES))
 def page(request):
-    """Every shared page assertion against all three pages, written once.
+    """Every shared page assertion against both pages, written once.
 
     Yields ``(html, stdout, panels-this-page-carries)``. Here rather than in
     one test file because `test_pages.py` and `test_page_navigation.py` both
-    run against all three, and a second copy of the parametrisation is how one
+    run against both, and a second copy of the parametrisation is how one
     file quietly stops covering a page.
     """
     html, stdout = request.getfixturevalue(request.param)

@@ -434,9 +434,10 @@ def test_no_panel_on_a_public_page_buries_its_table_under_its_intro(public_page)
 #   * A species name, which is backticked on some pages to set a Latin
 #     binomial off from the sentence around it. A reader can look one up.
 #
-# Anything else is fixed in the source that wrote it, not added here. The team
-# copy of the queue page is deliberately not checked: it exists to carry the
-# commands and column names the public page drops.
+# Anything else is fixed in the source that wrote it, not added here. The one
+# block on the queue page addressed to the labelling team is deliberately not
+# checked: it is closed, its summary says who it is for, and it exists to carry
+# the commands and column names nobody else can use.
 _CODE_SPAN = re.compile(r"<code\b[^>]*>(.*?)</code>", re.DOTALL | re.IGNORECASE)
 _LINKED_CSV = re.compile(r'href="([A-Za-z0-9_]+\.csv)"')
 # Genus, species, and at most one more word for an author abbreviation or a
@@ -450,10 +451,14 @@ def public_page(request):
     return request.param, request.getfixturevalue(request.param)[0]
 
 
-def test_no_public_page_backticks_something_a_reader_cannot_open(public_page):
+def test_no_public_page_backticks_something_a_reader_cannot_open(public_page, queue_panels):
     """A public page names no repository path, script, flag or column."""
     name, html = public_page
     served = set(_LINKED_CSV.findall(html))
+    team = f'<details class="more" id="{queue_panels.TEAM_BLOCK_ID}">'
+    if team in html:
+        before, rest = html.split(team, 1)
+        html = before + rest.split("</details>", 1)[1]
     body = _NOT_PROSE.sub(" ", html)
     spans = {_text(span) for span in _CODE_SPAN.findall(body)}
     stray = sorted(s for s in spans - served

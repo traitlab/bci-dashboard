@@ -22,23 +22,17 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Each card is (file, title, blurb, label). The label is empty on a page
-# written for anyone and reads "team" on the one written for the labelling
-# team, so a visitor can see which of the three is addressed to them before
-# opening it.
+# Each card is (file, title, blurb). Both pages are written for anyone; the
+# labelling team's commands are a closed block on the queue page, not a card.
 PAGES = [
     ("model_health_dashboard.html",
      "How well does Pl@ntNet name BCI trees?",
      "Accuracy of the predictions, per species and overall, with what each "
-     "number was measured on.", ""),
+     "number was measured on."),
     ("label_queue_dashboard.html",
      "What to label next",
      "The order the unlabelled photos should be worked through, and the "
-     "reasoning behind that order.", ""),
-    ("label_queue_team.html",
-     "What to label next",
-     "The same order, plus the commands that send a batch to Labelbox. Needs "
-     "the repository checked out.", "team"),
+     "reasoning behind that order."),
 ]
 
 STYLE = """*{box-sizing:border-box;margin:0;padding:0}
@@ -55,10 +49,6 @@ a.card{
 }
 a.card:hover{border-color:#1565c0}
 a.card b{display:block;font-size:1.05rem;color:#1565c0;margin-bottom:4px}
-a.card b em{
-  font-style:normal;font-size:0.7rem;color:#5f6368;background:#eceff1;
-  border-radius:3px;padding:1px 6px;margin-left:8px;vertical-align:middle;
-}
 a.card span{font-size:0.9rem;color:#424242}
 """
 
@@ -84,13 +74,12 @@ def build_stamp(text: str) -> str:
 def build(build_dir: str) -> str:
     cards = []
     stamp = ""
-    for name, title, blurb, label in PAGES:
+    for name, title, blurb in PAGES:
         path = os.path.join(build_dir, name)
         with open(path, encoding="utf-8") as fh:
             stamp = stamp or build_stamp(fh.read())
-        tag = f'<em>{html.escape(label)}</em>' if label else ""
         cards.append(f'<a class="card" href="{html.escape(name)}">'
-                     f'<b>{html.escape(title)}{tag}</b>'
+                     f'<b>{html.escape(title)}</b>'
                      f'<span>{html.escape(blurb)}</span></a>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
             "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
