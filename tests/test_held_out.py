@@ -171,4 +171,4 @@ def test_the_page_never_invites_the_two_rates_to_be_subtracted(external_page):
         assert "The difference between them is not the size of the leak" in html
         assert "grade two different sets of frames" in html
     else:
-        assert "A large gap" in html
+        assert "A large gap" not in html

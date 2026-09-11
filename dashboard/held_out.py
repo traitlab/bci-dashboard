@@ -215,21 +215,20 @@ def note(result: dict, flight: dict | None = None) -> str:
     """
     t, u = result["test"], result["unseen"]
     unplaced = result["unplaced"]
-    line = (f'<p class="note"><b>Does the test score lean on flights the labels already '
-            f'know?</b> A flight is one date over one site. The first guess is right on '
+    line = (f'<p class="note"><b>Were the test frames flown on the same flights as the other labelled frames?</b> A flight is one date over one site. The first guess is right on '
             f'{_pct(t["top1"])} of the {t["n"]:,} test frames. ')
     if u["n"]:
         line += (f'On the {u["n"]:,} test frames from flights with no train frame it is '
-                 f'right on {_pct(u["top1"])}. A large gap between the two rates means '
-                 f'the test score leans on near-copies of train frames, and the lower '
-                 f'rate is the one a new flight would get. ')
+                 f'right on {_pct(u["top1"])}. Those frames hold different species in '
+                 f'different shares from the rest, so the gap between the two rates is '
+                 f'not the size of a leak. ')
     else:
         line += ('Every one of them shares its flight with a train frame, so no test '
                  'frame comes from a flight the labels never saw. ')
         line += ('The second score below is on other frames, held back whole by '
                  'flight. ' if flight else
-                 'A large gap would show once a set held back from unseen flights '
-                 'exists. ')
+                 'A set held back by whole flights would grade frames that share a '
+                 'flight with no train frame. ')
     if unplaced:
         line += (f'{unplaced:,} test frame{"s" if unplaced != 1 else ""} could not be '
                  f'placed on a flight and {"are" if unplaced != 1 else "is"} left out. ')

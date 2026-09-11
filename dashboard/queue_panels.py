@@ -284,6 +284,37 @@ def p_send(c):
                  body, open_=True, anchor="what-to-send-first")
 
 
+def _near_copy_note(c) -> str:
+    """Whether the wrong-guess share leans on near-copies of the rule's frames.
+
+    Once flights are held back whole, the rule is graded there too and the page
+    prints that grade. Until then it says the share is a floor it cannot size.
+    """
+    held = c.held_wait
+    if held["n"]:
+        return ('<p class="note"><strong>The same rule on flights held back whole:'
+                f'</strong> it reaches {held["n"]:,} of the {held["n_frames"]:,} frames '
+                f'there, and the first guess is wrong on {pctf(held["err"])} of those. '
+                'Those frames hold different species in different shares, so how many the '
+                'rule reaches differs for that reason alone.</p>'
+                + more("Why grade it on those flights too",
+                       '<p class="note">The frames above were held back one by one, so each '
+                       'shares a flight with a frame the rule was picked on. Frames from one '
+                       'flight overlap, so one can be a near-copy of another. No frame above '
+                       'shares a flight with the ones held back whole.</p>'))
+    return ('<p class="note"><strong>Why the wrong-guess share is a floor, not an '
+            'estimate:</strong> the split was drawn frame by frame, not site by site. '
+            'Drone frames from one flight over one site overlap, so a held-out '
+            "frame, one kept back from the rule's frames, can be a near-copy of "
+            'one it learned from. So the share above is the least the rule gets '
+            'wrong, and we have not measured how much more.</p>'
+            + more("What would fix it",
+                   '<p class="note">Every site with labelled frames has frames both held '
+                   'back for grading and used to pick the rule. Grading the rule on '
+                   'flights held back whole is what fixes it. Until then this caveat '
+                   'stands.</p>'))
+
+
 def _wait_rule(c) -> str:
     """The rule in force, what it reaches, and every caveat on it."""
     best = c.best
@@ -300,24 +331,9 @@ def _wait_rule(c) -> str:
             f'and every count below is out of those {len(c.test_recs):,}. '
             # Two hold-outs, described in almost the same words on two pages that
             # link to each other. A reader assumes one is a subset of the other.
-            f'They are not the model-health page\'s hold-out, a separate draw of '
-            f'{int(c.cf["n_frames"])} frames; the two overlap and neither contains the '
-            f'other.</p>'
-            '<p class="note"><strong>Why the wrong-guess share is a floor, not an '
-            'estimate:</strong> the split was drawn frame by frame, not site by site. '
-            'Drone frames from one flight over one site overlap, so a held-out '
-            "frame, one kept back from the rule's frames, can be a near-copy of "
-            'one it learned from. So the share above is the least the rule gets '
-            'wrong, and we have not measured how much more.</p>'
-            # The claim and its reason stay open; a reader who wants to know what
-            # we are doing about it opens the line below. The claim is not
-            # weaker for it, and the paragraph above is four sentences.
-            + more("What would fix it",
-                   '<p class="note">Every site with labelled frames has frames both held '
-                   'back for grading and used to pick the rule. That flatters the model, '
-                   'and the rule rides on the model. Redrawing the grading set by whole '
-                   'sites is what fixes it. Until then this caveat stands and the number '
-                   'is re-read when it lands.</p>')
+            f'They are not the model-health page\'s {int(c.cf["n_frames"])} frames fixed '
+            f'in advance; the two overlap and neither contains the other.</p>'
+            + _near_copy_note(c)
             # What a wait is not, and how long it lasts, is what a reader who
             # wants to act on the rule asks second. The rule itself, in the box
             # at the top of the panel, says it leaves a frame for later and

@@ -71,5 +71,8 @@ def test_every_held_out_frame_sits_at_a_site_the_rule_also_learned_from():
         f"The panel says every one does. Reword it to match.")
 
 
-def test_the_queue_page_carries_the_caveat(internal_page):
-    assert CAVEAT in internal_page[0]
+def test_the_queue_page_carries_the_caveat_or_the_regrade(internal_page):
+    """The floor caveat stands until the rule is graded on flights held back
+    whole; then the page prints that grade in its place."""
+    html = internal_page[0]
+    assert CAVEAT in html or "The same rule on flights held back whole" in html
