@@ -296,14 +296,61 @@ GUARD_NOTES = (
     "Does the test score lean on flights the labels already know?",
 )
 
-_MORE = re.compile(r'<details class="more".*?</details>', re.DOTALL | re.IGNORECASE)
+_MORE_OPEN = re.compile(r'<details class="more"', re.IGNORECASE)
+_DETAILS_TAG = re.compile(r"<details\b|</details>", re.IGNORECASE)
 _NOTE = re.compile(r'<p class="note"[^>]*>(.*?)</p>', re.DOTALL | re.IGNORECASE)
 _PANEL_SUMMARY = re.compile(r"<summary\b[^>]*>(.*?)</summary>", re.DOTALL | re.IGNORECASE)
 
 
+def _more_blocks(html: str) -> list[str]:
+    """Every ``more()`` block, each to its own closing tag.
+
+    This used to be one non-greedy regex, which ends at the first ``</details>``
+    it reaches. A ``more()`` block takes a body, so one can hold another, and a
+    non-greedy match on that leaves the outer block's tail in the page: the
+    sentence caps would then count sentences that are behind a summary line,
+    and report them against the panel they are nowhere near. The review panel's
+    slicer was wrong the same way once. So the tags are counted instead.
+    """
+    out = []
+    for found in _MORE_OPEN.finditer(html):
+        depth = 1
+        for tag in _DETAILS_TAG.finditer(html, found.end()):
+            depth += 1 if tag.group(0).lower().startswith("<details") else -1
+            if not depth:
+                out.append(html[found.start():tag.end()])
+                break
+        else:
+            raise AssertionError("a <details class=\"more\"> block is never closed")
+    return out
+
+
 def _without_the_long_version(html: str) -> str:
     """The page minus every block a reader has to open to read."""
-    return _MORE.sub(" ", html)
+    for block in _more_blocks(html):
+        html = html.replace(block, " ")
+    return html
+
+
+def test_a_long_version_inside_a_long_version_is_cut_out_whole():
+    """A `more()` block holds a body, so one can hold another. Both slices
+    have to reach the outer block's own closing tag: a slice that stops at the
+    inner one leaves the outer tail on the page, where the sentence caps count
+    it against a panel it is not in."""
+    from conftest import REPO, _on_path
+    with _on_path(REPO / "dashboard"):
+        from assets import more
+    html = ('<p class="note">Kept.</p>'
+            + more("Outer", '<p class="note">Hidden one.</p>'
+                   + more("Inner", '<p class="note">Hidden two.</p>')
+                   + '<p class="note">Hidden three.</p>'))
+    left = _without_the_long_version(html)
+    assert "Kept." in left
+    for gone in ("Hidden one.", "Hidden two.", "Hidden three.", "Outer", "Inner"):
+        assert gone not in left, f"{gone!r} survived the cut"
+    blocks = _more_blocks(html)
+    assert len(blocks) == 2
+    assert "Hidden three." in blocks[0] and "Hidden three." not in blocks[1]
 
 
 def test_no_note_on_a_public_page_runs_past_four_sentences(public_page):
@@ -335,7 +382,7 @@ def test_the_long_version_is_still_prose_every_other_rule_reads(public_page):
     """
     name, html = public_page
     reads = set(prose(html))
-    for block in _MORE.findall(html):
+    for block in _more_blocks(html):
         title = _PANEL_SUMMARY.search(block)
         assert title and _text(title.group(1)), (
             f"{name}: a <details class=\"more\"> block with no summary line. A reader "
