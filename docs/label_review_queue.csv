@@ -1,7 +1,7 @@
 global_key,split,gt_species,predicted_species,confidence,labelbox_url,mechanism
 comb_DJI_20241218093917_0026_V_5241zoom.JPG,train,machaerium isadelphum,sterculia apetala,0.984150,https://app.labelbox.com/projects/cm7axzuax0lat07vw4o2va3zk/data-rows/cm60y5p0w58oy0623qzg1m17f,species_conflict
-comb_DJI_20241024132206_0012_V_2336zoom.JPG,,fridericia candicans,hieronyma alchorneoides,0.969900,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xn4pv4wzj07330rko61rn,species_conflict
-comb_DJI_20251010124150_0039_V_7852zoom.JPG,valid,tabernaemontana arborea,terminalia amazonia,0.967530,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmgsjyhsn62vs0766ltewjh0w,species_conflict
+comb_DJI_20241024132206_0012_V_2336zoom.JPG,holdout,fridericia candicans,hieronyma alchorneoides,0.969900,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xn4pv4wzj07330rko61rn,species_conflict
+comb_DJI_20251010124150_0039_V_7852zoom.JPG,holdout,tabernaemontana arborea,terminalia amazonia,0.967530,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmgsjyhsn62vs0766ltewjh0w,species_conflict
 comb_DJI_20251010083105_0027_V_2432zoom.JPG,test,coccoloba excelsa,davilla nitida,0.964980,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmgsbybuhfb4p07166s3973qn,species_conflict
 comb_DJI_20250813150133_0015_V_3647zoom.JPG,test,inga sapindoides,inga marginata,0.960310,https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmf2yhhcpcg7w0716ljn2n59h,species_conflict
 comb_DJI_20241101094006_0042_V_1186zoom.JPG,,protium panamense,anacardium excelsum,0.956860,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xoh2j4x0w073370bevf17,species_conflict
@@ -37,14 +37,14 @@ comb_DJI_20250911104901_0025_V_3443zoom.JPG,train,pouteria stipitata,fridericia 
 comb_DJI_20241101103715_0048_V_650zoom.JPG,,calophyllum longifolium,terminalia amazonia,0.872640,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xohar4x340733qog6dizu,species_conflict
 comb_DJI_20251006114636_0019_V_1260zoom.JPG,train,zanthoxylum ekmanii,uncaria tomentosa,0.865420,https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmgtqrp6agwrc0716xkqpq791,species_conflict
 comb_DJI_20241101093929_0040_V_885zoom.JPG,,anacardium excelsum,fridericia candicans,0.864140,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xoh384x120733okbm8bdg,species_conflict
-comb_DJI_20240911144902_0002_V_1507zoom.JPG,train,apeiba membranacea,luehea seemannii,0.860270,https://app.labelbox.com/projects/cm66wsv5u05pl070g92gt9vfv/data-rows/cm60xg5ch4lz90760orgg1p79,species_conflict
+comb_DJI_20240911144902_0002_V_1507zoom.JPG,holdout,apeiba membranacea,luehea seemannii,0.860270,https://app.labelbox.com/projects/cm66wsv5u05pl070g92gt9vfv/data-rows/cm60xg5ch4lz90760orgg1p79,species_conflict
 comb_DJI_20250723104031_0013_V_6184zoom.JPG,train,pourouma bicolor,cecropia insignis,0.852030,https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cme9aet212wsh0704pec51klw,species_conflict
 comb_DJI_20240912093538_0064_V_2887zoom.JPG,,pochota fendleri,ceiba pentandra,0.849550,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xifk04zhw07272mk0grox,species_conflict
 comb_DJI_20250723123724_0013_V_7315zoom.JPG,train,uncaria tomentosa,hura crepitans,0.846590,https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cme9aet9n2wup07044iweudav,species_conflict
 comb_DJI_20241127094919_0016_V_2245zoom.JPG,,tabebuia rosea,handroanthus guayacan,0.839540,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xy9dg0sjz0719pf2xxfvn,species_conflict
-comb_DJI_20251010125040_0001_V_6868zoom.JPG,valid,terminalia oblonga,terminalia amazonia,0.834270,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmgsjyht562vx0766kijzclbk,species_conflict
+comb_DJI_20251010125040_0001_V_6868zoom.JPG,holdout,terminalia oblonga,terminalia amazonia,0.834270,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmgsjyht562vx0766kijzclbk,species_conflict
 comb_DJI_20250821165957_0017_V_3771zoom.JPG,train,hura crepitans,davilla nitida,0.831740,https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmgtyszg3gygy0716ew1l1fec,species_conflict
-comb_DJI_20241024125603_0020_V_1575zoom.JPG,,aspidosperma desmanthum,ocotea leptobotra,0.823910,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xn4t44x0d0733c38fq1o1,species_conflict
+comb_DJI_20241024125603_0020_V_1575zoom.JPG,holdout,aspidosperma desmanthum,ocotea leptobotra,0.823910,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cm60xn4t44x0d0733c38fq1o1,species_conflict
 comb_DJI_20250723113054_0031_V_8049zoom.JPG,valid,davilla kunthii,hiraea grandifolia,0.818460,https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cme9aet672wtp0704stxy3oze,species_conflict
 comb_DJI_20250304074807_0014_V_6215zoom.JPG,train,fridericia patellifera,anacardium excelsum,0.811070,https://app.labelbox.com/projects/cmbgnzmhu0bed07027vmxezzd/data-rows/cmbgnqgp5b8xg0742zxq29aiz,species_conflict
 comb_DJI_20250206093203_0038_V_895zoom.JPG,,fridericia candicans,prioria copaifera,0.810150,https://app.labelbox.com/projects/cme99tjc606h4075147dfd6j6/data-rows/cmd3o87zr9n1y0763lfb9n0lu,species_conflict
