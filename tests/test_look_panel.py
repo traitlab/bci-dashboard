@@ -69,10 +69,10 @@ def test_a_curve_file_missing_a_column_stops_the_build(look):
         figures._look(_rows(("normal", "a", 1)), {"zoom": 1}, 1)
 
 
-def test_the_panel_says_so_when_there_is_nothing_to_draw(queue_panels):
+def test_the_panel_says_so_when_there_is_nothing_to_draw(queue_why_panels):
     """A panel that renders nothing reads as a bug. This one says which script
     writes the files it is missing."""
-    out = queue_panels.NO_CURVES
+    out = queue_why_panels.NO_CURVES
     assert "rank_queue.py" in out and "not been scored" in out
 
 
@@ -184,9 +184,9 @@ def test_the_picture_reaches_the_page_as_bytes_and_not_as_a_path(look):
     assert base64.b64decode(uri.split(",", 1)[1]) == b"\xff\xd8\xff\xd9"
 
 
-def test_summary_does_not_assert_the_finding_when_nothing_was_scored(look, queue_panels):
+def test_summary_does_not_assert_the_finding_when_nothing_was_scored(look, queue_why_panels):
     """A closed panel stands alone, so its summary must not outrun its evidence."""
     figures, _ = look
-    html = queue_panels.p_look(SimpleNamespace(**figures._look([], {}, 0)))
+    html = queue_why_panels.p_look(SimpleNamespace(**figures._look([], {}, 0)))
     assert "finds species faster" not in html
     assert "has not been scored on this checkout" in html

@@ -5,12 +5,13 @@ Orders the unlabelled pool and says why that order is right. Thin on purpose:
 the deliverable is ``send_batches.csv`` beside it, and the page exists so the
 order can be argued with first. Accuracy reporting is ``build_external.py``.
 
-    python3 dashboard/build_internal.py [--team] [--out PATH]
+    python3 dashboard/build_internal.py [--out PATH]
 
-Two files come out of this one builder. Without ``--team`` it writes the public
-page, which leaves out everything that only works with the repository checked
-out. With ``--team`` it writes ``label_queue_team.html``, which carries all of
-it. The public page links the team one, so nothing is hidden, only moved.
+One page for every reader. What to send comes first and why comes after it,
+closed. The commands that need the repository checked out sit in one closed
+block for the labelling team, under the photos they send. A small redirect is
+written beside the page under the name the team's copy used to have, so a
+saved link to it opens that block.
 
 Every number is recomputed from source, then cross-checked against the snapshot
 CSVs; a mismatch aborts the build. It gates on the two send-queue CSVs.
@@ -30,33 +31,38 @@ import figures
 import page as pg
 import queues
 from assets import esc, hero
+from queue_panels import TEAM_BLOCK_ID
 from queues import BATCH_SIZE
 from selection_panels import selection_complaint
 from history import fail, verify_snapshot
 
 OUT_NAME = "label_queue_dashboard.html"
-TEAM_OUT_NAME = "label_queue_team.html"
 TITLE = "BCI labelling: what to label next"
 
-# The one line the public page carries in place of the repository parts. It is
-# a link rather than a silence: a reader who wants the commands should be able
-# to see that they exist and who they are for.
-TEAM_LINK = (f'<p class="note">The same page with the commands that send a batch is '
-             f'<a href="{TEAM_OUT_NAME}">{TEAM_OUT_NAME}</a>, for the labelling team, '
-             f'needs the repo.</p>')
+# The labelling team's copy of this page used to be published under this name.
+# It is now a redirect to the team block on the one page, so old links land on
+# the commands they were saved for.
+MOVED_NAME = "label_queue_team.html"
 
 
-def build(h, *, generated, verify_dir, fallback_tag, team=False):
+def redirect_stub() -> str:
+    """The file left at ``MOVED_NAME``: a meta refresh, and a link for a
+    browser that does not follow one."""
+    to = f"{OUT_NAME}#{TEAM_BLOCK_ID}"
+    return ("<!DOCTYPE html>\n"
+            '<html lang="en"><head><meta charset="utf-8">'
+            f'<meta http-equiv="refresh" content="0; url={to}">'
+            f"<title>{TITLE}</title></head><body>"
+            f'<p>This page has moved to <a href="{to}">{OUT_NAME}</a>.</p>'
+            "</body></html>\n")
+
+
+def build(h, *, generated, verify_dir, fallback_tag):
     """The queue page: which photos to label next, and why that order.
 
     The review queue belongs to the model-health page, so it is not gated here.
-
-    ``team`` writes the labelling team's copy. Everything it adds needs the
-    repository checked out, so the public page carries a link to it instead.
     """
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
-    # Read by the panels that have a team half and a public half.
-    c.team = team
 
     # Before anything is rendered. This page's leading claim is that inside each
     # queue the photo least like everything already labelled comes first, and
@@ -117,7 +123,7 @@ def build(h, *, generated, verify_dir, fallback_tag, team=False):
                ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
                 "The whole pool this page puts in an order.",
                 "send_first_queue.csv")]),
-         batches_note(c, team),
+         batches_note(c),
          # Cadence, because the obvious guess is a monthly rebuild and that is
          # wrong. Nothing about this order changes until the model does: the
          # queues come from Pl@ntNet's own answers, so re-ranking against an
@@ -127,36 +133,34 @@ def build(h, *, generated, verify_dir, fallback_tag, team=False):
           'its authors have one, roughly every two months. Until the tag above moves, '
           're-running this page returns the same order, so work through the batches '
           'rather than waiting for a refresh.</p>'),
-         pg.render(c, pg.INTERNAL_PANELS)]
-    if not team:
-        P.append(TEAM_LINK)
-    P.append(pg.footer(c))
+         pg.render(c, pg.INTERNAL_PANELS),
+         pg.footer(c)]
 
     return pg.document(TITLE, "\n".join(P)), c.checks
 
 
-def batches_note(c, team):
-    """Where the batches are, in the words each audience can act on.
+def batches_note(c):
+    """Where the batches are, in words any reader can act on.
 
-    The team copy names the file in the repository and the column Labelbox is
-    given, because a reader with the checkout can open both. The public copy
-    links the served copy of the same file, which is the one that resolves from
-    the site, and says nothing about columns nobody outside the team sends.
+    It links the served copy of the file, which is the one that resolves from
+    the site. The path in the repository and the column Labelbox is given are
+    in the team block, ``queue_panels.DISPATCH``.
     """
-    where = ('<code>build/tables/send_batches.csv</code>' if team
-             else '<a href="send_batches.csv">send_batches.csv</a>')
-    detail = (' One batch there is one Labelbox batch, and <code>global_key</code> is '
-              'the column Labelbox is given.' if team else '')
-    return (f'<p class="note"><strong>The prioritised batches are in {where}.</strong> '
+    return (f'<p class="note"><strong>The prioritised batches are in '
+            f'<a href="send_batches.csv">send_batches.csv</a>.</strong> '
             f'Send from that file: it holds {c.n_batches} batches of at most '
-            f'{BATCH_SIZE} photos, each species group kept together.{detail} This page '
+            f'{BATCH_SIZE} photos, each species group kept together. This page '
             f'shows the order and the reason behind each photo\u2019s place in it. '
             f'How Pl@ntNet scores against the labels is a separate page, '
             f'<a href="model_health_dashboard.html">model_health_dashboard.html</a>.</p>')
 
 
 def main() -> None:
-    pg.run(__doc__, OUT_NAME, build, team_name=TEAM_OUT_NAME)
+    out = pg.run(__doc__, OUT_NAME, build)
+    stub = os.path.join(os.path.dirname(os.path.abspath(out)), MOVED_NAME)
+    with open(stub, "w", encoding="utf-8") as f:
+        f.write(redirect_stub())
+    print(f"  wrote     {stub}  (redirect to {OUT_NAME}#{TEAM_BLOCK_ID})")
 
 
 if __name__ == "__main__":

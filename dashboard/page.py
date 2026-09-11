@@ -4,8 +4,8 @@
 which page carries which, so a panel names its audience once. ``render`` groups
 the chosen panels into sections; ``run`` is both builders' ``main()``.
 
-The panels themselves live in ``panels.py``, ``queue_panels.py`` and
-``confirmatory_panels.py``. This module knows what a page is made of, never
+The panels themselves live in ``panels.py``, ``queue_panels.py``,
+``queue_why_panels.py`` and ``confirmatory_panels.py``. This module knows what a page is made of, never
 what a panel says.
 """
 
@@ -24,7 +24,8 @@ from confirmatory_panels import p_floor
 from panels import (
     p_calibration, p_ceiling, p_counts, p_coverage, p_method, p_review, p_species,
     p_terms, p_weighting)
-from queue_panels import p_evidence, p_look, p_send, p_todo
+from queue_panels import p_send, p_todo
+from queue_why_panels import p_evidence, p_look, p_namings
 
 
 # Order here is reading order. The measurement comes first and the explanation
@@ -40,7 +41,13 @@ SECTIONS = {
     "headline": (None, None),
     "label-first": (
         "What to label first",
-        "Which frames to send, which can wait, and the evidence behind the wait rule."),
+        # The wait rule and its evidence moved to the section below.
+        "Which frames to send, and in what order."),
+    # The queue page's second part. Same arrangement as the model-health page:
+    # the thing a reader acts on first, the reasoning after it, closed.
+    "queue-why": (
+        "Why this order, and how far to trust it",
+        "The reasoning behind the order above. Open a line to check it."),
     # A third item names the id: this heading runs past the eight words slug()
     # keeps and would otherwise ship as "...and-where-it".
     "model-health": (
@@ -70,8 +77,9 @@ PANELS = {
     "floor": ("headline", p_floor),
     "todo": ("label-first", p_todo),
     "send": ("label-first", p_send),
-    "look": ("label-first", p_look),
-    "evidence": ("label-first", p_evidence),
+    "namings": ("queue-why", p_namings),
+    "look": ("queue-why", p_look),
+    "evidence": ("queue-why", p_evidence),
     "species": ("model-health", p_species),
     "review": ("model-health", p_review),
     # The three that moved out of the headline band and out of "model-health".
@@ -98,7 +106,7 @@ PANELS = {
 # Internal is the labelling team's tool and stays thin, its deliverable being
 # send_batches.csv. External leaves the lab, carrying the confident
 # disagreements so they can be worked in Labelbox.
-INTERNAL_PANELS = ("todo", "send", "look", "evidence")
+INTERNAL_PANELS = ("todo", "send", "namings", "look", "evidence")
 # Order inside a section is the order these ids are listed in; the sections
 # themselves order the page. The species table now leads, because that is what
 # a reader scrolls to. The glossary and the three-frame-counts panel used to
@@ -139,13 +147,8 @@ def render(c, ids) -> str:
 # The bits of a page that are not a panel: command line, wrapper, file write.
 # ---------------------------------------------------------------------------
 
-def parse_args(doc: str, default_out: str, team_out: str | None = None):
-    """The builder command line. Same flags on both pages, different --out.
-
-    ``team_out`` is the file ``--team`` writes to. A page with no team copy
-    refuses the flag rather than writing the public file under a name that
-    promises more than it carries.
-    """
+def parse_args(doc: str, default_out: str):
+    """The builder command line. Same flags on both pages, different --out."""
     import argparse
 
     ap = argparse.ArgumentParser(description=hc.summarise(doc))
@@ -158,21 +161,14 @@ def parse_args(doc: str, default_out: str, team_out: str | None = None):
     ap.add_argument("--model-tag", default="unknown",
                     help="Pl@ntNet model iteration to record for a snapshot whose "
                          "run_log.txt does not name one")
-    ap.add_argument("--team", action="store_true",
-                    help="write the labelling team's copy instead: the same page plus "
-                         "the parts that only work with the repository checked out")
     ap.add_argument("--out", default=None,
                     help=f"write the page here (default: build/{default_out})")
     ap.add_argument("--generated", default=None,
                     help="build date string; defaults to today (pass a fixed value for "
                          "byte-reproducible output)")
     args = ap.parse_args()
-    if args.team and team_out is None:
-        ap.error(f"--team: {default_out} has no team copy, so there is nothing the "
-                 f"flag would add")
     if args.out is None:
-        args.out = os.path.join(hc.REPO, "build",
-                                team_out if args.team else default_out)
+        args.out = os.path.join(hc.REPO, "build", default_out)
     return args
 
 
@@ -250,19 +246,17 @@ def copy_linked_csvs(page: str, verify_dir: str, out: str) -> None:
         print(f"  copied    {name}  beside the page")
 
 
-def run(doc: str, out_name: str, build, team_name: str | None = None) -> None:
+def run(doc: str, out_name: str, build) -> str:
     """Load the data, build the page, write it: both builders' ``main()``.
 
-    ``team_name`` is the file the page is written to under ``--team``. A page
-    with no team copy refuses the flag rather than writing the public file
-    under a name that promises more than it carries.
+    Returns the path written, so a builder can put a file beside the page.
     """
-    args = parse_args(doc, out_name, team_name)
+    args = parse_args(doc, out_name)
     verify_dir = args.verify_against or hc.TABLES_DIR
     h = hl.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
                        wcvp_cache=args.wcvp_cache)
     page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),
-                         verify_dir=verify_dir, fallback_tag=args.model_tag,
-                         team=args.team)
+                         verify_dir=verify_dir, fallback_tag=args.model_tag)
     write_page(page, checks, args.out)
     copy_linked_csvs(page, verify_dir, args.out)
+    return args.out

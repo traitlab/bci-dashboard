@@ -14,9 +14,9 @@ BUILD="$REPO/build"
 DOCS="$REPO/docs"
 
 # The pages this script publishes, named once: the checks below, the copy, and
-# the CSV scan all read them from here. The team queue page is published beside
-# the public one because the public one links it; it carries the same numbers
-# plus the commands that only work with the repository checked out.
+# the CSV scan all read them from here. label_queue_team.html is not a page: it
+# is the redirect dashboard/build_internal.py writes beside the queue page, left
+# at the address the team's own copy used to have so old links still land.
 PAGES="model_health_dashboard.html label_queue_dashboard.html label_queue_team.html"
 
 for f in $PAGES; do

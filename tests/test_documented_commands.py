@@ -80,18 +80,25 @@ def accepts(script: str, flag: str) -> bool:
 COMMANDS = sorted(documented().items())
 
 
-def test_a_command_printed_on_a_page_runs(team_page):
-    """The team copy of the queue page prints the dispatch command, and the
-    labelling team reads that page rather than a docstring. A page can go stale
-    exactly the way a docstring can, so it gets the same check: the script
-    exists, and every flag the note types is one the parser takes.
+def test_a_command_printed_on_a_page_runs(internal_page, queue_panels):
+    """The queue page prints the dispatch command, and the labelling team reads
+    that page rather than a docstring. A page can go stale exactly the way a
+    docstring can, so it gets the same check: the script exists, and every flag
+    the note types is one the parser takes.
 
-    The public queue page prints no command at all, by design, so this is asked
-    of the copy that does."""
-    html, _ = team_page
-    text = html.replace("<code>", " ").replace("</code>", " ")
+    The command is inside the closed block addressed to the team, and nowhere
+    else on the page: a reader outside the team meets a summary line saying who
+    it is for, not a command they cannot run."""
+    html, _ = internal_page
+    opens = f'<details class="more" id="{queue_panels.TEAM_BLOCK_ID}">'
+    assert html.count(opens) == 1, "the queue page lost its closed team block"
+    block = html.split(opens, 1)[1].split("</details>", 1)[0]
+    outside = html.replace(block, "")
+    assert not COMMAND.findall(outside.replace("<code>", " ").replace("</code>", " ")), (
+        "the queue page prints a command outside the team block")
+    text = block.replace("<code>", " ").replace("</code>", " ")
     found = COMMAND.findall(text)
-    assert found, "the team queue page prints no command; the note lost it"
+    assert found, "the team block prints no command; the note lost it"
     for script, rest in found:
         assert (REPO / script).exists(), f"the queue page runs {script}, which is gone"
         unknown = [flag for flag in FLAG.findall(rest) if not accepts(script, flag)]

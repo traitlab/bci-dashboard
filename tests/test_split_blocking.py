@@ -56,7 +56,7 @@ def test_the_split_is_not_blocked_by_site_so_the_caveat_still_applies():
     assert shared, (
         "No site has frames in both train and test any more. The split looks "
         "blocked by site now, so rewrite the floor caveat in "
-        "dashboard/queue_panels.py: a site-blocked score is still not "
+        "dashboard/queue_why_panels.py: a site-blocked score is still not "
         "unbiased, and it now answers a different question.")
 
 
