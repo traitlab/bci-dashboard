@@ -376,8 +376,8 @@ def load_holdout(path: str = HOLDOUT_CSV) -> set:
 
 
 def merge_holdout(split_of: dict, held: set) -> dict:
-    """``split_of`` with every held frame tagged ``HOLDOUT_SPLIT`` in place of
-    its splits.csv value, and the values it displaced counted.
+    """Tag every held frame ``HOLDOUT_SPLIT`` in ``split_of``, in place of its
+    splits.csv value, and return a count of the values that displaced.
 
     The tag is never ``test``: the held frames are graded on their own, beside
     the test score, and a held frame that also counted as test would put the

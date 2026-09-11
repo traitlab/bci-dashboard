@@ -161,6 +161,14 @@ def test_the_page_prints_the_numbers_the_csv_holds(external_page):
         assert m and int(m.group(1).replace(",", "")) == n_unplaced
 
 
-def test_the_page_says_what_a_gap_would_mean(external_page):
+def test_the_page_never_invites_the_two_rates_to_be_subtracted(external_page):
+    """The test frames and the held-back flights are two different sets of
+    frames, with different species in different shares, so the difference
+    between their rates is not the size of the leak. The page has to say so
+    wherever it prints both, or a reader will read one number off the other."""
     html, _ = external_page
-    assert "A large gap" in html
+    if "flight holdout holds" in html:
+        assert "The difference between them is not the size of the leak" in html
+        assert "grade two different sets of frames" in html
+    else:
+        assert "A large gap" in html

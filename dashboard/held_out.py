@@ -186,6 +186,10 @@ def _flight_sentences(flight: dict) -> str:
     line += 'No train frame sits on any of those flights. '
     line += ('So nothing counted there is a near-copy of a frame the labels '
              'already know. ')
+    line += ('These are not the test frames, and they do not hold the same '
+             'species in the same shares. ')
+    line += ('So the two rates grade two different sets of frames. ')
+    line += ('The difference between them is not the size of the leak. ')
     if n_ug:
         line += (f'{n_ug:,} species cannot be graded this way, because each one '
                  f'sits on a single flight. ')
@@ -217,8 +221,8 @@ def note(result: dict, flight: dict | None = None) -> str:
     else:
         line += ('Every one of them shares its flight with a train frame, so no test '
                  'frame comes from a flight the labels never saw. ')
-        line += ('A large gap between that rate and the flight holdout below is the '
-                 'sign the test score leans on near-copies. ' if flight else
+        line += ('The second score below is on other frames, held back whole by '
+                 'flight. ' if flight else
                  'A large gap would show once a set held back from unseen flights '
                  'exists. ')
     if unplaced:
