@@ -494,7 +494,14 @@ def _wait_rules(sp_recs, support):
                     "rare": sum(1 for r in wait if r["gt"] in rare),
                     "rare_rest": sum(1 for r in rest if r["gt"] in rare) / len(rest)
                     if rest else None})
+    # The rule in force on the frames on flights held back whole. Eligibility
+    # is the train set's, unchanged: only the frames it is graded on move.
+    held = [r for r in sp_recs if r["split"] == hc.HOLDOUT_SPLIT]
+    held_wait = [r for r in held if conf(r) >= RECOMMENDED_CONF and r["gt"] in eligible]
     return {
+        "held_wait": {"n_frames": len(held), "n": len(held_wait),
+                      "err": sum(1 for r in held_wait if top1(r) != r["gt"]) / len(held_wait)
+                      if held_wait else None},
         "eligible": eligible, "test_recs": test_recs, "rare": rare,
         "n_rare_test": sum(1 for r in test_recs if r["gt"] in rare), "ops": ops,
         "best": next(o for o in ops
