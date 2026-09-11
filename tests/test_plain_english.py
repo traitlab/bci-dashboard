@@ -454,3 +454,81 @@ def test_no_source_file_sets_a_phrase_off_with_a_long_dash(source):
     assert not found, (
         f"{source.relative_to(REPO)} carries {found}. Use a comma, a colon or "
         f"two sentences.")
+
+
+# The words a reader outside the team meets as jargon. Each one has a plain
+# meaning that is not the meaning the page uses: a test is not a quiz, a split
+# is not a crack, points are not marks out of ten, and a snapshot is not a
+# photograph. A reader who guesses the everyday sense reads the sentence and
+# gets it wrong, and nothing on the page tells them they did.
+GLOSSED_ON_FIRST_USE = (
+    "split", "test", "train", "valid", "held out", "held-out", "hold-out",
+    "graded", "snapshot", "harmonic mean", "percentile", "points",
+)
+
+# A gloss is a clause, not a word. Three words after a comma is an aside; four
+# is a definition, and four is what it takes to say what a thing is measured on
+# or what it is made of.
+MIN_GLOSS_WORDS = 4
+
+
+def _first_use(html: str, term: str):
+    """The first sentence on the page that uses `term`, and where it uses it.
+
+    Document order, and the long version included: a `more()` block sits where
+    a reader meets it, so a word first used inside one is first used there.
+    """
+    word = re.compile(rf"\b{re.escape(term)}s?\b", re.IGNORECASE)
+    for sentence in sentences(prose(html)):
+        found = word.search(sentence)
+        if found:
+            return sentence, found
+    return None, None
+
+
+def _carries_a_gloss(sentence: str, found: "re.Match[str]", term: str) -> bool:
+    """Either the sentence defines the word outright, or it sets the meaning off
+    in a comma clause or a parenthesis of at least four words.
+
+    Either side of the word counts. "where the middle 50% of that species'
+    frames fall, the 25th to the 75th percentile" glosses the word before
+    reaching it, and a reader meets the meaning there just as well as after.
+    """
+    defines = re.compile(
+        rf"^(?:a|an|the)?\s*{re.escape(term)}s?\b[^.]{{0,24}}?\b(?:is|are|means)\b",
+        re.IGNORECASE)
+    if defines.match(sentence):
+        return True
+    clauses = re.findall(r"\(([^)]*)\)", sentence)
+    clauses += sentence[found.end():].split(",")[1:]
+    clauses += sentence[:found.start()].split(",")[:-1]
+    return any(len(clause.split()) >= MIN_GLOSS_WORDS for clause in clauses)
+
+
+def test_every_watched_word_is_glossed_where_a_public_page_first_uses_it(public_page):
+    """A word the page borrows is defined the first time it is used.
+
+    The design, so a later reader can hold a new sentence to the same rule.
+    The watch list above is the words whose everyday meaning is not the page's
+    meaning. For each one, the first sentence on the page that uses it has to
+    carry the meaning with it, one of two ways: the sentence defines the word
+    outright ("a flight is one date at one site"), or it sets the meaning off
+    right after the word in a comma clause or a parenthesis of at least
+    MIN_GLOSS_WORDS words ("held back for grading, a separate draw of 300
+    frames"). Later uses are free: a reader who has the definition once carries
+    it down the page, and glossing a word twice reads as two different things.
+
+    First use is document order over the page's whole prose, `more()` blocks
+    included, since a reader meets those where they sit rather than at the end.
+    """
+    name, html = public_page
+    unglossed = []
+    for term in GLOSSED_ON_FIRST_USE:
+        sentence, found = _first_use(html, term)
+        if sentence and not _carries_a_gloss(sentence, found, term):
+            unglossed.append((term, sentence))
+    assert not unglossed, (
+        f"{name} uses {len(unglossed)} watched word(s) before saying what they "
+        f"mean. Gloss each one where it is first used, in a comma clause or a "
+        f"parenthesis of at least {MIN_GLOSS_WORDS} words, or say what it is "
+        f"outright:\n" + "\n".join(f"    {term}: {s}" for term, s in unglossed))

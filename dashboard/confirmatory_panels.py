@@ -116,7 +116,8 @@ def p_floor(c):
         'What the centre crop costs, and how far that number reaches',
         f"<b>One question, asked once, on {int(cf['n_frames'])} frames fixed in "
         f"advance.</b> Scoring the centre crop instead of a botanist&rsquo;s outlines "
-        f"costs {100 * cf['crown_minus_photo']:.1f} points. Which frames it was "
+        f"costs {100 * cf['crown_minus_photo']:.1f} points, that many right answers in "
+        f"every hundred frames. Which frames it was "
         f"measured on, and where it stops applying.", body,
         # The id predates this panel. A saved link should still land on the
         # question it was saved for, which is the one narrowed here.

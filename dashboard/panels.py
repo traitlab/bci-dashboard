@@ -627,7 +627,7 @@ def p_ceiling(c):
             f'still recover some of these.</p>'
             + sp_table(c.unproven_absent)
             + '<p class="note">The file each table above links carries the two flags '
-              'the lists are split on. One says whether the species is on the '
+              'the lists are divided on. One says whether the species is on the '
               'project&rsquo;s own list. The other says whether its name ever came back '
               'in a cached answer.</p>')
     else:

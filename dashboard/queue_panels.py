@@ -50,7 +50,7 @@ QL = {"long_tail": ("Species we barely have, or barely get right",
 # Above the 25 filenames, not below them: a reader who meets the list first has
 # already accepted it as instructions by the time the caveat arrives.
 UNGRADED_NOTE = (
-    '<p class="note"><b>This order has not been graded yet.</b> Nothing here measures '
+    '<p class="note"><b>This order has not been measured yet.</b> Nothing here measures '
     'whether it fills gaps faster than sending photos at random. It is a reasonable '
     'guess about where our labels are thin. The wait rule further down <em>is</em> '
     'measured.</p>'
@@ -251,7 +251,7 @@ def held_out_note(c) -> str:
     if not n:
         return ""
     by_split = ", ".join(f"{held[k]} {k}" for k in sorted(held))
-    return (f'<p class="note"><strong>{n} frames are held out of this queue.</strong> '
+    return (f'<p class="note"><strong>{n} frames are kept out of this queue.</strong> '
             f'They are held back for grading ({by_split}), so they are '
             f'part of how this page\'s own numbers are graded. Sending one back for '
             f'labelling would put a new answer into the set those numbers are measured '
@@ -305,10 +305,10 @@ def _wait_rule(c) -> str:
             f'other.</p>'
             '<p class="note"><strong>Why the wrong-guess share is a floor, not an '
             'estimate:</strong> the split was drawn frame by frame, not site by site. '
-            'Drone frames from one flight over one site '
-            'overlap, so a held-out frame can be a near-copy of a frame the rule learned '
-            'from. So the share above is the least the rule gets wrong, and we have not '
-            'measured how much more.</p>'
+            'Drone frames from one flight over one site overlap, so a held-out '
+            "frame, one kept back from the rule's frames, can be a near-copy of "
+            'one it learned from. So the share above is the least the rule gets '
+            'wrong, and we have not measured how much more.</p>'
             # The claim and its reason stay open; a reader who wants to know what
             # we are doing about it opens the line below. The claim is not
             # weaker for it, and the paragraph above is four sentences.
