@@ -29,10 +29,12 @@ Runs against the speciesfirst virtualenv, which carries labelfirst. Point
   "$SPECIESFIRST/.venv/bin/python" labelling/rank_queue.py --confound \
       --species-csv data/gt_dominant_taxon.csv
 
-A frame that carries a split in ``data/splits.csv`` is never sent, so it is
-dropped from the pool before ranking: left in, farthest-first keeps spending
-picks on frames that can never be labelled, and those picks are ranks the
-sendable frames behind them never get.
+A frame that carries a split in ``data/splits.csv``, or that the flight holdout
+in ``input/holdout_v1.csv`` holds, is never sent, so it is dropped from the pool
+before ranking: left in, farthest-first keeps spending picks on frames that can
+never be labelled, and those picks are ranks the sendable frames behind them
+never get. ``labelling/pool_filters.py`` does both drops and the run record
+counts them apart.
 
 ``--audit`` and ``--confound`` write the two evidence files the queue page
 reads beside the ordering: whether this order finds rare species faster than a
@@ -65,6 +67,8 @@ from labelfirst.eval.efficiency import annotation_efficiency
 from labelfirst.eval.simulate import simulate
 from labelfirst.io.queue import RunRecord, sha256_file
 from labelfirst.strategies.kcenter import greedy_kcenter
+from pool_filters import (
+    drop_holdout_frames, drop_split_frames, load_holdout, load_splits)
 from rank_confound import loo_distance, one_confound, rarity, seeds_agreeing
 from speciesfirst import backtest_species_coverage
 
@@ -77,6 +81,9 @@ DEFAULT_OUT = REPO / "data" / "next_batch" / "queue_novelty.csv"
 DEFAULT_DISCOVERY = REPO / "data" / "next_batch" / "discovery_curve.csv"
 DEFAULT_NOVELTY_CURVE = REPO / "data" / "next_batch" / "novelty_curve.csv"
 DEFAULT_SPLITS = REPO / "data" / "splits.csv"
+# The whole-flight holdout labelling/draw_holdout.py drew. Tracked under
+# input/ rather than data/ because the pool it was drawn from moves.
+DEFAULT_HOLDOUT = REPO / "input" / "holdout_v1.csv"
 DEFAULT_QUEUE_CSV = REPO / "build" / "tables" / "send_first_queue.csv"
 DEFAULT_INVENTORY = REPO / "data" / "dataset_rows_combined.jsonl"
 DEFAULT_AUDIT = REPO / "data" / "next_batch" / "selection_audit.json"
@@ -264,30 +271,6 @@ def write_run_record(out: Path, record: RunRecord) -> Path:
     return path
 
 
-def load_splits(path: Path) -> dict[str, str]:
-    """``global_key -> split`` for every frame that carries one. An absent file
-    holds nothing out, which is what a checkout without a split gets."""
-    if not path.exists():
-        return {}
-    with open(path, newline="", encoding="utf-8") as f:
-        return {r["global_key"]: r["split"] for r in csv.DictReader(f)
-                if r.get("global_key") and r.get("split")}
-
-
-def drop_split_frames(keys: list[str], emb: np.ndarray, splits: dict[str, str]):
-    """The pool without the frames the queue would refuse anyway.
-
-    ``dashboard/queues.send_first_rows`` holds out every frame carrying a split,
-    so ranking them is not harmless: farthest-first picks the frame furthest
-    from everything picked so far, and a held-out frame it picks takes a rank a
-    sendable frame never gets, then goes on pushing its neighbours down for
-    being near it. Dropped here, not passed as labelled: they are not labelled,
-    and a frame that pretends to be would hide the sendable frames beside it.
-    """
-    keep = [i for i, k in enumerate(keys) if k not in splits]
-    return [keys[i] for i in keep], emb[keep], len(keys) - len(keep)
-
-
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -313,6 +296,8 @@ def parse_args(argv=None):
                    help="where the ranking run writes distance against position")
     p.add_argument("--splits-csv", type=Path, default=DEFAULT_SPLITS,
                    help="frames carrying a split here are dropped from the pool")
+    p.add_argument("--holdout-csv", type=Path, default=DEFAULT_HOLDOUT,
+                   help="frames this holdout holds are dropped from the pool")
     p.add_argument("--audit", action="store_true",
                    help="score this order against random over several starts and exit")
     p.add_argument("--audit-out", type=Path, default=DEFAULT_AUDIT)
@@ -488,6 +473,10 @@ def main(argv=None) -> int:
                                                        load_splits(args.splits_csv))
     print(f"{n_dropped} photos dropped from the pool for carrying a split in "
           f"{args.splits_csv.name}: the queue never sends them")
+    pool_keys, pool_emb, n_held = drop_holdout_frames(pool_keys, pool_emb,
+                                                      load_holdout(args.holdout_csv))
+    print(f"{n_held} photos dropped from the pool for being held by "
+          f"{args.holdout_csv.name}: their flight has no train frame on it")
     if anchor_emb.shape[1] != pool_emb.shape[1]:
         raise SystemExit(f"{anchor_emb.shape[1]} numbers a photo on one side and "
                          f"{pool_emb.shape[1]} on the other; not comparable")
@@ -510,7 +499,7 @@ def main(argv=None) -> int:
     write_novelty_curve(args.novelty_curve_out, order, distance)
 
     record = run_record(args.pool_npz, len(pool_keys), args.anchor_npz, len(anchor_keys),
-                        dropped_for_split=n_dropped)
+                        dropped_for_split=n_dropped, dropped_for_holdout=n_held)
     print(f"wrote {write_run_record(args.out, record)}")
 
     # The named photos are all one camera and the queue is not, so a photo can

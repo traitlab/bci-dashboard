@@ -24,6 +24,9 @@ from core import (
     EVAL_PROJECT,
     GT_CSV,
     GT_KEY_PREFIX,
+    HOLDOUT_CSV,
+    HOLDOUT_HELD_ROLE,
+    HOLDOUT_SPLIT,
     MIN_CROP_COVERAGE,
     N_CANDIDATES,
     SPLITS_CSV,
@@ -359,8 +362,35 @@ def frame_records(joined, split_of, predictions, canon, crop_frames):
     return records
 
 
+def load_holdout(path: str = HOLDOUT_CSV) -> set:
+    """The global keys the flight holdout holds, read off its role column.
+
+    Only the held rows: a train or buffered row keeps whatever splits.csv says
+    about it. An absent file holds nothing, which is what a checkout without a
+    drawn holdout gets, and the run log says so.
+    """
+    if not os.path.exists(path):
+        return set()
+    return {r["global_key"] for r in read_csv_rows(path)
+            if r.get("global_key") and r.get("role") == HOLDOUT_HELD_ROLE}
+
+
+def merge_holdout(split_of: dict, held: set) -> dict:
+    """Tag every held frame ``HOLDOUT_SPLIT`` in ``split_of``, in place of its
+    splits.csv value, and return a count of the values that displaced.
+
+    The tag is never ``test``: the held frames are graded on their own, beside
+    the test score, and a held frame that also counted as test would put the
+    same frame in both numbers. Any non-empty split holds a frame out of the
+    queue, so the tag is enough to keep these frames from ever being sent.
+    """
+    displaced = Counter(split_of.get(k, "") for k in held)
+    split_of.update(dict.fromkeys(held, HOLDOUT_SPLIT))
+    return displaced
+
+
 def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
-                wcvp_cache=WCVP_CACHE_JSON,
+                wcvp_cache=WCVP_CACHE_JSON, holdout_csv=HOLDOUT_CSV,
                 log: Callable[[str], None] | None = None) -> Health:
     """Read the labels, the split and the cached answers into one ``Health``.
 
@@ -382,8 +412,14 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     gt_rows = read_csv_rows(gt_csv)
     split_rows = read_csv_rows(splits_csv)
     split_of = {r["global_key"]: r["split"] for r in split_rows}
+    # The flight holdout on top of the frame-by-frame split. Merged before the
+    # log and before any record is built, so every count downstream, the run
+    # log's included, sees a held frame as held and not as train or test.
+    held = load_holdout(holdout_csv)
+    displaced = merge_holdout(split_of, held)
 
     rl.log_inputs(_log, gt_rows, split_rows, split_of)
+    rl.log_holdout(_log, holdout_csv, held, displaced)
 
     # ---------------- 2. every cached Pl@ntNet answer ----------------
     scan = scan_cache(cache_dir)

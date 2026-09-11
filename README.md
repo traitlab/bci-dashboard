@@ -90,7 +90,7 @@ Crop and box geometry comes from what the fetch recorded, never a constant.
    needs API keys                      reads the files on disk
 
    predict/    ─┐
-   labelling/   ├─>  files  ─> measure.py ─> eleven CSVs ─> build_*.py ─> HTML page
+   labelling/   ├─>  files  ─> measure.py ─> twelve CSVs ─> build_*.py ─> HTML page
    (Pl@ntNet,  ─┘    on disk    (score      (build/        (render and
     Labelbox)                    every       tables)        cross-check)
                                  photo)
@@ -99,7 +99,7 @@ Crop and box geometry comes from what the fetch recorded, never a constant.
 The same files always give the same page. Each builder recomputes every number
 it prints and aborts if `build/tables` disagrees, batch assignment included: a
 change to the packing rule has to move `send_batches.csv`, or the build stops.
-Three of the nine CSVs are evidence a person opens rather than page input:
+Three of the twelve CSVs are evidence a person opens rather than page input:
 `filter_gain.csv`, `name_reconciliation.csv` and `coverage_gate.csv`.
 `measure.NOT_READ_BACK_BY_A_BUILD` names them. A dated `snapshots/` folder
 records a day the labels moved; no build reads one back.

@@ -20,6 +20,7 @@ from core import (
     CONF_THRESHOLDS,
     EVAL_PROJECT,
     GT_KEY_PREFIX,
+    HOLDOUT_SPLIT,
     IDENTIFY_URL,
     MIN_CROP_COVERAGE,
     N_CANDIDATES,
@@ -181,6 +182,24 @@ def log_inputs(_log, gt_rows, split_rows, split_of):
     _log("  They are NOT spatially blocked: every site with labelled frames has frames in")
     _log("  train, test and valid at once, so any rule graded on `test` alone is graded")
     _log("  against near-duplicates of its own training frames. See tests/test_split_blocking.py.")
+    _log("")
+
+
+def log_holdout(_log, path, held, displaced):
+    """Run-log block on the flight holdout merged over the split: which file,
+    how many labelled frames it holds, and which split values those frames had."""
+    _log("--- FLIGHT HOLDOUT ---")
+    name = os.path.basename(path)
+    if not held:
+        _log(f"{name:<38}: absent or empty, no frame is tagged '{HOLDOUT_SPLIT}'")
+        _log("")
+        return
+    _log(f"{name:<38}: {len(held)} held frames tagged split '{HOLDOUT_SPLIT}'")
+    _log("  splits.csv values they replace      : " +
+         ", ".join(f"{k or '<empty>'}={v}" for k, v in sorted(displaced.items())))
+    _log("  A held frame is never test and never train here: its flight has no train")
+    _log("  frame on it, so it is graded on its own beside the test score, and like any")
+    _log("  frame with a split it is never sent to the labelling queue.")
     _log("")
 
 

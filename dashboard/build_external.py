@@ -56,7 +56,8 @@ def build(h, *, generated, verify_dir, fallback_tag):
         never_all=c.never_all, unscoreable=c.unscoreable, strict_hits=c.strict1,
         review_counts=c.review_counts, limits=c.limits,
         review_mechanisms=c.review_mechanisms, reject_sweep=c.reject_sweep,
-        held_out=c.held_out)
+        held_out=c.held_out,
+        flight_holdout=c.flight_holdout)
 
     # Then and now, against the newest snapshot dated before this build. Here
     # and not in figures.prepare because only the builder knows the build date.
