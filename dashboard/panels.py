@@ -68,6 +68,17 @@ HEADLINES = [
      "we only ever asked Pl@ntNet for {k} names"),
 ]
 
+# Sits beside the one headline card, and is the whole of what a reader needs
+# before quoting it. Two headline cards was two rates for one question, and a
+# reader who has to choose between two headline numbers quotes whichever is
+# kinder. So the page names one, and says in the same breath that the other
+# exists, where it is, and why it is the higher of the two.
+HERO_ONE_RATE = (
+    "<b>If you cite one rate, cite this one.</b> It gives every species one vote, "
+    "however few frames it has. The other way of averaging gives every frame one "
+    "vote. It comes out higher, at {micro}, because the species with many frames "
+    "are the ones Pl@ntNet already knows. It is in the table below.")
+
 # Sits under the grid. Without it the two columns read as a contradiction.
 HERO_READING = "Read down a column, not across. Both rates are right."
 
@@ -674,21 +685,27 @@ def p_terms(c):
 
 
 def headline_hero(c):
-    """The page's two leading cards: the first-guess rate, both ways of averaging.
+    """The page's one leading card: the first-guess rate, averaged per species.
 
-    Built from ``HEADLINES`` rather than typed here, so the cards and the
+    Built from ``HEADLINES`` rather than typed here, so the card and the
     four-rate grid in ``p_weighting`` cannot end up calling one number two
     things. The top-5 rates stay in the grid: they are a ceiling on our own
     request, not a statement about the model.
 
-    The card's eyebrow carries the metric name and how it was averaged, since
-    a top-1 accuracy without the averaging is two different numbers on this
-    corpus. The plain-English sentence sits under the figure as the gloss.
+    It led with two cards until 2026-09-10, the same question averaged two
+    ways, and the page then spent three panels saying which of the two to
+    quote. A reader who is handed two headline numbers quotes the kinder one,
+    or quotes the pair and leaves the choice to whoever reads them next. So one
+    rate is the headline and the other is in the table, with one sentence
+    beside the card saying so. The card's eyebrow carries the metric name and
+    how it was averaged, since a top-1 accuracy without the averaging is two
+    different numbers on this corpus.
     """
-    return hero([(f"{name.format(k=c.n_cand)}, {averaged}", pctf(c.now[metric]),
-                  question.format(k=c.n_cand),
-                  note.format(n_sp=c.n_sp, k=c.n_cand))
-                 for metric, name, question, averaged, note in HEADLINES[:2]])
+    metric, name, question, averaged, note = HEADLINES[0]
+    return (hero([(f"{name.format(k=c.n_cand)}, {averaged}", pctf(c.now[metric]),
+                   question.format(k=c.n_cand),
+                   note.format(n_sp=c.n_sp, k=c.n_cand))])
+            + f'<p class="note">{HERO_ONE_RATE.format(micro=pctf(c.now["micro_top1"]))}</p>')
 
 
 def _prf_block(c):

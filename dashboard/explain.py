@@ -93,12 +93,12 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
     singles = buckets[thin]["n_species"]
     return panel(
         "Why the two headline scores differ: the same frames, four rates",
-        # The first two of the four are the headline cards themselves, over the
-        # same frames, so the old lede telling a reader not to quote them was
-        # pointing at numbers the page quotes at the top.
-        "<b>The first two of these four are the two rates at the top of the page.</b> "
-        "This panel says what each averaging asks and why they differ. If you cite one "
-        "rate, cite the per-species one.",
+        # The first of the four is the headline card itself, over the same
+        # frames, so the old lede telling a reader not to quote it was pointing
+        # at the number the page quotes at the top. Which rate to quote is said
+        # once, beside that card, and not again here.
+        "<b>The first of these four is the rate at the top of the page.</b> "
+        "This panel says what each averaging asks and why they differ.",
         corpus_block
         # A table rather than the two stacked bars this used to draw. The shares
         # the argument turns on are 2% and 6%, too thin to carry a printed label
