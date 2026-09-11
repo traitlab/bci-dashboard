@@ -30,6 +30,16 @@ GT_CSV = os.path.join(BASE, "gt_dominant_taxon.csv")
 SPLITS_CSV = os.path.join(BASE, "splits.csv")
 CACHE_DIR = os.path.join(BASE, "predictions", "cache")
 
+# The flight holdout labelling/draw_holdout.py drew: whole flights, tracked and
+# versioned under input/ because the pool it was drawn from moves. A frame it
+# holds carries HOLDOUT_SPLIT in place of its splits.csv value, so every place
+# that holds a split-tagged frame out of the queue holds these out as well and
+# nothing that grades on `test` sees them.
+HOLDOUT_VERSION = "v1"
+HOLDOUT_CSV = os.path.join(REPO, "input", f"holdout_{HOLDOUT_VERSION}.csv")
+HOLDOUT_SPLIT = "holdout"
+HOLDOUT_HELD_ROLE = "held"
+
 # global_key -> how unlike the labelled frames a photo looks, from
 # labelling/rank_queue.py. Orders the send-first queue inside each queue.
 # Optional: absent, every frame ties and the order falls back to confidence.
