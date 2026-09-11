@@ -109,10 +109,9 @@ def reject_table(sweep: dict) -> str:
     rows = [[f'{r["max_set_size"]}', kept(r), kept(g),
              f'{100 * r["accepted_accuracy"]:.1f}%', f'{100 * g["accepted_accuracy"]:.1f}%']
             for r, g in zip(sweep["rows"], sweep["grouped_rows"], strict=True)]
-    return (f'<p class="note"><b>Trusting a frame only when few names are plausible:</b> '
-            f'how far a plausible-name count could order a queue. A separate check over '
-            f'the {pop["n_frames"]:,} labelled frames the model has a view of, '
-            f'{pop["n_species"]} species.</p>'
+    return (f'<p class="note"><b>Trusting a frame only when few names are plausible.</b> '
+            f'A separate check over the {pop["n_frames"]:,} labelled frames the model has '
+            f'a view of, {pop["n_species"]} species.</p>'
             # The rows are a queue order, and a reader taking the order does not
             # need the method under it. A reader asking whether the order is
             # worth taking needs all four sentences, so they stay, one click in.
@@ -131,16 +130,15 @@ def reject_table(sweep: dict) -> str:
             # the rate beside the frame-by-frame one is the one that describes
             # them. Never printed alone: assessments.prepared refuses a sidecar
             # without it.
-            + '<p class="note">Photos from one flight overlap. In the new-flight '
-              'columns, each frame is judged by a classifier that saw no photo from '
-              'its flight. In the others, a frame can be judged by one that learned '
-              'from its near-copies on that flight. A frame on a flight with no '
-              'labels yet is in the new-flight case.</p>'
+            + '<p class="note">Photos from one flight overlap. The new-flight columns '
+              'judge each frame with a classifier that saw no photo from its flight. '
+              'That is the case for any flight with no labels yet. The others can lean '
+              'on near-copies from the same flight.</p>'
             + unplaced_note(pop)
             + '<p class="note">Read a row as a queue position: frames with many '
               'plausible names go in front of a botanist first. Nothing here labels a '
-              'frame. The classifier and the random seed behind the rows are recorded '
-              'with the measurement output, so the sweep can be reproduced exactly.</p>')
+              'frame. The classifier and random seed are recorded, so the sweep '
+              'reproduces exactly.</p>')
 
 
 def richness_note(status: dict) -> str:
@@ -148,12 +146,10 @@ def richness_note(status: dict) -> str:
     are still out there. Chao1 over every frame labelled to species. Sits in
     the frame-counts panel, beside the count it qualifies."""
     r, pop = status["richness"], status["population"]
-    return (f'<p class="note"><b>Species the labels have reached:</b> the labels so far '
-            f'name {r["observed"]} species over the {pop["n_species_level"]:,} of '
-            f'{pop["n_labelled"]:,} labelled frames that reach a species. '
-            f'{r["singletons"]} of those species were seen once and {r["doubletons"]} '
-            f'twice. By the Chao1 rule that suggests about {r["unseen_estimate"]} more '
-            f'species the labels have not reached yet, so the list is about '
-            f'{100 * r["completeness"]:.0f}% complete. This is a different population '
-            f'from the species with a Pl@ntNet answer above, and every labelled frame '
-            f'counts here, cached answer or not.</p>')
+    return (f'<p class="note"><b>Species the labels have reached:</b> {r["observed"]}, '
+            f'over the {pop["n_species_level"]:,} of {pop["n_labelled"]:,} labelled '
+            f'frames that name a species. {r["singletons"]} were seen once and '
+            f'{r["doubletons"]} twice. By the Chao1 rule that suggests about '
+            f'{r["unseen_estimate"]} more not yet reached, so the list is about '
+            f'{100 * r["completeness"]:.0f}% complete. Every labelled frame counts here, '
+            f'cached answer or not.</p>')

@@ -93,6 +93,12 @@ h1{margin-bottom:2px}
    already cleared against white and against the tinted first card. */
 .hero .metric .src{font-size:0.72rem;font-weight:600;color:#1565c0;
   white-space:nowrap;text-align:right}
+/* The landing grid: six cards, three across. */
+.hero.wide{grid-template-columns:repeat(3,minmax(0,1fr))}
+/* One button per status, each filtering the species table. */
+.statusbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+  font-size:0.82rem;color:#424242;margin:14px 0 6px}
+.statusbar button{border:0;cursor:pointer;font-family:inherit}
 .note{font-size:0.82rem;color:#616161;margin-top:10px}
 .note strong{color:#424242}
 .ask{font-size:0.88rem;color:#37474f;margin-bottom:12px}
@@ -234,7 +240,7 @@ details.panel:target>summary{background:#e3f2fd}
 
 /* No room for two columns on a phone; the vendored 640px query stays as it is. */
 @media(max-width:640px){
-  .hero{grid-template-columns:1fr}
+  .hero,.hero.wide{grid-template-columns:1fr}
   /* Six 112px columns run off a phone; three fit and still divide twelve. */
   .sheet{grid-template-columns:repeat(3,max-content)}
 }
