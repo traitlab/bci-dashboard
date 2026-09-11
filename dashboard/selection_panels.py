@@ -29,7 +29,7 @@ import json
 import os
 
 import core as hc
-from assets import esc
+from assets import esc, more
 
 # The covariates the ranker tests, in the plural the page needs for a count.
 PLURAL = {"site": "sites", "export batch": "export batches", "flight": "flights"}
@@ -203,17 +203,22 @@ def audit_note(c) -> str:
                   f'have a same-species nearest photo as the model sees them. That is '
                   f'{where} the range where labelfirst can predict a gain in advance, so '
                   f'the number above is a measurement with no prediction beside it.')
+    # The answer and what it was measured on stay open. The shape of a run, the
+    # labels it saves, the separability check and the provenance are what a
+    # reader checking the answer asks for next, and they wait behind a summary.
     return (f'<p class="note"><b>Does this order find rare species faster than a random '
             f'one?</b> Measured on the {n:,} photos that already carry a name: '
             f'{a["n_species"] or 0:,} species, {a["n_rare"] or 0:,} of them rare, meaning '
-            f'{a["rare_threshold"]} or fewer labelled frames. Each run starts from '
-            f'{a["seed_pool"]} photos picked at random and adds {a["k_per_round"]} a '
-            f'round for {a["rounds"]} rounds, and there are {a["n_seeds"]} such starts. '
-            f'Over those starts, {claim}{agree}{saved}{ladder} Measured with labelfirst '
-            f'{esc(a["library"] or "unknown")} on this checkout, against the file of '
-            f'photo vectors {_sha(a["sha"])}, written '
-            f'{esc(a["written"] or "on an unrecorded date")}. No number here comes from a '
-            f'paper or from a different model.</p>')
+            f'{a["rare_threshold"]} or fewer labelled frames. Over {a["n_seeds"]} random '
+            f'starts, {claim}{agree}</p>'
+            + more("How the runs were set up, and what they rest on",
+                   f'<p class="note">Each run starts from {a["seed_pool"]} photos picked '
+                   f'at random and adds {a["k_per_round"]} a round for {a["rounds"]} '
+                   f'rounds.{saved}{ladder} Measured with labelfirst '
+                   f'{esc(a["library"] or "unknown")} on this checkout, against the file '
+                   f'of photo vectors {_sha(a["sha"])}, written '
+                   f'{esc(a["written"] or "on an unrecorded date")}. No number here comes '
+                   f'from a paper or from a different model.</p>'))
 
 
 def confound_note(c) -> str:
@@ -231,8 +236,8 @@ def confound_note(c) -> str:
     if getattr(c, "head_n", 0):
         head = (f'Of the {c.head_n:,} photos it puts first, {_pct(100 * c.head_tele_share)} '
                 f'carry the newer file naming, against '
-                f'{_pct(100 * c.queue_tele_share)} across the whole queue. That naming '
-                f'marks a later batch of flights, not a different camera. ')
+                f'{_pct(100 * c.queue_tele_share)} across the queue: a later batch, not '
+                f'another camera. ')
     if not f:
         return (f'<p class="note"><b>What this ordering costs.</b> {head}'
                 f'Whether the head leans on that batch has not been tested here.</p>'
@@ -254,13 +259,12 @@ def confound_note(c) -> str:
             f'{_pct(100 * (t["eta2"] or 0))} of how new a photo looks.{left_out}</li>')
     return (f'<p class="note"><b>Is it the species, or the batch?</b> {head}'
             f'A photo can look new for the batch it came from rather than for what grows '
-            f'in it. So the link between "looks unlike the labelled photos" and "its '
-            f'species has few labels" was tested three times over. Once with the site '
-            f'held fixed, once with the export batch held fixed. And once with the '
-            f'flight, meaning the date and the site, held fixed. On the labelled photos '
-            f'the species is known; on the queue it is the one the model guessed.</p>'
+            f'in it. It was tested three times: site held fixed, export batch held '
+            f'fixed, then the flight, meaning the date and the site, held fixed.</p>'
             f'<ul class="note">{"".join(lines)}</ul>'
-            f'<p class="note">Tested with labelfirst {esc(f["library"] or "unknown")} on '
+            f'<p class="note">On the labelled photos the species is known, and on the '
+            f'queue it is the one the model guessed. '
+            f'Tested with labelfirst {esc(f["library"] or "unknown")} on '
             f'this checkout, written {esc(f["written"] or "on an unrecorded date")}. The '
             f'file of photo vectors was {_sha(f["sha"])} for the queue and '
             f'{_sha(f["anchor_sha"])} for the labelled photos.</p>')

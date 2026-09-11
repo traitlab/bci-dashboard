@@ -118,3 +118,52 @@ def test_the_long_lens_share_is_absent_rather_than_dividing_by_an_empty_queue(
     body = queue_panels.send_notes(c)
     assert "n/a" in body
     assert not re.search(r"\d+ of the queue \(\)", body)
+
+
+# ---------------------------------------------------------------------------
+# The two link columns, when no row carries either link
+# ---------------------------------------------------------------------------
+
+def _links_note(queue_panels, monkeypatch, n_img, n_linked):
+    """`links_note` over a two-row queue with the given link coverage.
+
+    Both lookups are patched on the module `queue_panels` itself imported, not
+    on the `core` fixture: the fixture loads its own copy under another name,
+    so patching it would leave the panel reading the real inventory.
+    """
+    from types import SimpleNamespace
+
+    from queues import SEND_FIRST_COLUMNS
+
+    keys = ["comb_a.JPG", "comb_b.JPG"]
+    at = SEND_FIRST_COLUMNS.index("global_key")
+    rows = []
+    for key in keys:
+        made = [""] * len(SEND_FIRST_COLUMNS)
+        made[at] = key
+        rows.append(made)
+    monkeypatch.setattr(queue_panels.hc, "labelbox_link_coverage",
+                        lambda _keys: {"n_linked": n_linked,
+                                       "n_unlinked": len(keys) - n_linked})
+    monkeypatch.setattr(queue_panels.hc, "inventory_image_urls",
+                        lambda: {k: "http://example/photo" for k in keys[:n_img]})
+    return queue_panels.links_note(SimpleNamespace(queue_rows=rows))
+
+
+def test_the_links_panel_does_not_promise_links_no_row_carries(
+        queue_panels, monkeypatch):
+    """It opened "Every row carries two links" and then reported both columns
+    filled on no row at all, so the panel refuted itself inside three
+    sentences. With nothing filled there is one sentence instead."""
+    body = _links_note(queue_panels, monkeypatch, n_img=0, n_linked=0)
+    assert body == ('<p class="note">No frame links to its photo or its Labelbox row '
+                    'yet.</p>')
+
+
+def test_the_links_panel_explains_the_columns_once_a_row_carries_one(
+        queue_panels, monkeypatch):
+    """The explanation is worth its length only when there is a link to
+    explain, so one filled cell is enough to bring it back."""
+    body = _links_note(queue_panels, monkeypatch, n_img=1, n_linked=0)
+    assert "Two link columns" in body
+    assert "1 of 2 rows" in body

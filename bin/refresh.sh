@@ -83,6 +83,8 @@ python3 dashboard/build_external.py \
   --out "$REPO/build/model_health_dashboard.html" --generated "$TODAY"
 python3 dashboard/build_internal.py \
   --out "$REPO/build/label_queue_dashboard.html" --generated "$TODAY"
+python3 dashboard/build_internal.py --team \
+  --out "$REPO/build/label_queue_team.html" --generated "$TODAY"
 
 if [ "$BEFORE" = "$AFTER" ]; then
   rm "$BAK"
@@ -96,6 +98,7 @@ else
   cp "$REPO"/build/tables/* "$SNAP/"
   cp "$REPO/build/model_health_dashboard.html" "$SNAP/"
   cp "$REPO/build/label_queue_dashboard.html" "$SNAP/"
+  cp "$REPO/build/label_queue_team.html" "$SNAP/"
 fi
 
 # The published copies. Staged into docs/ rather than pushed, because what goes

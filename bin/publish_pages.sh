@@ -13,9 +13,11 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD="$REPO/build"
 DOCS="$REPO/docs"
 
-# The two pages this script publishes, named once: the checks below, the copy,
-# and the CSV scan all read them from here.
-PAGES="model_health_dashboard.html label_queue_dashboard.html"
+# The pages this script publishes, named once: the checks below, the copy, and
+# the CSV scan all read them from here. The team queue page is published beside
+# the public one because the public one links it; it carries the same numbers
+# plus the commands that only work with the repository checked out.
+PAGES="model_health_dashboard.html label_queue_dashboard.html label_queue_team.html"
 
 for f in $PAGES; do
   [ -s "$BUILD/$f" ] || { echo "publish: $BUILD/$f is missing or empty; run bin/refresh.sh first" >&2; exit 1; }

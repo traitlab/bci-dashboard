@@ -27,8 +27,7 @@ def cam_phrase(cameras):
     Read from the frame keys rather than assumed, so a future sample carrying
     both namings does not render as one naming with two names.
     """
-    return (NAMING_IS.get(cameras)
-            or f"these file namings: <code>{esc(cameras)}</code>")
+    return NAMING_IS.get(cameras) or f"these file namings: {esc(cameras)}"
 
 
 def require(cf):
@@ -64,10 +63,10 @@ def floor_note(cf):
         f'<p class="note"><strong>The centre crop is {CENTRE_CROP_IS.split(", ")[-1]}, '
         f'and the label describes all of it.</strong> On {int(cf["n_frames"])} frames set '
         f'aside before either number existed, sending the outlined crowns instead moved the '
-        f'rate by {100 * cf["crown_minus_photo"]:+.1f} points. So read the rates above as a '
-        f'floor. The fairer way of asking needs a botanist&rsquo;s outlines, so that gap is '
-        f'a correction to what we measured, not a gain waiting to be collected. '
-        f'<a href="#where-the-headline-comes-from">Where that gap comes from</a>.</p>')
+        f'rate by {100 * cf["crown_minus_photo"]:+.1f} points. So read the rates above as '
+        f'a <a href="#where-the-headline-comes-from">floor</a>. The fairer way of asking '
+        f'needs a botanist&rsquo;s outlines, so that gap is a correction to what we '
+        f'measured, not a gain waiting to be collected.</p>')
 
 
 def p_floor(c):
@@ -117,7 +116,8 @@ def p_floor(c):
         'What the centre crop costs, and how far that number reaches',
         f"<b>One question, asked once, on {int(cf['n_frames'])} frames fixed in "
         f"advance.</b> Scoring the centre crop instead of a botanist&rsquo;s outlines "
-        f"costs {100 * cf['crown_minus_photo']:.1f} points. Which frames it was "
+        f"costs {100 * cf['crown_minus_photo']:.1f} points, that many right answers in "
+        f"every hundred frames. Which frames it was "
         f"measured on, and where it stops applying.", body,
         # The id predates this panel. A saved link should still land on the
         # question it was saved for, which is the one narrowed here.

@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import assess_panels as ap
 import core as hc
-from assets import (cap, esc, filterable_table, hero, num_cell, panel, pctf,
-                    source_note, status_legend, status_tag, svg_hbar, table)
+from assets import (cap, esc, filterable_table, hero, more, num_cell, panel,
+                    pctf, source_note, status_legend, status_tag, svg_hbar,
+                    table)
 from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
 from explain import CONF_BAND_WORDS, method_panel, weighting_panel
 from figures import WAIT_SUPPORT_MIN, conf, top1
@@ -23,12 +24,12 @@ from status_words import (STATUS, filter_options, legend_entries,
 # What each file naming is, as a noun phrase both pages drop into their own
 # sentence. Both words read like camera settings and neither is one: the flight
 # team confirmed one camera throughout, and the flights that produced
-# <code>tele</code> names produced <code>zoom</code> ones too. A reader who does
-# not know that reads a lens difference into every count split this way, so it
-# is said outright, and said once.
+# "tele" names produced "zoom" ones too. A reader who does not know that reads a
+# lens difference into every count split this way, so it is said outright, and
+# said once.
 NAMING_IS = {
-    "zoom": "the earlier file naming <code>zoom</code>",
-    "tele": "the later file naming <code>tele</code>",
+    "zoom": "the earlier file naming, zoom",
+    "tele": "the later file naming, tele",
 }
 
 # Where the two namings come from, said once on each page that splits a count by
@@ -36,12 +37,12 @@ NAMING_IS = {
 # the whole explanation every time.
 NAMING_NOTE = ("Both words read like camera settings and neither is one. The flight "
                "team confirmed the naming changed and nothing else did. Every "
-               "<code>tele</code> frame comes from one of four flights that also "
-               "produced <code>zoom</code> frames.")
+               "tele frame comes from one of four flights that also produced "
+               "zoom frames.")
 
 # The species table's lede, shared by the internal pages and the export-only one.
-SPECIES_LOOKUP_LEDE = ("<b>Find a species you care about and read its status.</b> "
-                       "Click any heading to sort, type to filter.")
+SPECIES_LOOKUP_LEDE = ("<b>Find a species you care about and read its status:</b> "
+                       "click any heading to sort, type to filter.")
 
 # A 2x2 grid: question asked (rows) by how it was averaged (columns), as
 # (metric, name, question, averaged over, note). The rates move with the corpus,
@@ -67,6 +68,17 @@ HEADLINES = [
      "per frame",
      "we only ever asked Pl@ntNet for {k} names"),
 ]
+
+# Sits beside the one headline card, and is the whole of what a reader needs
+# before quoting it. Two headline cards was two rates for one question, and a
+# reader who has to choose between two headline numbers quotes whichever is
+# kinder. So the page names one, and says in the same breath that the other
+# exists, where it is, and why it is the higher of the two.
+HERO_ONE_RATE = (
+    "<b>If you cite one rate, cite this one.</b> It gives every species one vote, "
+    "however few frames it has. The other way of averaging gives every frame one "
+    "vote, and it is in the table below. It comes out higher, at {micro}, because "
+    "the species with many frames are the ones Pl@ntNet already knows.")
 
 # Sits under the grid. Without it the two columns read as a contradiction.
 HERO_READING = "Read down a column, not across. Both rates are right."
@@ -111,8 +123,8 @@ def hero_terms(k):
         f"The <b>centre crop</b> is {CENTRE_CROP_IS}. Every "
         f"number below that covers all the labelled frames was scored on that square. "
         f"We ask Pl@ntNet for {k} "
-        f"names per photo (<code>nb-results={k}</code>). That is our request setting, "
-        f"not a limit of the model.",
+        f"names per photo, which is our request setting and not a limit of the model. "
+        f"The settings we send are at the foot of this page.",
         "The <b>first guess</b> is the top-ranked of those names, and <b>right</b> "
         "means it matches the frame's label.",
         "<b>Outlining the trees first</b> means something else. We ask Pl@ntNet about "
@@ -140,13 +152,17 @@ def crop_mismatch(c):
 
 
 def hero_region(c):
-    """The crop-versus-label mismatch, worded for the four corpus rates."""
+    """The crop-versus-label mismatch, worded for the four corpus rates.
+
+    Four sentences, and the reason they are the four that stayed above the
+    table: they are what stops a reader taking a wrong answer here for a wrong
+    identification. What each averaging asks, and what precision is measured
+    on, is a reading of the four and waits behind a line of its own.
+    """
     return (
         "<p><strong>These four numbers judge a centre crop against a label for the whole "
         f"frame.</strong> {crop_mismatch(c)} A wrong answer here is therefore not "
         "always a wrong identification.</p>"
-        "<p>Read these four as a record of what the centre-crop "
-        "path did, not as the model's accuracy.</p>"
     )
 
 
@@ -287,7 +303,11 @@ def p_review(c):
             f'cover {covered} frames, the other {len(groups) - len(recur)} one frame '
             f'each.</p>'
             + ap.mechanism_note(c.disagreement, c.review_mechanisms)
-            + _link_note(here, wide)
+            # Which rows carry a link is read off the table itself, one link at a
+            # time. The count and what closes the gap answer a question about the
+            # join, which is not the question a botanist opened this panel with.
+            + more("How many of these rows link to Labelbox",
+                   _link_note(here, wide))
             + (_review_table(groups, urls) if groups
                else '<p class="note">None at this confidence.</p>')
             + '<p class="note">Not urgent: work this list after the queues on the label '
@@ -302,11 +322,11 @@ def p_review(c):
     return panel(f"Labels worth a second look: {n} confident "
                  f"disagreements a botanist can settle",
                  f"<b>Put these {n} frames in front of a botanist.</b> "
+                 # The file is named under the table by `source_note`, and the
+                 # first sentence already says what the list is for, so both the
+                 # ask and the repeat came out of the lede.
                  f"Either the label is wrong or the model is, and one look settles "
-                 f"which. They are the disagreements most worth an expert's minute. "
-                 f"The same {n} rows are in "
-                 f'<a href="label_review_queue.csv">label_review_queue.csv</a>, '
-                 f"most confident first.", body)
+                 f"which.", body)
 
 
 # The rows that start hidden are exactly the ones the page already calls "too
@@ -370,9 +390,7 @@ def threshold_control(c):
             f'or more labelled frames. <b><span id="{BAR_COUNT_ID}">'
             f'{counts[THRESHOLD_DEFAULT]}</span> of those {thick}</b> are at or above '
             f'<select id="{BAR_ID}" aria-label="top-1 accuracy bar">{opts}</select> '
-            f'top-1 accuracy. The other {c.n_sp - thick} species carry fewer frames than '
-            f'that. On that few a rate lands on a handful of values, so they are left '
-            f'out of this count.</p>'
+            f'top-1 accuracy.</p>'
             f'<script>(function(){{'
             f'var s=document.getElementById("{BAR_ID}"),'
             f'n=document.getElementById("{BAR_COUNT_ID}");'
@@ -473,15 +491,18 @@ def p_species(c):
             'that species&rsquo; identification accuracy.</p>'
             + _species_columns_note()
             + _species_status_note()
-            + ap.limit_note(c.transductive, c.limits)
-            + held_out_note(c.held_out, c.flight_holdout)
+            # What more labels would buy is a reading of the table for someone
+            # auditing us, not for someone looking up one species, so it waits
+            # behind a summary line. The flight note below it stays open: it is
+            # the guard that stops a reader reading one rate as the other's
+            # population, and a guard nobody opens is not a guard.
+            + more("What more labels would buy",
+                   ap.limit_note(c.transductive, c.limits))
             + threshold_control(c)
             + f'<p class="note"><b>{n_thin} of these {c.n_sp} species start hidden.</b> '
-              f'They carry fewer than {THIN_MIN_FRAMES} labelled frames each. On that '
-              f'few a rate says little: F1 on one labelled frame can only be 0% or 100%. '
-              f'Type a name, pick a status, or tick <i>show all {c.n_sp}</i> to reach '
-              f'one. Species the model never returned stay on screen however few frames '
-              f'they carry.</p>'
+              f'They carry fewer than {THIN_MIN_FRAMES} labelled frames each, and on that '
+              f'few a rate says little. Type a name, pick a status, or tick '
+              f'<i>show all {c.n_sp}</i> to reach one.</p>'
             + filterable_table(
         # "(recall)" is in the header, not only in the block below: a reader
         # scanning the columns found Precision and F1, no recall, and read that
@@ -517,16 +538,23 @@ def p_species(c):
         row_attrs=attrs,
         source="per_species_health.csv",
         thin_label=f"show all {c.n_sp}",
-    ))
+    )
+            # Under the table, not above it, and open either way. It is the guard
+            # that stops a reader taking the rate on the graded frames for the
+            # rate a new flight would get, so it is read where the rates are,
+            # and a reader who came to look up one species reaches the table
+            # first. Behind a summary line it would be a guard nobody opens.
+            + held_out_note(c.held_out, c.flight_holdout))
     # The colon stays, since slug() cuts there and the anchor keeps its old value.
     # The species count was in this summary and is gone: a reader deciding whether
     # to open a lookup table does not need the size of the table, and the number
     # made the one header on this page that answers nothing change every snapshot.
     # Closed, because this is a lookup tool rather than the page's deliverable.
     return panel("Look up one species: sortable and filterable",
-                 SPECIES_LOOKUP_LEDE + " Every row, and the columns this table "
-                 "does not show, are in "
-                 '<a href="per_species_health.csv">per_species_health.csv</a>.',
+                 # The file is named under the table, by `source_note`, in the
+                 # same words. Said twice it cost the lede a third of its length
+                 # for nothing a reader who scrolls does not already meet.
+                 SPECIES_LOOKUP_LEDE,
                  body)
 
 
@@ -546,23 +574,23 @@ def p_calibration(c):
     graded = sum(nn for _, nn, _ in c.bins_all)
     return panel(
         "Is the confidence score worth anything: in bulk yes, on rare species no",
-        "<b>Read this before treating a confidence as a probability.</b> How often "
+        "<b>Read this before treating a confidence as a probability:</b> how often "
         "the first guess is right, band by band, over every labelled frame.",
         svg_hbar(rows, title="how often the first guess is right, "
                              "by the model's own confidence")
-        + f'<p class="note">All {graded:,} labelled frames, one guess each. The bands '
-          f'rise, so a higher score really does mean a likelier answer, which is what '
-          f'makes ordering the label queue on confidence work at all.</p>'
+        # The bars round to one figure a band, so the file that carries the counts
+        # is named beside the population rather than in a paragraph of its own:
+        # it is the same sentence, and it was costing the panel an opening.
+        + f'<p class="note">All {graded:,} labelled frames, one guess each, with the '
+          f'frames and the right guesses behind every band in '
+          f'<a href="confidence_calibration.csv">confidence_calibration.csv</a>. The '
+          f'bands rise, so a higher score really does mean a likelier answer, which is '
+          f'what makes ordering the label queue on confidence work at all.</p>'
         f'<p class="note"><b>It is not a probability.</b> A band reading '
         f'{pctf(c.bins_all[-1][2] / c.bins_all[-1][1]) if c.bins_all[-1][1] else "n/a"} '
         f'is not the same claim as a score of {c.bins_all[-1][0][1:4]}. And this holds in '
         f'bulk only: on species with few labelled frames a high score is much less '
         f'reliable, which the label-queue page measures band by band.</p>'
-        # The bars round to one figure a band. The file carries the counts they
-        # were drawn from, so a reader can check a band rather than trust a bar.
-        f'<p class="note">Every band, with the frames and the right guesses behind '
-        f'it, is in <a href="confidence_calibration.csv">confidence_calibration.csv'
-        f'</a>.</p>'
         + ap.reject_table(c.reject_sweep))
 
 
@@ -598,9 +626,10 @@ def p_ceiling(c):
             f'candidates to find out. Re-running with a larger candidate count could '
             f'still recover some of these.</p>'
             + sp_table(c.unproven_absent)
-            + '<p class="note">The two flags the lists are split on are the '
-              '<code>in_project_checklist</code> and <code>in_corpus_vocabulary</code> '
-              'columns of the file each table above links.</p>')
+            + '<p class="note">The file each table above links carries the two flags '
+              'the lists are divided on. One says whether the species is on the '
+              'project&rsquo;s own list. The other says whether its name ever came back '
+              'in a cached answer.</p>')
     else:
         scope_html = (
             f'<div class="warn"><strong>This is a limit of the question we asked, not proof '
@@ -608,8 +637,9 @@ def p_ceiling(c):
             f'whether a name turns up in the cached answers, and we asked for '
             f'{c.n_cand} candidates per photo. A species Pl@ntNet knows well, but which '
             f'never made a list of {c.n_cand} on a BCI photo, looks exactly like one it '
-            f'cannot return. Do not spend expert time renaming or relabelling these; only a '
-            f'checklist from predict/fetch_checklist.py or a re-run can tell the two apart.'
+            f'cannot return. Do not spend expert time renaming or relabelling these; only '
+            f'Pl@ntNet&rsquo;s own list for this project, or a re-run, can tell the two '
+            f'apart.'
             f'</div>'
             + sp_table(c.never))
 
@@ -631,8 +661,8 @@ def p_ceiling(c):
               f'frames.</strong> Labels and predictions are put into the same standard form '
               f'before comparison, and old names are resolved to current ones. Raw names '
               f'would score {pctf(c.strict1 / n)} on the centre crop rather than '
-              f'{pctf(c.c1 / n)}, so the matching wins {c.c1 - c.strict1} frames. Those '
-              f'{c.c1 - c.strict1} are already inside every rate on this page. Every '
+              f'{pctf(c.c1 / n)}, so the matching wins {c.c1 - c.strict1} frames already '
+              f'inside every rate here. Every '
               f'label the botanists wrote, what it was resolved to and how, is in '
               f'<a href="name_reconciliation.csv">name_reconciliation.csv</a>.</p>'
               f'<p class="note"><strong>{gn:,} further frames carry only a genus '
@@ -672,21 +702,27 @@ def p_terms(c):
 
 
 def headline_hero(c):
-    """The page's two leading cards: the first-guess rate, both ways of averaging.
+    """The page's one leading card: the first-guess rate, averaged per species.
 
-    Built from ``HEADLINES`` rather than typed here, so the cards and the
+    Built from ``HEADLINES`` rather than typed here, so the card and the
     four-rate grid in ``p_weighting`` cannot end up calling one number two
     things. The top-5 rates stay in the grid: they are a ceiling on our own
     request, not a statement about the model.
 
-    The card's eyebrow carries the metric name and how it was averaged, since
-    a top-1 accuracy without the averaging is two different numbers on this
-    corpus. The plain-English sentence sits under the figure as the gloss.
+    It led with two cards until 2026-09-10, the same question averaged two
+    ways, and the page then spent three panels saying which of the two to
+    quote. A reader who is handed two headline numbers quotes the kinder one,
+    or quotes the pair and leaves the choice to whoever reads them next. So one
+    rate is the headline and the other is in the table, with one sentence
+    beside the card saying so. The card's eyebrow carries the metric name and
+    how it was averaged, since a top-1 accuracy without the averaging is two
+    different numbers on this corpus.
     """
-    return hero([(f"{name.format(k=c.n_cand)}, {averaged}", pctf(c.now[metric]),
-                  question.format(k=c.n_cand),
-                  note.format(n_sp=c.n_sp, k=c.n_cand))
-                 for metric, name, question, averaged, note in HEADLINES[:2]])
+    metric, name, question, averaged, note = HEADLINES[0]
+    return (hero([(f"{name.format(k=c.n_cand)}, {averaged}", pctf(c.now[metric]),
+                   question.format(k=c.n_cand),
+                   note.format(n_sp=c.n_sp, k=c.n_cand))])
+            + f'<p class="note">{HERO_ONE_RATE.format(micro=pctf(c.now["micro_top1"]))}</p>')
 
 
 def _prf_block(c):
@@ -727,22 +763,27 @@ def _prf_block(c):
              "One figure, because per frame all three are the same number",
              f"over all {c.n:,} labelled frames it is also the per-frame top-1 accuracy"),
         ])
-        + '<p class="note"><b>Why the per-frame figure is one number and not three.</b> '
-          'Every frame here carries one botanist label and one first guess. A wrong '
-          'guess is one miss for the labelled species and one false alarm for the '
-          'guessed one. Both denominators are then the frame count, and precision, '
-          'recall, F1 and top-1 accuracy work out identical.</p>'
-        + '<p class="note"><b>Precision is measured on the frames we scored.</b> A '
-          'false alarm is only visible where a botanist has labelled the frame. So '
-          'these are rates over the frames we scored, not over the survey. A species '
-          'with no labelled frame has no row here at all: the per-species averages '
-          f'run over the {c.n_sp} labelled species only.</p>'
-        + '<p class="note"><b>A species the model never guesses scores 0% precision, '
-          'not a blank.</b> It has no right guesses to divide, and reading that as '
-          'perfect precision on an empty list would flatter the average. Rows on very '
-          f'few frames are noisy the same way. Under {THIN_MIN_FRAMES} labelled '
-          'frames a row starts hidden in the species table, and its F1 can only land '
-          'on a couple of values.</p>')
+        # Three notes on four cards. A reader reads the cards; these answer the
+        # questions the cards raise, in the order they raise them, and they
+        # raise them one reader in ten. So they sit behind their own line.
+        + more("What these four are measured on",
+               '<p class="note"><b>Why the per-frame figure is one number and not '
+               'three.</b> '
+               'Every frame here carries one botanist label and one first guess. A wrong '
+               'guess is one miss for the labelled species and one false alarm for the '
+               'guessed one. Both denominators are then the frame count, and precision, '
+               'recall, F1 and top-1 accuracy work out identical.</p>'
+               '<p class="note"><b>Precision is measured on the frames we scored.</b> A '
+               'false alarm is only visible where a botanist has labelled the frame. So '
+               'these are rates over the frames we scored, not over the survey. A species '
+               'with no labelled frame has no row here at all: the per-species averages '
+               f'run over the {c.n_sp} labelled species only.</p>'
+               '<p class="note"><b>A species the model never guesses scores 0% precision, '
+               'not a blank.</b> It has no right guesses to divide, and reading that as '
+               'perfect precision on an empty list would flatter the average. Rows on very '
+               f'few frames are noisy the same way. Under {THIN_MIN_FRAMES} labelled '
+               'frames a row starts hidden in the species table, and its F1 can only land '
+               'on a couple of values.</p>'))
 
 
 def p_weighting(c):
@@ -753,9 +794,16 @@ def p_weighting(c):
                question.format(k=c.n_cand), note.format(n_sp=c.n_sp, k=c.n_cand))
               for metric, name, question, averaged, note in HEADLINES])
         + f'<div class="caveat">{hero_region(c)}</div>'
-        + f'<p class="note">{HERO_READING}</p>'
-        + f'<p class="note">{HERO_WHICH_RATE}</p>'
-        + f'<p class="note">{HERO_WHY_DIFFER}</p>'
+        # Which rate answers which question is a reading of the four cards, and
+        # the card at the top of the page already says which one to quote. So it
+        # waits behind a line rather than standing between the cards and the
+        # table that shows where each vote sits.
+        + more("What each of the four asks, and why they differ",
+               f'<p class="note">Read these four as a record of what the centre-crop '
+               f'path did, not as the model&rsquo;s accuracy.</p>'
+               f'<p class="note">{HERO_READING}</p>'
+               f'<p class="note">{HERO_WHICH_RATE}</p>'
+               f'<p class="note">{HERO_WHY_DIFFER}</p>')
         + _prf_block(c))
     return weighting_panel(per_species=c.per_species, sp_recs=c.sp_recs, support=c.support,
                            buckets=c.buckets, now=c.now, n=c.n, n_sp=c.n_sp,

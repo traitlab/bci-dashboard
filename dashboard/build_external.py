@@ -34,9 +34,12 @@ OUT_NAME = "model_health_dashboard.html"
 TITLE = "How well does Pl@ntNet name BCI trees?"
 
 
-def build(h, *, generated, verify_dir, fallback_tag):
+def build(h, *, generated, verify_dir, fallback_tag, team=False):
     """The model-health page: how well Pl@ntNet names the trees, and what that
     number does not cover.
+
+    ``team`` is accepted and unused: this page has one audience and one file,
+    and ``page.run`` refuses the flag before it reaches here.
 
     Every figure is checked against the snapshot CSVs before any HTML is written.
     """
@@ -71,7 +74,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
     # that qualifies them is a panel below.
     P = [f'<h1>{esc(TITLE)}</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
-         f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
+         f'{esc(c.snap_date)} &middot; Pl@ntNet model {esc(c.tag)} '
          f'&middot; {c.n:,} labelled frames &middot; {c.n_sp} species</div>',
          # One paragraph, not three. The reviewer on 2026-09-03: "there's a lot of
          # text there ... people don't read stuff, because they'll read if they
@@ -82,7 +85,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
          f'<p class="intro">Pl@ntNet is asked to name the tree in each frame a botanist '
          f'labelled. Every number below is measured on the same {c.n:,} labelled frames '
          f'across {c.n_sp} species, one guess per frame. What to label next is a separate '
-         f'page, <code>label_queue_dashboard.html</code>.</p>',
+         f'page, <a href="label_queue_dashboard.html">label_queue_dashboard.html</a>.</p>',
          # The corpus rates lead: they are what this page measures every session
          # and the only rates the deployable path can produce.
          panels.headline_hero(c),
@@ -92,6 +95,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
          cp.floor_note(cp.require(c.cf)),
          ]
     P.append(pg.render(c, pg.EXTERNAL_PANELS))
+    P.append(pg.footer(c))
 
     return pg.document(TITLE, "\n".join(P)), c.checks
 

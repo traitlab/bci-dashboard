@@ -140,7 +140,7 @@ def test_method_panel_counts_the_checks_rather_than_listing_them(explain):
     number of cross-checks the build did not run."""
     out = explain.method_panel(tag="run-1", n=1, n_sp=1, n_cand=5,
                                checks=["first check", "second check"])
-    assert "the 2 CSVs" in out
+    assert "the 2 tables" in out
     assert "first check" not in out
 
 

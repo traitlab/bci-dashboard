@@ -97,7 +97,7 @@ def test_the_notes_carry_the_number_its_population_and_its_range(selection_panel
     note = sp.audit_note(c)
     assert "162% more rare species" in note
     assert "1,719 photos" in note and "107 of them rare" in note
-    assert "range 139% to 193%" in note and "8 such starts" in note
+    assert "range 139% to 193%" in note and "Over 8 random starts" in note
     assert "70% fewer labels" in note
     assert "paper" in note, "the page says where the number does not come from"
     cf = sp.confound_note(c)

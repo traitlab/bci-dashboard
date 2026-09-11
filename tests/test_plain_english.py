@@ -264,6 +264,206 @@ def test_the_readme_uses_no_word_context_md_retired(readme_prose, pattern, inste
         + "\n".join(f"  {block[:160]}" for block in hits[:5]))
 
 
+# How much a reader is asked to read before they reach the thing they came for.
+#
+# Two caps, both on the page rather than on the source, and both counted in
+# sentences because that is the unit a reader gives up in.
+#
+#   * A `<p class="note">` is an aside. Four sentences is an aside; the fifth
+#     is a second paragraph wearing the first one's clothes.
+#   * A panel's intro is every paragraph between the panel's summary and its
+#     first table. Eight sentences in total, because the table is what the
+#     panel is for and a reader who has to scroll past a page of prose to
+#     reach it reads neither.
+#
+# Text worth keeping and over a cap goes into a `<details class="more">` block,
+# which this skips: a reader who wants the long version opens it, and a reader
+# who does not is not charged for it. That is the one escape, and it is an
+# escape from the length rule only. Everything inside such a block is still
+# prose and is still held to every other rule in this file.
+MAX_NOTE_SENTENCES = 4
+MAX_PANEL_INTRO_SENTENCES = 8
+
+# The notes the sentence cap does not reach, each named by how it opens and
+# each with the reason it is here. A guard is not an aside: it exists to stop
+# one specific misreading, it has to name both populations it is separating,
+# and a guard a reader has to open is not a guard. Cutting one to four
+# sentences would cost a sentence a reader needs to not subtract one rate from
+# the other. This list is the place that decision is made out loud. Do not add
+# to it to get a long note past the cap: the cap is the rule, and `more()` is
+# the escape.
+GUARD_NOTES = (
+    "Does the test score lean on flights the labels already know?",
+)
+
+_MORE_OPEN = re.compile(r'<details class="more"', re.IGNORECASE)
+_DETAILS_TAG = re.compile(r"<details\b|</details>", re.IGNORECASE)
+_NOTE = re.compile(r'<p class="note"[^>]*>(.*?)</p>', re.DOTALL | re.IGNORECASE)
+_PANEL_SUMMARY = re.compile(r"<summary\b[^>]*>(.*?)</summary>", re.DOTALL | re.IGNORECASE)
+
+
+def _more_blocks(html: str) -> list[str]:
+    """Every ``more()`` block, each to its own closing tag.
+
+    This used to be one non-greedy regex, which ends at the first ``</details>``
+    it reaches. A ``more()`` block takes a body, so one can hold another, and a
+    non-greedy match on that leaves the outer block's tail in the page: the
+    sentence caps would then count sentences that are behind a summary line,
+    and report them against the panel they are nowhere near. The review panel's
+    slicer was wrong the same way once. So the tags are counted instead.
+    """
+    out = []
+    for found in _MORE_OPEN.finditer(html):
+        depth = 1
+        for tag in _DETAILS_TAG.finditer(html, found.end()):
+            depth += 1 if tag.group(0).lower().startswith("<details") else -1
+            if not depth:
+                out.append(html[found.start():tag.end()])
+                break
+        else:
+            raise AssertionError("a <details class=\"more\"> block is never closed")
+    return out
+
+
+def _without_the_long_version(html: str) -> str:
+    """The page minus every block a reader has to open to read."""
+    for block in _more_blocks(html):
+        html = html.replace(block, " ")
+    return html
+
+
+def test_a_long_version_inside_a_long_version_is_cut_out_whole():
+    """A `more()` block holds a body, so one can hold another. Both slices
+    have to reach the outer block's own closing tag: a slice that stops at the
+    inner one leaves the outer tail on the page, where the sentence caps count
+    it against a panel it is not in."""
+    from conftest import REPO, _on_path
+    with _on_path(REPO / "dashboard"):
+        from assets import more
+    html = ('<p class="note">Kept.</p>'
+            + more("Outer", '<p class="note">Hidden one.</p>'
+                   + more("Inner", '<p class="note">Hidden two.</p>')
+                   + '<p class="note">Hidden three.</p>'))
+    left = _without_the_long_version(html)
+    assert "Kept." in left
+    for gone in ("Hidden one.", "Hidden two.", "Hidden three.", "Outer", "Inner"):
+        assert gone not in left, f"{gone!r} survived the cut"
+    blocks = _more_blocks(html)
+    assert len(blocks) == 2
+    assert "Hidden three." in blocks[0] and "Hidden three." not in blocks[1]
+
+
+def test_no_note_on_a_public_page_runs_past_four_sentences(public_page):
+    """An aside is four sentences. The fifth is a paragraph in disguise."""
+    name, html = public_page
+    over = []
+    for body in _NOTE.findall(_without_the_long_version(html)):
+        found = sentences(prose(f"<p>{body}</p>"))
+        if found and found[0] in GUARD_NOTES:
+            continue
+        if len(found) > MAX_NOTE_SENTENCES:
+            over.append((len(found), " ".join(found)))
+    assert not over, (
+        f"{name}: {len(over)} note(s) over {MAX_NOTE_SENTENCES} sentences. Cut them, "
+        f"or move the long version into a <details class=\"more\"> block:\n"
+        + "\n".join(f"  [{n} sentences] {t[:200]}" for n, t in sorted(over, reverse=True)))
+
+
+def test_the_long_version_is_still_prose_every_other_rule_reads(public_page):
+    """The escape is from the sentence count, and from nothing else.
+
+    A block a reader has to open is the one place on the page where a sentence
+    could be parked out of reach: the two caps skip it, and if `prose` skipped
+    it too, a retired word or a 40-word sentence would live there unmeasured.
+    So this holds the other direction. Every block carries a summary line a
+    reader can decide on, it carries prose behind it, and every sentence of
+    that prose is in what `prose` returns for the whole page, which is what
+    every other check in this file reads.
+    """
+    name, html = public_page
+    reads = set(prose(html))
+    for block in _more_blocks(html):
+        title = _PANEL_SUMMARY.search(block)
+        assert title and _text(title.group(1)), (
+            f"{name}: a <details class=\"more\"> block with no summary line. A reader "
+            f"decides whether to open it on that line, so it has to say what is inside.")
+        body = sentences(prose(_PANEL_SUMMARY.sub(" ", block)))
+        assert body, (
+            f"{name}: <details class=\"more\"> block \"{_text(title.group(1))}\" holds no "
+            f"prose. Either it is empty or its text is outside a paragraph, and text "
+            f"outside a paragraph is text no check in this file reads.")
+        unread = [s for s in body if not any(s in block for block in reads)]
+        assert not unread, (
+            f"{name}: {len(unread)} sentence(s) behind \"{_text(title.group(1))}\" are "
+            f"invisible to prose(), so the retired words and the sentence length are "
+            f"unmeasured there:\n" + "\n".join(f"  {s[:160]}" for s in unread[:5]))
+
+
+def test_no_panel_on_a_public_page_buries_its_table_under_its_intro(public_page):
+    """What a panel is for is its table. The prose above it is the toll."""
+    name, html = public_page
+    over = []
+    # Split rather than match a closing tag: panels nest, and the intro is
+    # everything from this panel's own summary to the first table under it.
+    for chunk in _without_the_long_version(html).split('<details class="panel"')[1:]:
+        if "<table" not in chunk:
+            continue
+        intro = chunk.split("<table", 1)[0]
+        title = _PANEL_SUMMARY.search(intro)
+        found = sentences(prose(_PANEL_SUMMARY.sub(" ", intro)))
+        if len(found) > MAX_PANEL_INTRO_SENTENCES:
+            over.append((len(found), _text(title.group(1)) if title else "?"))
+    assert not over, (
+        f"{name}: {len(over)} panel intro(s) over {MAX_PANEL_INTRO_SENTENCES} "
+        f"sentences before the table the panel exists for:\n"
+        + "\n".join(f"  [{n} sentences] {t}" for n, t in sorted(over, reverse=True)))
+
+
+# What a backticked span on a public page is allowed to be.
+#
+# A `<code>` span is how this repository writes an identifier: a repository
+# path, a script name, a command flag, a CSV column. Every one of those is a
+# thing a reader outside the team cannot open, cannot run and cannot look up,
+# so on a public page it is a dead end dressed as a detail. Two kinds survive.
+#
+#   * A CSV the page itself links, because `bin/publish_pages.sh` copies every
+#     file a published page links with an `href` and it therefore resolves on
+#     the site. The allowlist is read off each page's own links rather than
+#     typed, so a CSV that stops being linked stops being allowed in the same
+#     edit.
+#   * A species name, which is backticked on some pages to set a Latin
+#     binomial off from the sentence around it. A reader can look one up.
+#
+# Anything else is fixed in the source that wrote it, not added here. The team
+# copy of the queue page is deliberately not checked: it exists to carry the
+# commands and column names the public page drops.
+_CODE_SPAN = re.compile(r"<code\b[^>]*>(.*?)</code>", re.DOTALL | re.IGNORECASE)
+_LINKED_CSV = re.compile(r'href="([A-Za-z0-9_]+\.csv)"')
+# Genus, species, and at most one more word for an author abbreviation or a
+# subspecies rank. Latin binomials are the only two-word identifier here.
+_SPECIES_NAME = re.compile(r"^[A-Z][a-z-]+ [a-z-]{2,}( [a-z.]+)?$")
+
+
+@pytest.fixture(params=("external_page", "internal_page"))
+def public_page(request):
+    """The two pages published to the site, one at a time."""
+    return request.param, request.getfixturevalue(request.param)[0]
+
+
+def test_no_public_page_backticks_something_a_reader_cannot_open(public_page):
+    """A public page names no repository path, script, flag or column."""
+    name, html = public_page
+    served = set(_LINKED_CSV.findall(html))
+    body = _NOT_PROSE.sub(" ", html)
+    spans = {_text(span) for span in _CODE_SPAN.findall(body)}
+    stray = sorted(s for s in spans - served
+                   if s and not _SPECIES_NAME.match(s))
+    assert not stray, (
+        f"{name} backticks {stray}, which a reader outside the team cannot open, "
+        f"run or look up. Say it in words, or link the copy the site serves. Only "
+        f"a CSV this page links ({sorted(served)}) or a species name may stay.")
+
+
 # The pages set a dash off with " -- " or rewrite it as a comma. A page is
 # read next to the other one, and a reader notices the typography before they
 # notice why.
@@ -301,3 +501,81 @@ def test_no_source_file_sets_a_phrase_off_with_a_long_dash(source):
     assert not found, (
         f"{source.relative_to(REPO)} carries {found}. Use a comma, a colon or "
         f"two sentences.")
+
+
+# The words a reader outside the team meets as jargon. Each one has a plain
+# meaning that is not the meaning the page uses: a test is not a quiz, a split
+# is not a crack, points are not marks out of ten, and a snapshot is not a
+# photograph. A reader who guesses the everyday sense reads the sentence and
+# gets it wrong, and nothing on the page tells them they did.
+GLOSSED_ON_FIRST_USE = (
+    "split", "test", "train", "valid", "held out", "held-out", "hold-out",
+    "graded", "snapshot", "harmonic mean", "percentile", "points",
+)
+
+# A gloss is a clause, not a word. Three words after a comma is an aside; four
+# is a definition, and four is what it takes to say what a thing is measured on
+# or what it is made of.
+MIN_GLOSS_WORDS = 4
+
+
+def _first_use(html: str, term: str):
+    """The first sentence on the page that uses `term`, and where it uses it.
+
+    Document order, and the long version included: a `more()` block sits where
+    a reader meets it, so a word first used inside one is first used there.
+    """
+    word = re.compile(rf"\b{re.escape(term)}s?\b", re.IGNORECASE)
+    for sentence in sentences(prose(html)):
+        found = word.search(sentence)
+        if found:
+            return sentence, found
+    return None, None
+
+
+def _carries_a_gloss(sentence: str, found: "re.Match[str]", term: str) -> bool:
+    """Either the sentence defines the word outright, or it sets the meaning off
+    in a comma clause or a parenthesis of at least four words.
+
+    Either side of the word counts. "where the middle 50% of that species'
+    frames fall, the 25th to the 75th percentile" glosses the word before
+    reaching it, and a reader meets the meaning there just as well as after.
+    """
+    defines = re.compile(
+        rf"^(?:a|an|the)?\s*{re.escape(term)}s?\b[^.]{{0,24}}?\b(?:is|are|means)\b",
+        re.IGNORECASE)
+    if defines.match(sentence):
+        return True
+    clauses = re.findall(r"\(([^)]*)\)", sentence)
+    clauses += sentence[found.end():].split(",")[1:]
+    clauses += sentence[:found.start()].split(",")[:-1]
+    return any(len(clause.split()) >= MIN_GLOSS_WORDS for clause in clauses)
+
+
+def test_every_watched_word_is_glossed_where_a_public_page_first_uses_it(public_page):
+    """A word the page borrows is defined the first time it is used.
+
+    The design, so a later reader can hold a new sentence to the same rule.
+    The watch list above is the words whose everyday meaning is not the page's
+    meaning. For each one, the first sentence on the page that uses it has to
+    carry the meaning with it, one of two ways: the sentence defines the word
+    outright ("a flight is one date at one site"), or it sets the meaning off
+    right after the word in a comma clause or a parenthesis of at least
+    MIN_GLOSS_WORDS words ("held back for grading, a separate draw of 300
+    frames"). Later uses are free: a reader who has the definition once carries
+    it down the page, and glossing a word twice reads as two different things.
+
+    First use is document order over the page's whole prose, `more()` blocks
+    included, since a reader meets those where they sit rather than at the end.
+    """
+    name, html = public_page
+    unglossed = []
+    for term in GLOSSED_ON_FIRST_USE:
+        sentence, found = _first_use(html, term)
+        if sentence and not _carries_a_gloss(sentence, found, term):
+            unglossed.append((term, sentence))
+    assert not unglossed, (
+        f"{name} uses {len(unglossed)} watched word(s) before saying what they "
+        f"mean. Gloss each one where it is first used, in a comma clause or a "
+        f"parenthesis of at least {MIN_GLOSS_WORDS} words, or say what it is "
+        f"outright:\n" + "\n".join(f"    {term}: {s}" for term, s in unglossed))

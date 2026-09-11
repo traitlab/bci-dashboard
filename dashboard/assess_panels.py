@@ -10,7 +10,7 @@ and every one is a queue position or a flag for a second look, never a label.
 from __future__ import annotations
 
 from assessments import LIMIT_MIN_FRAMES, LIMIT_WORDS
-from assets import esc, table
+from assets import esc, more, table
 
 # What the disagreement file's words mean on the page. speciesfirst has a fourth,
 # liana_overgrowth, which the script never gives without a growth-habit table,
@@ -72,15 +72,19 @@ def mechanism_note(disagreement: dict, counts) -> str:
     named = ", ".join(f'{c} {MECHANISM_WORDS.get(m, m)}'
                       for m, c in sorted(counts.items(), key=lambda kv: -kv[1]) if m)
     blank = counts.get("", 0)
-    method, pop = disagreement["method"], disagreement["population"]
-    out = (f'<p class="note"><b>Why the two names differ, over all {n} frames:</b> '
-           f'{named or "not assessed"}'
-           f'{f", {blank} not assessed" if blank else ""}. '
-           f'A pair that is one species under two names is dropped before it reaches '
-           f'this list. That check reads the accepted name in '
-           f'<code>{esc(method["synonyms_from"].split("/")[-1])}</code>, and dropped '
-           f'{pop["n_conflicts"] - pop["n_flagged"]} of {pop["n_conflicts"]} conflicts.')
-    return out + '</p>'
+    pop = disagreement["population"]
+    # The count is the answer. How the synonym check was run, and how many rows
+    # it removed, is a question about the list's making rather than about any
+    # row in it, so it waits one click in.
+    return (f'<p class="note"><b>Why the two names differ, over all {n} frames:</b> '
+            f'{named or "not assessed"}'
+            f'{f", {blank} not assessed" if blank else ""}.</p>'
+            + more("What was dropped before this list",
+                   f'<p class="note">A pair that is one species under two names is '
+                   f'dropped before it reaches this list. That check reads the accepted '
+                   f'name from a cached copy of the world checklist of vascular plants, '
+                   f'and dropped {pop["n_conflicts"] - pop["n_flagged"]} of '
+                   f'{pop["n_conflicts"]} conflicts.</p>'))
 
 
 def reject_table(sweep: dict) -> str:
@@ -92,20 +96,26 @@ def reject_table(sweep: dict) -> str:
              f'{100 * r["accepted_accuracy"]:.1f}%',
              f'{r["n_accepted"]:,} of {pop["n_frames"]:,}']
             for r in sweep["rows"]]
-    return (f'<p class="note"><b>Trusting a frame only when few names are plausible.</b> '
-            f'A separate check over the {pop["n_frames"]:,} labelled frames the model '
-            f'has a view of, {pop["n_species"]} species. A plain classifier is fitted to '
-            f'how the photos look, in {method["n_folds"]} folds. Each frame is then asked '
-            f'how many names it cannot rule out, at {100 * (1 - method["alpha"]):.0f}% '
-            f'coverage. This is not Pl@ntNet and its first guess is not Pl@ntNet&rsquo;s. '
-            f'It says how far a plausible-name count could order a queue.</p>'
+    return (f'<p class="note"><b>Trusting a frame only when few names are plausible:</b> '
+            f'how far a plausible-name count could order a queue. A separate check over '
+            f'the {pop["n_frames"]:,} labelled frames the model has a view of, '
+            f'{pop["n_species"]} species.</p>'
+            # The rows are a queue order, and a reader taking the order does not
+            # need the method under it. A reader asking whether the order is
+            # worth taking needs all four sentences, so they stay, one click in.
+            + more("How the plausible-name count is worked out",
+                   f'<p class="note">A plain classifier is fitted to how the photos '
+                   f'look, in {method["n_folds"]} folds. Each frame is then asked how '
+                   f'many names it cannot rule out, at '
+                   f'{100 * (1 - method["alpha"]):.0f}% coverage. This is not Pl@ntNet '
+                   f'and its first guess is not Pl@ntNet&rsquo;s.</p>')
             + table([("At most this many plausible names", True),
                      ("Frames kept", True), ("First guess right, kept frames", True),
                      ("Frames", True)], rows, source="reject_sweep.csv")
             + '<p class="note">Read a row as a queue position: frames with many '
               'plausible names go in front of a botanist first. Nothing here labels a '
-              'frame. The classifier and seed behind the rows are recorded in '
-              '<code>data/model_health/reject_sweep.json</code>.</p>')
+              'frame. The classifier and the random seed behind the rows are recorded '
+              'with the measurement output, so the sweep can be reproduced exactly.</p>')
 
 
 def richness_note(status: dict) -> str:
@@ -120,5 +130,5 @@ def richness_note(status: dict) -> str:
             f'twice. By the Chao1 rule that suggests about {r["unseen_estimate"]} more '
             f'species the labels have not reached yet, so the list is about '
             f'{100 * r["completeness"]:.0f}% complete. This is a different population '
-            f'from the species with a Pl@ntNet answer above. Every labelled frame counts '
-            f'here, cached answer or not.</p>')
+            f'from the species with a Pl@ntNet answer above, and every labelled frame '
+            f'counts here, cached answer or not.</p>')

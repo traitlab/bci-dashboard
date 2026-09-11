@@ -18,7 +18,7 @@ import shutil
 
 import core as hc
 import health as hl
-from assets import css_for, section, strip_comments
+from assets import css_for, esc, section, strip_comments
 from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
 from confirmatory_panels import p_floor
 from panels import (
@@ -139,8 +139,13 @@ def render(c, ids) -> str:
 # The bits of a page that are not a panel: command line, wrapper, file write.
 # ---------------------------------------------------------------------------
 
-def parse_args(doc: str, default_out: str):
-    """The builder command line. Same flags on both pages, different --out."""
+def parse_args(doc: str, default_out: str, team_out: str | None = None):
+    """The builder command line. Same flags on both pages, different --out.
+
+    ``team_out`` is the file ``--team`` writes to. A page with no team copy
+    refuses the flag rather than writing the public file under a name that
+    promises more than it carries.
+    """
     import argparse
 
     ap = argparse.ArgumentParser(description=hc.summarise(doc))
@@ -153,12 +158,37 @@ def parse_args(doc: str, default_out: str):
     ap.add_argument("--model-tag", default="unknown",
                     help="Pl@ntNet model iteration to record for a snapshot whose "
                          "run_log.txt does not name one")
-    ap.add_argument("--out", default=os.path.join(hc.REPO, "build", default_out),
+    ap.add_argument("--team", action="store_true",
+                    help="write the labelling team's copy instead: the same page plus "
+                         "the parts that only work with the repository checked out")
+    ap.add_argument("--out", default=None,
                     help=f"write the page here (default: build/{default_out})")
     ap.add_argument("--generated", default=None,
                     help="build date string; defaults to today (pass a fixed value for "
                          "byte-reproducible output)")
-    return ap.parse_args()
+    args = ap.parse_args()
+    if args.team and team_out is None:
+        ap.error(f"--team: {default_out} has no team copy, so there is nothing the "
+                 f"flag would add")
+    if args.out is None:
+        args.out = os.path.join(hc.REPO, "build",
+                                team_out if args.team else default_out)
+    return args
+
+
+def footer(c) -> str:
+    """What a reader checks a number against after reading it, not before.
+
+    The request settings used to sit twice in the body, written as the flag
+    names we send. A reader outside the lab cannot act on a flag name and does
+    not need to: what changes how a number reads is how many answers we asked
+    for and that nothing was filtered out, which is what this says in words.
+    The run tag sits here for the same reason, as the one string to quote back
+    when asking which build a number came from.
+    """
+    return (f'<div class="subtitle">Pl@ntNet was asked the same way every time: '
+            f'{hc.in_words(c.n_cand)} answers per photo, rejection off, related images '
+            f'off. Run {esc(c.tag)}.</div>')
 
 
 def document(title: str, body: str) -> str:
@@ -220,13 +250,19 @@ def copy_linked_csvs(page: str, verify_dir: str, out: str) -> None:
         print(f"  copied    {name}  beside the page")
 
 
-def run(doc: str, out_name: str, build) -> None:
-    """Load the data, build the page, write it: both builders' ``main()``."""
-    args = parse_args(doc, out_name)
+def run(doc: str, out_name: str, build, team_name: str | None = None) -> None:
+    """Load the data, build the page, write it: both builders' ``main()``.
+
+    ``team_name`` is the file the page is written to under ``--team``. A page
+    with no team copy refuses the flag rather than writing the public file
+    under a name that promises more than it carries.
+    """
+    args = parse_args(doc, out_name, team_name)
     verify_dir = args.verify_against or hc.TABLES_DIR
     h = hl.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
                        wcvp_cache=args.wcvp_cache)
     page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),
-                         verify_dir=verify_dir, fallback_tag=args.model_tag)
+                         verify_dir=verify_dir, fallback_tag=args.model_tag,
+                         team=args.team)
     write_page(page, checks, args.out)
     copy_linked_csvs(page, verify_dir, args.out)

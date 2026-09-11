@@ -147,6 +147,22 @@ if not os.path.exists(WCVP_CACHE_JSON):
 GT_KEY_PREFIX = "comb_"
 
 
+def gt_export_date_words(gt_csv: str = GT_CSV) -> str:
+    """The date of the Labelbox export the labels were merged from, in words.
+
+    The export names itself ``8_6_2026`` inside a filename that carries a
+    double space, which is Labelbox's doing and not something a reader outside
+    the lab should have to parse. Only the date travels. Labelbox writes the
+    month first, so ``8_6_2026`` is 6 August 2026. An export whose name has no
+    date in it says so rather than inventing one.
+    """
+    found = _EXPORT_DATE.search(gt_provenance(gt_csv))
+    if not found:
+        return "an undated export"
+    month, day, year = (int(g) for g in found.groups())
+    return date_words(f"{year:04d}-{month:02d}-{day:02d}")
+
+
 def gt_provenance(gt_csv: str = GT_CSV) -> str:
     """One line naming the export the ground truth was merged from.
     Reads the sidecar ``labelling/gt_from_export.py`` writes at merge, falling
@@ -177,6 +193,49 @@ N_CANDIDATES = 5
 # in `explain.py` rather than leaving both.
 PLANTNET_MODEL_VERSION = "2026-03-20 (7.5)"
 PLANTNET_VERSION_CHECKED = "2026-09-07"
+
+_MONTHS = ("January", "February", "March", "April", "May", "June", "July",
+           "August", "September", "October", "November", "December")
+
+_NUMBER_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+                 6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten"}
+
+_EXPORT_DATE = re.compile(r"(\d{1,2})_(\d{1,2})_(\d{4})")
+
+
+def in_words(n: int) -> str:
+    """A small count as a word, so a sentence can open on it."""
+    return _NUMBER_WORDS.get(n, f"{n:,}")
+
+
+def date_words(stamp: str) -> str:
+    """``2026-08-27`` as ``27 August 2026``.
+
+    A page read outside the lab is read by people who write dates three ways,
+    and the written-out month is the one form none of them can misread.
+    Anything that is not a plain date comes back unchanged rather than half
+    translated: the caller is printing a value it did not invent, and a wrong
+    date is worse than an unformatted one.
+    """
+    parts = stamp.strip()[:10].split("-")
+    if len(parts) != 3 or not all(p.isdigit() for p in parts):
+        return stamp
+    year, month, day = (int(p) for p in parts)
+    if not 1 <= month <= 12:
+        return stamp
+    return f"{day} {_MONTHS[month - 1]} {year}"
+
+
+def plantnet_version_words() -> str:
+    """The model version as a sentence can carry it, off the one constant.
+
+    ``PLANTNET_MODEL_VERSION`` is what Pl@ntNet itself reports, its date first
+    and its own release number after it. Both are read off that value, so the
+    page and the constant cannot drift apart.
+    """
+    date, _, rest = PLANTNET_MODEL_VERSION.partition(" ")
+    number = rest.strip("() ")
+    return f"{date_words(date)} (release {number})" if number else date_words(date)
 
 # The Pl@ntNet project our predictions came from (config.yaml plantnet.identify_url,
 # the segment after /identify/). predict/fetch_checklist.py downloads its species

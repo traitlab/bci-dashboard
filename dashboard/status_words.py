@@ -26,8 +26,7 @@ STATUS = {
                     "Label these like any other row. We have not yet asked Pl@ntNet "
                     "whether it carries this species"),
     "out_of_scope": ("Not in the project's own species list",
-                      "Skip. predict/fetch_checklist.py shows Pl@ntNet does not carry "
-                      "this species under the project we predict from"),
+                      "Skip. Pl@ntNet's own list for this project does not carry it"),
 }
 
 # The rows a botanist can pass over, not simply the tail of STATUS.
@@ -65,8 +64,8 @@ STATUS_REASON = {
                    f"\u201cTop-{hc.N_CANDIDATES} accuracy\u201d column under a different "
                    "status. There the model did produce the name, just never on the "
                    "frames of that species.",
-    "out_of_scope": "Pl@ntNet's own species list, read by predict/fetch_checklist.py, "
-                    "does not carry this name. That is a proven absence, not the "
+    "out_of_scope": "Pl@ntNet's own list for this project does not carry it. "
+                    "That is a proven absence, not the "
                     "sample effect behind “never returned”.",
 }
 

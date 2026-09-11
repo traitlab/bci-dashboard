@@ -25,7 +25,7 @@ INVENTORY = REPO / "data" / "dataset_rows_combined.jsonl"
 # shape `labelling/draw_field_sample.py` reads a site out of.
 MISSION_RE = re.compile(r"/(\d{8})_([a-z0-9]+)_")
 
-CAVEAT = "Why the wrong-guess share is a floor, not an estimate."
+CAVEAT = "Why the wrong-guess share is a floor, not an estimate"
 
 
 def _split_by_site():

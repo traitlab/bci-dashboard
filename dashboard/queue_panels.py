@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import core as hc
 import queues
-from assets import cap, esc, panel, pctf, svg_curve, svg_hbar, table
+from assets import (cap, esc, more, panel, pctf, svg_curve, svg_hbar,
+                    table)
 from explain import BAND_SHORT, CONF_BAND_WORDS
 from figures import RARE_MAX_SUPPORT, RECOMMENDED_CONF, WAIT_SUPPORT_MIN
 from panels import NAMING_IS, NAMING_NOTE
@@ -49,7 +50,7 @@ QL = {"long_tail": ("Species we barely have, or barely get right",
 # Above the 25 filenames, not below them: a reader who meets the list first has
 # already accepted it as instructions by the time the caveat arrives.
 UNGRADED_NOTE = (
-    '<p class="note"><b>This order has not been graded yet.</b> Nothing here measures '
+    '<p class="note"><b>This order has not been measured yet.</b> Nothing here measures '
     'whether it fills gaps faster than sending photos at random. It is a reasonable '
     'guess about where our labels are thin. The wait rule further down <em>is</em> '
     'measured.</p>'
@@ -63,6 +64,10 @@ UNGRADED_NOTE = (
 # The page's own hand-off: the queue is only worth building if a batch reaches
 # Labelbox, and the command that does it is one line. Named here rather than in
 # the README because this is where a reader stands when they need it.
+#
+# Team copy only. The command needs the repository checked out and a Labelbox
+# key, so on the public page it is a path a reader cannot walk, and the public
+# page links the team page in its place.
 DISPATCH = (
     '<h3 class="sub">Sending a batch</h3>'
     f'<p class="note"><a href="send_batches.csv">send_batches.csv</a> is this same queue '
@@ -72,25 +77,41 @@ DISPATCH = (
     '<p class="note">Drop <code>--test</code> once the dry run looks right.</p>')
 
 
+def dispatch(c) -> str:
+    """The send command, on the team copy of the page and nowhere else."""
+    return DISPATCH if getattr(c, "team", False) else ""
+
+
 def links_note(c) -> str:
-    """What the two link columns in send_batches.csv reach, and what they do not.
+    """What the two link columns in the send file reach, and what they do not.
 
     The standing rule is that a link column is never shipped silently half
-    empty. The CSV has nowhere to say so, so the page says it for both columns
+    empty. The file has nowhere to say so, so the page says it for both columns
     at once, next to the link to the file.
+
+    The paragraph used to open "Every row carries two links" and then report
+    both columns filled on no row at all, which is a panel arguing with itself
+    in three sentences. A reader believes the first sentence, opens the file,
+    finds two empty columns and stops believing the rest of the page. So the
+    explanation is rendered only once there is a link to explain. With none
+    filled there is one sentence, which is the whole truth and is not
+    contradicted two lines later.
     """
     at = queues.SEND_FIRST_COLUMNS.index("global_key")
     keys = [r[at] for r in c.queue_rows]
     box = hc.labelbox_link_coverage(keys)
     images = hc.inventory_image_urls()
     n_img = sum(1 for k in keys if images.get(k))
-    return (f'<p class="note"><strong>Every row carries two links.</strong> '
-            f'<code>image_url</code> opens the whole frame in any browser, no Labelbox '
+    if not n_img and not box["n_linked"]:
+        return ('<p class="note">No frame links to its photo or its Labelbox row '
+                'yet.</p>')
+    return (f'<p class="note"><strong>Two link columns, filled where we have one.</strong> '
+            f'The first opens the whole frame in any browser, no Labelbox '
             f'seat and no login, and it is filled on {n_img:,} of {len(keys):,} rows. '
-            f'<code>labelbox_url</code> opens the frame in the project it was labelled '
+            f'The second opens the frame in the project it was labelled '
             f'in, which is the only view that draws the crown being asked about, and it '
             f'is filled on {box["n_linked"]:,}. The {box["n_unlinked"]:,} rows without one '
-            f'are frames no Labelbox project on disk names. Those cells are empty rather '
+            f'are frames no Labelbox export names. Those cells are empty rather '
             f'than guessed: a guessed link is a 404 in front of a botanist.</p>')
 
 
@@ -106,14 +127,13 @@ def p_todo(c):
                 # The sortable species table is on the model-health page.
                 f'The frame counts and accuracy behind each status are in the species '
                 f'table on the model-health page, '
-                f'<code>model_health_dashboard.html</code>. Which species sit in which '
-                f'row is the <code>status</code> column of '
+                f'<a href="model_health_dashboard.html">model_health_dashboard.html</a>. '
+                f'Which species sits in which row is a column of '
                 f'<a href="per_species_health.csv">per_species_health.csv</a>.</p>'
-                f'<p class="note"><strong>Cheaper still, and in no row above: {c.gen_one:,} '
-                f'frames whose botanist label stops at the genus.</strong> Their five '
-                f'candidates hold exactly one species from that genus, so the question is yes '
-                f'or no, not which of {c.n_sp}. No species was named on them, so they sit '
-                f'outside the {c.n_sp} scored here.</p>')
+                f'<p class="note"><strong>Cheaper still, and in no row above: '
+                f'{c.gen_one:,} frames whose label stops at the genus and whose '
+                f'{hc.in_words(c.n_cand)} candidates hold exactly one species from '
+                f'it.</strong></p>')
     # The heading names only the cheapest work; the lede lists every skippable
     # row, so one fact does not arrive as two numbers. The count is counted, not
     # written out: a row that leaves SKIP_STATUSES must leave this sentence too.
@@ -189,28 +209,30 @@ def send_notes(c):
     species fill the first queue, where the full list lives, what to do with the
     photos that got no answer, and which frames none of this covers."""
     body = ""
-    top_lt = sorted(c.lt_species.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
-    body += ('<p class="note"><b>Most-named species in the first queue.</b> '
-             + ", ".join(f'<span class="sp">{esc(cap(s))}</span> ({k:,})' for s, k in top_lt)
-             + '. '
-             # Several of these have well over ten labels, and a reader who checks
-             # them against the species table finds the queue name contradicted.
-             f'Some already have more than {WAIT_SUPPORT_MIN} labelled frames; they are here '
-             f'on the second half of the first row above, not the first.</p>'
-             f'<p class="note"><strong>{c.n_no_answer} unlabelled photos got no answer at '
+    # The five most-named species in the first queue used to open this note. It
+    # was an orientation rather than an instruction, the table above it already
+    # names species row by row, and the caveat under it (some of these carry
+    # more than the support minimum) only existed to correct the list.
+    body += (f'<p class="note"><strong>{c.n_no_answer} unlabelled photos got no answer at '
              f'all</strong>: the candidate list came back empty. Likeliest to be junk or to '
              f'show no plant, and no automatic rule for junk is reliable, so check that '
              f'handful by eye.</p>'
              # Names an unscored population. It is an export batch, not a camera:
              # saying "the long-lens camera" here invented a lens difference that
              # the flight team confirmed does not exist.
-             f'<p class="note"><b>The later export batch is ungraded.</b> Every frame scored '
-             f'here carries {NAMING_IS["zoom"]}: '
-             f'all {c.scored_cams["zoom"]:,} of them. No botanist has labelled a frame '
-             f'carrying {NAMING_IS["tele"]}, so this page says nothing about those. They '
-             f'are {c.queue_cams["tele"]:,} of the queue '
-             f'({pctf(hc.ratio(c.queue_cams["tele"], sum(c.queue_cams.values())))}); '
-             f'sending them is how it becomes known. {NAMING_NOTE}</p>')
+             # One sentence, from the side that matters: that every scored frame
+             # carries the earlier naming and that no graded frame carries the
+             # later one are the same fact, and the queue share is what says how
+             # much of the work the gap covers.
+             f'<p class="note"><b>The later export batch is ungraded.</b> No botanist has '
+             f'labelled a frame carrying {NAMING_IS["tele"]}, which is '
+             f'{c.queue_cams["tele"]:,} of the queue frames '
+             f'({pctf(hc.ratio(c.queue_cams["tele"], sum(c.queue_cams.values())))}).</p>'
+             # The naming trips people up in one direction only, into inventing a
+             # lens difference. The correction is worth keeping and is worth
+             # reading once, so it sits behind its own line rather than above.
+             + more("What the two namings are",
+                    f'<p class="note">{NAMING_NOTE}</p>'))
     return body
 
 
@@ -229,8 +251,8 @@ def held_out_note(c) -> str:
     if not n:
         return ""
     by_split = ", ".join(f"{held[k]} {k}" for k in sorted(held))
-    return (f'<p class="note"><strong>{n} frames are held out of this queue.</strong> '
-            f'They carry a split in <code>splits.csv</code> ({by_split}), so they are '
+    return (f'<p class="note"><strong>{n} frames are kept out of this queue.</strong> '
+            f'They are held back for grading ({by_split}), so they are '
             f'part of how this page\'s own numbers are graded. Sending one back for '
             f'labelling would put a new answer into the set those numbers are measured '
             f'on. They are not lost: they are labelled work already accounted for '
@@ -240,7 +262,7 @@ def held_out_note(c) -> str:
 def p_send(c):
     """The page's answer to "what do I label next": queue sizes, the head of
     the queue, then the caveats that qualify both."""
-    body = (send_pool_table(c) + send_preview_table(c) + DISPATCH + links_note(c)
+    body = (send_pool_table(c) + send_preview_table(c) + dispatch(c) + links_note(c)
             + held_out_note(c) + send_notes(c))
     # The same two queues the hero counts, added the same way, so both agree.
     send_now = (c.queue_counts.get("long_tail", 0)
@@ -272,39 +294,52 @@ def _wait_rule(c) -> str:
             f'{best["n"]:,} of them ({pctf(best["share"])}), and the first guess is wrong '
             f'on {pctf(best["err"])} of those.</div>'
             # Every share in the comparison table below is out of this count.
-            f'<p class="note"><strong>What those {len(c.test_recs):,} frames are.</strong> '
-            f'The labelled frames marked <code>test</code> in <code>splits.csv</code>. The '
-            f'rule was chosen on the other frames, so no frame here helped pick the rule. '
-            f'Every count below is out of those {len(c.test_recs):,}. '
+            f'<p class="note"><strong>What those {len(c.test_recs):,} frames are:</strong> '
+            f'the labelled frames held back for grading. The '
+            f'rule was chosen on the other frames, so no frame here helped pick the rule, '
+            f'and every count below is out of those {len(c.test_recs):,}. '
             # Two hold-outs, described in almost the same words on two pages that
             # link to each other. A reader assumes one is a subset of the other.
             f'They are not the model-health page\'s hold-out, a separate draw of '
             f'{int(c.cf["n_frames"])} frames; the two overlap and neither contains the '
             f'other.</p>'
             '<p class="note"><strong>Why the wrong-guess share is a floor, not an '
-            'estimate.</strong> The split was drawn frame by frame, not site by site. Every '
-            'site with labelled frames has frames in <code>train</code>, <code>test</code> '
-            'and <code>valid</code> at once. Drone frames from one flight over one site '
-            'overlap, so a held-out frame can be a near-copy of a frame the rule learned '
-            'from. That flatters the model, and the rule rides on the model. So the share '
-            'above is the least the rule gets wrong, and we have not measured how much more. '
-            'Redrawing <code>splits.csv</code> by whole sites is what fixes it. Until then '
-            'this caveat stands and the number is re-read when it lands.</p>'
-            '<p class="note"><strong>Nothing here is a label.</strong> A frame that can wait '
-            "keeps whatever label it has, or none; the rule only pushes it down the "
-            "queue. The decision also expires with the model. Pl@ntNet ships a new one "
-            "every few months, and re-running this page after that can bring any frame back "
-            "to the top.</p>"
-            f'<p class="note">{len(c.eligible)} species reach {WAIT_SUPPORT_MIN} labelled '
-            f'frames inside the frames a rule may learn from, which is the second half of '
-            f'the rule. Counting every label gives a larger number, so this will not match '
-            f'the &ldquo;too few labels to judge&rdquo; count above.'
+            'estimate:</strong> the split was drawn frame by frame, not site by site. '
+            'Drone frames from one flight over one site overlap, so a held-out '
+            "frame, one kept back from the rule's frames, can be a near-copy of "
+            'one it learned from. So the share above is the least the rule gets '
+            'wrong, and we have not measured how much more.</p>'
+            # The claim and its reason stay open; a reader who wants to know what
+            # we are doing about it opens the line below. The claim is not
+            # weaker for it, and the paragraph above is four sentences.
+            + more("What would fix it",
+                   '<p class="note">Every site with labelled frames has frames both held '
+                   'back for grading and used to pick the rule. That flatters the model, '
+                   'and the rule rides on the model. Redrawing the grading set by whole '
+                   'sites is what fixes it. Until then this caveat stands and the number '
+                   'is re-read when it lands.</p>')
+            # What a wait is not, and how long it lasts, is what a reader who
+            # wants to act on the rule asks second. The rule itself, in the box
+            # at the top of the panel, says it leaves a frame for later and
+            # nothing more, so neither line is load-bearing where it stood.
+            + more("What a wait does, and how long it lasts",
+                   '<p class="note"><strong>Nothing here is a label.</strong> A frame that '
+                   "can wait keeps whatever label it has, or none; the rule only pushes it "
+                   "down the queue. The decision also expires with the model. Pl@ntNet "
+                   "ships a new one every few months, and re-running this page after that "
+                   "can bring any frame back to the top.</p>")
+            + more("Where the species half of the rule is counted",
+                   f'<p class="note">{len(c.eligible)} species reach {WAIT_SUPPORT_MIN} '
+                   f'labelled frames inside the frames a rule may learn from, which is the '
+                   f'second half of the rule. Counting every label gives a larger number, '
+                   f'so this will not match the &ldquo;too few labels to judge&rdquo; '
+                   f'count above.'
             # Two unrelated counts on this page are 41 today, and a reader who meets
             # the second one takes it for a back-reference to the heading.
             + (f' It is also a different set from the {c.counts["ranking"]} species in the '
                f'heading above, which happens to be the same size.'
                if c.counts["ranking"] == len(c.eligible) else '')
-            + '</p>')
+            + '</p>'))
 
 
 def _rules_compared(c) -> str:
@@ -367,11 +402,12 @@ def p_evidence(c):
     # snapshot. Every other summary on this page keeps its number, because there
     # the number is the reason to open the panel.
     return panel("Which frames can wait, and why the line sits where it does",
-                 "<b>Read this to move the confidence line, or to check the wait rule.</b> "
-                 f"The rule in force is <em>{c.best['label']}</em>. It would let "
-                 f"{c.best['n']:,} of {len(c.test_recs):,} frames held back for grading "
-                 f"wait. It orders the queue, it "
-                 "does not close frames, and it is recomputed whenever Pl@ntNet updates.",
+                 # The rule and what it reaches are stated in full in the box at
+                 # the head of the panel, in the same numbers, and a summary line
+                 # is read to decide whether to open the panel rather than to
+                 # carry the rule away. So the summary says what is inside.
+                 "<b>Read this to move the confidence line, or to check the wait "
+                 "rule.</b>",
                  _wait_rule(c) + _rules_compared(c) + _confidence_evidence(c),
                  anchor="which-frames-can-wait")
 
@@ -429,10 +465,10 @@ def novelty_chart(c) -> str:
     return (svg_curve([("distance", c.novelty_curve, LOOK_AMBER)],
                       title="How unlike the named photos each one looks, by its place",
                       x_title="place in the queue", y_title="distance")
-            + '<p class="note"><b>How to read this.</b> Each point averages a slice of '
+            + '<p class="note"><b>How to read this:</b> each point averages a slice of '
               'the queue. The line falls, so photos near the top really are less like the '
               'named ones than photos near the bottom. Most of that fall is in the first '
-              'quarter of the queue. Past it the line keeps dropping, but slowly. The '
+              'quarter of the queue, and past it the line keeps dropping, but slowly. The '
               'photos it separates there differ from each other far less than the ones '
               'at the head do.</p>')
 

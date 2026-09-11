@@ -21,6 +21,7 @@ import os
 import re
 
 import core as hc
+from assets import more
 
 MISSION_RE = re.compile(r"/(\d{8})_([a-z0-9]+)_")
 
@@ -174,30 +175,34 @@ def _flight_sentences(flight: dict) -> str:
     n_all = flight["n_all_flights"]
     ver = flight["version"] or "v1"
     if not n_f or not held["n"]:
-        return (f'A flight holdout ({ver}) is on record, and no frame on it '
-                f'carries an answer to score yet. ')
-    line = (f'<b>A second score, on flights held back whole.</b> The {ver} flight '
-            f'holdout holds {n_f:,} of the {n_all:,} flights back, whole. '
-            if n_all else
-            f'<b>A second score, on flights held back whole.</b> The {ver} flight '
-            f'holdout holds {n_f:,} whole flights back. ')
-    line += (f'The first guess is right on {_pct(held["top1"])} of the '
-             f'{held["n"]:,} frames on them that carry an answer. ')
-    line += 'No train frame sits on any of those flights. '
-    line += ('So nothing counted there is a near-copy of a frame the labels '
-             'already know. ')
-    line += ('These are not the test frames, and they do not hold the same '
-             'species in the same shares. ')
-    line += ('So the two rates grade two different sets of frames. ')
-    line += ('The difference between them is not the size of the leak. ')
+        return (f'<p class="note">A flight holdout ({ver}) is on record, and no frame '
+                f'on it carries an answer to score yet.</p>')
+    # Four sentences open, because the guard has to be read where the rate is:
+    # these are not the test frames, so the two rates cannot be subtracted. How
+    # the holdout was drawn, and which species it cannot grade at all, are read
+    # once by someone checking us, so they wait behind a summary line.
+    line = (f'<p class="note"><b>A second score, on flights held back whole.</b> '
+            f'The first guess is right on {_pct(held["top1"])} of the {held["n"]:,} '
+            f'frames on the {n_f:,} held-back flights that carry an answer. These are '
+            f'not the test frames. The difference between them is not the size of the '
+            f'leak.</p>')
+    rest = (f'<p class="note">The {ver} flight holdout holds {n_f:,} of the '
+            f'{n_all:,} flights back, whole. ' if n_all else
+            f'<p class="note">The {ver} flight holdout holds {n_f:,} whole flights '
+            f'back. ')
+    rest += ('No train frame sits on any of them, so nothing counted there is a '
+             'near-copy of a frame the labels already know. The two sets do not hold '
+             'the same species in the same shares, so the two rates grade two '
+             'different sets of frames.</p>')
     if n_ug:
-        line += (f'{n_ug:,} species cannot be graded this way, because each one '
-                 f'sits on a single flight. ')
-        line += ('Holding that flight would leave the model nothing to learn the '
-                 'species from, so it stays in train. ')
+        rest += (f'<p class="note">{n_ug:,} species cannot be graded this way, because '
+                 f'each one sits on a single flight. Holding that flight would leave '
+                 f'the model nothing to learn the species from, so it stays in '
+                 f'train.</p>')
     else:
-        line += 'Every species was flown more than once, so none is left ungraded. '
-    return line
+        rest += ('<p class="note">Every species was flown more than once, so none is '
+                 'left ungraded.</p>')
+    return line + more("How the held-back flights were drawn", rest)
 
 
 def note(result: dict, flight: dict | None = None) -> str:
@@ -233,9 +238,10 @@ def note(result: dict, flight: dict | None = None) -> str:
     if result["unplaced_train"]:
         line += (f'{result["unplaced_train"]:,} train frames could not be placed either, '
                  f'so their flights read as unseen. ')
+    line = line.rstrip() + '</p>'
     if flight is not None:
-        line += '</p><p class="note">' + _flight_sentences(flight)
-    return line.rstrip() + '</p>'
+        line += _flight_sentences(flight)
+    return line
 
 
 def write_held_out(out_dir: str, result: dict) -> None:
