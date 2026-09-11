@@ -5,7 +5,12 @@ Orders the unlabelled pool and says why that order is right. Thin on purpose:
 the deliverable is ``send_batches.csv`` beside it, and the page exists so the
 order can be argued with first. Accuracy reporting is ``build_external.py``.
 
-    python3 dashboard/build_internal.py [--out PATH]
+    python3 dashboard/build_internal.py [--team] [--out PATH]
+
+Two files come out of this one builder. Without ``--team`` it writes the public
+page, which leaves out everything that only works with the repository checked
+out. With ``--team`` it writes ``label_queue_team.html``, which carries all of
+it. The public page links the team one, so nothing is hidden, only moved.
 
 Every number is recomputed from source, then cross-checked against the snapshot
 CSVs; a mismatch aborts the build. It gates on the two send-queue CSVs.
@@ -30,15 +35,28 @@ from selection_panels import selection_complaint
 from history import fail, verify_snapshot
 
 OUT_NAME = "label_queue_dashboard.html"
+TEAM_OUT_NAME = "label_queue_team.html"
 TITLE = "BCI labelling: what to label next"
 
+# The one line the public page carries in place of the repository parts. It is
+# a link rather than a silence: a reader who wants the commands should be able
+# to see that they exist and who they are for.
+TEAM_LINK = (f'<p class="note">The same page with the commands that send a batch is '
+             f'<a href="{TEAM_OUT_NAME}">{TEAM_OUT_NAME}</a>, for the labelling team, '
+             f'needs the repo.</p>')
 
-def build(h, *, generated, verify_dir, fallback_tag):
+
+def build(h, *, generated, verify_dir, fallback_tag, team=False):
     """The queue page: which photos to label next, and why that order.
 
     The review queue belongs to the model-health page, so it is not gated here.
+
+    ``team`` writes the labelling team's copy. Everything it adds needs the
+    repository checked out, so the public page carries a link to it instead.
     """
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
+    # Read by the panels that have a team half and a public half.
+    c.team = team
 
     # Before anything is rendered. This page's leading claim is that inside each
     # queue the photo least like everything already labelled comes first, and
@@ -99,17 +117,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
                ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
                 "The whole pool this page puts in an order.",
                 "send_first_queue.csv")]),
-         ('<p class="note"><strong>The prioritised batches are in '
-          '<code>build/tables/send_batches.csv</code>.</strong> Send from that file. '
-          'This page shows the order and the reason behind each photo\'s place in it. '
-          f'The file holds {c.n_batches} batches of at most {BATCH_SIZE} photos, each '
-          'species group kept together. One batch there is one Labelbox batch, and '
-          '<code>global_key</code> is the column Labelbox is given. To send batch 1: '
-          '<code>python labelling/dispatch_round.py --round 1 --csv '
-          'build/tables/send_batches.csv --batch 1 --test</code> sends the first five '
-          'photos only, then the same command with no <code>--test</code> sends the '
-          'rest. How Pl@ntNet scores against the labels is a separate page, '
-          '<code>model_health_dashboard.html</code>.</p>'),
+         batches_note(c, team),
          # Cadence, because the obvious guess is a monthly rebuild and that is
          # wrong. Nothing about this order changes until the model does: the
          # queues come from Pl@ntNet's own answers, so re-ranking against an
@@ -120,12 +128,34 @@ def build(h, *, generated, verify_dir, fallback_tag):
           're-running this page returns the same order, so work through the batches '
           'rather than waiting for a refresh.</p>'),
          pg.render(c, pg.INTERNAL_PANELS)]
+    if not team:
+        P.append(TEAM_LINK)
 
     return pg.document(TITLE, "\n".join(P)), c.checks
 
 
+def batches_note(c, team):
+    """Where the batches are, in the words each audience can act on.
+
+    The team copy names the file in the repository and the column Labelbox is
+    given, because a reader with the checkout can open both. The public copy
+    links the served copy of the same file, which is the one that resolves from
+    the site, and says nothing about columns nobody outside the team sends.
+    """
+    where = ('<code>build/tables/send_batches.csv</code>' if team
+             else '<a href="send_batches.csv">send_batches.csv</a>')
+    detail = (' One batch there is one Labelbox batch, and <code>global_key</code> is '
+              'the column Labelbox is given.' if team else '')
+    return (f'<p class="note"><strong>The prioritised batches are in {where}.</strong> '
+            f'Send from that file. This page shows the order and the reason behind each '
+            f'photo\u2019s place in it. The file holds {c.n_batches} batches of at most '
+            f'{BATCH_SIZE} photos, each species group kept together.{detail} How Pl@ntNet '
+            f'scores against the labels is a separate page, '
+            f'<a href="model_health_dashboard.html">model_health_dashboard.html</a>.</p>')
+
+
 def main() -> None:
-    pg.run(__doc__, OUT_NAME, build)
+    pg.run(__doc__, OUT_NAME, build, team_name=TEAM_OUT_NAME)
 
 
 if __name__ == "__main__":

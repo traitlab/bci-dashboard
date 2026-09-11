@@ -63,6 +63,10 @@ UNGRADED_NOTE = (
 # The page's own hand-off: the queue is only worth building if a batch reaches
 # Labelbox, and the command that does it is one line. Named here rather than in
 # the README because this is where a reader stands when they need it.
+#
+# Team copy only. The command needs the repository checked out and a Labelbox
+# key, so on the public page it is a path a reader cannot walk, and the public
+# page links the team page in its place.
 DISPATCH = (
     '<h3 class="sub">Sending a batch</h3>'
     f'<p class="note"><a href="send_batches.csv">send_batches.csv</a> is this same queue '
@@ -70,6 +74,11 @@ DISPATCH = (
     f'of round 1 with:</p>'
     '<pre class="cmd">python3 labelling/dispatch_round.py --round 1 --csv build/tables/send_batches.csv --batch 1 --test</pre>'
     '<p class="note">Drop <code>--test</code> once the dry run looks right.</p>')
+
+
+def dispatch(c) -> str:
+    """The send command, on the team copy of the page and nowhere else."""
+    return DISPATCH if getattr(c, "team", False) else ""
 
 
 def links_note(c) -> str:
@@ -240,7 +249,7 @@ def held_out_note(c) -> str:
 def p_send(c):
     """The page's answer to "what do I label next": queue sizes, the head of
     the queue, then the caveats that qualify both."""
-    body = (send_pool_table(c) + send_preview_table(c) + DISPATCH + links_note(c)
+    body = (send_pool_table(c) + send_preview_table(c) + dispatch(c) + links_note(c)
             + held_out_note(c) + send_notes(c))
     # The same two queues the hero counts, added the same way, so both agree.
     send_now = (c.queue_counts.get("long_tail", 0)

@@ -471,12 +471,18 @@ def species_rows(html: str) -> list[str]:
     return [row for row in _ANY_ROW.findall(html) if '<span class="tag ' in row]
 
 
+# fixture name -> (builder, filename, panels it verifies, extra builder flags).
+# The queue builder writes two files: the public page and the labelling team's
+# copy, which carries the repository commands the public one leaves out. Both
+# are here so a shared assertion reaches both.
 PAGES = {
     "external_page": ("build_external.py", "model_health_dashboard.html",
                       {"species", "species_status", "species_thin",
-                       "floor", "snapshot"}),
+                       "floor", "snapshot"}, ()),
     "internal_page": ("build_internal.py", "label_queue_dashboard.html",
-                      {"queue_counts", "queue_keys", "snapshot"}),
+                      {"queue_counts", "queue_keys", "snapshot"}, ()),
+    "team_page": ("build_internal.py", "label_queue_team.html",
+                  {"queue_counts", "queue_keys", "snapshot"}, ("--team",)),
 }
 
 
@@ -495,7 +501,8 @@ def require_buildable():
         pytest.skip(f"{SNAPSHOT_DIR} not present (fresh clone)")
 
 
-def build_page(tmp_path_factory, script: str, out_name: str) -> tuple[str, str]:
+def build_page(tmp_path_factory, script: str, out_name: str,
+               flags: tuple[str, ...] = ()) -> tuple[str, str]:
     """Run a builder as a real subprocess, the way `bin/refresh.sh` does.
 
     Returns (page_html, stdout). Raises via `assert` on a non-zero exit so
@@ -505,7 +512,7 @@ def build_page(tmp_path_factory, script: str, out_name: str) -> tuple[str, str]:
     out = tmp_path_factory.mktemp("page") / out_name
     args = [sys.executable, str(DASHBOARD / script), "--out", str(out),
             "--generated", GENERATED,
-            "--verify-against", str(SNAPSHOT_DIR)]
+            "--verify-against", str(SNAPSHOT_DIR), *flags]
     proc = subprocess.run(args, capture_output=True, text=True, cwd=REPO)
     assert proc.returncode == 0, (
         f"{script} exited {proc.returncode}\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}")
@@ -535,13 +542,24 @@ def corpus_keys_with_species_gt():
 @pytest.fixture(scope="session")
 def external_page(tmp_path_factory):
     require_buildable()
-    return build_page(tmp_path_factory, *PAGES["external_page"][:2])
+    name, out, _panels, flags = PAGES["external_page"]
+    return build_page(tmp_path_factory, name, out, flags)
 
 
 @pytest.fixture(scope="session")
 def internal_page(tmp_path_factory):
     require_buildable()
-    return build_page(tmp_path_factory, *PAGES["internal_page"][:2])
+    name, out, _panels, flags = PAGES["internal_page"]
+    return build_page(tmp_path_factory, name, out, flags)
+
+
+@pytest.fixture(scope="session")
+def team_page(tmp_path_factory):
+    """The labelling team's copy of the queue page: everything the public one
+    carries, plus the commands that need the repository checked out."""
+    require_buildable()
+    name, out, _panels, flags = PAGES["team_page"]
+    return build_page(tmp_path_factory, name, out, flags)
 
 
 @pytest.fixture(params=sorted(PAGES))

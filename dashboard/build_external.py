@@ -34,9 +34,12 @@ OUT_NAME = "model_health_dashboard.html"
 TITLE = "How well does Pl@ntNet name BCI trees?"
 
 
-def build(h, *, generated, verify_dir, fallback_tag):
+def build(h, *, generated, verify_dir, fallback_tag, team=False):
     """The model-health page: how well Pl@ntNet names the trees, and what that
     number does not cover.
+
+    ``team`` is accepted and unused: this page has one audience and one file,
+    and ``page.run`` refuses the flag before it reaches here.
 
     Every figure is checked against the snapshot CSVs before any HTML is written.
     """

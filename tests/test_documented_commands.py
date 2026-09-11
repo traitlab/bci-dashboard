@@ -80,15 +80,18 @@ def accepts(script: str, flag: str) -> bool:
 COMMANDS = sorted(documented().items())
 
 
-def test_a_command_printed_on_a_page_runs(internal_page):
-    """The queue page prints the dispatch command, and the labelling team reads
-    that page rather than a docstring. A page can go stale exactly the way a
-    docstring can, so it gets the same check: the script exists, and every flag
-    the note types is one the parser takes."""
-    html, _ = internal_page
+def test_a_command_printed_on_a_page_runs(team_page):
+    """The team copy of the queue page prints the dispatch command, and the
+    labelling team reads that page rather than a docstring. A page can go stale
+    exactly the way a docstring can, so it gets the same check: the script
+    exists, and every flag the note types is one the parser takes.
+
+    The public queue page prints no command at all, by design, so this is asked
+    of the copy that does."""
+    html, _ = team_page
     text = html.replace("<code>", " ").replace("</code>", " ")
     found = COMMAND.findall(text)
-    assert found, "the queue page prints no command; the note lost it"
+    assert found, "the team queue page prints no command; the note lost it"
     for script, rest in found:
         assert (REPO / script).exists(), f"the queue page runs {script}, which is gone"
         unknown = [flag for flag in FLAG.findall(rest) if not accepts(script, flag)]
