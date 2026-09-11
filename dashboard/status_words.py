@@ -56,14 +56,11 @@ STATUS_REASON = {
     "hard": "Enough frames, but the first guess is still weak, so more labels will not fix it.",
     "adequate": "Mixed results, so keep it in the normal review queue.",
     "reliable": "Usually right, so this species is low priority for extra work.",
-    "unreachable": "Pl@ntNet never returned this name on any BCI photo, not just on this "
-                   "species\u2019 own frames. That is what we saw, not what the model can "
-                   f"do. We ask each photo for {hc.N_CANDIDATES} names. A species it "
-                   "carries but never ranks that high looks the same to us as one it does "
-                   "not carry at all. Other rows do show 0.0% in the "
-                   f"\u201cTop-{hc.N_CANDIDATES} accuracy\u201d column under a different "
-                   "status. There the model did produce the name, just never on the "
-                   "frames of that species.",
+    "unreachable": "Pl@ntNet never returned this name on any BCI photo. We ask each "
+                   f"photo for {hc.N_CANDIDATES} names. A species it carries but never "
+                   "ranks that high looks the same to us as one it lacks. A 0.0% "
+                   f"\u201cTop-{hc.N_CANDIDATES} accuracy\u201d under another status means "
+                   "the name did come back, just never on that species\u2019 frames.",
     "out_of_scope": "Pl@ntNet's own list for this project does not carry it. "
                     "That is a proven absence, not the "
                     "sample effect behind “never returned”.",
@@ -82,11 +79,11 @@ def status_precedence_note():
     # holding all of it would eventually run over the page's sentence-length
     # ceiling.
     mid = (len(quoted) + 1) // 2
-    order = ("Order: " + ", ".join(quoted[:mid]) + ". Then " + ", ".join(quoted[mid:]) + ".")
-    return ("Each species gets one status: the first rule that fits. " + order +
-            f" A few-frame species can still show as &ldquo;{names[2]}&rdquo;. "
-            "That is the point: it is cheap work whatever its count. Read the "
-            "labelled-frames column next to the status.")
+    order = ("In order: " + ", ".join(quoted[:mid]) + ". Then " + ", ".join(quoted[mid:])
+             + ".")
+    return ("Each species gets the first status that fits. " + order +
+            f" A few-frame species can still show as &ldquo;{names[2]}&rdquo;, since "
+            "that is cheap work at any count.")
 
 
 def legend_entries():

@@ -21,10 +21,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import confirmatory_panels as cp
 import core as hc
 import figures
-import panels
+import landing
 import page as pg
 import snapshot_delta
 from assets import esc
@@ -67,30 +66,14 @@ def build(h, *, generated, verify_dir, fallback_tag):
          "test_n": c.held_out["test"]["n"], "test_top1": c.held_out["test"]["top1"]},
         hc.SNAPSHOT_DIR, generated, floor=figures.WAIT_SUPPORT_MIN)
 
-    # The head is two numbers and one line saying which to quote. Everything
-    # that qualifies them is a panel below.
+    # The first screen is landing.py: the rates, the correction they are read
+    # against, the species by status, and the review list. Everything that
+    # qualifies them is a panel below.
     P = [f'<h1>{esc(TITLE)}</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
          f'{esc(c.snap_date)} &middot; Pl@ntNet model {esc(c.tag)} '
          f'&middot; {c.n:,} labelled frames &middot; {c.n_sp} species</div>',
-         # One paragraph, not three. The reviewer on 2026-09-03: "there's a lot of
-         # text there ... people don't read stuff, because they'll read if they
-         # need to." It has one job, to say what population every number below
-         # is measured on, because a rate without its denominator is the thing
-         # this repo refuses to publish. The averaging argument moved to the
-         # explanations section, next to the chart that makes it.
-         f'<p class="intro">Pl@ntNet is asked to name the tree in each frame a botanist '
-         f'labelled. Every number below is measured on the same {c.n:,} labelled frames '
-         f'across {c.n_sp} species, one guess per frame. What to label next is a separate '
-         f'page, <a href="label_queue_dashboard.html">label_queue_dashboard.html</a>.</p>',
-         # The corpus rates lead: they are what this page measures every session
-         # and the only rates the deployable path can produce.
-         panels.headline_hero(c),
-         # They are measured against a label for a region they do not cover, so
-         # the correction travels with them rather than sitting in a panel. The
-         # script's openHash expands the panel behind the link on arrival.
-         cp.floor_note(cp.require(c.cf)),
-         ]
+         landing.landing(c)]
     P.append(pg.render(c, pg.EXTERNAL_PANELS))
     P.append(pg.footer(c))
 

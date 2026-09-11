@@ -137,12 +137,11 @@ def test_a_page_opens_only_the_panels_that_are_its_deliverable(page):
     """A panel is open only where it is the thing the page exists to hand over.
 
     The queue page opens the two a labeller works from. The model-health page
-    opens none: its answer is the two hero cards, and the species table is a
-    lookup tool. Open, that table was 40% of the page's words sitting fourth of
-    nine, and the five panels below it were a scroll nobody made.
+    opens the species table: the status buttons on its first screen filter that
+    table, and a filter on a closed panel does nothing a reader can see.
     """
     expected = {
-        "model_health": [],
+        "model_health": ["Look up one species"],
         "label_queue": ["Cheapest confirmation work",
                         "What to send to the botanist first"],
     }

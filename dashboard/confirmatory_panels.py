@@ -52,21 +52,21 @@ def require(cf):
 
 
 def floor_note(cf):
-    """The one line that replaces the frozen sample's old headline band.
+    """The one line that travels with the cards on the first screen.
 
     Cause before number: a reader who stops after one sentence should know why
     the rates above are a floor. The last sentence is load-bearing -- the gap
     was measured with the botanist's outlines in hand, and without it a reader
     reasonably reads a correction as a pending gain.
     """
+    gap = 100 * cf["crown_minus_photo"]
     return (
-        f'<p class="note"><strong>The centre crop is {CENTRE_CROP_IS.split(", ")[-1]}, '
-        f'and the label describes all of it.</strong> On {int(cf["n_frames"])} frames set '
-        f'aside before either number existed, sending the outlined crowns instead moved the '
-        f'rate by {100 * cf["crown_minus_photo"]:+.1f} points. So read the rates above as '
-        f'a <a href="#where-the-headline-comes-from">floor</a>. The fairer way of asking '
-        f'needs a botanist&rsquo;s outlines, so that gap is a correction to what we '
-        f'measured, not a gain waiting to be collected.</p>')
+        f'<p class="note"><strong>Read these rates as a floor.</strong> They score the '
+        f'centre crop, {CENTRE_CROP_IS.split(", ")[-1]}, against a label for the whole '
+        f'frame. On {int(cf["n_frames"])} frames set aside in advance, asking about the '
+        f'outlined crowns instead moved the rate by {gap:+.1f} points. That needs a botanist&rsquo;s outlines, so it is a '
+        f'<a href="#where-the-headline-comes-from">correction</a>, not a gain waiting to '
+        f'be collected.</p>')
 
 
 def p_floor(c):
@@ -82,43 +82,36 @@ def p_floor(c):
     lo, hi = cf["crown_minus_photo_site_lo"], cf["crown_minus_photo_site_hi"]
     body = (
         f'<p class="note"><strong>Which frames.</strong> {int(cf["n_frames"])} frames from '
-        f'{int(cf["n_sites"])} sites and {int(cf["n_days"])} flight days, drawn from a '
-        f'fixed list before any of these numbers existed. Both ways of asking ran on every '
-        f'one of them, so the two rates come from the same frames.</p>'
-        f'<p class="note"><strong>What was compared.</strong> One Pl@ntNet call per crown a '
-        f'botanist had outlined, the answers pooled into one name for the frame by how much '
-        f'of it each crown covered. Against {CENTRE_CROP_IS}, which is what every rate on '
-        f'this page uses.</p>'
+        f'{int(cf["n_sites"])} sites and {int(cf["n_days"])} flight days, fixed before any '
+        f'of these numbers existed. Both ways of asking ran on every one.</p>'
+        f'<p class="note"><strong>What was compared.</strong> One Pl@ntNet call per '
+        f'outlined crown, pooled into one name for the frame by crown area. Against '
+        f'{CENTRE_CROP_IS}, which every other rate on this page uses.</p>'
         f'<p class="note"><strong>How sure.</strong> We are 95% sure the true gap is '
-        f'between {100 * lo:+.1f} and {100 * hi:+.1f} points. Frames shot at the same site '
-        f'look alike, so the count was re-run {int(cf["bootstrap_draws"]):,} times, each '
-        f'time redrawing the {int(cf["n_sites"])} sites with replacement. We kept the '
-        f'middle 95% of the answers.</p>'
-        f'<p class="note">On {int(cf["crown_only_hits"])} frames outlining got the name '
-        f'right where the centre crop got it wrong. On {int(cf["photo_only_hits"])} it '
-        f'went the other way.</p>'
+        f'between {100 * lo:+.1f} and {100 * hi:+.1f} points. Frames from one site look '
+        f'alike, so the range comes from redrawing the {int(cf["n_sites"])} sites with '
+        f'replacement {int(cf["bootstrap_draws"]):,} times.</p>'
+        f'<p class="note">On {int(cf["crown_only_hits"])} frames the outlines got the name '
+        f'right and the centre crop did not. On {int(cf["photo_only_hits"])} it went the '
+        f'other way.</p>'
         f'<div class="warn"><p><strong>How far the gap reaches.</strong></p><ul>'
         f'<li><strong>One export batch.</strong> Every frame here carries '
-        f'{cam_phrase(cf["cameras"])}. A later batch of flights was exported under the '
-        f'other naming, and no mission in this design draws from both.</li>'
+        f'{cam_phrase(cf["cameras"])}. Later flights were exported under the other '
+        f'naming.</li>'
         f'<li><strong>{int(cf["n_sites"])} of the 17 field sites.</strong> '
-        f'Frames from a site are alike, so five unvisited sites are five unknowns.</li>'
-        f'<li><strong>Per frame, not per species.</strong> The sample carries '
-        f'{int(cf["n_species"])} species, and the two commonest are '
-        f'{pctf(cf["top2_species_share"])} of its {int(cf["n_frames"])} frames. So the gap '
-        f'leans towards what the model already knows best. The plan asked for no '
-        f'per-species average here, so none is published.</li></ul></div>'
-        f'<p class="note">The rules behind this gap predate the data: which frames, '
-        f'which test, what counts as right, and when we were allowed to look. The full '
-        f'read, both averagings, and the warnings the design requires verbatim sit with '
-        f'that design, and we send it on request.</p>')
+        f'The other five are unknowns.</li>'
+        f'<li><strong>Per frame, not per species.</strong> The two commonest of its '
+        f'{int(cf["n_species"])} species are {pctf(cf["top2_species_share"])} of the '
+        f'{int(cf["n_frames"])} frames, so the gap leans towards what the model knows '
+        f'best.</li></ul></div>'
+        f'<p class="note">Which frames, what counts as right and when we could look were '
+        f'all fixed before the data. The full read and the warnings the design requires '
+        f'are in its writeup, sent on request.</p>')
     return panel(
         'What the centre crop costs, and how far that number reaches',
-        f"<b>One question, asked once, on {int(cf['n_frames'])} frames fixed in "
-        f"advance.</b> Scoring the centre crop instead of a botanist&rsquo;s outlines "
-        f"costs {100 * cf['crown_minus_photo']:.1f} points, that many right answers in "
-        f"every hundred frames. Which frames it was "
-        f"measured on, and where it stops applying.", body,
+        f"<b>Scoring the centre crop instead of a botanist&rsquo;s outlines costs "
+        f"{100 * cf['crown_minus_photo']:.1f} points.</b> Measured once, on "
+        f"{int(cf['n_frames'])} frames fixed in advance.", body,
         # The id predates this panel. A saved link should still land on the
         # question it was saved for, which is the one narrowed here.
         anchor="where-the-headline-comes-from")

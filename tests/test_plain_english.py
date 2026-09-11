@@ -293,7 +293,8 @@ MAX_PANEL_INTRO_SENTENCES = 8
 # to it to get a long note past the cap: the cap is the rule, and `more()` is
 # the escape.
 GUARD_NOTES = (
-    "Were the test frames flown on the same flights as the other labelled frames?",
+    "Were the test frames (the labelled frames set aside for scoring) flown on the "
+    "same flights as the rest?",
 )
 
 _MORE_OPEN = re.compile(r'<details class="more"', re.IGNORECASE)

@@ -184,8 +184,7 @@ def _flight_sentences(flight: dict) -> str:
     line = (f'<p class="note"><b>A second score, on flights held back whole.</b> '
             f'The first guess is right on {_pct(held["top1"])} of the {held["n"]:,} '
             f'frames on the {n_f:,} held-back flights that carry an answer. These are '
-            f'not the test frames. The difference between them is not the size of the '
-            f'leak.</p>')
+            f'not the test frames, so do not subtract one rate from the other.</p>')
     rest = (f'<p class="note">The {ver} flight holdout holds {n_f:,} of the '
             f'{n_all:,} flights back, whole. ' if n_all else
             f'<p class="note">The {ver} flight holdout holds {n_f:,} whole flights '
@@ -215,7 +214,7 @@ def note(result: dict, flight: dict | None = None) -> str:
     """
     t, u = result["test"], result["unseen"]
     unplaced = result["unplaced"]
-    line = (f'<p class="note"><b>Were the test frames flown on the same flights as the other labelled frames?</b> A flight is one date over one site. The first guess is right on '
+    line = (f'<p class="note"><b>Were the test frames (the labelled frames set aside for scoring) flown on the same flights as the rest?</b> A flight is one date over one site. The first guess is right on '
             f'{_pct(t["top1"])} of the {t["n"]:,} test frames. ')
     if u["n"]:
         line += (f'On the {u["n"]:,} test frames from flights with no train frame it is '

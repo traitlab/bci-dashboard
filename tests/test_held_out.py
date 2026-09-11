@@ -168,7 +168,7 @@ def test_the_page_never_invites_the_two_rates_to_be_subtracted(external_page):
     wherever it prints both, or a reader will read one number off the other."""
     html, _ = external_page
     if "flight holdout holds" in html:
-        assert "The difference between them is not the size of the leak" in html
+        assert "so do not subtract one rate from the other" in html
         assert "grade two different sets of frames" in html
     else:
         assert "A large gap" not in html

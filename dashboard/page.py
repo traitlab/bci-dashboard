@@ -36,9 +36,6 @@ from queue_why_panels import p_evidence, p_look, p_namings
 # they get used to it, they will probably not look at [the prose]. They will
 # just go straight for the [numbers]."
 SECTIONS = {
-    # The headline band belongs to the cards above it, so no heading of its own:
-    # render() emits its panels bare when the title is None.
-    "headline": (None, None),
     "label-first": (
         "What to label first",
         # The wait rule and its evidence moved to the section below.
@@ -61,8 +58,7 @@ SECTIONS = {
         # Everything here was above the species table until 2026-09-03. It
         # explains the numbers rather than reporting them, so it now sits after
         # the thing it explains and a reader who does not need it can stop.
-        "Read this when a number above surprises you. Nothing here is a new "
-        "measurement."),
+        "Read this when a number above surprises you."),
     "limits": (
         "What this cannot tell you",
         # The method panel sits here too and is provenance, not a ceiling.
@@ -72,9 +68,10 @@ SECTIONS = {
 # panel id -> (section key, builder). A panel belongs to the goal it serves, so
 # the confidence evidence sits with the queue rule it justifies.
 PANELS = {
-    # "floor" stays in the headline band: it is a correction to the two cards
-    # above it, not an explanation of them, so it has to travel with them.
-    "floor": ("headline", p_floor),
+    # The correction travels with the cards as one line on the first screen
+    # (landing.py). This panel is the population behind that line, so it leads
+    # the explanations rather than standing between the cards and the table.
+    "floor": ("explanations", p_floor),
     "todo": ("label-first", p_todo),
     "send": ("label-first", p_send),
     "namings": ("queue-why", p_namings),
@@ -113,8 +110,8 @@ INTERNAL_PANELS = ("todo", "send", "namings", "look", "evidence")
 # lead and now close: they were put first so that "frame", "crown", "label" and
 # "centre crop" were defined before first use, which is right for a first read
 # and wrong for every read after it.
-EXTERNAL_PANELS = ("floor", "species", "review",
-                   "weighting", "coverage", "calibration", "terms", "counts",
+EXTERNAL_PANELS = ("species", "review",
+                   "floor", "weighting", "coverage", "calibration", "terms", "counts",
                    "ceiling", "method")
 
 if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
@@ -138,8 +135,7 @@ def render(c, ids) -> str:
         chosen = [PANELS[i][1](c) for i in ids if PANELS[i][0] == key]
         if not chosen:
             continue
-        body = "\n".join(chosen)
-        out.append(body if title is None else section(title, lede, body, anchor=anchor))
+        out.append(section(title, lede, "\n".join(chosen), anchor=anchor))
     return "\n".join(out)
 
 

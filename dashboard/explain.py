@@ -93,20 +93,17 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
     singles = buckets[thin]["n_species"]
     return panel(
         "Why the two headline scores differ: the same frames, four rates",
-        # The first of the four is the headline card itself, over the same
-        # frames, so the old lede telling a reader not to quote it was pointing
-        # at the number the page quotes at the top. Which rate to quote is said
-        # once, beside that card, and not again here.
-        "<b>The first of these four is the rate at the top of the page.</b> "
-        "This panel says what each averaging asks and why they differ.",
+        # The two rates this panel explains, as the cards at the top print them.
+        # Which one to quote is said once, on its card, and not again here.
+        f"<b>{pctf(now['macro_top1'])} per species and {pctf(now['micro_top1'])} per "
+        f"frame, on the same frames.</b>",
         corpus_block
         # A table rather than the two stacked bars this used to draw. The shares
         # the argument turns on are 2% and 6%, too thin to carry a printed label
         # in a bar, so the bars had to be read back out in a sentence underneath.
         # Side by side in two columns they are read off directly.
-        + f'<p class="note"><b>Every species casts one vote in the per-species rate, '
-          f'every frame one vote in the per-frame rate.</b> That is {n_sp} votes '
-          f'against {n:,}, and the two share columns show where each set sits.</p>'
+        + f'<p class="note"><b>Each species casts one vote per species, each frame one '
+          f'vote per frame</b>: {n_sp} votes against {n:,}.</p>'
         + table([("Labelled frames per species", False), ("Species", True),
                  ("Frames", True), ("Share of the per-species vote", True),
                  ("Share of the per-frame vote", True), ("First guess right", True)],
@@ -133,12 +130,11 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           f'one-frame species scores only 0% or 100%, so those {singles} votes are coin '
           f'flips.</p>'
           f'<div class="warn"><strong>Read those rows as how common a species is, not as '
-          f'something labelling changed.</strong> These predictions come from one Pl@ntNet '
-          f'regional model, dated {hc.PLANTNET_MODEL_VERSION}. Our own labelling did not '
-          f'move it. Common species simply '
-          f'have more reference photos inside Pl@ntNet already. Extra labels buy knowledge '
-          f'instead: under about {hc.WELL_SAMPLED_MIN_N} frames a per-species accuracy '
-          f'jumps around too much to act on.</div>',
+          f'something labelling changed.</strong> The model dates from '
+          f'{hc.PLANTNET_MODEL_VERSION} and our labels did not move it. Common species '
+          f'have more reference photos inside Pl@ntNet. What extra labels buy is a rate '
+          f'steady enough to act on, which takes about {hc.WELL_SAMPLED_MIN_N} '
+          f'frames.</div>',
         # Both headline rates are in the summary and both move every snapshot.
         anchor="why-the-two-headline-scores-differ")
 
@@ -164,23 +160,20 @@ def method_panel(*, tag, n, n_sp, n_cand, checks, out_of_scope=None, out_of_scop
             # underneath is an assertion; with it, it is a comparison of two
             # dates a reader can check.
             f'<li>Model version: Pl@ntNet reports the model of '
-            f'{esc(hc.plantnet_version_words())}. Asked again on '
-            f'{esc(hc.date_words(hc.PLANTNET_VERSION_CHECKED))} and it had not moved. '
-            f'BCI labels were '
-            f'first sent to Pl@ntNet in July 2026. That is after this model\u2019s date, so '
-            f'no label from this project is in it. Whether BCI photos reached Pl@ntNet by '
-            f'some other route before then, we cannot say. The {n:,} cached answers here '
-            f'record no version of their own. That field was added later. Every dated '
-            f'answer we hold names this same one.</li>'
+            f'{esc(hc.plantnet_version_words())}, unchanged on '
+            f'{esc(hc.date_words(hc.PLANTNET_VERSION_CHECKED))}. BCI labels were first '
+            f'sent to Pl@ntNet in July 2026, after that date, so none is in it. Whether '
+            f'BCI photos reached it some other way, we cannot say. The {n:,} cached '
+            f'answers predate the version field. Every dated answer we hold names this '
+            f'same model.</li>'
             f'<li>Request: the settings at the foot of this page, on a '
             f'{CROP_SIZE}&nbsp;px centre crop, organs detected automatically. A correct '
             f'answer at position {n_cand + 1} or beyond was never returned and cannot be '
             f'seen here.</li>'
             f'<li>Evaluated set: {n:,} frames across {n_sp} species whose botanist label '
-            f'names a species rather than only a genus. They are the historical labelling '
-            f'record, not a random draw. These rates carry over to unlabelled frames only if '
-            f'unlabelled frames look like labelled ones, and that is not checkable '
-            f'offline.</li>'
+            f'names a species rather than only a genus. They are what was labelled, not '
+            f'a random draw. The rates carry over to unlabelled frames only if those look '
+            f'like the labelled ones, which cannot be checked offline.</li>'
             f'<li>Labels: merged from the Labelbox export of '
             f'{esc(hc.gt_export_date_words())}. The merge keeps the newer label, and '
             f'that batch has had no Labelbox review step yet.</li>'
@@ -189,11 +182,10 @@ def method_panel(*, tag, n, n_sp, n_cand, checks, out_of_scope=None, out_of_scop
             # reader has no access to answers neither. What a reader can use is
             # that the numbers are recomputed and cross-checked every build.
             f'<li>Snapshot: one dated folder, the latest state, with no trend over '
-            f'earlier folders. Every number is recomputed from the source data at build '
-            f'time, then checked against the {len(checks)} tables the measurement pass '
-            f'wrote beside it, and a mismatch aborts the build.</li></ul>')
+            f'earlier folders. Every number is recomputed at build time and checked '
+            f'against the {len(checks)} tables the measurement pass wrote. A mismatch '
+            f'aborts the build.</li></ul>')
     # This one is provenance: which model, which frames, which files.
     return panel("How this was measured: the model, the frames, the files",
-                 "<b>Read this before quoting any number outside the team.</b> It names "
-                 "the model, the request settings, and the one assumption that cannot be "
-                 "checked offline.", body, anchor="how-this-was-measured")
+                 "<b>Read this before quoting any number outside the team.</b>",
+                 body, anchor="how-this-was-measured")

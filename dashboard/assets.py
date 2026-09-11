@@ -93,11 +93,12 @@ def section(title, lede, panels, *, anchor=None):
             f'<p class="lede">{lede}</p>\n{panels}</section>')
 
 
-def hero(cards):
+def hero(cards, *, cls=""):
     """The band of big numbers a page opens with, leading card first.
 
     ``cards`` is ``[(eyebrow, value, label, note), ...]``, and the grid CSS is
-    written against the metric card markup.
+    written against the metric card markup. ``cls`` adds a layout class, such
+    as ``wide`` for three columns.
 
     A card may carry a fifth item, the CSV the number is read off. It renders as
     a link beside the figure, so the reader who wants the rows behind the
@@ -107,7 +108,7 @@ def hero(cards):
     card lie. ``page.copy_linked_csvs`` then carries the file with the page and
     aborts the build if it is missing, so a linked card cannot ship a 404.
     """
-    out = ['<div class="hero">']
+    out = [f'<div class="hero{" " + cls if cls else ""}">']
     for i, card in enumerate(cards):
         # A range check, not membership of a two-length tuple: written that way
         # it reads to test_health's literal guard as a candidate-list length
