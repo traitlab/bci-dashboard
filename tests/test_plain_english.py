@@ -264,6 +264,51 @@ def test_the_readme_uses_no_word_context_md_retired(readme_prose, pattern, inste
         + "\n".join(f"  {block[:160]}" for block in hits[:5]))
 
 
+# What a backticked span on a public page is allowed to be.
+#
+# A `<code>` span is how this repository writes an identifier: a repository
+# path, a script name, a command flag, a CSV column. Every one of those is a
+# thing a reader outside the team cannot open, cannot run and cannot look up,
+# so on a public page it is a dead end dressed as a detail. Two kinds survive.
+#
+#   * A CSV the page itself links, because `bin/publish_pages.sh` copies every
+#     file a published page links with an `href` and it therefore resolves on
+#     the site. The allowlist is read off each page's own links rather than
+#     typed, so a CSV that stops being linked stops being allowed in the same
+#     edit.
+#   * A species name, which is backticked on some pages to set a Latin
+#     binomial off from the sentence around it. A reader can look one up.
+#
+# Anything else is fixed in the source that wrote it, not added here. The team
+# copy of the queue page is deliberately not checked: it exists to carry the
+# commands and column names the public page drops.
+_CODE_SPAN = re.compile(r"<code\b[^>]*>(.*?)</code>", re.DOTALL | re.IGNORECASE)
+_LINKED_CSV = re.compile(r'href="([A-Za-z0-9_]+\.csv)"')
+# Genus, species, and at most one more word for an author abbreviation or a
+# subspecies rank. Latin binomials are the only two-word identifier here.
+_SPECIES_NAME = re.compile(r"^[A-Z][a-z-]+ [a-z-]{2,}( [a-z.]+)?$")
+
+
+@pytest.fixture(params=("external_page", "internal_page"))
+def public_page(request):
+    """The two pages published to the site, one at a time."""
+    return request.param, request.getfixturevalue(request.param)[0]
+
+
+def test_no_public_page_backticks_something_a_reader_cannot_open(public_page):
+    """A public page names no repository path, script, flag or column."""
+    name, html = public_page
+    served = set(_LINKED_CSV.findall(html))
+    body = _NOT_PROSE.sub(" ", html)
+    spans = {_text(span) for span in _CODE_SPAN.findall(body)}
+    stray = sorted(s for s in spans - served
+                   if s and not _SPECIES_NAME.match(s))
+    assert not stray, (
+        f"{name} backticks {stray}, which a reader outside the team cannot open, "
+        f"run or look up. Say it in words, or link the copy the site serves. Only "
+        f"a CSV this page links ({sorted(served)}) or a species name may stay.")
+
+
 # The pages set a dash off with " -- " or rewrite it as a comma. A page is
 # read next to the other one, and a reader notices the typography before they
 # notice why.

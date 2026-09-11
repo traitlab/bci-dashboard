@@ -95,7 +95,7 @@ def build(h, *, generated, verify_dir, fallback_tag, team=False):
                     if anchors else "anchor count unrecorded")
     P = ['<h1>What to label next</h1>',
          f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
-         f'{esc(c.snap_date)} &middot; Pl@ntNet model <code>{esc(c.tag)}</code> '
+         f'{esc(c.snap_date)} &middot; Pl@ntNet model {esc(c.tag)} '
          f'&middot; {anchor_words} &middot; {c.n:,} labelled frames behind the '
          f'species statuses that sort the queues</div>',
          # Batch 1 leads, not the pool. The pool is 3,919 and a botanist works
@@ -130,6 +130,7 @@ def build(h, *, generated, verify_dir, fallback_tag, team=False):
          pg.render(c, pg.INTERNAL_PANELS)]
     if not team:
         P.append(TEAM_LINK)
+    P.append(pg.footer(c))
 
     return pg.document(TITLE, "\n".join(P)), c.checks
 

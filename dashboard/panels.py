@@ -23,12 +23,12 @@ from status_words import (STATUS, filter_options, legend_entries,
 # What each file naming is, as a noun phrase both pages drop into their own
 # sentence. Both words read like camera settings and neither is one: the flight
 # team confirmed one camera throughout, and the flights that produced
-# <code>tele</code> names produced <code>zoom</code> ones too. A reader who does
-# not know that reads a lens difference into every count split this way, so it
-# is said outright, and said once.
+# "tele" names produced "zoom" ones too. A reader who does not know that reads a
+# lens difference into every count split this way, so it is said outright, and
+# said once.
 NAMING_IS = {
-    "zoom": "the earlier file naming <code>zoom</code>",
-    "tele": "the later file naming <code>tele</code>",
+    "zoom": "the earlier file naming, zoom",
+    "tele": "the later file naming, tele",
 }
 
 # Where the two namings come from, said once on each page that splits a count by
@@ -36,8 +36,8 @@ NAMING_IS = {
 # the whole explanation every time.
 NAMING_NOTE = ("Both words read like camera settings and neither is one. The flight "
                "team confirmed the naming changed and nothing else did. Every "
-               "<code>tele</code> frame comes from one of four flights that also "
-               "produced <code>zoom</code> frames.")
+               "tele frame comes from one of four flights that also produced "
+               "zoom frames.")
 
 # The species table's lede, shared by the internal pages and the export-only one.
 SPECIES_LOOKUP_LEDE = ("<b>Find a species you care about and read its status.</b> "
@@ -111,8 +111,8 @@ def hero_terms(k):
         f"The <b>centre crop</b> is {CENTRE_CROP_IS}. Every "
         f"number below that covers all the labelled frames was scored on that square. "
         f"We ask Pl@ntNet for {k} "
-        f"names per photo (<code>nb-results={k}</code>). That is our request setting, "
-        f"not a limit of the model.",
+        f"names per photo, which is our request setting and not a limit of the model. "
+        f"The settings we send are at the foot of this page.",
         "The <b>first guess</b> is the top-ranked of those names, and <b>right</b> "
         "means it matches the frame's label.",
         "<b>Outlining the trees first</b> means something else. We ask Pl@ntNet about "
@@ -598,9 +598,10 @@ def p_ceiling(c):
             f'candidates to find out. Re-running with a larger candidate count could '
             f'still recover some of these.</p>'
             + sp_table(c.unproven_absent)
-            + '<p class="note">The two flags the lists are split on are the '
-              '<code>in_project_checklist</code> and <code>in_corpus_vocabulary</code> '
-              'columns of the file each table above links.</p>')
+            + '<p class="note">The file each table above links carries the two flags '
+              'the lists are split on. One says whether the species is on the '
+              'project&rsquo;s own list. The other says whether its name ever came back '
+              'in a cached answer.</p>')
     else:
         scope_html = (
             f'<div class="warn"><strong>This is a limit of the question we asked, not proof '
@@ -608,8 +609,9 @@ def p_ceiling(c):
             f'whether a name turns up in the cached answers, and we asked for '
             f'{c.n_cand} candidates per photo. A species Pl@ntNet knows well, but which '
             f'never made a list of {c.n_cand} on a BCI photo, looks exactly like one it '
-            f'cannot return. Do not spend expert time renaming or relabelling these; only a '
-            f'checklist from predict/fetch_checklist.py or a re-run can tell the two apart.'
+            f'cannot return. Do not spend expert time renaming or relabelling these; only '
+            f'Pl@ntNet&rsquo;s own list for this project, or a re-run, can tell the two '
+            f'apart.'
             f'</div>'
             + sp_table(c.never))
 

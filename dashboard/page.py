@@ -18,7 +18,7 @@ import shutil
 
 import core as hc
 import health as hl
-from assets import css_for, section, strip_comments
+from assets import css_for, esc, section, strip_comments
 from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
 from confirmatory_panels import p_floor
 from panels import (
@@ -174,6 +174,21 @@ def parse_args(doc: str, default_out: str, team_out: str | None = None):
         args.out = os.path.join(hc.REPO, "build",
                                 team_out if args.team else default_out)
     return args
+
+
+def footer(c) -> str:
+    """What a reader checks a number against after reading it, not before.
+
+    The request settings used to sit twice in the body, written as the flag
+    names we send. A reader outside the lab cannot act on a flag name and does
+    not need to: what changes how a number reads is how many answers we asked
+    for and that nothing was filtered out, which is what this says in words.
+    The run tag sits here for the same reason, as the one string to quote back
+    when asking which build a number came from.
+    """
+    return (f'<div class="subtitle">Pl@ntNet was asked the same way every time: '
+            f'{hc.in_words(c.n_cand)} answers per photo, rejection off, related images '
+            f'off. Run {esc(c.tag)}.</div>')
 
 
 def document(title: str, body: str) -> str:

@@ -72,13 +72,13 @@ def mechanism_note(disagreement: dict, counts) -> str:
     named = ", ".join(f'{c} {MECHANISM_WORDS.get(m, m)}'
                       for m, c in sorted(counts.items(), key=lambda kv: -kv[1]) if m)
     blank = counts.get("", 0)
-    method, pop = disagreement["method"], disagreement["population"]
+    pop = disagreement["population"]
     out = (f'<p class="note"><b>Why the two names differ, over all {n} frames:</b> '
            f'{named or "not assessed"}'
            f'{f", {blank} not assessed" if blank else ""}. '
            f'A pair that is one species under two names is dropped before it reaches '
-           f'this list. That check reads the accepted name in '
-           f'<code>{esc(method["synonyms_from"].split("/")[-1])}</code>, and dropped '
+           f'this list. That check reads the accepted name from a cached copy of the '
+           f'world checklist of vascular plants, and dropped '
            f'{pop["n_conflicts"] - pop["n_flagged"]} of {pop["n_conflicts"]} conflicts.')
     return out + '</p>'
 
@@ -104,8 +104,8 @@ def reject_table(sweep: dict) -> str:
                      ("Frames", True)], rows, source="reject_sweep.csv")
             + '<p class="note">Read a row as a queue position: frames with many '
               'plausible names go in front of a botanist first. Nothing here labels a '
-              'frame. The classifier and seed behind the rows are recorded in '
-              '<code>data/model_health/reject_sweep.json</code>.</p>')
+              'frame. The classifier and the random seed behind the rows are recorded '
+              'with the measurement output, so the sweep can be reproduced exactly.</p>')
 
 
 def richness_note(status: dict) -> str:

@@ -27,8 +27,7 @@ def cam_phrase(cameras):
     Read from the frame keys rather than assumed, so a future sample carrying
     both namings does not render as one naming with two names.
     """
-    return (NAMING_IS.get(cameras)
-            or f"these file namings: <code>{esc(cameras)}</code>")
+    return NAMING_IS.get(cameras) or f"these file namings: {esc(cameras)}"
 
 
 def require(cf):

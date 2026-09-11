@@ -94,9 +94,9 @@ def links_note(c) -> str:
     images = hc.inventory_image_urls()
     n_img = sum(1 for k in keys if images.get(k))
     return (f'<p class="note"><strong>Every row carries two links.</strong> '
-            f'<code>image_url</code> opens the whole frame in any browser, no Labelbox '
+            f'The first opens the whole frame in any browser, no Labelbox '
             f'seat and no login, and it is filled on {n_img:,} of {len(keys):,} rows. '
-            f'<code>labelbox_url</code> opens the frame in the project it was labelled '
+            f'The second opens the frame in the project it was labelled '
             f'in, which is the only view that draws the crown being asked about, and it '
             f'is filled on {box["n_linked"]:,}. The {box["n_unlinked"]:,} rows without one '
             f'are frames no Labelbox project on disk names. Those cells are empty rather '
@@ -115,8 +115,8 @@ def p_todo(c):
                 # The sortable species table is on the model-health page.
                 f'The frame counts and accuracy behind each status are in the species '
                 f'table on the model-health page, '
-                f'<code>model_health_dashboard.html</code>. Which species sit in which '
-                f'row is the <code>status</code> column of '
+                f'<a href="model_health_dashboard.html">model_health_dashboard.html</a>. '
+                f'Which species sits in which row is a column of '
                 f'<a href="per_species_health.csv">per_species_health.csv</a>.</p>'
                 f'<p class="note"><strong>Cheaper still, and in no row above: {c.gen_one:,} '
                 f'frames whose botanist label stops at the genus.</strong> Their five '
@@ -239,7 +239,7 @@ def held_out_note(c) -> str:
         return ""
     by_split = ", ".join(f"{held[k]} {k}" for k in sorted(held))
     return (f'<p class="note"><strong>{n} frames are held out of this queue.</strong> '
-            f'They carry a split in <code>splits.csv</code> ({by_split}), so they are '
+            f'They are held back for grading ({by_split}), so they are '
             f'part of how this page\'s own numbers are graded. Sending one back for '
             f'labelling would put a new answer into the set those numbers are measured '
             f'on. They are not lost: they are labelled work already accounted for '
@@ -282,7 +282,7 @@ def _wait_rule(c) -> str:
             f'on {pctf(best["err"])} of those.</div>'
             # Every share in the comparison table below is out of this count.
             f'<p class="note"><strong>What those {len(c.test_recs):,} frames are.</strong> '
-            f'The labelled frames marked <code>test</code> in <code>splits.csv</code>. The '
+            f'The labelled frames held back for grading. The '
             f'rule was chosen on the other frames, so no frame here helped pick the rule. '
             f'Every count below is out of those {len(c.test_recs):,}. '
             # Two hold-outs, described in almost the same words on two pages that
@@ -292,12 +292,12 @@ def _wait_rule(c) -> str:
             f'other.</p>'
             '<p class="note"><strong>Why the wrong-guess share is a floor, not an '
             'estimate.</strong> The split was drawn frame by frame, not site by site. Every '
-            'site with labelled frames has frames in <code>train</code>, <code>test</code> '
-            'and <code>valid</code> at once. Drone frames from one flight over one site '
+            'site with labelled frames has frames both held back for grading and used to '
+            'pick the rule. Drone frames from one flight over one site '
             'overlap, so a held-out frame can be a near-copy of a frame the rule learned '
             'from. That flatters the model, and the rule rides on the model. So the share '
             'above is the least the rule gets wrong, and we have not measured how much more. '
-            'Redrawing <code>splits.csv</code> by whole sites is what fixes it. Until then '
+            'Redrawing the grading set by whole sites is what fixes it. Until then '
             'this caveat stands and the number is re-read when it lands.</p>'
             '<p class="note"><strong>Nothing here is a label.</strong> A frame that can wait '
             "keeps whatever label it has, or none; the rule only pushes it down the "
