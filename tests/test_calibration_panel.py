@@ -88,6 +88,16 @@ def test_the_panel_is_a_balanced_details_block(panels, bins):
     assert out.startswith("<details class=\"panel\"") and out.endswith("</details>")
 
 
+def test_the_plausible_name_method_avoids_the_crop_coverage_word(panels, bins):
+    """"coverage" is the crop-coverage panel's word elsewhere on this page, so
+    the plausible-name method states its own rate in words instead: alpha 0.1
+    reads as holding the right name 9 times in 10, split not fold."""
+    out = panels.p_calibration(_ctx(panels, bins))
+    assert "% coverage" not in out
+    assert "in 5 splits of the frames" in out
+    assert "holds the right one 9 times in 10" in out
+
+
 def test_the_panel_links_the_file_its_bars_were_drawn_from(panels, bins):
     """A bar carries one rounded figure a band. The counts behind it are already
     on disk and already cross-checked against this panel's own build, so the
