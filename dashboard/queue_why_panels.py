@@ -13,19 +13,8 @@ import queues
 from assets import cap, esc, more, panel, pctf, svg_curve, svg_hbar, table
 from explain import BAND_SHORT, CONF_BAND_WORDS
 from figures import RARE_MAX_SUPPORT, RECOMMENDED_CONF, WAIT_SUPPORT_MIN
-from panels import NAMING_NOTE
 from queue_panels import QL
 from selection_panels import audit_note, confound_note
-
-
-def p_namings(c):
-    """Where the two file namings come from.
-
-    The note under the queue table names the later naming, and the naming
-    trips people up in one direction only, into inventing a lens difference.
-    The correction is worth reading once, so it sits here rather than there.
-    """
-    return panel("What the two namings are", NAMING_NOTE, "")
 
 
 # Okabe-Ito, the palette the labelfirst reports use, so a reader who has seen
