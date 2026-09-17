@@ -93,6 +93,19 @@ def test_test_top1_is_reported_only_when_the_older_snapshot_recorded_it(snapshot
     assert "70.0%" in note and "80.0%" in note and "n = 100" in note and "n = 200" in note
 
 
+def test_an_unchanged_count_with_no_recorded_top1_says_nothing_moved(snapshot_delta, tmp_path):
+    """The count is the same then and now, and there is no top-1 to compare, so
+    the note used to restate the same number twice and name an absent one. One
+    clause instead."""
+    snapshot(tmp_path, "2026-08-27", [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10])
+    d = snapshot_delta.compute(NOW, str(tmp_path), "2026-09-10", floor=10)
+    assert d["then"]["n_species_floor"] == 12
+    assert d["then"]["test_top1"] is None
+    note = snapshot_delta.note(d, floor=10)
+    assert note == ('<p class="note"><b>Since the last snapshot:</b> nothing has moved '
+                     'since 2026-08-27, the date the counts were last saved.</p>')
+
+
 def test_a_build_date_that_is_not_a_date_compares_against_nothing(snapshot_delta, tmp_path):
     snapshot(tmp_path, "2026-08-27", [10])
     d = snapshot_delta.compute(NOW, str(tmp_path), "today", floor=10)
