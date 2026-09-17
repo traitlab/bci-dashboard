@@ -9,6 +9,7 @@ import core as hc
 import queues
 from assets import cap, esc, more, panel, pctf, table
 from panels import NAMING_IS, NAMING_NOTE
+from selection_panels import _pct as sel_pct
 from status_words import STATUS, SKIP_STATUSES, uncap
 
 # Enough to answer "what do I send next" without a CSV reader. A batch is 100
@@ -44,18 +45,51 @@ QL = {"long_tail": ("Species we barely have, or barely get right",
                    f"more labelled frames already")}
 
 
-# Above the 25 filenames, not below them: a reader who meets the list first has
-# already accepted it as instructions by the time the caveat arrives.
-UNGRADED_NOTE = (
-    '<p class="note"><b>This order has not been measured yet.</b> Nothing here measures '
-    'whether it fills gaps faster than sending photos at random. It is a reasonable '
-    'guess about where our labels are thin. The wait rule further down <em>is</em> '
-    'measured.</p>'
+# Below the un-measured claim either way: a reader who meets the batch-1
+# control before the caveat above it would read the control as the whole
+# answer, rather than as the one thing this checkout can still measure.
+_BATCH1_NOTE = (
     f'<p class="note"><b>Batch 1 carries the comparison.</b> {queues.control_size()} of its '
     f'{queues.BATCH_SIZE} photos are drawn at random from the whole pool instead of '
     'from the head of this order. When they come back labelled, the two halves can be '
     'compared. This only works on the first batch: every later pool has already been '
     'reshaped by this order.</p>')
+
+# The fallback for a checkout with no audit file: labelfirst has measured
+# nothing yet, so the note cannot say more than that.
+_UNMEASURED_NOTE = (
+    '<p class="note"><b>This order has not been measured yet.</b> Nothing here measures '
+    'whether it fills gaps faster than sending photos at random. It is a reasonable '
+    'guess about where our labels are thin. The wait rule further down <em>is</em> '
+    'measured.</p>')
+
+
+# Above the 25 filenames, not below them: a reader who meets the list first has
+# already accepted it as instructions by the time the caveat arrives.
+def ungraded_note(c) -> str:
+    """What the order above is measured against, and what it is not.
+
+    ``c.selection_audit`` is the same audit ``selection_panels.audit_note``
+    reads: rare species found faster than a random order, on the labelled
+    frames that already carry a name. That is what is measured. This pool,
+    the unlabelled photos the table above orders, is not: it carries no label
+    yet, so nothing here checks whether the order fills gaps faster than a
+    random one on it. Absent the audit file, the note degrades to the plain
+    claim that nothing has been measured.
+    """
+    a = getattr(c, "selection_audit", None)
+    if not a:
+        return _UNMEASURED_NOTE + _BATCH1_NOTE
+    saved = ""
+    if a["passed"] and a["labels_saved_pct"] is not None:
+        saved = (f' It needs {sel_pct(a["labels_saved_pct"])} fewer labels for the same '
+                 'rare species.')
+    return (f'<p class="note"><b>What this order is measured against.</b> On the '
+            f'{a["n_frames"] or 0:,} labelled frames that already carry a name, this '
+            f'ordering finds rare species faster than a random order.{saved} This pool is '
+            'not: it carries no label yet, so nothing here checks whether this order '
+            'fills gaps faster than a random one on it.</p>'
+            + _BATCH1_NOTE)
 
 
 # The page's own hand-off: the queue is only worth building if a batch reaches
@@ -184,7 +218,7 @@ def send_preview_table(c):
     # Both notes sit above the table: the queue is ordered weakest first, so the
     # first screen is full of 0.001s and needs the gloss before it, not after.
     body += ('<h3 class="sub">The next ' + f'{len(head)}' + ' photos, in order</h3>'
-             + UNGRADED_NOTE
+             + ungraded_note(c)
              + '<p class="note"><b>Inside a queue the photo least like everything already '
                'labelled comes first.</b> Pl@ntNet turns each centre crop into a list of '
                'numbers, and two photos with close numbers look alike to it. A photo far '
