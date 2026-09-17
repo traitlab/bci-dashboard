@@ -156,7 +156,7 @@ def _project_split(cov):
 # them. The first two are the pair, and a pair with several frames writes them
 # once and spans them down its own rows.
 REVIEW_COLUMNS = [("botanist label", False), ("Pl@ntNet's first guess", False),
-                  ("confidence", True), ("split", False), ("frame", False)]
+                  ("confidence", True), ("frame", False)]
 
 
 def _review_table(groups, urls):
@@ -195,7 +195,6 @@ def _review_table(groups, urls):
                     f'{tally}</td>') if i == 0 else ""
             out.append(f'<tr{first if i == 0 else ""}>{pair}'
                        f'<td class="num">{conf(r):.2f}</td>'
-                       f'<td>{esc(r["split"] or "unassigned")}</td>'
                        f'<td>{frame}</td></tr>')
     out.append("</tbody></table>")
     return ('<div class="tscroll">' + "\n".join(out) + "</div>"

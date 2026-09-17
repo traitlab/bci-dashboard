@@ -245,9 +245,8 @@ def held_out_note(c) -> str:
     n = sum(held.values())
     if not n:
         return ""
-    by_split = ", ".join(f"{held[k]} {k}" for k in sorted(held))
     return (f'<p class="note"><strong>{n} frames are kept out of this queue.</strong> '
-            f'They are held back for grading ({by_split}), so they are '
+            f'They are held back for grading, so they are '
             f'part of how this page\'s own numbers are graded. Sending one back for '
             f'labelling would put a new answer into the set those numbers are measured '
             f'on. They are not lost: they are labelled work already accounted for '
