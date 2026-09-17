@@ -195,6 +195,13 @@ def equalised_anchor_confound(X: np.ndarray, labels, counts, *,
     the frames that survive the equalisation, so the drop to ``partial_corr``
     is the equalisation and not the narrower set of species. The record has the
     same keys as ``one_confound``'s, so the page reads it with the others.
+
+    ``partial_p`` is a permutation p, the test ``voi_backtest.perm_test`` in
+    where-to-blitz runs: shuffle the target against the fixed score and count
+    how often chance alone reaches this far. ``partial_null_p95`` is how far
+    chance alone does reach, the size of link nineteen shuffles in twenty stay
+    under, so the observed link can be read against the null and not only
+    against a threshold.
     """
     labels = list(labels)
     by = frames_by_species(labels)
@@ -220,18 +227,32 @@ def equalised_anchor_confound(X: np.ndarray, labels, counts, *,
     rhos = np.array([r for r, _ in per_draw], dtype=np.float64)
     partial = float(rhos.mean())
 
-    # The p-value, on the same rule the other four use: shuffle the target and
-    # see how often chance alone reaches this far. Shuffled once per draw and
-    # averaged over the draws, so the null is a null for the number reported and
-    # not for one draw of it, which would be a wider null and a kinder p.
-    # Spearman on standardised ranks is their dot product, and a shuffle leaves
-    # the standardisation alone, so each shuffle is one dot product.
+    # The p-value, the permutation null where-to-blitz's voi_backtest.perm_test
+    # uses, on the same rule the other four audits here use: shuffle the target
+    # and see how often chance alone reaches this far, two-sided on the size of
+    # the link. Shuffled once per draw and averaged over the draws, so the null
+    # is a null for the number reported and not for one draw of it, which would
+    # be a wider null and a kinder p. Spearman on standardised ranks is their
+    # dot product, and a shuffle leaves the standardisation alone, so each
+    # shuffle is one dot product.
+    #
+    # The +1 on both sides is the difference from where-to-blitz's version,
+    # which can print a p of exactly zero and carries a separate floor field to
+    # say that it cannot mean one. Counting the observed value as one of its own
+    # shuffles makes the floor the smallest p the test can print, 1/(n + 1), so
+    # no reader has to be told what a zero here really means.
     perm = np.random.default_rng(seed + 1)
     null = np.array([float(np.mean([s_hat @ perm.permutation(t_hat)
                                     for s_hat, t_hat in standardised]))
                      for _ in range(n_permutations)], dtype=np.float64)
     partial_p = float((1 + int((np.abs(null) >= abs(partial)).sum()))
                       / (n_permutations + 1))
+    # How far chance alone gets: the link nineteen shuffles in twenty stay
+    # under, in size. The p-value says the observed link beats the null; this
+    # says by how much, in the same units as the correlation beside it, so a
+    # reader can see a link that clears the null by a hair apart from one that
+    # clears it by an order of magnitude.
+    null_p95 = float(np.percentile(np.abs(null), 95))
 
     retained = abs(partial) / abs(raw_corr) if abs(raw_corr) > 0 else 0.0
     return {
@@ -257,5 +278,6 @@ def equalised_anchor_confound(X: np.ndarray, labels, counts, *,
         "draw_seed": seed,
         "partial_corr_min": float(rhos.min()),
         "partial_corr_max": float(rhos.max()),
+        "partial_null_p95": null_p95,
         "n_permutations": n_permutations,
     }
