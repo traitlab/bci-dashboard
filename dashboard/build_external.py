@@ -70,8 +70,8 @@ def build(h, *, generated, verify_dir, fallback_tag):
     # against, the species by status, and the review list. Everything that
     # qualifies them is a panel below.
     P = [f'<h1>{esc(TITLE)}</h1>',
-         f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
-         f'{esc(c.snap_date)} &middot; Pl@ntNet model {esc(c.tag)} '
+         f'<div class="subtitle">labels as of {esc(c.snap_date)} &middot; '
+         f'Pl@ntNet model {esc(c.tag)} '
          f'&middot; {c.n:,} labelled frames &middot; {c.n_sp} species</div>',
          landing.landing(c)]
     P.append(pg.render(c, pg.EXTERNAL_PANELS))

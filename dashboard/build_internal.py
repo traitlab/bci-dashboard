@@ -100,8 +100,8 @@ def build(h, *, generated, verify_dir, fallback_tag):
     anchor_words = (f"{anchors:,} labelled frames anchor the ranking"
                     if anchors else "anchor count unrecorded")
     P = ['<h1>What to label next</h1>',
-         f'<div class="subtitle">built {esc(generated)} &middot; snapshot '
-         f'{esc(c.snap_date)} &middot; Pl@ntNet model {esc(c.tag)} '
+         f'<div class="subtitle">labels as of {esc(c.snap_date)} &middot; '
+         f'Pl@ntNet model {esc(c.tag)} '
          f'&middot; {anchor_words} &middot; {c.n:,} labelled frames behind the '
          f'species statuses that sort the queues</div>',
          # Batch 1 leads, not the pool. The pool is 3,919 and a botanist works
