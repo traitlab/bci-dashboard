@@ -76,8 +76,7 @@ DISPATCH = more(
     f'of round 1 with:</p>'
     '<pre class="cmd">python3 labelling/dispatch_round.py --round 1 --csv build/tables/send_batches.csv --batch 1 --test</pre>'
     '<p class="note">Drop <code>--test</code> once the dry run looks right.</p>'
-    '<p class="note">The prioritised batches are in '
-    '<code>build/tables/send_batches.csv</code>. One batch there is one Labelbox '
+    '<p class="note">One batch there is one Labelbox '
     'batch, and <code>global_key</code> is the column Labelbox is given.</p>',
     anchor=TEAM_BLOCK_ID)
 
