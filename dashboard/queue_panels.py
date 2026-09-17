@@ -215,25 +215,30 @@ def send_preview_table(c):
     The table above says how much work there is. This says which photo."""
     body = ""
     head = c.queue_rows[:SEND_PREVIEW]
-    # Both notes sit above the table: the queue is ordered weakest first, so the
+    # One note sits above the table: the queue is ordered weakest first, so the
     # first screen is full of 0.001s and needs the gloss before it, not after.
+    # The other two follow the table, where a reader who already has the rows
+    # in front of them reads what the order is not measured against and how to
+    # read the confidence column.
     body += ('<h3 class="sub">The next ' + f'{len(head)}' + ' photos, in order</h3>'
-             + ungraded_note(c)
              + '<p class="note"><b>Inside a queue the photo least like everything already '
                'labelled comes first.</b> Pl@ntNet turns each centre crop into a list of '
                'numbers, and two photos with close numbers look alike to it. A photo far '
-               'from every labelled one is the photo we know least about.</p>'
+               'from every labelled one is the photo we know least about. "How new it '
+               'looks" is that distance, so a bigger number leads a smaller one.</p>'
+             + table([("#", True), ("photo", False), ("Pl@ntNet's guess", False),
+                      ("confidence", True), ("frames that species has", True),
+                      ("how new it looks", True)],
+                     [[f"{i}", f'<code class="key">{esc(stem)}</code>',
+                       f'<span class="sp">{esc(cap(pred))}</span>', f"{cf:.3f}",
+                       f"{c.support.get(pred, 0):,}", esc(how_new)]
+                      for i, (_, stem, pred, cf, _rank, how_new) in enumerate(head, 1)],
+                     source="send_first_queue.csv")
+             + ungraded_note(c)
              + '<p class="note"><b>Read the confidence column as how little the model '
                'knows.</b> It breaks the tie, so a number near the bottom of the scale '
                'means Pl@ntNet recognised almost nothing. That is the reason to look, not '
-               'a reason to doubt the name.</p>'
-             + table([("#", True), ("photo", False), ("Pl@ntNet's guess", False),
-                      ("confidence", True), ("frames that species has", True)],
-                     [[f"{i}", f'<code class="key">{esc(stem)}</code>',
-                       f'<span class="sp">{esc(cap(pred))}</span>', f"{cf:.3f}",
-                       f"{c.support.get(pred, 0):,}"]
-                      for i, (_, stem, pred, cf, _rank) in enumerate(head, 1)],
-                     source="send_first_queue.csv"))
+               'a reason to doubt the name.</p>')
     return body
 
 

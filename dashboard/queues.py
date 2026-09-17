@@ -168,6 +168,13 @@ def load_novelty(path: str) -> dict:
     return out
 
 
+def how_new(distance: dict, key: str) -> str:
+    """The distance column as written: three decimals, or blank for a frame the
+    ordering file never scored. Blank and not zero, since zero is a photo that
+    looks exactly like a labelled one."""
+    return f"{distance[key]:.3f}" if key in distance else ""
+
+
 def load_novelty_distance(path: str) -> dict:
     """``global_key`` -> how far the photo is from the nearest labelled one, as
     the ordering file wrote it. Same forgiveness as ``load_novelty``: an absent

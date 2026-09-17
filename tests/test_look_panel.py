@@ -206,8 +206,27 @@ def test_the_wait_queue_gets_no_pictures(look):
 
 
 # ---------------------------------------------------------------------------
-# the send-first table's un-measured note
+# the send-first table's "how new it looks" column
 # ---------------------------------------------------------------------------
+
+def test_the_send_preview_table_prints_three_decimals_and_blank_for_unranked(
+        queue_panels):
+    """``queue_rows`` carries ``how_new_it_looks`` as its last field: three
+    decimals for a frame the ordering file scored, blank for one it never
+    ranked. The table has to print exactly that, not "0.000" or "None"."""
+    c = SimpleNamespace(
+        queue_rows=[
+            ("long_tail", "comb_a_zoom", "guessed sp", 0.5, 1, "0.421"),
+            ("long_tail", "comb_b_zoom", "guessed sp", 0.3, None, ""),
+        ],
+        support={"guessed sp": 4},
+        selection_audit=None)
+    html = queue_panels.send_preview_table(c)
+    assert "how new it looks" in html
+    assert "0.421" in html
+    # The unranked row's cell is empty, not "None" or a stray "0.000".
+    assert "None" not in html and "0.000" not in html
+
 
 def test_the_ungraded_note_pulls_the_audit_figure_and_degrades_without_one(
         queue_panels, selection_panels, tmp_path):
