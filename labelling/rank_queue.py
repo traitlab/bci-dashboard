@@ -38,7 +38,8 @@ counts them apart.
 
 ``--audit`` and ``--confound`` write the two evidence files the queue page
 reads beside the ordering: whether this order finds rare species faster than a
-random one on the labelled frames, over several random starts, and whether
+random one on the labelled frames, over several random starts, with two other
+orders measured the same way beside it, and whether
 "looks unlike the labelled frames" tracks a rarely-labelled species once the
 site, the flight, the export batch, or the number of labelled frames the
 species already has, is held fixed. Both are labelfirst's own tests, so the
@@ -70,6 +71,7 @@ from labelfirst.io.queue import RunRecord, sha256_file
 from labelfirst.strategies.kcenter import greedy_kcenter
 from pool_filters import (
     drop_holdout_frames, drop_split_frames, load_holdout, load_splits)
+from rank_arms import ARMS, arm_factory
 from rank_confound import (equalised_anchor_confound, loo_distance, one_confound,
                            rarity, seeds_agreeing, separability_other_flight)
 from speciesfirst import backtest_species_coverage
@@ -351,6 +353,19 @@ def labelled_rows(args):
     return [keys[i] for i in idx], l2_normalise(emb[idx]), [species[keys[i]] for i in idx]
 
 
+def audit_record(panel, challenger: str) -> dict:
+    """labelfirst's panel as JSON, plus the count of starts the order won.
+
+    The panel carries every start's area under the curve but not how many of
+    them the challenger led on, and that count is what the page prints beside
+    the gain.
+    """
+    report = json.loads(panel.to_json())
+    report["n_seeds_agreeing"] = seeds_agreeing(panel.per_seed_aucs[challenger],
+                                                panel.per_seed_aucs["random"])
+    return report
+
+
 def run_audit(args) -> int:
     """Does this order find rare species faster than a random one, and is the
     difference more than chance.
@@ -361,6 +376,13 @@ def run_audit(args) -> int:
     the gain. Written as JSON for the queue page, which quotes the gain, the
     range, the p-value and how many starts agreed, and never the paper's number
     for a different embedding.
+
+    Two further arms run under the same starts and rounds and are written
+    beside it, each shaped like the shipped record: least confident first, the
+    rule this ranking replaced, and the four queues before novelty, which is
+    what the page ships. ``labelling/rank_arms.py`` holds both. The page reads
+    neither; they are here so the gain can be read against the order it
+    displaced and against the order actually sent out.
     """
     keys, X, labels = labelled_rows(args)
     counts = Counter(labels)
@@ -370,23 +392,33 @@ def run_audit(args) -> int:
                          f"nothing for the audit to find")
     print(f"audit on {len(keys)} labelled frames, {len(counts)} species, "
           f"{len(rare)} rare at <= {RARE_THRESHOLD} frames")
-    runs = simulate(X, labels=labels, rare_classes=rare, strategies=(STRATEGY, "random"),
+    runs = simulate(X, labels=labels, rare_classes=rare,
+                    strategies=(STRATEGY, "random", *ARMS),
                     seeds=list(range(AUDIT_SEEDS)), rounds=AUDIT_ROUNDS,
-                    k_per_round=AUDIT_K, seed_pool_size=AUDIT_SEED_POOL)
-    panel = audit(runs, challenger=STRATEGY, baseline_for_h1="random",
-                  embedding_sha256=sha_or_absent(args.anchor_npz))
+                    k_per_round=AUDIT_K, seed_pool_size=AUDIT_SEED_POOL,
+                    strategy_factory=arm_factory(keys, labels))
+    sha = sha_or_absent(args.anchor_npz)
+    # One panel per challenger, each against random alone. labelfirst's audit
+    # reads every strategy it is handed, so the arms are kept out of the
+    # shipped panel: the page's number must not move because something else
+    # was measured beside it.
+    panel = audit({STRATEGY: runs[STRATEGY], "random": runs["random"]},
+                  challenger=STRATEGY, baseline_for_h1="random",
+                  embedding_sha256=sha)
     efficiency = annotation_efficiency(panel.per_seed_trajectories, STRATEGY, "random",
                                        AUDIT_K)
     preflight = predict_al_benefit(X, labels)
     flights = load_flights(args.inventory)
-    # labelfirst's panel carries every start's area under the curve but not
-    # the count of starts this order won, and that count is what the page
-    # prints beside the gain. Written next to library_version, in the audit.
-    report = json.loads(panel.to_json())
-    report["n_seeds_agreeing"] = seeds_agreeing(panel.per_seed_aucs[STRATEGY],
-                                                panel.per_seed_aucs["random"])
+    report = audit_record(panel, STRATEGY)
     out = {
         "audit": report,
+        # The same record, arm by arm, under its own key. A reader of "audit"
+        # sees exactly what it saw before; a reader that knows about the arms
+        # finds each one shaped the same way.
+        "arms": {arm: audit_record(
+            audit({arm: runs[arm], "random": runs["random"]}, challenger=arm,
+                  baseline_for_h1="random", embedding_sha256=sha), arm)
+            for arm in ARMS},
         "efficiency": asdict(efficiency),
         "preflight": preflight,
         "separability_other_flight": separability_other_flight(
