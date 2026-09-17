@@ -25,7 +25,7 @@ from panels import (
     p_calibration, p_ceiling, p_counts, p_coverage, p_method, p_review, p_species,
     p_terms, p_weighting)
 from queue_panels import p_send, p_todo
-from queue_why_panels import p_evidence, p_look, p_namings
+from queue_why_panels import p_evidence, p_look
 
 
 # Order here is reading order. The measurement comes first and the explanation
@@ -74,7 +74,6 @@ PANELS = {
     "floor": ("explanations", p_floor),
     "todo": ("label-first", p_todo),
     "send": ("label-first", p_send),
-    "namings": ("queue-why", p_namings),
     "look": ("queue-why", p_look),
     "evidence": ("queue-why", p_evidence),
     "species": ("model-health", p_species),
@@ -103,7 +102,7 @@ PANELS = {
 # Internal is the labelling team's tool and stays thin, its deliverable being
 # send_batches.csv. External leaves the lab, carrying the confident
 # disagreements so they can be worked in Labelbox.
-INTERNAL_PANELS = ("todo", "send", "namings", "look", "evidence")
+INTERNAL_PANELS = ("todo", "send", "look", "evidence")
 # Order inside a section is the order these ids are listed in; the sections
 # themselves order the page. The species table now leads, because that is what
 # a reader scrolls to. The glossary and the three-frame-counts panel used to

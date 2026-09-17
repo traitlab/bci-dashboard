@@ -8,7 +8,7 @@ from __future__ import annotations
 import core as hc
 import queues
 from assets import cap, esc, more, panel, pctf, table
-from panels import NAMING_IS
+from panels import NAMING_IS, NAMING_NOTE
 from status_words import STATUS, SKIP_STATUSES, uncap
 
 # Enough to answer "what do I send next" without a CSV reader. A batch is 100
@@ -226,9 +226,8 @@ def send_notes(c):
              f'<p class="note"><b>The later export batch is ungraded.</b> No botanist has '
              f'labelled a frame carrying {NAMING_IS["tele"]}, which is '
              f'{c.queue_cams["tele"]:,} of the queue frames '
-             f'({pctf(hc.ratio(c.queue_cams["tele"], sum(c.queue_cams.values())))}).</p>')
-    # What the two namings are is in the page's second part, with the rest of
-    # the reasoning: queue_why_panels.p_namings.
+             f'({pctf(hc.ratio(c.queue_cams["tele"], sum(c.queue_cams.values())))}).</p>'
+             f'<p class="note">{NAMING_NOTE}</p>')
     return body
 
 
