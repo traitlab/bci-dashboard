@@ -204,7 +204,6 @@ def audit_note(c) -> str:
                  f'fewer labels for the same rare species.')
     ladder = ""
     if a["separability_pct"] is not None:
-        where = ("inside" if a["on_ladder"] else "outside")
         ladder = (f' A separate check: {_pct(a["separability_pct"])} of these photos '
                   f'have a same-species nearest photo as the model sees them.')
         # Photos from one flight overlap, so that nearest photo can be a
@@ -220,9 +219,8 @@ def audit_note(c) -> str:
         else:
             ladder += (' Photos from one flight overlap, and this audit does not say '
                        'how much of that rate rests on them.')
-        ladder += (f' The first rate is '
-                   f'{where} the range where labelfirst can predict a gain in advance, so '
-                   f'the number above is a measurement with no prediction beside it.')
+        ladder += (' This measurement stands on its own, with no prior expectation '
+                   'to check it against.')
     # The answer and what it was measured on stay open. The shape of a run, the
     # labels it saves, the separability check and the provenance are what a
     # reader checking the answer asks for next, and they wait behind a summary.
@@ -234,11 +232,21 @@ def audit_note(c) -> str:
             + more("How the runs were set up, and what they rest on",
                    f'<p class="note">Each run starts from {a["seed_pool"]} photos picked '
                    f'at random and adds {a["k_per_round"]} a round for {a["rounds"]} '
-                   f'rounds.{saved}{ladder} Measured with labelfirst '
-                   f'{esc(a["library"] or "unknown")} on this checkout, against the file '
-                   f'of photo vectors {_sha(a["sha"])}, written '
+                   f'rounds.{saved}{ladder} The file of photo vectors was written '
                    f'{esc(a["written"] or "on an unrecorded date")}. No number here comes '
                    f'from a paper or from a different model.</p>'))
+
+
+def audit_footer(c) -> str:
+    """The rare-species audit's library and vector-file provenance, one clause
+    for the page footer rather than the note above, which is read before a
+    reader has any reason to check a version number."""
+    a = getattr(c, "selection_audit", None)
+    if not a:
+        return ""
+    return (f' The rare-species ordering was measured with labelfirst '
+            f'{esc(a["library"] or "unknown")}, against the file of photo vectors '
+            f'{_sha(a["sha"])}.')
 
 
 def confound_note(c) -> str:

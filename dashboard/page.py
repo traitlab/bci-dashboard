@@ -26,6 +26,7 @@ from panels import (
     p_terms, p_weighting)
 from queue_panels import p_send, p_todo
 from queue_why_panels import p_evidence, p_look
+from selection_panels import audit_footer
 
 
 # Order here is reading order. The measurement comes first and the explanation
@@ -179,7 +180,7 @@ def footer(c) -> str:
     """
     return (f'<div class="subtitle">Pl@ntNet was asked the same way every time: '
             f'{hc.in_words(c.n_cand)} answers per photo, rejection off, related images '
-            f'off. Run {esc(c.tag)}.</div>')
+            f'off. Run {esc(c.tag)}.{audit_footer(c)}</div>')
 
 
 def document(title: str, body: str) -> str:
