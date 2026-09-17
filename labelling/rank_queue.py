@@ -40,8 +40,9 @@ counts them apart.
 reads beside the ordering: whether this order finds rare species faster than a
 random one on the labelled frames, over several random starts, and whether
 "looks unlike the labelled frames" tracks a rarely-labelled species once the
-site, the flight, or the export batch, is held fixed. Both are labelfirst's own
-tests, so the page quotes a number it did not make up.
+site, the flight, the export batch, or the number of labelled frames the
+species already has, is held fixed. Both are labelfirst's own tests, so the
+page quotes a number it did not make up.
 """
 
 from __future__ import annotations
@@ -69,8 +70,8 @@ from labelfirst.io.queue import RunRecord, sha256_file
 from labelfirst.strategies.kcenter import greedy_kcenter
 from pool_filters import (
     drop_holdout_frames, drop_split_frames, load_holdout, load_splits)
-from rank_confound import (loo_distance, one_confound, rarity, seeds_agreeing,
-                           separability_other_flight)
+from rank_confound import (equalised_anchor_confound, loo_distance, one_confound,
+                           rarity, seeds_agreeing, separability_other_flight)
 from speciesfirst import backtest_species_coverage
 
 REPO = Path(__file__).resolve().parents[1]
@@ -406,15 +407,23 @@ def run_audit(args) -> int:
 
 def run_confound(args) -> int:
     """Does "looks unlike the labelled frames" track a rarely-labelled species
-    once the site, the flight, or the export batch, is held fixed.
+    once the site, the flight, the export batch, or the species' own count of
+    labelled frames, is held fixed.
 
-    Four of labelfirst's confound audits, written as one JSON for the page: on
-    the labelled frames with site held fixed, and on the queue with the export
-    batch, the site, and the flight (one date at one site) held fixed. The
+    Five audits, written as one JSON for the page: on the labelled frames with
+    site held fixed, on the queue with the export batch, the site, and the
+    flight (one date at one site) held fixed, and on the labelled frames again
+    with every species lending the reference set the same number of frames. The
     queue's target is the labelled-frame count of the species the model
     guessed, read off send_first_queue.csv, since no queued frame carries a
     label yet. A frame whose site cannot be read leaves the site and flight
-    audits and is counted in the record as n_unreconciled.
+    audits and is counted in the record as n_unreconciled; a species with too
+    few labelled frames to lend an equal share leaves the fifth and is counted
+    the same way.
+
+    The fifth is the one that can move the headline. The first four hold fixed
+    where a frame came from, and none of them can hold fixed the quantity the
+    score is built out of.
     """
     keys, X, labels = labelled_rows(args)
     counts = Counter(labels)
@@ -446,12 +455,21 @@ def run_confound(args) -> int:
             score_name="distance to the nearest labelled frame",
             target_name="fewer labelled frames for the species the model guessed",
             covariate_name=name))
+
+    # The fifth: the one covariate the four above cannot hold fixed, because it
+    # is not a property of where a frame came from but of how the score is
+    # built. A species with one labelled frame has nothing of its own to be
+    # close to, so it cannot score low on "distance to the nearest labelled
+    # frame" whatever it looks like. Equalising the frames a species lends the
+    # reference set is the only way to ask whether the rest of the link is the
+    # species.
+    audits.append(equalised_anchor_confound(X, labels, counts))
+
     for a in audits:
         print(f"{a['population']}, {a['covariate']} held fixed: {a['verdict']}, "
               f"raw {a['raw_corr']:+.3f} -> partial {a['partial_corr']:+.3f} "
               f"(p={a['partial_p']:.3g}), covariate explains {a['covariate_eta2']:.0%} "
-              f"of the score, n={a['n']}, {a['n_unreconciled']} left out with no "
-              f"readable {a['covariate']}")
+              f"of the score, n={a['n']}, {a['n_unreconciled']} left out")
     out = {"audits": audits,
            "run": asdict(run_record(args.pool_npz, len(queued), args.anchor_npz,
                                     len(keys)))}

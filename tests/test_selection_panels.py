@@ -34,7 +34,10 @@ def _audit(tmp_path, other_flight=True, **over):
     return str(p)
 
 
-def _confound(tmp_path, verdict="robust", flight=False):
+def _confound(tmp_path, verdict="robust", flight=False, equalised=True):
+    """The confound file as a real checkout carries it: the covariate audits,
+    and last the one that holds the species' own count of labelled frames fixed.
+    That last one is the page's headline, so it is on by default here."""
     d = {"audits": [{"population": "queued photos", "covariate": "export batch",
                      "verdict": verdict, "raw_corr": 0.445, "partial_corr": 0.452,
                      "partial_p": 0.0002, "covariate_eta2": 0.004, "n": 3873,
@@ -47,6 +50,15 @@ def _confound(tmp_path, verdict="robust", flight=False):
                             "verdict": "robust", "raw_corr": 0.445, "partial_corr": 0.30,
                             "partial_p": 0.0002, "covariate_eta2": 0.12, "n": 3871,
                             "n_groups": 40, "n_unreconciled": 2})
+    if equalised:
+        d["audits"].append({"population": "labelled frames",
+                            "covariate": "labelled-frames count per species",
+                            "verdict": "confounded", "raw_corr": 0.446,
+                            "partial_corr": 0.054, "partial_p": 0.0002,
+                            "covariate_eta2": 0.288, "n": 1564, "n_groups": 104,
+                            "n_unreconciled": 51, "anchors_per_species": 1,
+                            "n_anchors": 104, "n_draws": 20,
+                            "partial_corr_min": -0.148, "partial_corr_max": 0.183})
     p = tmp_path / "confound.json"
     p.write_text(json.dumps(d))
     return str(p)
@@ -109,6 +121,40 @@ def test_the_notes_carry_the_number_its_population_and_its_range(selection_panel
     assert "19% carry the newer file naming" in cf
 
 
+def test_the_headline_is_the_number_with_every_species_lending_the_same_frames(
+        selection_panels, tmp_path):
+    """The distance is to the nearest labelled frame, so a species with one
+    labelled frame cannot score low on it and the uncontrolled correlation is
+    largely a count of those frames. The page leads on the equalised number and
+    keeps the uncontrolled one beside it. Both come off the file."""
+    sp = selection_panels
+    c = SimpleNamespace(selection_confound=sp.selection_confound(_confound(tmp_path)),
+                        head_n=0)
+    cf = sp.confound_note(c)
+    assert ("With every species lending the same number of labelled frames the link "
+            "is +0.05, against +0.45 uncontrolled." in cf)
+    assert "a species with one has nothing of its own to be near" in cf
+    # The fifth audit's own bullet, with the species it could not equalise
+    # counted for the reason they were left out rather than the site's reason.
+    assert "1,564, 104 species" in cf
+    assert ("51 photos were left out because their species had too few labelled "
+            "frames to lend an equal share" in cf)
+    assert "is mostly the labelled-frames count per species" in cf
+
+
+def test_an_older_confound_file_without_the_fifth_audit_leads_on_nothing(
+        selection_panels, tmp_path):
+    """A file written before the equalisation existed still builds a page; it
+    just has no headline to lead with, rather than a blank one."""
+    sp = selection_panels
+    c = SimpleNamespace(selection_confound=sp.selection_confound(
+        _confound(tmp_path, equalised=False)), head_n=0)
+    cf = sp.confound_note(c)
+    assert "every species lending" not in cf and "Uncontrolled" not in cf
+    assert "It was tested once: export batch held fixed." in cf
+    assert "A photo can look new for the batch it came from" in cf
+
+
 def test_the_nearest_photo_rate_is_never_printed_without_its_other_flight_twin(
         selection_panels, tmp_path):
     # Photos from one flight overlap, so a same-species nearest photo can be a
@@ -122,6 +168,18 @@ def test_the_nearest_photo_rate_is_never_printed_without_its_other_flight_twin(
         selection_audit=sp.selection_audit(_audit(tmp_path, other_flight=False))))
     assert "82% of these photos" in old and "another flight" not in old
     assert "does not say how much of that rate rests on them" in old
+
+
+def test_the_audit_note_says_the_runs_ranked_by_novelty_alone(selection_panels, tmp_path):
+    """The runs behind the gain ranked purely by how new the photo looks. The
+    shipped order sorts into the four queues first, so the note has to say the
+    gain describes the ranking alone, not the order a botanist receives."""
+    sp = selection_panels
+    note = sp.audit_note(SimpleNamespace(selection_audit=sp.selection_audit(_audit(tmp_path))))
+    assert ("Each run ranked by how new the photo looks alone, with no queue "
+            "first." in note)
+    assert ("The shipped order on this page sorts into the four queues first, "
+            "so the gain describes the ranking alone, not this order." in note)
 
 
 def test_a_failed_audit_claims_nothing(selection_panels, tmp_path):
@@ -197,12 +255,13 @@ def test_the_flight_reads_as_the_date_and_the_site_and_the_left_out_are_counted(
         selection_panels, tmp_path):
     sp = selection_panels
     f = sp.selection_confound(_confound(tmp_path, flight=True))
-    assert [t["n_unreconciled"] for t in f["tests"]] == [0, 2]
+    assert [t["n_unreconciled"] for t in f["tests"]] == [0, 2, 51]
     c = SimpleNamespace(selection_confound=f, head_n=0)
     cf = sp.confound_note(c)
     # The count comes from the file: two audits here, four on a real checkout.
-    assert ("It was tested twice: export batch held fixed, then the flight, "
-            "meaning the date and the site, held fixed." in cf)
+    assert ("It was tested three times: export batch held fixed, the flight, meaning "
+            "the date and the site, held fixed, then labelled-frames count per species "
+            "held fixed." in cf)
     assert "40 flights" in cf and "holds once the flight is held fixed" in cf
     assert "2 photos were left out because their site could not be read" in cf
     # The export-batch line, where nothing was left out, says nothing about it.
