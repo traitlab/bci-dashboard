@@ -7,11 +7,12 @@ Two files ``labelling/rank_queue.py`` writes on request, outside
   order find rare species faster than a random one, over several random
   starts, and is the difference more than chance.
 - ``selection_confound.json``: does "looks unlike the labelled photos" still
-  track a rarely-labelled species once the site, the flight, or the export
-  batch, is held fixed. Four tests: the labelled photos by site, the queue by
-  export batch, the queue by site, the queue by flight (one date at one site).
-  A photo whose site could not be read is left out of the site and flight
-  tests, and each test says how many.
+  track a rarely-labelled species once the site, the flight, the export batch,
+  or the species' own count of labelled frames, is held fixed. Five tests: the
+  labelled photos by site, the queue by export batch, the queue by site, the
+  queue by flight (one date at one site), and the labelled photos again with
+  every species lending the same number of labelled frames. A photo left out
+  of a test is counted, and each test says how many.
 
 Both are labelfirst's own tests, run on this checkout's photos. The page never
 quotes a number from a paper for a different model: the only gain it prints is
@@ -35,7 +36,12 @@ from assets import esc, more
 COUNT_WORDS = {1: "once", 2: "twice", 3: "three times", 4: "four times",
                5: "five times", 6: "six times"}
 
-PLURAL = {"site": "sites", "export batch": "export batches", "flight": "flights"}
+# The covariate ``labelling/rank_confound.py`` writes for the audit that holds
+# the species' own count of labelled frames fixed. Named here because the page
+# leads on that audit's number and has to find it in the file by name.
+ANCHOR_COVARIATE = "labelled-frames count per species"
+PLURAL = {"site": "sites", "export batch": "export batches", "flight": "flights",
+          ANCHOR_COVARIATE: "species"}
 # How many hex digits of a file hash the page prints: enough to tell two files
 # apart, short enough to read against the ordering file's own record.
 SHA_SHOWN = 12
@@ -253,11 +259,20 @@ def confound_note(c) -> str:
     """Is a photo new for its species, or new for the batch it came from.
 
     The two hand-counted shares (how much of the head carries the newer file
-    naming, against the whole queue) stay as the raw fact. The measured test
-    under them says whether the link between "looks new" and "rarely labelled"
-    survives holding the site, the flight, or the export batch, fixed. A test
-    that left photos out for having no readable site says how many, so the
-    count beside it is never quietly short.
+    naming, against the whole queue) stay as the raw fact. The measured tests
+    under them say whether the link between "looks new" and "rarely labelled"
+    survives holding the site, the flight, the export batch, or the species'
+    own count of labelled frames, fixed. A test that left photos out says how
+    many, so the count beside it is never quietly short.
+
+    The headline is the last of those, not the first. The distance is measured
+    to the nearest labelled frame, so a species with one labelled frame has
+    nothing of its own to be near and cannot score low whatever it looks like.
+    Holding the site or the export batch fixed leaves that alone, which is why
+    those four tests all come back holding. The number a reader should take
+    away is the one measured with every species lending the same number of
+    labelled frames, and the uncontrolled figure is printed beside it rather
+    than instead of it. Both are read off the file, never written in here.
     """
     f = getattr(c, "selection_confound", None)
     head = ""
@@ -278,16 +293,34 @@ def confound_note(c) -> str:
                                   "not know, {cov}").format(cov=cov)
         left_out = ""
         if t["n_unreconciled"]:
-            left_out = (f' {t["n_unreconciled"]:,} photos were left out because their '
-                        f'site could not be read.')
+            why = ("their species had too few labelled frames to lend an equal share"
+                   if t["covariate"] == ANCHOR_COVARIATE else "their site could not be read")
+            left_out = f' {t["n_unreconciled"]:,} photos were left out because {why}.'
         lines.append(
             f'<li>On the {esc(t["population"])} ({t["n"] or 0:,}, {t["n_groups"] or 0} '
             f'{many}): the link {words}. Rank correlation {_corr(t["raw"])} before, '
             f'{_corr(t["partial"])} after, p {_p(t["p"])}; the {cov} explains '
             f'{_pct(100 * (t["eta2"] or 0))} of how new a photo looks.{left_out}</li>')
-    return (f'<p class="note"><b>Is it the species, or the batch?</b> {head}'
-            f'A photo can look new for the batch it came from rather than for what grows '
-            f'in it. It was tested {_times(f["tests"])}.</p>'
+    # The headline, when the file carries the audit that can move it. Every
+    # figure in it comes off the record, so a re-run moves the sentence with it.
+    equalised = next((t for t in f["tests"] if t["covariate"] == ANCHOR_COVARIATE), None)
+    # An aside is four sentences, and the bold lead is one of them. So the
+    # framing sentence moves down beside the reason whenever there is a headline
+    # to lead with, and stays up top when there is not.
+    framing = ('A photo can look new for the batch it came from rather than for what '
+               'grows in it. ')
+    headline, why = '', ''
+    if equalised:
+        headline = (f' With every species lending the same number of labelled frames the '
+                    f'link is {_corr(equalised["partial"])}, against '
+                    f'{_corr(equalised["raw"])} uncontrolled.')
+        why = (f'<p class="note">{framing}A photo is measured against the nearest '
+               f'labelled frame, so a species with one has nothing of its own to be '
+               f'near. That is why the uncontrolled figure is largely a count of those '
+               f'frames.</p>')
+        framing = ''
+    return (f'<p class="note"><b>Is it the species, or the batch?</b> {head}{framing}'
+            f'It was tested {_times(f["tests"])}.{headline}</p>{why}'
             f'<ul class="note">{"".join(lines)}</ul>'
             f'<p class="note">On the labelled photos the species is known, and on the '
             f'queue it is the one the model guessed. '
