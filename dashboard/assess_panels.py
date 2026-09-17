@@ -48,7 +48,10 @@ def limit_note(transductive: dict, limits: dict) -> str:
     count = {k: sum(1 for v in shown if v == k) for k in LIMIT_WORDS}
     return (f'<p class="note"><b>What would help</b> is judged on the '
             f'{pop["n_frames"]:,} labelled frames the model has a view of, '
-            f'{pop["n_species"]} species. Half the labels are hidden. Each hidden '
+            f'{pop["n_species"]} species. That is fewer than the labelled frames counted '
+            f'elsewhere on this page. Only frames the model has worked out how they look, '
+            f'the 768 numbers Pl@ntNet makes from a centre crop, are used here. Half the '
+            f'labels are hidden. Each hidden '
             f'frame is then named from its {transductive["method"]["k"]} nearest '
             f'labelled ones, {pop["n_seeds"]} times over with a different half. '
             f'<i>{LIMIT_WORDS["resolved"]}</i>: the hidden frames come back right. '
@@ -117,10 +120,11 @@ def reject_table(sweep: dict) -> str:
             # worth taking needs all four sentences, so they stay, one click in.
             + more("How the plausible-name count is worked out",
                    f'<p class="note">A plain classifier is fitted to how the photos '
-                   f'look, in {method["n_folds"]} folds. Each frame is then asked how '
-                   f'many names it cannot rule out, at '
-                   f'{100 * (1 - method["alpha"]):.0f}% coverage. This is not Pl@ntNet '
-                   f'and its first guess is not Pl@ntNet&rsquo;s.</p>')
+                   f'look, in {method["n_folds"]} splits of the frames. Each frame is '
+                   f'then asked how many names it cannot rule out, so that the list of '
+                   f'names holds the right one '
+                   f'{round(10 * (1 - method["alpha"]))} times in 10. This is not '
+                   f'Pl@ntNet and its first guess is not Pl@ntNet&rsquo;s.</p>')
             + table([("At most this many plausible names", True),
                      ("Frames kept", True), ("Frames kept, new flight", True),
                      ("First guess right, kept frames", True),

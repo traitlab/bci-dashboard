@@ -313,6 +313,18 @@ def test_the_legend_counts_the_words_the_column_shows_and_not_the_file(assess_pa
     assert "Over the 1 species with that many: 1 no gap found, 0 better model, 0 more labels" in html
 
 
+def test_the_legend_says_why_its_population_is_smaller_than_the_rest_of_the_page(
+        assess_panels):
+    """The 100 frames here are the frames the model has worked out how they
+    look, narrower than the labelled-frame counts the page reports elsewhere,
+    and the note says so rather than leaving a reader to wonder."""
+    t = {"population": {"n_frames": 100, "n_species": 3, "n_seeds": 8},
+         "summary": {}, "method": {"k": 5}}
+    html = assess_panels.limit_note(t, {})
+    assert "fewer than the labelled frames counted elsewhere on this page" in html
+    assert "embedding" not in html.lower()
+
+
 def test_the_review_csv_stamps_each_row_with_its_mechanism(assessments, tmp_path):
     """The mechanism is added at write time off the frame key, so the rows
     measure.py builds stay the six columns they were, and a frame the file
