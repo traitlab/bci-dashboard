@@ -240,7 +240,10 @@ def audit_note(c) -> str:
                    f'at random and adds {a["k_per_round"]} a round for {a["rounds"]} '
                    f'rounds.{saved}{ladder} The file of photo vectors was written '
                    f'{esc(a["written"] or "on an unrecorded date")}. No number here comes '
-                   f'from a paper or from a different model.</p>'))
+                   f'from a paper or from a different model. Each run ranked by how new '
+                   f'the photo looks alone, with no queue first. The shipped order on '
+                   f'this page sorts into the four queues first, so the gain describes '
+                   f'the ranking alone, not this order.</p>'))
 
 
 def audit_footer(c) -> str:
