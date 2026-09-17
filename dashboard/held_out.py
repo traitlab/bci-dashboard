@@ -214,18 +214,27 @@ def note(result: dict, flight: dict | None = None) -> str:
     """
     t, u = result["test"], result["unseen"]
     unplaced = result["unplaced"]
-    line = (f'<p class="note"><b>Were the test frames (the labelled frames set aside for scoring) flown on the same flights as the rest?</b> A flight is one date over one site. The first guess is right on '
-            f'{_pct(t["top1"])} of the {t["n"]:,} test frames. ')
+    if u["n"]:
+        verdict = (f'No: {u["n"]:,} test frames come from a flight with no train frame, '
+                   f'so not every test frame shares its flight with the rest.')
+    else:
+        verdict = ('Yes: every test frame shares its flight, one date over one site, with '
+                   'a train frame, so no test frame comes from a flight the labels never '
+                   'saw.')
+    line = (f'<p class="note"><b>{verdict}</b> The rate to quote is the page\'s headline '
+            f'number, not either rate this note prints: both are read over a subset of '
+            f'the frames it covers. The first guess is right on '
+            f'{_pct(t["top1"])} of the {t["n"]:,} test frames, mostly on flights that '
+            f'also carried a train frame, so this leans on the same-flight subset. ')
     if u["n"]:
         line += (f'On the {u["n"]:,} test frames from flights with no train frame it is '
-                 f'right on {_pct(u["top1"])}. Those frames hold different species in '
-                 f'different shares from the rest, so the gap between the two rates is '
-                 f'not the size of a leak. ')
+                 f'right on {_pct(u["top1"])}, the new-flight subset within the test '
+                 f'split. Those frames hold different species in different shares from '
+                 f'the rest, so the gap between the two rates is not the size of a '
+                 f'leak. ')
     else:
-        line += ('Every one of them shares its flight with a train frame, so no test '
-                 'frame comes from a flight the labels never saw. ')
-        line += ('The second score below is on other frames, held back whole by '
-                 'flight. ' if flight else
+        line += ('The second score below is on other frames, held back whole by flight, '
+                 'a further new-flight subset. ' if flight else
                  'A set held back by whole flights would grade frames that share a '
                  'flight with no train frame. ')
     if unplaced:
