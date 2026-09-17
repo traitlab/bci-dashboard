@@ -378,7 +378,8 @@ def _thumbs(rows, per_queue):
     """
     out, seen = defaultdict(list), Counter()
     for q, stem, pred, _conf, _rank in rows:
-        if seen[q] >= per_queue:
+        # The wait queue is printed as a record, never as pictures.
+        if q == queues.WAIT_QUEUE or seen[q] >= per_queue:
             continue
         path = os.path.join(hc.THUMB_DIR, f"{hc.GT_KEY_PREFIX}{stem}.jpg")
         if not os.path.exists(path):

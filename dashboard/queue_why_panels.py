@@ -100,6 +100,9 @@ def contact_sheet(c) -> str:
         return ""
     out = []
     for q in queues.QUEUE_ORDER:
+        if q == queues.WAIT_QUEUE:
+            out.append(wait_record(c))
+            continue
         shots = c.thumbs.get(q)
         if not shots:
             continue
@@ -113,15 +116,43 @@ def contact_sheet(c) -> str:
                    f'<div class="sheet">{cells}</div>')
     return ("".join(out)
             + f'<p class="note"><b>What you are looking at.</b> The first '
-              f'{hc.THUMBS_PER_QUEUE} photos of each queue, in the order above, cut down '
-              f'to the middle of the frame. That is the region Pl@ntNet scored, so this is '
-              f'what the order was decided on.</p>')
+              f'{hc.THUMBS_PER_QUEUE} photos of each queue a botanist works, in the order '
+              f'above, cut down to the middle of the frame. That is the region Pl@ntNet '
+              f'scored, so this is what the order was decided on.</p>')
+
+
+def wait_record(c) -> str:
+    """One line for the queue the wait rule fills: count, rule, measured error.
+
+    Nobody works this queue, so it is a record, not a task, and it gets no
+    sheet. Twelve captionless thumbnails under "confident on a well-covered
+    species" read as more work to do, and a reader on 2026-09-17 could not say
+    what the block was for. The three facts that answer that are the count, the
+    rule, and that the rule is measured.
+    """
+    n = c.queue_counts.get(queues.WAIT_QUEUE, 0)
+    held = c.held_wait
+    if held["n"]:
+        graded = (f' The same rule was graded on {held["n_frames"]:,} labelled frames held '
+                  f'back by whole flights. It reaches {held["n"]:,} of them, and the first '
+                  f'guess is wrong on {pctf(held["err"])} of those.')
+    else:
+        graded = (' On the labelled frames held back for grading, the rule is wrong on '
+                  f'{pctf(c.best["err"])} of the frames it reaches.')
+    return (f'<h3 class="sub">{esc(cap(QL[queues.WAIT_QUEUE][0]))}</h3>'
+            f'<p class="qrule">{esc(QL[queues.WAIT_QUEUE][1])}</p>'
+            f'<p class="note"><b>{n:,} photos wait here.</b> Nobody labels them this '
+            f'round, and the next model change undoes the push.{graded}</p>'
+            f'<p class="note">The rule and its grade are under '
+            f'<a href="#which-frames-can-wait">which frames can wait</a>. '
+            f'The rows are the ones marked {esc(queues.WAIT_QUEUE)} in '
+            f'<a href="send_first_queue.csv">send_first_queue.csv</a>.</p>')
 
 
 SCORED = ("<b>Ordering by look finds species faster than working down a random "
-          "list.</b> The charts below score that on photos already named, show where "
-          "the ordering stops separating photos, and put the head of every queue on "
-          "screen.")
+          "list.</b> The charts below score that on photos already named and show where "
+          "the ordering stops separating photos. The head of every queue a botanist "
+          "works is on screen.")
 UNSCORED = ("<b>The queue is ordered by look: the photo least like everything already "
             "named comes first.</b> That ordering has not been scored on this checkout, "
             "so this panel makes no claim about what it buys.")
