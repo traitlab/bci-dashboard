@@ -131,11 +131,11 @@ def test_the_walk_counts_answers_by_the_project_they_name(core, health, tmp_path
     scan = health.scan_cache(_cache(tmp_path, {
         "a": _answer(core.EVAL_PROJECT, "recorded"),
         "b": _answer(core.EVAL_PROJECT, "assumed"),
-        "c": _answer("bcnm", "recorded"),
+        "c": _answer("k-somewhere-else", "recorded"),
         "d": _answer(),
     }))
     assert scan.project_count[core.EVAL_PROJECT] == 2
-    assert scan.project_count["bcnm"] == 1
+    assert scan.project_count["k-somewhere-else"] == 1
     assert scan.project_count[""] == 1
     assert scan.n_no_project == 1
     assert scan.n_foreign_project == 1

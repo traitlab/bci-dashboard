@@ -120,3 +120,27 @@ def test_the_salvage_returns_none_rather_than_raising_on_bad_json_inside(core):
     """Brackets can balance over content that is not valid JSON. None, so the
     caller records unreadable instead of the exception reaching a builder."""
     assert core.salvage_species_array('{"species": [not json]}') is None
+
+
+# ---------------------------------------------------------------------------
+# The two shapes on disk
+# ---------------------------------------------------------------------------
+
+def test_the_identify_shape_reads_as_the_survey_shape(core, tmp_path):
+    """`predict/photo.py` writes a flat `results` list with `scientific_name`
+    and `score`; every page reads `binomial` and `max_score`. The bcnm cache
+    was fetched in the first shape, so without this the pages saw an empty
+    answer for every one of its photos."""
+    identify = {"results": [
+        {"rank": 1, "score": 0.9, "scientific_name": "Ficus insipida", "gbif_id": "5361867"},
+        {"rank": 2, "score": 0.05, "scientific_name": "Ficus maxima", "gbif_id": None},
+    ]}
+    sp, status = core.load_cache_entry(_write(tmp_path, json.dumps(identify)))
+    assert status == "ok"
+    assert [(s["binomial"], s["max_score"], s["coverage"]) for s in sp] == [
+        ("Ficus insipida", 0.9, 0.9), ("Ficus maxima", 0.05, 0.05)]
+    assert [s["gbif_id"] for s in sp] == ["5361867", ""]
+
+
+def test_an_empty_identify_list_is_an_answer(core, tmp_path):
+    assert core.load_cache_entry(_write(tmp_path, '{"results": []}')) == ([], "ok")
