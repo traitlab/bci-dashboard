@@ -258,3 +258,72 @@ def test_the_ungraded_note_pulls_the_audit_figure_and_degrades_without_one(
 
     absent = queue_panels.ungraded_note(SimpleNamespace(selection_audit=None))
     assert "has not been measured yet" in absent
+
+
+# ---------------------------------------------------------------------------
+# the contact sheet's per-queue record
+# ---------------------------------------------------------------------------
+
+def _sheet_context(**overrides):
+    """A context with just enough for `contact_sheet`: three working queues,
+    a wait queue that never gets a sheet, and the counters `queue_record`
+    reads. Held-out grading is empty, so `wait_record` falls back to
+    `best["err"]`."""
+    from collections import Counter
+    base = dict(
+        thumbs={"long_tail": [("a_zoom", "sp a", "data:image/jpeg;base64,x")],
+                "low_conf_known": [], "normal": [("n_zoom", "sp n",
+                                                   "data:image/jpeg;base64,y")]},
+        queue_counts={"long_tail": 5, "low_conf_known": 2, "normal": 9, "can_wait": 3},
+        lt_species=Counter({"sp a": 2, "sp b": 1}),
+        held_wait={"n": 0, "n_frames": 0, "err": 0.0},
+        best={"err": 0.1})
+    base.update(overrides)
+    return SimpleNamespace(**base)
+
+
+def test_queue_record_gives_long_tail_a_species_count_and_the_others_none(
+        queue_why_panels):
+    """Only `long_tail` has a leak-free number to show: how many distinct
+    species its own guesses name. The other working queues get the photo
+    count and the link, and no invented figure."""
+    c = _sheet_context()
+    lt = queue_why_panels.queue_record(c, "long_tail")
+    assert "5 photos are in this queue" in lt
+    assert "2 distinct species show up in these guesses" in lt
+    assert "send_first_queue.csv" in lt
+
+    normal = queue_why_panels.queue_record(c, "normal")
+    assert "9 photos are in this queue" in normal
+    assert "distinct species" not in normal
+    assert "send_first_queue.csv" in normal
+
+
+def test_contact_sheet_puts_the_caption_before_the_first_queue_heading(
+        queue_why_panels):
+    """A reader must meet the explanation of the crops before the crops, not
+    after the last strip."""
+    c = _sheet_context()
+    html = queue_why_panels.contact_sheet(c)
+    caption_at = html.index("What you are looking at")
+    first_heading_at = html.index("<h3")
+    assert caption_at < first_heading_at
+
+
+def test_contact_sheet_says_so_when_a_working_queue_has_no_cached_thumbs(
+        queue_why_panels):
+    """`low_conf_known` has no thumbs in this context. The record still
+    prints; the missing sheet says so instead of leaving a heading with
+    nothing under it."""
+    c = _sheet_context()
+    html = queue_why_panels.contact_sheet(c)
+    assert "No thumbnails are cached for this queue yet." in html
+    assert "2 photos are in this queue" in html
+
+
+def test_contact_sheet_keeps_crops_for_working_queues_but_not_the_wait_queue(
+        queue_why_panels):
+    c = _sheet_context()
+    html = queue_why_panels.contact_sheet(c)
+    assert html.count('<div class="sheet">') == 2  # long_tail and normal have shots
+    assert "3 photos wait here" in html  # the wait queue's record, no sheet

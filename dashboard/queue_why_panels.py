@@ -78,36 +78,61 @@ def novelty_chart(c) -> str:
               'at the head do.</p>')
 
 
+def queue_record(c, q: str) -> str:
+    """One line for a queue a botanist works: count, and the measured number
+    that applies to it, if this checkout has one.
+
+    Only ``long_tail`` has one today: how many distinct species its guesses
+    name, counted off the queue itself rather than a labelled frame, since
+    nothing else here carries a ground truth to measure against. The other two
+    working queues get the count and the link and no invented number.
+    """
+    n = c.queue_counts.get(q, 0)
+    measured = (f' {len(c.lt_species):,} distinct species show up in these guesses.'
+               if q == "long_tail" and c.lt_species else '')
+    return (f'<p class="note"><b>{n:,} photos are in this queue.</b>{measured}</p>'
+            f'<p class="note">The rows are the ones marked {esc(q)} in '
+            f'<a href="send_first_queue.csv">send_first_queue.csv</a>.</p>')
+
+
 def contact_sheet(c) -> str:
-    """The head of each queue, as pictures.
+    """Each queue a botanist works: its count, its measured number if this
+    checkout has one, and the photos at its head.
 
     Every other figure on this page is about frames the reader has never seen.
     The picture is the centre crop, the same region the model scored, so what is
-    on screen is what the order was decided on.
+    on screen is what the order was decided on. The caption that explains that
+    sits first, so a reader meets the explanation before the wall of photos,
+    not after it.
     """
     if not c.thumbs:
         return ""
-    out = []
+    out = [f'<p class="note"><b>What you are looking at.</b> The first '
+           f'{hc.THUMBS_PER_QUEUE} photos of each queue a botanist works, in the order '
+           f'above, cut down to the middle of the frame. That is the region Pl@ntNet '
+           f'scored, so this is what the order was decided on.</p>']
     for q in queues.QUEUE_ORDER:
         if q == queues.WAIT_QUEUE:
             out.append(wait_record(c))
             continue
         shots = c.thumbs.get(q)
+        head = (f'<h3 class="sub">{esc(cap(QL[q][0]))}</h3>'
+               f'<p class="qrule">{esc(QL[q][1])}</p>'
+               + queue_record(c, q))
         if not shots:
+            # A queue with nothing to fetch, or a fetch that has not reached
+            # it yet: say so rather than leaving the record with no sheet and
+            # no explanation under it.
+            out.append(head + '<p class="note">No thumbnails are cached for '
+                       'this queue yet.</p>')
             continue
         cells = "".join(
             f'<img src="{uri}" width="{hc.THUMB_PX}" height="{hc.THUMB_PX}" '
             f'alt="{esc(stem)}, guessed {esc(pred) or "nothing"}" '
             f'title="{esc(stem)} &#10; {esc(pred)}"/>'
             for stem, pred, uri in shots)
-        out.append(f'<h3 class="sub">{esc(cap(QL[q][0]))}</h3>'
-                   f'<p class="qrule">{esc(QL[q][1])}</p>'
-                   f'<div class="sheet">{cells}</div>')
-    return ("".join(out)
-            + f'<p class="note"><b>What you are looking at.</b> The first '
-              f'{hc.THUMBS_PER_QUEUE} photos of each queue a botanist works, in the order '
-              f'above, cut down to the middle of the frame. That is the region Pl@ntNet '
-              f'scored, so this is what the order was decided on.</p>')
+        out.append(head + f'<div class="sheet">{cells}</div>')
+    return "".join(out)
 
 
 def wait_record(c) -> str:
