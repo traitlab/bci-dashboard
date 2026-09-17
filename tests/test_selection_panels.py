@@ -177,14 +177,18 @@ def test_both_notes_name_the_file_of_photo_vectors_they_were_run_against(
         selection_panels, tmp_path):
     """Beside the library version, the first twelve hex of the hash the audit
     and the confound were run on, so a reader can match them to the ordering
-    file's own record without opening the JSON."""
+    file's own record without opening the JSON. The audit's own version and
+    hash sit in the page footer instead of the note, which is read before a
+    reader has any reason to check one."""
     sp = selection_panels
     c = SimpleNamespace(selection_audit=sp.selection_audit(_audit(tmp_path)),
                         selection_confound=sp.selection_confound(_confound(tmp_path)),
                         head_n=0)
     note = sp.audit_note(c)
-    assert "labelfirst 0.9.0" in note and "anchor-sha01," in note
-    assert "anchor-sha0123456789abcdef" not in note
+    assert "labelfirst 0.9.0" not in note and "anchor-sha01" not in note
+    footer = sp.audit_footer(c)
+    assert "labelfirst 0.9.0" in footer and "anchor-sha01" in footer
+    assert "anchor-sha0123456789abcdef" not in footer
     cf = sp.confound_note(c)
     assert "labelfirst 0.9.0" in cf and "pool-sha0123 " in cf and "anchor-sha01 " in cf
 
