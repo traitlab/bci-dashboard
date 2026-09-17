@@ -34,8 +34,8 @@ from core import (
 from queues import (
     BATCH_SIZE, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_BATCH_HEADER,
     SEND_FIRST_COLUMNS,
-    chunk_send_batches, load_novelty, load_novelty_distance, novelty_provenance,
-    send_first_rows,
+    chunk_send_batches, how_new, load_novelty, load_novelty_distance,
+    novelty_provenance, send_first_rows,
     with_batch_ids,
 )
 
@@ -215,13 +215,6 @@ def write_send_batches(out_dir, batch_rows):
             key = row[key_at]
             w.writerow(list(row) + [how_new(distance, key),
                                     images.get(key, ""), boxes.get(key, "")])
-
-
-def how_new(distance: dict, key: str) -> str:
-    """The distance column as written: three decimals, or blank for a frame the
-    ordering file never scored. Blank and not zero, since zero is a photo that
-    looks exactly like a labelled one."""
-    return f"{distance[key]:.3f}" if key in distance else ""
 
 
 def top1(r, key="ranked"):

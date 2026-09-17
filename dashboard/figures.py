@@ -303,6 +303,13 @@ def _queue(h, support, per_species):
         h.predictions, joined_stems, h.canon, support, acc_of,
         novelty=queues.load_novelty(hc.QUEUE_NOVELTY_CSV), key_prefix=hc.GT_KEY_PREFIX,
         splits=h.split_of)
+    # Each row gains how new the photo looks: the distance the ordering was
+    # sorted on, three decimals, blank when the photo was never ranked. Read
+    # off the same file `load_novelty` reads, through the accessor
+    # `write_send_batches` uses, so the page and send_batches.csv print the
+    # same number for the same frame.
+    distance = queues.load_novelty_distance(hc.QUEUE_NOVELTY_CSV)
+    rows = [r + (queues.how_new(distance, hc.GT_KEY_PREFIX + r[1]),) for r in rows]
     counts = Counter(r[0] for r in rows)
     # The batch count the note quotes, from the same call measure.py makes, so
     # the number on the page is the number of batches in send_batches.csv.
@@ -312,7 +319,7 @@ def _queue(h, support, per_species):
     at = {c: queues.SEND_FIRST_COLUMNS.index(c)
           for c in ("queue", "global_key", "predicted_species")}
     packable = []
-    for q, stem, pred, _conf, _rank in rows:
+    for q, stem, pred, _conf, _rank, _how_new in rows:
         row = [""] * len(queues.SEND_FIRST_COLUMNS)
         row[at["queue"]] = q
         row[at["global_key"]] = hc.GT_KEY_PREFIX + stem
@@ -377,7 +384,7 @@ def _thumbs(rows, per_queue):
     resumable step and a half-finished run must not put holes in the sheet.
     """
     out, seen = defaultdict(list), Counter()
-    for q, stem, pred, _conf, _rank in rows:
+    for q, stem, pred, *_rest in rows:
         # The wait queue is printed as a record, never as pictures.
         if q == queues.WAIT_QUEUE or seen[q] >= per_queue:
             continue

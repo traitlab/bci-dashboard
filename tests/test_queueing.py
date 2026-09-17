@@ -358,3 +358,13 @@ def test_a_ranking_that_reaches_part_of_the_queue_is_not_a_complaint(queues, tmp
     assert queues.novelty_complaint(path, n_ranked=3917, n_unlab=3919) == ""
     # An empty pool cannot make the claim false either: there is nothing to order.
     assert queues.novelty_complaint(path, n_ranked=0, n_unlab=0) == ""
+
+
+def test_how_new_prints_three_decimals_and_blank_for_an_unranked_frame(queues):
+    """The send-first table's "how new it looks" column reads straight off
+    this function: three decimals for a frame the ordering file scored, blank
+    rather than 0.000 for one it never ranked, since a real 0.000 would be a
+    photo that looks exactly like a labelled one."""
+    distance = {"comb_a": 0.4213}
+    assert queues.how_new(distance, "comb_a") == "0.421"
+    assert queues.how_new(distance, "comb_b") == ""
