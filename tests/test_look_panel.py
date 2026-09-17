@@ -203,3 +203,39 @@ def test_the_wait_queue_gets_no_pictures(look):
     out = figures._look(rows, {"zoom": 2}, 2)
     assert "can_wait" not in out["thumbs"]
     assert [stem for stem, _, _ in out["thumbs"]["normal"]] == ["n_zoom"]
+
+
+# ---------------------------------------------------------------------------
+# the send-first table's un-measured note
+# ---------------------------------------------------------------------------
+
+def test_the_ungraded_note_pulls_the_audit_figure_and_degrades_without_one(
+        queue_panels, selection_panels, tmp_path):
+    """The note over the send-first table says what the audit measures, on
+    the labelled frames, and what it does not, on this pool. Absent the audit
+    file, it degrades to the plain "not measured" wording."""
+    import json
+
+    d = {"audit": {"h1_sustainability": {"pct_gain": 162.4, "ci_low": 138.9,
+                                         "ci_high": 193.3, "wilcoxon_p": 0.0039},
+                   "alpha": 0.05, "n_seeds": 8, "rounds": 20, "n_seeds_agreeing": 8,
+                   "library_version": "0.9.0",
+                   "embedding_sha256": "anchor-sha0123456789abcdef"},
+         "efficiency": {"labels_saved_pct": 70.0, "challenger_rounds_to_match": 6.0,
+                        "baseline_rounds": 20},
+         "preflight": {"separability_pct": 81.8, "gain_on_ladder": False},
+         "population": {"n_frames": 1719, "n_species": 155, "n_rare_species": 107,
+                        "rare_threshold": 5},
+         "params": {"k_per_round": 20, "seed_pool_size": 200},
+         "run": {"extra": {"written": "2026-09-10"}}}
+    p = tmp_path / "audit.json"
+    p.write_text(json.dumps(d))
+    c = SimpleNamespace(selection_audit=selection_panels.selection_audit(str(p)))
+    note = queue_panels.ungraded_note(c)
+    assert "What this order is measured against" in note
+    assert "1,719 labelled frames that already carry a name" in note
+    assert "70% fewer labels for the same rare species" in note
+    assert "This pool is not: it carries no label yet" in note
+
+    absent = queue_panels.ungraded_note(SimpleNamespace(selection_audit=None))
+    assert "has not been measured yet" in absent
