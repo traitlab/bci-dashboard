@@ -32,6 +32,9 @@ import core as hc
 from assets import esc, more
 
 # The covariates the ranker tests, in the plural the page needs for a count.
+COUNT_WORDS = {1: "once", 2: "twice", 3: "three times", 4: "four times",
+               5: "five times", 6: "six times"}
+
 PLURAL = {"site": "sites", "export batch": "export batches", "flight": "flights"}
 # How many hex digits of a file hash the page prints: enough to tell two files
 # apart, short enough to read against the ordering file's own record.
@@ -276,8 +279,7 @@ def confound_note(c) -> str:
             f'{_pct(100 * (t["eta2"] or 0))} of how new a photo looks.{left_out}</li>')
     return (f'<p class="note"><b>Is it the species, or the batch?</b> {head}'
             f'A photo can look new for the batch it came from rather than for what grows '
-            f'in it. It was tested three times: site held fixed, export batch held '
-            f'fixed, then the flight, meaning the date and the site, held fixed.</p>'
+            f'in it. It was tested {_times(f["tests"])}.</p>'
             f'<ul class="note">{"".join(lines)}</ul>'
             f'<p class="note">On the labelled photos the species is known, and on the '
             f'queue it is the one the model guessed. '
@@ -285,6 +287,24 @@ def confound_note(c) -> str:
             f'this checkout, written {esc(f["written"] or "on an unrecorded date")}. The '
             f'file of photo vectors was {_sha(f["sha"])} for the queue and '
             f'{_sha(f["anchor_sha"])} for the labelled photos.</p>')
+
+
+def _times(tests: list) -> str:
+    """How many confound tests ran and what each held fixed, read from the
+    file, so the count never drifts from the bullets under it."""
+    covs = []
+    for t in tests:
+        cov = t["covariate"] or "an unnamed covariate"
+        if cov not in covs:
+            covs.append(cov)
+    word = COUNT_WORDS.get(len(tests), f"{len(tests)} times")
+    if not covs:
+        return word
+    held = ["the flight, meaning the date and the site, held fixed" if c == "flight"
+            else f"{c} held fixed" for c in covs]
+    if len(held) > 1:
+        held[-1] = "then " + held[-1]
+    return f"{word}: {', '.join(held)}"
 
 
 def _corr(x) -> str:

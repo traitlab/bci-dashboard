@@ -196,7 +196,9 @@ def test_the_flight_reads_as_the_date_and_the_site_and_the_left_out_are_counted(
     assert [t["n_unreconciled"] for t in f["tests"]] == [0, 2]
     c = SimpleNamespace(selection_confound=f, head_n=0)
     cf = sp.confound_note(c)
-    assert "the flight, meaning the date and the site, held fixed" in cf
+    # The count comes from the file: two audits here, four on a real checkout.
+    assert ("It was tested twice: export batch held fixed, then the flight, "
+            "meaning the date and the site, held fixed." in cf)
     assert "40 flights" in cf and "holds once the flight is held fixed" in cf
     assert "2 photos were left out because their site could not be read" in cf
     # The export-batch line, where nothing was left out, says nothing about it.
