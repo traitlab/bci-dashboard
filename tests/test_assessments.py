@@ -311,6 +311,7 @@ def test_the_legend_counts_the_words_the_column_shows_and_not_the_file(assess_pa
     limits = {"a b": ("resolved", "8/8"), "c d": ("", ""), "e f": ("", "")}
     html = assess_panels.limit_note(t, limits)
     assert "Over the 1 species with that many: 1 no gap found, 0 better model, 0 more labels" in html
+    assert "the 2 blank rows are where labels are thin, which is the ask" in html
 
 
 def test_the_legend_says_why_its_population_is_smaller_than_the_rest_of_the_page(

@@ -45,6 +45,7 @@ def limit_note(transductive: dict, limits: dict) -> str:
     """
     pop = transductive["population"]
     shown = [v for v, _ in limits.values() if v]
+    blank = len(limits) - len(shown)
     count = {k: sum(1 for v in shown if v == k) for k in LIMIT_WORDS}
     return (f'<p class="note"><b>What would help</b> is judged on the '
             f'{pop["n_frames"]:,} labelled frames the model has a view of, '
@@ -61,7 +62,9 @@ def limit_note(transductive: dict, limits: dict) -> str:
             f'work from. Blank under {LIMIT_MIN_FRAMES} viewed frames. Over the '
             f'{len(shown)} species with that many: {count["resolved"]} no gap found, '
             f'{count["classifier_limited"]} better model, '
-            f'{count["sampling_limited"]} more labels.</p>')
+            f'{count["sampling_limited"]} more labels. This verdict only covers species '
+            f'with at least {LIMIT_MIN_FRAMES} viewed frames; the {blank} blank rows are '
+            f'where labels are thin, which is the ask.</p>')
 
 
 def mechanism_note(disagreement: dict, counts) -> str:
