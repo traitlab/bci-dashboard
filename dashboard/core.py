@@ -686,13 +686,26 @@ def read_cache_json(path: str):
 
 
 def entry_species(entry) -> list:
-    """The ranked names in a cached answer, or [] for any shape without them."""
+    """The ranked names in a cached answer, or [] for any shape without them.
+
+    Two fetchers write this cache. `predict/ingest_photos.py` writes the survey
+    shape, `results.species` with `binomial` and `max_score`. `predict/photo.py`
+    and `predict/crown.py` write the identify shape, a flat `results` list with
+    `scientific_name` and `score`. Both are read here so that a page never has
+    to know which one fetched an answer.
+    """
     if not isinstance(entry, dict):
         return []
     results = entry.get("results")
-    if not isinstance(results, dict):
-        return []
-    return results.get("species") or []
+    if isinstance(results, dict):
+        return results.get("species") or []
+    if isinstance(results, list):
+        return [{"binomial": r.get("scientific_name") or "",
+                 "max_score": r.get("score"),
+                 "coverage": r.get("score"),
+                 "gbif_id": str(r.get("gbif_id") or "")}
+                for r in results if isinstance(r, dict)]
+    return []
 
 
 def entry_project_source(entry) -> str:
