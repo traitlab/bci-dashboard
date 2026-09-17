@@ -35,6 +35,9 @@ from core import (
 
 # Queue names, in the order a botanist should work through them.
 QUEUE_ORDER = ["long_tail", "low_conf_known", "normal", "can_wait"]
+# The bottom queue, what the wait rule pushes down. Nobody works it, so the
+# page prints it as a record, not as a sheet of frames to open.
+WAIT_QUEUE = QUEUE_ORDER[-1]
 
 # send_first_queue.csv's columns, in order. `measure.py` writes the header and
 # `chunk_send_batches` below reads rows by position, so the order is named once.

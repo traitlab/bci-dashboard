@@ -190,3 +190,16 @@ def test_summary_does_not_assert_the_finding_when_nothing_was_scored(look, queue
     html = queue_why_panels.p_look(SimpleNamespace(**figures._look([], {}, 0)))
     assert "finds species faster" not in html
     assert "has not been scored on this checkout" in html
+
+
+def test_the_wait_queue_gets_no_pictures(look):
+    """The bottom queue is a record: nobody works it, so the page prints its
+    count and the rule's grade instead of a sheet, and the builder reads no
+    thumbnail for it."""
+    figures, _ = look
+    _write_thumb(figures, "w_zoom")
+    _write_thumb(figures, "n_zoom")
+    rows = _rows(("can_wait", "w", 1), ("normal", "n", 2))
+    out = figures._look(rows, {"zoom": 2}, 2)
+    assert "can_wait" not in out["thumbs"]
+    assert [stem for stem, _, _ in out["thumbs"]["normal"]] == ["n_zoom"]
