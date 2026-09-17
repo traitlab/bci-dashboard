@@ -91,6 +91,9 @@ def note(d: dict, *, floor: int) -> str:
                 f'{floor} labelled frames, and the first guess is right on '
                 f'{_pct(now["test_top1"])} of the {now["test_n"]:,} test frames.</p>')
     then = d["then"]
+    if then["n_species_floor"] == now["n_species_floor"] and then["test_top1"] is None:
+        return (head + f'nothing has moved since {d["previous"]}, the date the '
+                f'counts were last saved.</p>')
     line = (head + f'on {d["previous"]} {then["n_species_floor"]} species carried at least '
             f'{floor} labelled frames, now {now["n_species_floor"]} species do. ')
     if then["test_top1"] is None:
