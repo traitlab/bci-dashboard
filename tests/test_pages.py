@@ -53,6 +53,16 @@ def test_no_page_shows_interval_notation(page):
     assert not found, f"interval notation on the page: {sorted(set(found))}"
 
 
+def test_the_byline_gives_one_readable_date_not_two_unlabelled_ones(page):
+    """The byline used to read "built {date} &middot; snapshot {date}", two
+    dates with no word saying which is which and usually the same date twice.
+    One clause, "labels as of {date}", says what a reader needs."""
+    html, _, _ = page
+    assert "labels as of" in html
+    assert "&middot; snapshot " not in html
+    assert '<div class="subtitle">built ' not in html
+
+
 @pytest.fixture(scope="session")
 def n_species():
     """Independent of every builder: the population size the snapshot's own
