@@ -133,22 +133,38 @@ def test_a_renamed_option_is_found_by_its_key_not_its_name(
             f"{old} is on bcnm as {new} and the key join has to find it")
 
 
-def test_species_the_corpus_never_returned_are_not_all_out_of_scope(health):
+def test_species_the_corpus_never_returned_are_not_all_out_of_scope(
+        health, dashboard_checklist, dashboard_gbif_keys, core):
     """Before this checklist was wired in, every species with
     `in_corpus_vocabulary=False` showed as `unreachable`. Half of them are on
     bcnm and belong in `unreachable` still, not `out_of_scope`: proving 18
-    absent does not prove the rest are."""
-    import checklist as ck_mod
+    absent does not prove the rest are.
+
+    Tested against bcnm by name, not against whichever project is live: the
+    live checklist can flip (it did, back to k-central-america) without this
+    regression losing its fixture.
+    """
     import core as hc
     from pathlib import Path
     if not Path(hc.GT_CSV).exists() or not Path(hc.CACHE_DIR).exists():
         pytest.skip("GT labels or cached predictions not present (fresh clone)")
-    h = health.load_health()
-    if h.checklist is None:
-        pytest.skip(f"{ck_mod.checklist_path()} not present (fresh clone, data/ is gitignored)")
+    p = dashboard_checklist.checklist_path("bcnm")
+    if not Path(p).exists():
+        pytest.skip(f"{p} not present (fresh clone, data/ is gitignored)")
+    keys = dashboard_gbif_keys.load_keys()
+    ck = dashboard_checklist.load_checklist(path=p)
+    crosswalk, _ = core.load_wcvp_crosswalk(str(REPO / "data" / "wcvp_cache.json"))
+    canon = core.canonicaliser(crosswalk)
+    is_member = dashboard_checklist.membership(ck, canon, keys)
+    bcnm_cache = str(REPO / "data" / "predictions_bcnm" / "cache")
+    if not Path(bcnm_cache).exists():
+        pytest.skip(f"{bcnm_cache} not present (fresh clone, data/ is gitignored)")
+    h = health.load_health(cache_dir=bcnm_cache)
     never_ranked = [d for d in h.per_species if not d["in_corpus_vocabulary"]]
-    out_of_scope = [d for d in never_ranked if d["in_project_checklist"] is False]
-    still_unreachable = [d for d in never_ranked if d["in_project_checklist"] is True]
+    membership_of = {d["species"]: is_member(d["species"], d["gt_raw_labels"].split("|"))
+                      for d in never_ranked}
+    out_of_scope = [d for d in never_ranked if membership_of[d["species"]] is False]
+    still_unreachable = [d for d in never_ranked if membership_of[d["species"]] is True]
     assert {d["species"] for d in out_of_scope} == KNOWN_OUT_OF_SCOPE
     assert sum(d["n_labelled_frames"] for d in out_of_scope) == 178
     assert still_unreachable, (
