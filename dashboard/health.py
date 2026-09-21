@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 
 import run_log as rl
-from checklist import load_checklist
+from checklist import load_checklist, membership
 from core import (
     CACHE_DIR,
     EVAL_PROJECT,
@@ -233,7 +233,7 @@ def confidence_spread(values):
             "p25": q1, "p75": q3, "iqr": q3 - q1}
 
 
-def aggregate_per_species(sp_recs, corpus_norm, corpus_canon, checklist_canon=None):
+def aggregate_per_species(sp_recs, corpus_norm, corpus_canon, in_checklist=None):
     """One row per species, commonest first. The keys are the dict below.
 
     Three of them are not counts. ``in_corpus_vocabulary`` is true when the
@@ -241,11 +241,14 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon, checklist_canon=No
     a row can be 0.0% in the list column and still be in the vocabulary.
     ``top5_accuracy`` counts ``core.N_CANDIDATES`` names, the constant
     ``figures.prepare`` aborts a build against when the cache carries more.
-    ``in_project_checklist`` is ``None`` when no checklist is on disk
-    (``predict/fetch_checklist.py`` has not been run), otherwise True or
-    False against ``core.EVAL_PROJECT``'s own species list, the one source
-    that can prove a species absent rather than merely never ranked in an
-    ``N_CANDIDATES``-name sample.
+    ``in_project_checklist`` is ``None`` when ``in_checklist`` is, which is
+    when no checklist is on disk (``predict/fetch_checklist.py`` has not been
+    run), otherwise True or False against ``core.EVAL_PROJECT``'s own species
+    list, the one source that can prove a species absent rather than merely
+    never ranked in an ``N_CANDIDATES``-name sample. ``checklist.membership``
+    builds the test; it is handed the row's raw labels as well as its
+    canonical name because the GBIF key that survives a rename hangs off the
+    label, not off the name.
 
     Three more are the confusion-matrix rates, built from ``confusion_counts``.
     ``recall`` asks how many of a species' own labelled frames the model named
@@ -290,9 +293,10 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon, checklist_canon=No
         n_guessed = guessed[sp]
         precision = (tp[sp] / n_guessed) if n_guessed else 0.0
         recall = tp[sp] / m
+        raw_labels = sorted({r["gt_raw"] for r in rs})
         per_species.append({
             "species": sp,
-            "gt_raw_labels": "|".join(sorted({r["gt_raw"] for r in rs})),
+            "gt_raw_labels": "|".join(raw_labels),
             "n_labelled_frames": m,
             "n_correct_top1": k1,
             "top1_accuracy": k1 / m,
@@ -309,8 +313,8 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon, checklist_canon=No
             "iqr_top1_confidence": spread["iqr"],
             "mean_top1_confidence_when_correct": (sum(confs_ok) / len(confs_ok)) if confs_ok else None,
             "in_corpus_vocabulary": sp in corpus_norm or sp in corpus_canon,
-            "in_project_checklist": (None if checklist_canon is None
-                                      else sp in checklist_canon),
+            "in_project_checklist": (None if in_checklist is None
+                                      else in_checklist(sp, raw_labels)),
             "support_bucket": bucket_label(m),
         })
     per_species.sort(key=lambda d: (-d["n_labelled_frames"], d["species"]))
@@ -469,8 +473,8 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     # ---------------- 6. one row per species ----------------
     corpus_canon = {canon(b) for b in corpus_raw}
     checklist = load_checklist()
-    checklist_canon = checklist.canon_binomials(canon) if checklist is not None else None
-    per_species = aggregate_per_species(sp_recs, corpus_norm, corpus_canon, checklist_canon)
+    per_species = aggregate_per_species(sp_recs, corpus_norm, corpus_canon,
+                                        membership(checklist, canon))
 
     return Health(
         gt_rows=gt_rows, split_rows=split_rows, split_of=split_of, predictions=predictions,

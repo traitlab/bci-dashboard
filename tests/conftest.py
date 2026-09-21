@@ -180,6 +180,15 @@ def history():
 
 
 @pytest.fixture(scope="session")
+def dashboard_gbif_keys():
+    """`dashboard/gbif_keys.py`, stdlib only: the offline read of the GBIF key
+    behind a Labelbox option label."""
+    with _on_path(REPO / "dashboard"):
+        import gbif_keys
+        yield gbif_keys
+
+
+@pytest.fixture(scope="session")
 def dashboard_checklist():
     """`dashboard/checklist.py`, stdlib only. Named apart from the `checklist`
     fixture above, which loads `predict/fetch_checklist.py`, the fetch script
