@@ -19,10 +19,11 @@ from types import SimpleNamespace
 
 import assessments as am
 import held_out as ho
+import reference
 import run_log as rl
 from health import load_health
 from core import (
-    add_input_flags, summarise,
+    add_input_flags, add_label_source_flag, summarise,
     ratio, fmt, genus_of, normalize,
     coverage_gate_stats, diagnose, labelbox_urls, inventory_image_urls,
     adjudicated_keys,
@@ -30,7 +31,6 @@ from core import (
     RELIABLE_MIN_TOP1,
     REVIEW_CONF, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
     GT_KEY_PREFIX, N_CANDIDATES, QUEUE_NOVELTY_CSV,
-    LABEL_SOURCE_COLUMN, LABEL_SOURCE_REVIEWED, LABEL_SOURCE_UNREVIEWED,
 )
 from queues import (
     BATCH_SIZE, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_BATCH_HEADER,
@@ -49,7 +49,8 @@ OUT_DIR = os.path.join(
 OUTPUTS = ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
            "confidence_calibration.csv", "name_reconciliation.csv", "send_first_queue.csv",
            "send_batches.csv", "label_review_queue.csv", "coverage_gate.csv",
-           "reject_sweep.csv", "held_out.csv", "flight_holdout.csv", "run_log.txt")
+           "reject_sweep.csv", "held_out.csv", "flight_holdout.csv", "reference.json",
+           "run_log.txt")
 
 # Three of those no build reads back. They are evidence a person opens: what
 # restricting candidates to the BCI list is worth, which tier matched every label
@@ -72,11 +73,7 @@ def parse_args() -> argparse.Namespace:
     add_input_flags(p)
     p.add_argument("--out-dir", default=OUT_DIR,
                    help=f"directory to write the {len(OUTPUTS)} output files to")
-    p.add_argument("--label-source", default=None,
-                   choices=(LABEL_SOURCE_REVIEWED, LABEL_SOURCE_UNREVIEWED),
-                   help=f"score only the GT rows of this {LABEL_SOURCE_COLUMN}; needs a "
-                        "--gt written by labelling/gt_from_publication.py "
-                        "(default: every row)")
+    add_label_source_flag(p)
     return p.parse_args()
 
 
@@ -263,34 +260,6 @@ def headline_counts(h):
         macro5=ratio(sum(d["top5_accuracy"] for d in per_species), n_sp))
 
 
-def label_source_stats(h):
-    """The headline rates once per ``label_source`` population, side by side.
-
-    Empty when the GT has no such column, which is the Labelbox GT: then there
-    is one population and the headline already is it. Each row carries its own
-    frame and species counts, so a reviewed rate is never read off the pooled n.
-    Species rates are pooled within a species, then averaged across species.
-    """
-    source_of = {r["global_key"]: r.get(LABEL_SOURCE_COLUMN) for r in h.gt_rows}
-    if not any(source_of.values()):
-        return []
-    rows = []
-    for source in sorted({v for v in source_of.values() if v}):
-        recs = [r for r in h.sp_recs if source_of.get(r["global_key"]) == source]
-        by_species = defaultdict(list)
-        for r in recs:
-            by_species[r["gt"]].append(r)
-        rows.append(SimpleNamespace(
-            source=source, n=len(recs), n_sp=len(by_species),
-            c1=sum(1 for r in recs if top1(r) == r["gt"]),
-            c5=sum(1 for r in recs if hit(r, N_CANDIDATES)),
-            macro1=ratio(sum(ratio(sum(top1(r) == r["gt"] for r in rs), len(rs))
-                             for rs in by_species.values()), len(by_species)),
-            macro5=ratio(sum(ratio(sum(hit(r, N_CANDIDATES) for r in rs), len(rs))
-                             for rs in by_species.values()), len(by_species))))
-    return rows
-
-
 def checklist_scope_stats(h, head):
     """The out-of-scope population, and the headline recomputed without it.
 
@@ -414,7 +383,7 @@ def send_queue(h):
     support = {d["species"]: d["n_labelled_frames"] for d in per_species}
     top1_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     decided, n_no_answer, held_out = send_first_rows(
-        h.predictions, {stem for _, stem, _ in h.joined}, h.canon, support, top1_of,
+        h.predictions, h.labelled_stems, h.canon, support, top1_of,
         novelty=load_novelty(QUEUE_NOVELTY_CSV), key_prefix=GT_KEY_PREFIX,
         splits=h.split_of)
     distance = load_novelty_distance(QUEUE_NOVELTY_CSV)
@@ -488,7 +457,7 @@ def main() -> None:
     rl.log_headline(log, head.n, head.n_sp, head.c1, head.c5, head.macro1,
                     head.macro5, head.g1, head.g5, gain.reachable, gain.r1,
                     gain.r5, head.s1, head.s5, head.gn, head.gg1, head.gg5)
-    rl.log_label_sources(log, label_source_stats(h), head.n)
+    rl.log_label_sources(log, reference.population_stats(h), h.reference)
     scope = checklist_scope_stats(h, head)
     rl.log_checklist_scope(log, scope, head.n, head.c1, head.n_sp, head.macro1)
     rl.log_gate_comparison(log, h.sp_recs, sweep,
@@ -516,6 +485,7 @@ def main() -> None:
     rl.log_review_queue(log, review_rows, head.n, n_adjudicated)
     am.write_reject_sweep(out_dir, am.load(am.REJECT_SWEEP_JSON))
     ho.write_tables(out_dir, h.sp_recs)
+    reference.write(out_dir, h, args.gt, args.label_source)
     am.log_assessments(log, transductive, disagreement, h.per_species, review_rows)
 
     rl.log_files_written(log, out_dir, OUTPUTS)

@@ -588,18 +588,19 @@ def p_ceiling(c):
               f'{c.c1 - c.strict1} frames to every rate here. Every label, what it '
               f'resolved to and how, is in '
               f'<a href="name_reconciliation.csv">name_reconciliation.csv</a>.</p>'
-              f'<p class="note"><strong>{gn:,} further frames carry only a genus '
-              f'name</strong> and are left out of every species number above. Scored at '
-              f'genus level they reach {pctf(c.gg1 / gn) if gn else "n/a"}.</p>'
-              f'<p class="note">Of them, {c.gen_any:,} have a candidate in the right genus '
-              f'among the {c.n_cand}. <strong>{c.gen_one:,} have exactly one</strong>, '
-              f'which makes the species a yes-or-no question. Whether that '
-              f'is worth expert time is for the label queue page.</p>'
-              f'<p class="note">A further {c.fam_n} frames are labelled to {c.fam_names} '
-              f'<em>families</em>, not genera, and are left out of the genus rate. A family '
-              f'never matches a predicted species, and rolling up to family needs a list '
-              f'we lack here. Counting them would give {pctf(c.gg1 / (gn + c.fam_n))} '
-              f'instead of {pctf(c.gg1 / gn)}.</p>')
+              + (f'<p class="note"><strong>{gn:,} further frames carry only a genus '
+                 f'name</strong> and are left out of every species number above. Scored '
+                 f'at genus level they reach {pctf(c.gg1 / gn)}.</p>'
+                 f'<p class="note">Of them, {c.gen_any:,} have a candidate in the right '
+                 f'genus among the {c.n_cand}. <strong>{c.gen_one:,} have exactly '
+                 f'one</strong>, which makes the species a yes-or-no question. Whether '
+                 f'that is worth expert time is for the label queue page.</p>' if gn else "")
+              + (f'<p class="note">A further {c.fam_n} frames are labelled to {c.fam_names} '
+                 f'<em>families</em>, not genera, and are left out of the genus rate. A '
+                 f'family never matches a predicted species, and rolling up to family needs '
+                 f'a list we lack here. Counting them would give '
+                 f'{pctf(c.gg1 / (gn + c.fam_n))} instead of '
+                 f'{pctf(c.gg1 / gn) if gn else "n/a"}.</p>' if c.fam_n else ""))
     return panel(f"What labelling cannot fix: {len(c.never)} species, {c.never_frames} frames "
                  f"the model never named",
                  "<b>Most of these are not proof the model cannot return the species.</b> "

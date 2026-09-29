@@ -18,11 +18,15 @@ label and the run says how many there were.
 The xlsx is read with ``zipfile`` and the sheet XML; no spreadsheet package is
 a dependency. Offline: nothing is fetched and the inputs are never written.
 
+The published headline is scored on this file's reviewed rows, so the
+workbook is a required input: bin/refresh.sh runs ``--check`` before it merges
+anything and this script right after the Labelbox merge. A missing workbook
+stops the run; nothing falls back to the Labelbox labels.
+
 Usage:
-    python3 labelling/gt_from_publication.py \\
-        --workbook "../bci-dashboard-docs/BCI Raw Data Publication - Final List.xlsx"
-    python3 dashboard/measure.py --gt data/gt_publication_reviewed.csv \\
-        --label-source publication_reviewed --out-dir build/tables_reviewed
+    python3 labelling/gt_from_publication.py            # data/publication_final_list.xlsx
+    python3 labelling/gt_from_publication.py --check    # the workbook is there and reads
+    python3 dashboard/measure.py                        # scores the reviewed rows
 
 Out: ``data/gt_publication_reviewed.csv`` and its ``.provenance.txt`` sidecar.
 """
@@ -59,7 +63,7 @@ OUT_COLUMNS = (
     "global_key",
     "wcvp_canonical_name",
     core.LABEL_SOURCE_COLUMN,
-    "labelbox_name",
+    core.LABELBOX_NAME_COLUMN,
     ID_COLUMN,
 )
 
@@ -202,7 +206,7 @@ def build_rows(
                     if crown
                     else core.LABEL_SOURCE_UNREVIEWED
                 ),
-                "labelbox_name": r["wcvp_canonical_name"],
+                core.LABELBOX_NAME_COLUMN: r["wcvp_canonical_name"],
                 ID_COLUMN: crown[ID_COLUMN] if crown else "",
             }
         )
@@ -211,7 +215,12 @@ def build_rows(
 
 def parse_args(argv=None):
     ap = argparse.ArgumentParser(description=core.summarise(__doc__))
-    ap.add_argument("--workbook", required=True, help="the publication xlsx")
+    ap.add_argument(
+        "--workbook",
+        default=core.PUBLICATION_WORKBOOK,
+        help="the publication xlsx (default: "
+        f"{os.path.relpath(core.PUBLICATION_WORKBOOK, core.REPO)})",
+    )
     ap.add_argument("--sheet", default=SHEET, help=f"sheet to read (default: {SHEET})")
     ap.add_argument("--gt", default=core.GT_CSV, help="the Labelbox ground truth")
     ap.add_argument(
@@ -226,14 +235,29 @@ def parse_args(argv=None):
         default=core.PUBLICATION_GT_CSV,
         help="where to write the reviewed-label ground truth",
     )
+    ap.add_argument(
+        "--check",
+        action="store_true",
+        help="only confirm the workbook is there and its sheet reads; write nothing",
+    )
     return ap.parse_args(argv)
 
 
 def main(argv=None) -> None:
     args = parse_args(argv)
-    for path in (args.workbook, args.gt):
-        if not os.path.exists(path):
-            raise SystemExit(f"Cannot find {path}")
+    if not os.path.exists(args.workbook):
+        raise SystemExit(
+            f"Cannot find the publication workbook\n  {args.workbook}\nThe published "
+            f"headline is scored against its reviewed labels and there is no fallback "
+            f"to the Labelbox labels. Put the BCI Raw Data Publication final list "
+            f"there, or name it with --workbook."
+        )
+    if args.check:
+        read_sheet(args.workbook, args.sheet)
+        print(f"workbook ok: {args.workbook}")
+        return
+    if not os.path.exists(args.gt):
+        raise SystemExit(f"Cannot find {args.gt}")
     gt_rows = core.read_csv_rows(args.gt)
     if (
         not gt_rows
@@ -262,7 +286,7 @@ def main(argv=None) -> None:
         for r in rows
         if r[core.LABEL_SOURCE_COLUMN] == core.LABEL_SOURCE_REVIEWED
         and core.normalize(r["wcvp_canonical_name"])
-        != core.normalize(r["labelbox_name"])
+        != core.normalize(r[core.LABELBOX_NAME_COLUMN])
     )
     digest = hashlib.sha256(Path(args.workbook).read_bytes()).hexdigest()[:12]
     note = (

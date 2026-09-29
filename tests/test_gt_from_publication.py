@@ -261,3 +261,28 @@ def test_measure_filter_refuses_a_gt_without_label_source(health):
     with pytest.raises(SystemExit, match="found: labelbox_unreviewed"):
         health.only_label_source(rows, "publication_reviewed", "gt.csv")
     assert health.only_label_source(rows, "labelbox_unreviewed", "gt.csv") == rows
+
+
+def test_the_workbook_default_is_the_core_constant(gfp, core):
+    assert gfp.parse_args([]).workbook == core.PUBLICATION_WORKBOOK
+
+
+def test_a_missing_workbook_fails_and_never_falls_back(gfp, tmp_path):
+    out = tmp_path / "out.csv"
+    with pytest.raises(SystemExit) as e:
+        gfp.main(["--workbook", str(tmp_path / "absent.xlsx"), "--out", str(out)])
+    msg = str(e.value)
+    assert "absent.xlsx" in msg
+    assert "no fallback to the Labelbox labels" in msg
+    assert not out.exists()
+
+
+def test_check_reads_the_sheet_and_writes_nothing(gfp, tmp_path, capsys):
+    book = write_xlsx(tmp_path / "b.xlsx", [HEADER, crown("1", "Ceiba", LEGACY + "A.JPG")])
+    out = tmp_path / "out.csv"
+    gfp.main(["--workbook", str(book), "--out", str(out), "--check"])
+    assert "workbook ok" in capsys.readouterr().out
+    assert not out.exists()
+    with pytest.raises(SystemExit, match="zoom_url_legacy"):
+        gfp.main(["--workbook", str(write_xlsx(tmp_path / "c.xlsx", [HEADER[:-1], ["1"]])),
+                  "--check"])

@@ -117,3 +117,31 @@ def test_the_page_prints_the_line_in_the_frame_counts_panel(external_page):
     """Beside the three frame counts, where the Chao1 line already sits."""
     html, _ = external_page
     assert html.index("Why three different frame counts") < html.index("Since the last snapshot")
+
+
+def test_a_snapshot_scored_against_other_labels_is_not_compared(snapshot_delta, tmp_path):
+    """Snapshots before the switch have no reference.json and were scored
+    against the Labelbox labels. A reviewed-label build states the break and
+    reports no change from them."""
+    snapshot(tmp_path, "2026-08-27", [10, 10], held_out=(100, 70))
+    now = {**NOW, "reference": "publication_reviewed"}
+    d = snapshot_delta.compute(now, str(tmp_path), "2026-09-30", floor=10)
+    assert d["previous"] == "2026-08-27"
+    assert d["then"] is None
+    assert d["crossed"] == ("labelbox", "publication_reviewed")
+    note = snapshot_delta.note(d, floor=10)
+    assert "not compared with 2026-08-27" in note
+    assert "The reference labels changed on 2026-09-29" in note
+    assert "change of reference, not of the model" in note
+    assert "70.0%" not in note
+
+
+def test_two_snapshots_on_the_same_reference_are_compared(snapshot_delta, tmp_path):
+    d = snapshot(tmp_path, "2026-10-05", [10, 10], held_out=(100, 70))
+    (d / "reference.json").write_text('{"reference": "publication_reviewed"}\n',
+                                      encoding="utf-8")
+    now = {**NOW, "reference": "publication_reviewed"}
+    d = snapshot_delta.compute(now, str(tmp_path), "2026-10-20", floor=10)
+    assert d["crossed"] is None
+    assert d["then"]["test_top1"] == pytest.approx(0.7)
+    assert "not compared" not in snapshot_delta.note(d, floor=10)

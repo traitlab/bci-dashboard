@@ -75,7 +75,7 @@ def complaint(path: str, doc: dict | None, *, gt_sha: str,
     inputs = doc.get("inputs", {})
     if inputs.get("gt_sha256") != gt_sha:
         return (f"{path} is stale: it was computed from a ground truth other than "
-                f"{hc.GT_CSV} as it stands now. {RERUN}.")
+                f"{hc.PUBLICATION_GT_CSV} as it stands now. {RERUN}.")
     if embeddings_sha is not None and inputs.get("embeddings_sha256") != embeddings_sha:
         return (f"{path} is stale: it was computed from an embedding file other than "
                 f"{EMBEDDINGS_NPZ} as it stands now. {RERUN}.")
@@ -174,7 +174,7 @@ def prepared(per_species, review) -> dict:
     """The fields the pages read: the four files, the columns derived from
     them, and one complaint per file that is missing or stale. ``review`` is
     the review queue as figures builds it, one record per frame."""
-    gt_sha = sha256_of(hc.GT_CSV)
+    gt_sha = sha256_of(hc.PUBLICATION_GT_CSV)
     emb_sha = sha256_of(EMBEDDINGS_NPZ) if os.path.exists(EMBEDDINGS_NPZ) else None
     docs = {name: load(path) for name, path in (
         ("transductive", TRANSDUCTIVE_JSON), ("disagreement", DISAGREEMENT_JSON),

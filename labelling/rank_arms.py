@@ -42,7 +42,7 @@ from labelfirst.strategies.kcenter import greedy_kcenter
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "dashboard"))
 
-from core import GT_KEY_PREFIX  # noqa: E402
+from core import GT_KEY_PREFIX, HEADLINE_LABEL_SOURCE, PUBLICATION_GT_CSV  # noqa: E402
 from health import load_health  # noqa: E402
 from queues import QUEUE_ORDER, queue_of_prediction  # noqa: E402
 
@@ -62,7 +62,7 @@ def frame_answers(keys: list[str]) -> tuple[np.ndarray, np.ndarray]:
     Names come back canonicalised the way the pages canonicalise them, since
     the queue rule looks a guess up among the labels by name.
     """
-    h = load_health()
+    h = load_health(gt_csv=PUBLICATION_GT_CSV, label_source=HEADLINE_LABEL_SOURCE)
     guess = np.empty(len(keys), dtype=object)
     conf = np.empty(len(keys), dtype=np.float64)
     for i, key in enumerate(keys):

@@ -30,6 +30,7 @@ import core as hc
 import figures
 import page as pg
 import queues
+import reference
 from assets import esc, hero
 from queue_panels import TEAM_BLOCK_ID
 from queues import BATCH_SIZE
@@ -85,7 +86,7 @@ def build(h, *, generated, verify_dir, fallback_tag):
         verify_dir, per_species=c.per_species, buckets=c.buckets, bins_all=c.bins_all,
         never_all=c.never_all, unscoreable=c.unscoreable, strict_hits=c.strict1,
         queue_counts=c.queue_counts, n_no_answer=c.n_no_answer,
-        queue_keys=c.queue_keys)
+        queue_keys=c.queue_keys, scored_against=c.reference, populations=c.populations)
 
     # Two counts and one line: the reasoning lives in the panels that state it.
     send_now = c.queue_counts.get("long_tail", 0) + c.queue_counts.get("low_conf_known", 0)
@@ -102,8 +103,9 @@ def build(h, *, generated, verify_dir, fallback_tag):
     P = ['<h1>What to label next</h1>',
          f'<div class="subtitle">labels as of {esc(c.snap_date)} &middot; '
          f'Pl@ntNet model {esc(c.tag)} '
-         f'&middot; {anchor_words} &middot; {c.n:,} labelled frames behind the '
-         f'species statuses that sort the queues</div>',
+         f'&middot; {anchor_words} &middot; {c.n:,} frames scored against '
+         f'{reference.WORDS[c.reference]} behind the species statuses that sort the '
+         f'queues</div>',
          # Batch 1 leads, not the pool. The pool is 3,919 and a botanist works
          # through a few hundred a month, so leading with it prices the whole
          # queue as the next task and it is many months of them. The number a

@@ -16,6 +16,7 @@ from types import SimpleNamespace
 import assessments as am
 import core as hc
 import queues
+import reference
 from checklist import load_checklist
 from selection_panels import selection_audit, selection_confound
 # The three arithmetic helpers behind the confusion-matrix rates. They live in
@@ -292,7 +293,7 @@ def _queue(h, support, per_species):
     The ordering lives in ``queues``, and this is the same call measure.py makes,
     so the page and send_first_queue.csv are one list read twice."""
     acc_of = {d["species"]: d["top1_accuracy"] for d in per_species}
-    joined_stems = {stem for _, stem, _ in h.joined}
+    joined_stems = h.labelled_stems
     # The same file measure.py reads, through the same loader. Two readings
     # would order the page and send_first_queue.csv differently, and
     # verify_snapshot aborts the build on the first row where they diverge.
@@ -558,7 +559,11 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
                             if (r.get("crop_coverage") or 0) == 0),
            # Every frame a botanist has labelled at all, whatever rank the name
            # stops at and cached answer or not. The widest of the three counts.
-           "n_gt": len(h.gt_rows)}
+           "n_gt": len(h.gt_rows),
+           # What the headline is scored against, and each label_source
+           # population's own counts, the one printed beside it included.
+           "reference": h.reference,
+           "populations": reference.population_stats(h)}
 
     fig.update(_rates(sp_recs, per_species))
     fig.update(_confidence(sp_recs, per_species))

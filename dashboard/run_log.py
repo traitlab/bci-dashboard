@@ -14,12 +14,14 @@ from __future__ import annotations
 import os
 from collections import Counter
 
+import reference
 from core import (
     BUCKET_ORDER,
     CONF_BINS,
     CONF_THRESHOLDS,
     EVAL_PROJECT,
     GT_KEY_PREFIX,
+    HEADLINE_LABEL_SOURCE,
     HOLDOUT_SPLIT,
     IDENTIFY_URL,
     MIN_CROP_COVERAGE,
@@ -287,18 +289,25 @@ def log_headline(_log, n, n_sp, c1, c5, macro1, macro5, g1, g5, reachable, r1, r
     _log("")
 
 
-def log_label_sources(_log, rows, n):
-    """One line per label_source population, each with its own frames and
-    species. Nothing is printed for a GT without the column."""
-    if not rows:
-        return
-    _log("--- LABEL SOURCE (labelling/gt_from_publication.py) ---")
-    _log(f"  the headline above pools these {n} frames; each population on its own:")
+def log_label_sources(_log, rows, ref):
+    """What the headline is scored against, the series break, and one line
+    per label_source population with its own frames and species, gated and
+    ungated. The headline is the first; the others sit beside it, never
+    pooled in."""
+    _log("--- REFERENCE LABELS (dashboard/reference.py) ---")
+    _log(f"  the headline above is scored against {reference.WORDS.get(ref, ref)} ({ref})")
+    _log(f"  {reference.break_sentence(reference.LABELBOX, HEADLINE_LABEL_SOURCE)}")
     for r in rows:
-        _log(f"  {r.source:<22} n={r.n:<5} species={r.n_sp:<4}"
-             f" top-1 {pct(r.c1, r.n)} ({r.c1}/{r.n})"
-             f"  top-{N_CANDIDATES} {pct(r.c5, r.n)} ({r.c5}/{r.n})"
-             f"  per-species @1 {_macro(r.macro1, 0)}  @{N_CANDIDATES} {_macro(r.macro5, 0)}")
+        n, gn = r["n_frames"], r["gated_n_frames"]
+        role = "headline" if r["headline"] else "beside, not pooled"
+        _log(f"  {r['label_source']:<22} {role:<18} n={n:<5} species={r['n_species']:<4}"
+             f" top-1 {pct(r['n_correct_top1'], n)} ({r['n_correct_top1']}/{n})"
+             f"  top-{N_CANDIDATES} {pct(r['n_correct_top5'], n)} ({r['n_correct_top5']}/{n})"
+             f"  per-species @1 {_macro(r['macro_top1'], 0)}"
+             f"  @{N_CANDIDATES} {_macro(r['macro_top5'], 0)}")
+        _log(f"  {'':<22} {'gated':<18} n={gn:<5} species={r['gated_n_species']:<4}"
+             f" top-1 {pct(r['gated_n_correct_top1'], gn)} ({r['gated_n_correct_top1']}/{gn})"
+             f"  per-species @1 {_macro(r['gated_macro_top1'], 0)}")
     _log("")
 
 
