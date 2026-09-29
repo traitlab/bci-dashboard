@@ -27,6 +27,15 @@ REPO = os.environ.get("BCI_DASHBOARD_REPO") or os.path.dirname(
 BASE = os.environ.get("BCI_DASHBOARD_DATA") or os.path.join(REPO, "data")
 
 GT_CSV = os.path.join(BASE, "gt_dominant_taxon.csv")
+# The reviewed-label ground truth ``labelling/gt_from_publication.py`` writes.
+# Same two columns as GT_CSV plus ``label_source``, which splits the frames into
+# two populations measure.py reports side by side and never pools silently: a
+# frame whose label is the publication's reviewed name, and a frame no reviewed
+# crown matched, which keeps its Labelbox label.
+PUBLICATION_GT_CSV = os.path.join(BASE, "gt_publication_reviewed.csv")
+LABEL_SOURCE_COLUMN = "label_source"
+LABEL_SOURCE_REVIEWED = "publication_reviewed"
+LABEL_SOURCE_UNREVIEWED = "labelbox_unreviewed"
 SPLITS_CSV = os.path.join(BASE, "splits.csv")
 CACHE_DIR = os.path.join(BASE, "predictions", "cache")
 

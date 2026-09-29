@@ -30,6 +30,7 @@ from core import (
     RELIABLE_MIN_TOP1,
     REVIEW_CONF, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
     GT_KEY_PREFIX, N_CANDIDATES, QUEUE_NOVELTY_CSV,
+    LABEL_SOURCE_COLUMN, LABEL_SOURCE_REVIEWED, LABEL_SOURCE_UNREVIEWED,
 )
 from queues import (
     BATCH_SIZE, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_BATCH_HEADER,
@@ -71,6 +72,11 @@ def parse_args() -> argparse.Namespace:
     add_input_flags(p)
     p.add_argument("--out-dir", default=OUT_DIR,
                    help=f"directory to write the {len(OUTPUTS)} output files to")
+    p.add_argument("--label-source", default=None,
+                   choices=(LABEL_SOURCE_REVIEWED, LABEL_SOURCE_UNREVIEWED),
+                   help=f"score only the GT rows of this {LABEL_SOURCE_COLUMN}; needs a "
+                        "--gt written by labelling/gt_from_publication.py "
+                        "(default: every row)")
     return p.parse_args()
 
 
@@ -257,6 +263,34 @@ def headline_counts(h):
         macro5=ratio(sum(d["top5_accuracy"] for d in per_species), n_sp))
 
 
+def label_source_stats(h):
+    """The headline rates once per ``label_source`` population, side by side.
+
+    Empty when the GT has no such column, which is the Labelbox GT: then there
+    is one population and the headline already is it. Each row carries its own
+    frame and species counts, so a reviewed rate is never read off the pooled n.
+    Species rates are pooled within a species, then averaged across species.
+    """
+    source_of = {r["global_key"]: r.get(LABEL_SOURCE_COLUMN) for r in h.gt_rows}
+    if not any(source_of.values()):
+        return []
+    rows = []
+    for source in sorted({v for v in source_of.values() if v}):
+        recs = [r for r in h.sp_recs if source_of.get(r["global_key"]) == source]
+        by_species = defaultdict(list)
+        for r in recs:
+            by_species[r["gt"]].append(r)
+        rows.append(SimpleNamespace(
+            source=source, n=len(recs), n_sp=len(by_species),
+            c1=sum(1 for r in recs if top1(r) == r["gt"]),
+            c5=sum(1 for r in recs if hit(r, N_CANDIDATES)),
+            macro1=ratio(sum(ratio(sum(top1(r) == r["gt"] for r in rs), len(rs))
+                             for rs in by_species.values()), len(by_species)),
+            macro5=ratio(sum(ratio(sum(hit(r, N_CANDIDATES) for r in rs), len(rs))
+                             for rs in by_species.values()), len(by_species))))
+    return rows
+
+
 def checklist_scope_stats(h, head):
     """The out-of-scope population, and the headline recomputed without it.
 
@@ -428,7 +462,7 @@ def main() -> None:
     log(rl.RULE)
 
     h = load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
-                    wcvp_cache=args.wcvp_cache, log=log)
+                    wcvp_cache=args.wcvp_cache, label_source=args.label_source, log=log)
     write_name_reconciliation(out_dir, h)
     rl.log_evaluable_sets(log, h)
 
@@ -454,6 +488,7 @@ def main() -> None:
     rl.log_headline(log, head.n, head.n_sp, head.c1, head.c5, head.macro1,
                     head.macro5, head.g1, head.g5, gain.reachable, gain.r1,
                     gain.r5, head.s1, head.s5, head.gn, head.gg1, head.gg5)
+    rl.log_label_sources(log, label_source_stats(h), head.n)
     scope = checklist_scope_stats(h, head)
     rl.log_checklist_scope(log, scope, head.n, head.c1, head.n_sp, head.macro1)
     rl.log_gate_comparison(log, h.sp_recs, sweep,

@@ -287,6 +287,21 @@ def log_headline(_log, n, n_sp, c1, c5, macro1, macro5, g1, g5, reachable, r1, r
     _log("")
 
 
+def log_label_sources(_log, rows, n):
+    """One line per label_source population, each with its own frames and
+    species. Nothing is printed for a GT without the column."""
+    if not rows:
+        return
+    _log("--- LABEL SOURCE (labelling/gt_from_publication.py) ---")
+    _log(f"  the headline above pools these {n} frames; each population on its own:")
+    for r in rows:
+        _log(f"  {r.source:<22} n={r.n:<5} species={r.n_sp:<4}"
+             f" top-1 {pct(r.c1, r.n)} ({r.c1}/{r.n})"
+             f"  top-{N_CANDIDATES} {pct(r.c5, r.n)} ({r.c5}/{r.n})"
+             f"  per-species @1 {_macro(r.macro1, 0)}  @{N_CANDIDATES} {_macro(r.macro5, 0)}")
+    _log("")
+
+
 def log_checklist_scope(_log, scope, n, c1, n_sp, macro1):
     """Which species are proven out of scope, and the headline recomputed
     without their frames. The published numbers above this block do not move;

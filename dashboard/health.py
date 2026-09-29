@@ -27,6 +27,7 @@ from core import (
     HOLDOUT_CSV,
     HOLDOUT_HELD_ROLE,
     HOLDOUT_SPLIT,
+    LABEL_SOURCE_COLUMN,
     MIN_CROP_COVERAGE,
     N_CANDIDATES,
     SPLITS_CSV,
@@ -393,14 +394,35 @@ def merge_holdout(split_of: dict, held: set) -> dict:
     return displaced
 
 
+def only_label_source(gt_rows: list, label_source: str, gt_csv: str) -> list:
+    """The GT rows whose ``label_source`` is ``label_source``.
+
+    SystemExit when the file has no such column or no such row: asked for one
+    population, a run that scored the whole file, or nothing, would publish a
+    number under the wrong name.
+    """
+    if not gt_rows or LABEL_SOURCE_COLUMN not in gt_rows[0]:
+        raise SystemExit(f"--label-source {label_source}: {gt_csv} has no "
+                         f"{LABEL_SOURCE_COLUMN} column. labelling/gt_from_publication.py "
+                         f"writes one.")
+    kept = [r for r in gt_rows if r[LABEL_SOURCE_COLUMN] == label_source]
+    if not kept:
+        found = sorted({r[LABEL_SOURCE_COLUMN] for r in gt_rows})
+        raise SystemExit(f"--label-source {label_source}: no row of {gt_csv} carries it "
+                         f"(found: {', '.join(found)})")
+    return kept
+
+
 def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
                 wcvp_cache=WCVP_CACHE_JSON, holdout_csv=HOLDOUT_CSV,
+                label_source: str | None = None,
                 log: Callable[[str], None] | None = None) -> Health:
     """Read the labels, the split and the cached answers into one ``Health``.
 
     Everything downstream reads what this returns rather than the files, so the
     pages and measure.py cannot disagree about what the corpus is. ``log`` is
-    optional; only measure.py passes one.
+    optional; only measure.py passes one. ``label_source`` keeps only the GT
+    rows of that population, so every number downstream is measured on it alone.
     """
     def _log(msg: str = "") -> None:
         if log is not None:
@@ -414,6 +436,10 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
 
     # ---------------- 1. the two input CSVs ----------------
     gt_rows = read_csv_rows(gt_csv)
+    if label_source:
+        n_all = len(gt_rows)
+        gt_rows = only_label_source(gt_rows, label_source, gt_csv)
+        _log(f"  {LABEL_SOURCE_COLUMN} filter    : {label_source}, {len(gt_rows)} of {n_all} GT rows")
     split_rows = read_csv_rows(splits_csv)
     split_of = {r["global_key"]: r["split"] for r in split_rows}
     # The flight holdout on top of the frame-by-frame split. Merged before the
