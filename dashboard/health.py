@@ -363,6 +363,10 @@ def frame_records(joined, split_of, predictions, canon, crop_frames, box_name_of
     name is taken to be that crown, renamed by the review, and compared as the
     reviewed label. An approximation: another crown of that same Labelbox
     species filling the crop would pass too, as it always has under Labelbox.
+    Neither the Labelbox export nor the workbook links a box to a crown, so
+    this cannot be matched by id; ``crop_by_name`` marks the frames the rename
+    let through and ``crop_crowns`` how many crowns of the filling species reach
+    into the crop, which together count how exposed the gate is to it.
     """
     box_name_of = box_name_of or {}
     records = []
@@ -370,7 +374,9 @@ def frame_records(joined, split_of, predictions, canon, crop_frames, box_name_of
         gt_c = canon(gt_name)
         cov = crop_frames.get(stem)
         dominant = canon(cov["dominant"]) if cov and cov["dominant"] else None
-        if dominant is not None and gk in box_name_of and dominant == canon(box_name_of[gk]):
+        by_name = (dominant is not None and dominant != gt_c and gk in box_name_of
+                   and dominant == canon(box_name_of[gk]))
+        if by_name:
             dominant = gt_c
         records.append({
             "global_key": gk,
@@ -385,6 +391,8 @@ def frame_records(joined, split_of, predictions, canon, crop_frames, box_name_of
             # zero. The dominant name is canonicalised like the GT label.
             "crop_coverage": cov["coverage"] if cov else None,
             "crop_dominant": dominant,
+            "crop_by_name": by_name,
+            "crop_crowns": cov.get("crowns") if cov else None,
         })
     return records
 

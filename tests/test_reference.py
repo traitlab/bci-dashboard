@@ -215,3 +215,67 @@ def test_a_renamed_crown_passes_the_gate_and_a_third_species_does_not(health, co
     # comb_c has no reviewed rename recorded, so its Labelbox-named crop is
     # another species, as before.
     assert [r["global_key"] for r in rejected] == ["comb_b", "comb_c"]
+    assert [r["crop_by_name"] for r in recs] == [True, False, False]
+
+
+def test_a_frame_already_named_alike_is_not_counted_as_let_in_by_the_rename(health):
+    """The rename only counts where it changed the verdict: a reviewed name
+    equal to the Labelbox one passed before the rule existed."""
+    joined = [("comb_a", "a", "Ceiba pentandra")]
+    crop = {"a": {"dominant": "Ceiba pentandra", "coverage": 0.9, "crowns": 2}}
+    recs = health.frame_records(
+        joined,
+        {},
+        {"a": [("Ceiba pentandra", 0.9)]},
+        lambda n: n,
+        crop,
+        {"comb_a": "Ceiba pentandra"},
+    )
+    assert recs[0]["crop_by_name"] is False and recs[0]["crop_crowns"] == 2
+
+
+def test_the_gate_counts_frames_where_another_crown_of_the_species_may_fill_it(core):
+    """No box carries a crown id, so the rename cannot be checked against the
+    crown the review read; the gate counts the admitted frames where a second
+    crown of the filling species reaches into the crop."""
+
+    def r(by_name, crowns, coverage=0.9):
+        return {
+            "gt": "A a",
+            "ranked": [("A a", 0.9)],
+            "crop_coverage": coverage,
+            "crop_dominant": "A a",
+            "crop_by_name": by_name,
+            "crop_crowns": crowns,
+        }
+
+    gate = core.coverage_gate_stats(
+        [r(True, 2), r(True, 1), r(False, 3), r(False, 1), r(True, 4, coverage=0.1)]
+    )
+    assert gate["n_admitted"] == 4
+    assert (gate["n_by_name"], gate["n_by_name_several_crowns"]) == (2, 1)
+    assert gate["n_several_crowns"] == 2
+    # A record from before the fields existed counts as neither.
+    assert core.coverage_gate_stats([rec("k", "A a", "A a")])["n_several_crowns"] == 0
+
+
+def test_the_crop_counts_the_crowns_of_its_filling_species(tmp_path, monkeypatch):
+    """One box is one crown. Two boxes of the filling species inside the crop
+    are two crowns; a third outside it is not counted."""
+    with _on_path(REPO / "dashboard"):
+        import crop_overlap
+    head = "base_image,x_min,y_min,x_max,y_max,width,height,lb_label\n"
+    rows = [
+        "f,1400,900,2400,2100,1000,1200,Ceiba pentandra",
+        "f,2000,1500,2600,2100,600,600,Ceiba pentandra",
+        "f,0,0,500,500,500,500,Ceiba pentandra",
+        "f,2500,900,2640,1000,140,100,Ficus insipida",
+    ]
+    boxes = tmp_path / "boxes.csv"
+    boxes.write_text(head + "\n".join(rows) + "\n", encoding="utf-8")
+    monkeypatch.setattr(crop_overlap, "BOXES_CSV", str(boxes))
+    monkeypatch.setattr(crop_overlap, "EXPORT_BOXES_CSV", None)
+    frames, suspect = crop_overlap.build()
+    assert suspect == []
+    assert frames["f"]["dominant"] == "ceiba pentandra"
+    assert frames["f"]["crowns"] == 2

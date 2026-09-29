@@ -70,7 +70,8 @@ def population_stats(h) -> list[dict]:
     """The headline rates once per label_source population, headline first.
 
     Each carries its own frame and species counts, gated and ungated, so an
-    unreviewed rate is never read off the reviewed n. Species rates are pooled
+    unreviewed rate is never read off the reviewed n, and how many gated frames
+    the crown-by-name match let in (``core.coverage_gate_stats``). Species rates are pooled
     within a species, then averaged across species. Empty for a GT without the
     column: then there is one population and the headline already is it.
     """
@@ -95,6 +96,9 @@ def population_stats(h) -> list[dict]:
                 "gated_n_correct_top1": gate["n_correct_top1"],
                 "gated_macro_top1": gate["macro_top1"],
                 "gated_n_species": gate["n_species"],
+                "gated_n_by_name": gate["n_by_name"],
+                "gated_n_by_name_several_crowns": gate["n_by_name_several_crowns"],
+                "gated_n_several_crowns": gate["n_several_crowns"],
             }
         )
     rows.sort(key=lambda r: (not r["headline"], r["label_source"]))

@@ -897,7 +897,13 @@ def coverage_gate_stats(recs, min_coverage=MIN_CROP_COVERAGE):
     """Headline numbers over the admitted subset of ``recs``.
     ``macro_top1`` averages per-species top-1 over admitted rows only, so its
     species set shrinks with the threshold. Report it beside the ungated macro
-    average and ``n_admitted``."""
+    average and ``n_admitted``.
+
+    ``n_by_name`` counts the admitted frames the reviewed-name rule let in
+    (``health.frame_records``), and ``n_by_name_several_crowns`` those of them
+    whose crop holds more than one crown of the filling species, so the crown
+    the model saw may not be the one reviewed. ``n_several_crowns`` is the same
+    over every admitted frame: a box names a species, never a crown."""
     admitted, rejected = coverage_split(recs, min_coverage)
     by_sp = defaultdict(list)
     for r in admitted:
@@ -913,4 +919,8 @@ def coverage_gate_stats(recs, min_coverage=MIN_CROP_COVERAGE):
         "micro_top1": ratio(hits, len(admitted)),
         "macro_top1": (sum(per) / len(per)) if per else None,
         "n_species": len(by_sp),
+        "n_by_name": sum(1 for r in admitted if r.get("crop_by_name")),
+        "n_by_name_several_crowns": sum(1 for r in admitted if r.get("crop_by_name")
+                                        and (r.get("crop_crowns") or 0) > 1),
+        "n_several_crowns": sum(1 for r in admitted if (r.get("crop_crowns") or 0) > 1),
     }
