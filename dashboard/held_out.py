@@ -21,6 +21,7 @@ import os
 import re
 
 import core as hc
+import species_mix
 from assets import more
 
 MISSION_RE = re.compile(r"/(\d{8})_([a-z0-9]+)_")
@@ -103,18 +104,27 @@ def measure_flight_holdout(sp_recs, manifest) -> dict | None:
     The population is every scored frame ``health.load_health`` tagged with
     ``core.HOLDOUT_SPLIT``. Those frames are on flights no train frame is on,
     so this rate leans on no near-copy of a frame the labels already know.
-    Returns None when there is no drawn holdout to report.
+    ``mix`` reads the same two rates on the species both sets hold, each
+    reweighted to one common species mix (``species_mix.compare``, test as the
+    first population), because the two sets hold different species in
+    different shares. Returns None when there is no drawn holdout to report.
     """
     if not manifest:
         return None
     stats = manifest.get("stats", {})
     held = [r for r in sp_recs if r["split"] == hc.HOLDOUT_SPLIT]
+    test = [r for r in sp_recs if r["split"] == "test"]
+
+    def hits(recs):
+        return species_mix.by_species((r["gt"], r["ranked"][0][0] == r["gt"]) for r in recs)
+
     return {"version": manifest.get("version", ""),
             "n_flights": int(stats.get("n_held_groups", 0)),
             "n_all_flights": int(stats.get("n_groups", 0)),
             "n_drawn": int(stats.get("n_held", 0)),
             "n_ungradeable": int(stats.get("n_species_ungradeable", 0)),
-            "held": _rate(held)}
+            "held": _rate(held),
+            "mix": species_mix.compare(hits(test), hits(held))}
 
 
 def flight_rows(flight: dict) -> list[dict]:
@@ -201,7 +211,49 @@ def _flight_sentences(flight: dict) -> str:
     else:
         rest += ('<p class="note">Every species was flown more than once, so none is '
                  'left ungraded.</p>')
-    return line + more("How the held-back flights were drawn", rest)
+    return line + _mix_sentences(flight.get("mix")) + more(
+        "How the held-back flights were drawn", rest)
+
+
+def _pts(x: float) -> str:
+    return f"{100 * x:+.1f}".replace("-", "&minus;")
+
+
+def _mix_sentences(mix: dict | None) -> str:
+    """The two rates on the same species mix, beside the guard.
+
+    Raw per-frame rates on the shared species, both rates reweighted to the
+    combined species mix, the difference with its resampled 95% range, and,
+    behind a summary line, how the mix is made and the frames each set holds
+    on species the other does not. Empty when there is nothing to compare, and
+    said in words when no species is shared.
+    """
+    if not mix:
+        return ""
+    if not mix["n_shared_species"]:
+        return ('<p class="note">The test frames and the held-back flights share no '
+                'species, so the two rates cannot be read on the same species mix.</p>')
+    raw, std, ex = mix["raw"], mix["standardized"], mix["excluded"]
+    lo, hi = mix["ci95"]
+    verdict = ("the two rates agree within their uncertainty" if lo <= 0 <= hi else
+               "the held-back flights score higher" if lo > 0 else
+               "the held-back flights score lower")
+    line = (f'<p class="note"><b>Read on the same species, {verdict}.</b> On the '
+            f'{mix["n_shared_species"]:,} species both sets hold, the first guess is '
+            f'right on {_pct(raw["a"])} of {mix["frames"]["a"]:,} test frames and '
+            f'{_pct(raw["b"])} of {mix["frames"]["b"]:,} held-back frames. Given the '
+            f'same mix of those species, it is {_pct(std["a"])} and {_pct(std["b"])}, '
+            f'held-back minus test {_pts(mix["difference"])} points. In 95% of '
+            f'{mix["n_boot"]:,} resamples that gap falls between {_pts(lo)} and '
+            f'{_pts(hi)} points.</p>')
+    rest = (f'<p class="note">Each species counts by its frames in both sets added '
+            f'together, so neither set\'s mix is favoured. The resamples redraw frames '
+            f'within each species and set, the weights held fixed, with a fixed seed so '
+            f'a rebuild prints the same range. Left out, because only one set holds '
+            f'them: {ex["a"]["frames"]:,} test frames on {ex["a"]["species"]:,} species '
+            f'and {ex["b"]["frames"]:,} held-back frames on {ex["b"]["species"]:,} '
+            f'species.</p>')
+    return line + more("How the same species mix is made", rest)
 
 
 def note(result: dict, flight: dict | None = None) -> str:

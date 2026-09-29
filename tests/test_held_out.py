@@ -172,3 +172,28 @@ def test_the_page_never_invites_the_two_rates_to_be_subtracted(external_page):
         assert "grade two different sets of frames" in html
     else:
         assert "A large gap" not in html
+
+
+def test_the_page_reads_both_rates_on_the_same_species_mix(external_page):
+    """The test frames and the held-back flights hold different species in
+    different shares, so beside the guard the page prints both rates on the
+    species they share, reweighted to one mix, with the frames left out."""
+    html, _ = external_page
+    if "flight holdout holds" not in html:
+        pytest.skip("no flight holdout drawn in this snapshot")
+    assert "Read on the same species, " in html
+    assert re.search(r"On the [0-9,]+ species both sets hold", html)
+    assert re.search(
+        r"falls between (&minus;|\+)[0-9.]+ and (&minus;|\+)[0-9.]+ points", html)
+    assert "Left out, because only one set holds them" in html
+
+
+def test_the_holdout_measure_carries_the_mix_comparison(held_out):
+    recs = [rec("t1", "test", "x", "x"), rec("t2", "test", "x", "y"),
+            rec("t3", "test", "z", "z"),
+            rec("h1", held_out.hc.HOLDOUT_SPLIT, "x", "x")]
+    mix = held_out.measure_flight_holdout(recs, {"version": "v1", "stats": {}})["mix"]
+    assert mix["n_shared_species"] == 1
+    assert mix["frames"] == {"a": 2, "b": 1}
+    assert mix["excluded"]["a"] == {"species": 1, "frames": 1}
+    assert mix["difference"] == pytest.approx(0.5)
