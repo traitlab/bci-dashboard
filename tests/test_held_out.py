@@ -183,17 +183,61 @@ def test_the_page_reads_both_rates_on_the_same_species_mix(external_page):
         pytest.skip("no flight holdout drawn in this snapshot")
     assert "Read on the same species, " in html
     assert re.search(r"On the [0-9,]+ species both sets hold", html)
-    assert re.search(
-        r"falls between (&minus;|\+)[0-9.]+ and (&minus;|\+)[0-9.]+ points", html)
+    pts = r"(&minus;|\+)[0-9.]+"
+    assert re.search(rf"We are 95% sure the true gap is between {pts} and {pts} points", html)
+    assert re.search(rf"On the test frames' own mix the gap is {pts} points", html)
+    assert re.search(rf"On the held-back flights' own mix the gap is {pts} points", html)
+    assert "each time drawing whole sites at random" in html
+    assert ("All three mixes put the gap on the same side" in html
+            or "the direction of the gap is not settled" in html)
     assert "Left out, because only one set holds them" in html
+    assert "resample" not in html and "bootstrap" not in html
 
 
 def test_the_holdout_measure_carries_the_mix_comparison(held_out):
     recs = [rec("t1", "test", "x", "x"), rec("t2", "test", "x", "y"),
-            rec("t3", "test", "z", "z"),
+            rec("t3", "test", "z", "z"), rec("t4", "test", "x", "x"),
             rec("h1", held_out.hc.HOLDOUT_SPLIT, "x", "x")]
-    mix = held_out.measure_flight_holdout(recs, {"version": "v1", "stats": {}})["mix"]
+    flights = {"t1": ("20260101", "sitea"), "t2": ("20260102", "siteb"),
+               "t3": ("20260101", "sitea"), "h1": ("20260103", "sitec")}
+    mix = held_out.measure_flight_holdout(recs, {"version": "v1", "stats": {}}, flights)["mix"]
+    # t4 has no flight, so no site to draw it by: left out and counted.
+    assert mix["unplaced"] == {"a": 1, "b": 0}
     assert mix["n_shared_species"] == 1
     assert mix["frames"] == {"a": 2, "b": 1}
     assert mix["excluded"]["a"] == {"species": 1, "frames": 1}
-    assert mix["difference"] == pytest.approx(0.5)
+    assert mix["n_sites"] == 3
+    assert set(mix["weightings"]) == {"combined", "a", "b"}
+    for w in mix["weightings"].values():
+        assert w["difference"] == pytest.approx(0.5)
+
+
+def _mix(diffs, ci=(-0.02, 0.03)):
+    """A compare() result carrying the given difference per weighting."""
+    w = {k: {"standardized": {"a": 0.8, "b": 0.8 + d}, "difference": d, "ci95": ci}
+         for k, d in zip(("combined", "a", "b"), diffs)}
+    return {"n_shared_species": 2, "raw": {"a": 0.8, "b": 0.8}, "frames": {"a": 5, "b": 5},
+            "excluded": {k: {"species": 0, "frames": 0} for k in "ab"}, "weightings": w,
+            "n_sites": 3, "n_draws": 10000, "draws_short": 7, "draws_empty": 0,
+            "unplaced": {"a": 0, "b": 0}}
+
+
+def test_the_note_says_when_the_mix_turns_the_sign(held_out):
+    text = held_out._mix_sentences(_mix((0.01, -0.02, 0.03)))
+    assert "the direction of the gap is not settled" in text
+    assert "All three mixes" not in text
+    assert "In 7 of the 10,000 re-runs" in text
+
+
+def test_the_note_says_when_every_mix_agrees_in_sign(held_out):
+    text = held_out._mix_sentences(_mix((-0.01, -0.02, -0.03)))
+    assert "All three mixes put the gap on the same side" in text
+    assert "We are 95% sure the true gap is between &minus;2.0 and +3.0 points" in text
+
+
+def test_the_note_says_a_range_across_zero_leaves_the_gap_open(held_out):
+    open_text = held_out._mix_sentences(_mix((-0.01, -0.02, -0.03)))
+    assert "a range that includes zero leaves the direction of the gap unsettled" in open_text
+    shut_text = held_out._mix_sentences(_mix((-0.01, -0.02, -0.03), ci=(-0.04, -0.01)))
+    assert "All three mixes put the gap on the same side.</p>" in shut_text
+    assert "includes zero" not in shut_text

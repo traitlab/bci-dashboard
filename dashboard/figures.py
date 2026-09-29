@@ -575,9 +575,10 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     fig.update(_wait_rules(sp_recs, fig["support"]))
     # Test top-1 on frames from flights the train set never saw, beside the
     # overall one every test frame today leans on. Measured in held_out.py.
-    fig["held_out"] = held_out_measure(sp_recs, load_flights())
+    flights = load_flights()
+    fig["held_out"] = held_out_measure(sp_recs, flights)
     # Top-1 on the flights labelling/draw_holdout.py held back whole. None
     # when no holdout is drawn, and the note then says nothing about one.
-    fig["flight_holdout"] = measure_flight_holdout(sp_recs, held_out_manifest())
+    fig["flight_holdout"] = measure_flight_holdout(sp_recs, held_out_manifest(), flights)
     fig.update(_genus_and_family(h))
     return SimpleNamespace(**fig)
