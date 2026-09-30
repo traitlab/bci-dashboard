@@ -1,0 +1,137 @@
+{
+  "buffer_m": 30.0,
+  "by_site": {
+    "bci10haplot": {
+      "test": 33,
+      "train": 277,
+      "valid": 29
+    },
+    "bci25haplot": {
+      "buffered": 528,
+      "clean_test": 28,
+      "test": 60,
+      "train": 310,
+      "valid": 49
+    },
+    "bci50haplot": {
+      "buffered": 204,
+      "clean_test": 9,
+      "test": 195,
+      "train": 1236,
+      "valid": 167
+    },
+    "bciarmour": {
+      "train": 816
+    },
+    "bcicommtower": {
+      "buffered": 121,
+      "clean_test": 12,
+      "test": 89,
+      "train": 485,
+      "valid": 73
+    },
+    "bcidraytontower": {
+      "test": 19,
+      "train": 80,
+      "valid": 15
+    },
+    "bcifairchild": {
+      "buffered": 548,
+      "clean_test": 1,
+      "test": 4,
+      "train": 950,
+      "valid": 4
+    },
+    "bcifairchildn": {
+      "test": 14,
+      "train": 228,
+      "valid": 6
+    },
+    "bciknightlang": {
+      "buffered": 109
+    },
+    "bcipearson": {
+      "buffered": 3,
+      "clean_test": 96
+    },
+    "bcishannon": {
+      "buffered": 7,
+      "clean_test": 99
+    },
+    "bcitbarbour3n": {
+      "buffered": 472,
+      "clean_test": 226,
+      "test": 51,
+      "train": 506,
+      "valid": 49
+    },
+    "bcitbarbour3o": {
+      "buffered": 1009,
+      "clean_test": 10,
+      "test": 100,
+      "train": 582,
+      "valid": 81
+    },
+    "bcizetektower": {
+      "test": 7,
+      "train": 69,
+      "valid": 7
+    },
+    "coba2": {
+      "train": 137
+    },
+    "knightlangbci": {
+      "test": 8,
+      "train": 276,
+      "valid": 8
+    },
+    "pnmcrane": {
+      "train": 224
+    },
+    "shermancrane": {
+      "train": 150
+    },
+    "srfincaroubik": {
+      "train": 164
+    },
+    "srp31": {
+      "train": 159
+    }
+  },
+  "by_source": {
+    "flight": 481,
+    "legacy": 3324,
+    "near": 3001,
+    "sent_blank": 4393
+  },
+  "by_split": {
+    "buffered": 3001,
+    "clean_test": 481,
+    "test": 580,
+    "train": 6649,
+    "valid": 488
+  },
+  "clean_flights": [
+    "20260402/bci50haplot",
+    "20260402/bcishannon",
+    "20260403/bcifairchild",
+    "20260420/bci25haplot",
+    "20260421/bcitbarbour3o",
+    "20260422/bcitbarbour3o",
+    "20260423/bci25haplot",
+    "20260423/bcipearson",
+    "20260423/bcitbarbour3o",
+    "20260424/bcishannon",
+    "20260424/bcitbarbour3n",
+    "20260425/bci25haplot",
+    "20260506/bcitbarbour3n",
+    "20260508/bcitbarbour3n",
+    "20260513/bcitbarbour3n",
+    "20260514/bcicommtower"
+  ],
+  "legacy_in_inventory": 7717,
+  "legacy_rows": 7717,
+  "n_frames": 11199,
+  "unit": "flight (one date over one site)",
+  "version": "v2"
+}
