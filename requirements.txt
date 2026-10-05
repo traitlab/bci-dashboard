@@ -12,4 +12,4 @@ pandas
 # on a checkout that has them (its docstring says how). Only labelling/ imports
 # them; dashboard/ reads the JSON and CSV they leave behind.
 labelfirst
-speciesfirst
+crownfirst

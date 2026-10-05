@@ -1,6 +1,6 @@
 """What the pages say off ``data/model_health/``, and when they refuse to.
 
-`labelling/assess_species.py` runs labelfirst and speciesfirst in their own
+`labelling/assess_species.py` runs labelfirst and crownfirst in their own
 virtualenv and writes four JSON files. `dashboard/assessments.py` is the only
 reader, and the external page refuses to build when a file is missing or was
 computed from a ground truth other than today's. These tests write small files
@@ -26,7 +26,7 @@ EMB_SHA = "b" * 64
 
 def doc(*, gt_sha=GT_SHA, emb_sha=EMB_SHA, **fields):
     d = {"kind": "transductive", "inputs": {"gt_sha256": gt_sha},
-         "library": {"speciesfirst": "0.1.0"}}
+         "library": {"crownfirst": "0.1.0"}}
     if emb_sha:
         d["inputs"]["embeddings_sha256"] = emb_sha
     return {**d, **fields}
@@ -203,7 +203,7 @@ def test_every_mechanism_the_file_can_carry_has_a_page_word():
     named = set(re.findall(r'"(species_conflict|synonym_artifact|coarser_label|'
                            r'liana_overgrowth)"', script))
     worded = set(re.findall(r'^\s+"(\w+)": "', page, re.MULTILINE))
-    # The same three on both sides. speciesfirst's fourth, liana_overgrowth,
+    # The same three on both sides. crownfirst's fourth, liana_overgrowth,
     # needs a growth-habit table nothing writes, so neither side names it.
     assert named == worded and len(named) == 3
 
@@ -279,7 +279,7 @@ def test_the_script_writes_the_files_the_reader_names(assessments):
 
 def test_the_script_records_what_the_reader_checks():
     src = (REPO / "labelling" / "assess_species.py").read_text(encoding="utf-8")
-    for key in ("gt_sha256", "embeddings_sha256", "speciesfirst", "labelfirst",
+    for key in ("gt_sha256", "embeddings_sha256", "crownfirst", "labelfirst",
                 "grouped_rows"):
         assert f'"{key}"' in src
 
@@ -289,6 +289,12 @@ def test_the_script_uses_the_floor_free_verdict_and_the_reader_applies_the_floor
     src = (REPO / "labelling" / "assess_species.py").read_text(encoding="utf-8")
     assert "WELL_SAMPLED_MIN_N" not in src
     assert "LIMIT_MIN_FRAMES" not in src
+
+
+def test_the_library_version_reads_files_from_before_the_rename(assessments):
+    assert assessments.library_version(doc()) == "0.1.0"
+    old = doc(library={"speciesfirst": "0.0.9"})
+    assert assessments.library_version(old) == "0.0.9"
 
 
 def test_a_sidecar_on_disk_matches_what_the_reader_expects(assessments):

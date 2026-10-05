@@ -6,7 +6,7 @@ in ``queue_photos.csv``, which sorted by flight and file size and was never a
 priority ranking.
 
 The ordering is **label-free**. It runs the CoreSet coverage objective from
-speciesfirst over the Pl@ntNet embeddings (``predict/embed.py``): each pick is
+crownfirst over the Pl@ntNet embeddings (``predict/embed.py``): each pick is
 the photo that looks least like everything picked so far, so distinct-species
 coverage fills as fast as an unlabelled selector can make it. No prediction and
 no species name steers the order, which is what makes the backtest below an
@@ -17,10 +17,10 @@ species-coverage curve reported alongside the order, and, with ``--backtest``,
 the falsifiable bar (does the directed order cover species faster than a random
 draw, on every seed). Those labels score the order. They never choose it.
 
-Runs against the speciesfirst virtualenv, which already carries speciesfirst and
-labelfirst. Point ``SPECIESFIRST`` at that checkout:
+Runs against the crownfirst virtualenv, which already carries crownfirst and
+labelfirst. Point ``CROWNFIRST`` at that checkout:
 
-  "$SPECIESFIRST/.venv/bin/python" labelling/rank_unsent.py \
+  "$CROWNFIRST/.venv/bin/python" labelling/rank_unsent.py \
       --backtest --species-csv data/gt_dominant_taxon.csv
 """
 
@@ -35,13 +35,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np
-from embeddings_io import load_embeddings
-from speciesfirst import (
+from crownfirst import (
     CrownWeights,
     backtest_species_coverage,
     crowns_from_arrays,
     select_crowns,
 )
+from embeddings_io import load_embeddings
 
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_NPZ = REPO / "data" / "embeddings" / "embeddings.npz"

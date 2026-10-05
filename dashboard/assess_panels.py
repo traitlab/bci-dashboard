@@ -12,7 +12,7 @@ from __future__ import annotations
 from assessments import LIMIT_MIN_FRAMES, LIMIT_WORDS
 from assets import esc, more, table
 
-# What the disagreement file's words mean on the page. speciesfirst has a fourth,
+# What the disagreement file's words mean on the page. crownfirst has a fourth,
 # liana_overgrowth, which the script never gives without a growth-habit table,
 # so the page does not word it: a word with no row behind it is a claim.
 MECHANISM_WORDS = {

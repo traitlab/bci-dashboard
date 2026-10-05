@@ -1,11 +1,11 @@
 """The ranker that decides which photo in a queue is sent first.
 
 `labelling/rank_queue.py` needs numpy and labelfirst, which live in the
-speciesfirst virtualenv and not in this one, so the behaviour tests skip on a
+crownfirst virtualenv and not in this one, so the behaviour tests skip on a
 plain checkout and the contract tests, which only read source text, always run.
 
     .venv/bin/pytest tests/test_rank_queue.py
-    "$SPECIESFIRST/.venv/bin/pytest" tests/test_rank_queue.py
+    "$CROWNFIRST/.venv/bin/pytest" tests/test_rank_queue.py
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ def test_the_page_reads_thumbnails_from_where_the_fetcher_writes_them():
 
 
 # ---------------------------------------------------------------------------
-# behaviour, on the speciesfirst interpreter
+# behaviour, on the crownfirst interpreter
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="module")

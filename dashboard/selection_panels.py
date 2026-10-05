@@ -45,11 +45,12 @@ PLURAL = {"site": "sites", "export batch": "export batches", "flight": "flights"
 # How many hex digits of a file hash the page prints: enough to tell two files
 # apart, short enough to read against the ordering file's own record.
 SHA_SHOWN = 12
-# How labelfirst names each verdict, and what the page says instead.
+# How crownfirst names each verdict, and what the page says instead.
 VERDICT_WORDS = {
     "robust": "holds once the {cov} is held fixed",
     "confounded": "is mostly the {cov}, and fades once it is held fixed",
     "mixed": "is partly the {cov}",
+    "inconclusive": "may hold once the {cov} is held fixed, but too few frames to tell",
     "no-signal": "is not there either way",
 }
 

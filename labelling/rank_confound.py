@@ -20,7 +20,7 @@ starts cannot show. ``separability_other_flight`` serves it too: the
 preflight's same-species-neighbour rate, with every neighbour from the frame's
 own flight taken away, because frames from one flight overlap.
 
-Needs numpy and labelfirst, like the ranker that imports it.
+Needs numpy and crownfirst, like the ranker that imports it.
 """
 
 from __future__ import annotations
@@ -28,12 +28,14 @@ from __future__ import annotations
 from dataclasses import asdict
 
 import numpy as np
-from labelfirst.eval.confound import confound_audit
+from crownfirst._confound_audit import confound_audit
 # The verdict thresholds, the between-group variance share and the rank-vector
-# correlation labelfirst's own audit uses. Imported rather than restated so the
+# correlation crownfirst's audit uses. Imported rather than restated so the
 # fifth audit is classified by the same rule as the four beside it; a copy here
-# would drift the day labelfirst moves a threshold.
-from labelfirst.eval.confound import _eta_squared, _pearson, _verdict
+# would drift the day crownfirst moves a threshold.
+from crownfirst._confound_audit import eta_squared as _eta_squared
+from crownfirst._confound_audit import pearson as _pearson
+from crownfirst._confound_audit import verdict as _verdict
 from scipy import stats
 
 
@@ -92,7 +94,7 @@ def without_unreconciled(score, target, covariate: list[str]):
 
 def one_confound(population, score, target, covariate, *, score_name, target_name,
                  covariate_name) -> dict:
-    """One of labelfirst's confound audits as the record the page reads, with
+    """One of crownfirst's confound audits as the record the page reads, with
     the unreadable-covariate rows left out and counted."""
     (score, target, covariate), n_unreconciled = without_unreconciled(
         score, target, covariate)

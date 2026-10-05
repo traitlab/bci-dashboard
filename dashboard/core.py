@@ -378,7 +378,7 @@ def canonical_binomial(name):
     """Bare 'Genus species' from an authored accepted name.
     'Ocotea leptobotra (Ruiz & Pav.) Mez' -> 'Ocotea leptobotra'. None if the
     first two tokens are not a plain binomial. Same rule as
-    speciesfirst.wcvp_export.canonical_binomial."""
+    crownfirst.wcvp_export.canonical_binomial."""
     if not name:
         return None
     tok = name.split()
