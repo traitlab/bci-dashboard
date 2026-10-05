@@ -2,14 +2,15 @@
 with a photo whose covariate cannot be read.
 
 The helpers live in `labelling/rank_confound.py` and need numpy; the ranker
-that calls them needs labelfirst too. Both come from the speciesfirst
+that calls them needs labelfirst too. Both come from the crownfirst
 virtualenv:
 
-    ../speciesfirst/.venv/bin/python -m pytest tests/test_rank_confound.py
+    ../crownfirst/.venv/bin/python -m pytest tests/test_rank_confound.py
 """
 
 from __future__ import annotations
 
+import inspect
 import pathlib
 import re
 
@@ -21,7 +22,7 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 @pytest.fixture(scope="module")
 def rank_confound():
     pytest.importorskip("numpy", reason="numpy is not in this virtualenv")
-    pytest.importorskip("labelfirst", reason="labelfirst is not in this virtualenv")
+    pytest.importorskip("crownfirst", reason="crownfirst is not in this virtualenv")
     from conftest import load
     return load("_rank_confound_under_test", REPO / "labelling" / "rank_confound.py")
 
@@ -80,3 +81,11 @@ def test_seeds_agreeing_counts_the_starts_where_this_order_beat_the_random_one(
 def test_the_audit_writes_seeds_agreeing_beside_the_library_version():
     src = (REPO / "labelling" / "rank_queue.py").read_text(encoding="utf-8")
     assert '"n_seeds_agreeing"' in src and "seeds_agreeing(" in src
+
+
+def test_every_verdict_the_audit_can_give_has_a_page_word(selection_panels):
+    audit = pytest.importorskip("crownfirst._confound_audit",
+                                reason="crownfirst is not in this virtualenv")
+    words = set(re.findall(r'return "([a-z-]+)"', inspect.getsource(audit.verdict)))
+    assert "inconclusive" in words
+    assert words <= set(selection_panels.VERDICT_WORDS)

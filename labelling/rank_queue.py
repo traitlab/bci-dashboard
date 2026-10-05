@@ -18,15 +18,15 @@ The output is a plain CSV. ``dashboard/`` reads it with the standard library and
 never sees a vector: with the file absent every frame ties and the queue keeps
 the confidence order it has today.
 
-Runs against the speciesfirst virtualenv, which carries labelfirst. Point
-``SPECIESFIRST`` at that checkout:
+Runs against the crownfirst virtualenv, which carries labelfirst. Point
+``CROWNFIRST`` at that checkout:
 
-  "$SPECIESFIRST/.venv/bin/python" labelling/rank_queue.py
-  "$SPECIESFIRST/.venv/bin/python" labelling/rank_queue.py --backtest \
+  "$CROWNFIRST/.venv/bin/python" labelling/rank_queue.py
+  "$CROWNFIRST/.venv/bin/python" labelling/rank_queue.py --backtest \
       --species-csv data/gt_dominant_taxon.csv
-  "$SPECIESFIRST/.venv/bin/python" labelling/rank_queue.py --audit \
+  "$CROWNFIRST/.venv/bin/python" labelling/rank_queue.py --audit \
       --species-csv data/gt_dominant_taxon.csv
-  "$SPECIESFIRST/.venv/bin/python" labelling/rank_queue.py --confound \
+  "$CROWNFIRST/.venv/bin/python" labelling/rank_queue.py --confound \
       --species-csv data/gt_dominant_taxon.csv
 
 A frame that carries a split in ``data/splits.csv``, or that the flight holdout
@@ -64,7 +64,7 @@ import numpy as np
 from draw_field_sample import load_flights, load_sites
 from embeddings_io import l2_normalise, load_embeddings
 from labelfirst.eval.audit import audit, render_markdown
-from labelfirst.eval.diagnose.separability import predict_al_benefit
+from labelfirst.eval.diagnose import predict_al_benefit
 from labelfirst.eval.efficiency import annotation_efficiency
 from labelfirst.eval.simulate import simulate
 from labelfirst.io.queue import RunRecord, sha256_file
@@ -74,7 +74,7 @@ from pool_filters import (
 from rank_arms import ARMS, arm_factory
 from rank_confound import (equalised_anchor_confound, loo_distance, one_confound,
                            rarity, seeds_agreeing, separability_other_flight)
-from speciesfirst import backtest_species_coverage
+from crownfirst import backtest_species_coverage
 
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_POOL_NPZ = REPO / "data" / "embeddings_queue" / "embeddings.npz"

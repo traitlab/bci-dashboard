@@ -12,7 +12,7 @@ the repo's 500-line limit; ``rank_queue`` imports these names and the tests
 reach them through it.
 
 Standard library and the array the caller already has. No numpy import, no
-speciesfirst import: the only thing done to the vectors is take rows out.
+crownfirst import: the only thing done to the vectors is take rows out.
 """
 
 from __future__ import annotations

@@ -38,9 +38,9 @@ of what the pool was on the day of the draw. `--verify` re-draws from it rather
 than re-deriving it. No count is written into this file; every number is read
 off the data on the day it runs.
 
-    "$SPECIESFIRST/.venv/bin/python" labelling/draw_holdout.py --rebuild-pool
-    "$SPECIESFIRST/.venv/bin/python" labelling/draw_holdout.py --rebuild-pool --write
-    "$SPECIESFIRST/.venv/bin/python" labelling/draw_holdout.py --verify
+    "$CROWNFIRST/.venv/bin/python" labelling/draw_holdout.py --rebuild-pool
+    "$CROWNFIRST/.venv/bin/python" labelling/draw_holdout.py --rebuild-pool --write
+    "$CROWNFIRST/.venv/bin/python" labelling/draw_holdout.py --verify
 
 References:
 
@@ -69,9 +69,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, "dashboard"))
 
 import core as hc
+from crownfirst.grouped_holdout import build_fold
 from draw_field_sample import flight_of
 from polygon_identity import gps_of
-from speciesfirst.grouped_holdout import build_fold
 
 REPO = Path(__file__).resolve().parents[1]
 VERSION = "v1"

@@ -3,8 +3,8 @@ Say, per species, what would help: more labels, or a better model.
 
 The species table on the model-health page says where Pl@ntNet is wrong. It
 cannot say why, or what to do about it, because every rule that can is in
-labelfirst and speciesfirst and ``dashboard/`` is standard library only. So
-this script runs those rules here, in the speciesfirst virtualenv, and writes
+labelfirst and crownfirst and ``dashboard/`` is standard library only. So
+this script runs those rules here, in the crownfirst virtualenv, and writes
 what they found into ``data/model_health/`` as JSON that the page reads with
 the standard library. Nothing is re-derived on the page. Every file carries the
 sha256 of the inputs it was computed from, and the builder refuses to build a
@@ -15,20 +15,20 @@ Four files, one question each:
 ``transductive.json``
     Hold back half the labelled frames of every species, at random, and ask
     whether a nearest-neighbour rule over how the photos look to the model
-    recovers the other half. ``labelfirst.eval.transductive`` then says per
+    recovers the other half. ``crownfirst._transductive_eval`` then says per
     species whether the gap is sampling-limited (the rule saw no example),
     classifier-limited (it saw examples and still failed) or resolved. Drawn
     ``SEEDS`` times, so a verdict that flips with the draw is reported as such.
 
 ``disagreement.json``
     Every labelled frame where the first guess is confidently wrong, and why
-    the two names conflict, from ``speciesfirst.disagreement``: two names for
+    the two names conflict, from ``crownfirst.disagreement``: two names for
     one accepted taxon is an artefact and not a disagreement; a label coarser
     than the guess is not one either. The page shows the review queue grouped
     by that reason.
 
 ``reject_sweep.json``
-    ``speciesfirst.reject.sweep_thresholds_cv``: if only frames whose plausible
+    ``crownfirst.reject.sweep_thresholds_cv``: if only frames whose plausible
     names fit in a set of k are trusted, how many frames is that and how often
     is the first of them right. The classifier swept is a logistic regression
     over the embeddings, cross-validated, not Pl@ntNet's own answer. The page
@@ -42,10 +42,10 @@ Four files, one question each:
     have reached and how many more the singleton count suggests are still out
     there. No embeddings needed.
 
-Runs against the speciesfirst virtualenv, which carries labelfirst. Point
-``SPECIESFIRST`` at that checkout:
+Runs against the crownfirst virtualenv, which carries labelfirst. Point
+``CROWNFIRST`` at that checkout:
 
-  "$SPECIESFIRST/.venv/bin/python" labelling/assess_species.py
+  "$CROWNFIRST/.venv/bin/python" labelling/assess_species.py
 
 Re-running on unchanged inputs rewrites every file byte for byte: no clock is
 written, only the inputs' hashes and the library versions.
@@ -65,23 +65,23 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, "dashboard"))
 
 import core as hc
+import crownfirst
 import health as hl
 import labelfirst
 import numpy as np
 import sklearn
-import speciesfirst
-from draw_field_sample import load_flights
-from embeddings_io import l2_normalise, load_embeddings
-from labelfirst.eval.diagnose.richness import estimate_richness
-from labelfirst.eval.transductive import (
+from crownfirst._transductive_eval import (
     DEFAULT_FRAC_LABELED_FLOOR,
     DEFAULT_RESOLVED_ACC,
 )
+from crownfirst.disagreement import crown_map_disagreement
+from crownfirst.reject import sweep_thresholds_cv
+from crownfirst.transductive import transductive_report
+from draw_field_sample import load_flights
+from embeddings_io import l2_normalise, load_embeddings
+from labelfirst.eval.diagnose.richness import estimate_richness
 from labelfirst.io.queue import sha256_file
 from sklearn.preprocessing import LabelEncoder
-from speciesfirst.disagreement import crown_map_disagreement
-from speciesfirst.reject import sweep_thresholds_cv
-from speciesfirst.transductive import transductive_report
 
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_NPZ = REPO / "data" / "embeddings_labelled" / "embeddings.npz"
@@ -120,7 +120,7 @@ def provenance(h, *, gt_csv: str, npz: Path | None) -> dict:
         inputs["embeddings_npz"] = os.path.relpath(npz, REPO)
         inputs["embeddings_sha256"] = sha256_file(npz)
     return {"inputs": inputs,
-            "library": {"speciesfirst": speciesfirst.__version__,
+            "library": {"crownfirst": crownfirst.__version__,
                         "labelfirst": labelfirst.__version__,
                         "scikit-learn": sklearn.__version__,
                         "numpy": np.__version__}}
@@ -160,7 +160,7 @@ def assess_transductive(X, labels: list[str]) -> dict:
             "mean_transductive_acc": round(float(np.mean(acc[sp])), 6),
         }
     return {
-        "method": {"rule": "labelfirst.eval.transductive.transductive_eval",
+        "method": {"rule": "crownfirst._transductive_eval.transductive_eval",
                    "labeled_frac": LABELED_FRAC, "seeds": list(SEEDS),
                    "k": K_NEIGHBOURS, "resolved_acc": DEFAULT_RESOLVED_ACC,
                    "frac_labeled_floor": DEFAULT_FRAC_LABELED_FLOOR},
@@ -209,7 +209,7 @@ def assess_disagreement(h) -> dict:
             "reason": reason.get(i),
         }
     return {
-        "method": {"rule": "speciesfirst.disagreement.crown_map_disagreement",
+        "method": {"rule": "crownfirst.disagreement.crown_map_disagreement",
                    "review_conf": hc.REVIEW_CONF,
                    "synonyms_from": os.path.relpath(hc.WCVP_CACHE_JSON, REPO)
                    if hc.WCVP_CACHE_JSON else None,
@@ -234,7 +234,7 @@ def assess_reject_sweep(X, labels: list[str], groups: list[str]) -> dict:
           "thresholds": list(SWEEP_SIZES)}
     unplaced = sum(1 for g in groups if g.startswith("unplaced:"))
     return {
-        "method": {"rule": "speciesfirst.reject.sweep_thresholds_cv",
+        "method": {"rule": "crownfirst.reject.sweep_thresholds_cv",
                    "classifier": "StandardScaler + LogisticRegression(C=1.0) over "
                                  "the embeddings, cross-conformal; not Pl@ntNet",
                    "alpha": SWEEP_ALPHA, "n_folds": SWEEP_FOLDS, "seed": SWEEP_SEED,

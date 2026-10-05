@@ -1,6 +1,6 @@
 """What ``labelling/assess_species.py`` found, read back with the standard library.
 
-The script runs labelfirst and speciesfirst in their own virtualenv and writes
+The script runs labelfirst and crownfirst in their own virtualenv and writes
 four JSON files into ``data/model_health/``. This module is the only reader.
 Every file names the sha256 of the inputs it was computed from, and a file
 whose inputs have since moved is stale: the loaders below still return what is
@@ -27,7 +27,7 @@ DISAGREEMENT_JSON = os.path.join(MODEL_HEALTH_DIR, "disagreement.json")
 REJECT_SWEEP_JSON = os.path.join(MODEL_HEALTH_DIR, "reject_sweep.json")
 STATUS_JSON = os.path.join(MODEL_HEALTH_DIR, "status.json")
 EMBEDDINGS_NPZ = os.path.join(hc.BASE, "embeddings_labelled", "embeddings.npz")
-RERUN = "Re-run labelling/assess_species.py in the speciesfirst virtualenv"
+RERUN = "Re-run labelling/assess_species.py in the crownfirst virtualenv"
 
 # The species table's last column, in the page's words. The file carries
 # labelfirst's own vocabulary; the page says what a botanist would do about it.
@@ -116,6 +116,13 @@ def mechanism_of(disagreement: dict | None, key: str) -> str:
     if not disagreement:
         return ""
     return disagreement.get("frames", {}).get(key, {}).get("mechanism", "")
+
+
+def library_version(assessment: dict) -> str:
+    """The crownfirst version a file was written with. Files written before the
+    rename record it under ``speciesfirst``."""
+    lib = assessment["library"]
+    return lib.get("crownfirst", lib.get("speciesfirst", ""))
 
 
 def unassessed(disagreement: dict | None, keys) -> list:
@@ -216,7 +223,7 @@ def log_assessments(_log, transductive, disagreement, per_species, review_rows):
         _log(f"  transductive.json : {named} of {len(limits)} species given a limit, "
              f"the rest under {LIMIT_MIN_FRAMES} embedded frames or unembedded")
         _log(f"    gt sha256 {transductive['inputs']['gt_sha256'][:12]}, "
-             f"speciesfirst {transductive['library']['speciesfirst']}")
+             f"crownfirst {library_version(transductive)}")
     if disagreement is None:
         _log(f"  disagreement.json : absent, mechanism column blank ({RERUN})")
     else:
@@ -224,5 +231,5 @@ def log_assessments(_log, transductive, disagreement, per_species, review_rows):
         _log(f"  disagreement.json : {len(review_rows) - len(missing)} of "
              f"{len(review_rows)} review frames given a mechanism")
         _log(f"    gt sha256 {disagreement['inputs']['gt_sha256'][:12]}, "
-             f"speciesfirst {disagreement['library']['speciesfirst']}")
+             f"crownfirst {library_version(disagreement)}")
     _log("")

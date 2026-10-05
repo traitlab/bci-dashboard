@@ -7,7 +7,7 @@ the draw promises hold on the file itself: no flight is split across held and
 train, every held species has a train flight, and every buffered frame is
 within the buffer of a held one.
 
-The draw needs `speciesfirst.grouped_holdout`; the checks on the committed
+The draw needs `crownfirst.grouped_holdout`; the checks on the committed
 files need only the standard library, so they run on any interpreter.
 
     .venv/bin/pytest tests/test_holdout_draw.py
@@ -37,8 +37,8 @@ SHA256 = "06eea9709248724594e08d7d5c5a3c40b5a2b0b410520e273a8d35d12a960fd2"
 def draw_holdout():
     """`labelling/draw_holdout.py`, loaded with `labelling/` on the path for
     its two sibling imports. Skips when the grouped holdout is not importable."""
-    pytest.importorskip("speciesfirst.grouped_holdout",
-                        reason="draw_holdout needs speciesfirst.grouped_holdout")
+    pytest.importorskip("crownfirst.grouped_holdout",
+                        reason="draw_holdout needs crownfirst.grouped_holdout")
     with _on_path(REPO / "labelling"):
         yield load("_draw_holdout_under_test", REPO / "labelling" / "draw_holdout.py")
 

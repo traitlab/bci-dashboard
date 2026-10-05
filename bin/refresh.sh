@@ -65,14 +65,14 @@ python3 labelling/gt_from_export.py \
 AFTER="$(md5 -q "$GT")"
 echo "$HASH" > "$MARKER"
 
-# The species-level assessments need labelfirst and speciesfirst, which live
-# in their own virtualenv. Point SPECIESFIRST_PYTHON at its python to refresh
+# The species-level assessments need labelfirst and crownfirst, which live
+# in their own virtualenv. Point CROWNFIRST_PYTHON at its python to refresh
 # them here; unset, the step is skipped and build_external.py refuses if the
 # sidecars no longer match the ground truth.
-if [ -n "${SPECIESFIRST_PYTHON:-}" ]; then
-  "$SPECIESFIRST_PYTHON" labelling/assess_species.py
+if [ -n "${CROWNFIRST_PYTHON:-}" ]; then
+  "$CROWNFIRST_PYTHON" labelling/assess_species.py
 else
-  echo "assess_species.py skipped: set SPECIESFIRST_PYTHON to the speciesfirst venv python; build_external.py will refuse if data/model_health/ is stale"
+  echo "assess_species.py skipped: set CROWNFIRST_PYTHON to the crownfirst venv python; build_external.py will refuse if data/model_health/ is stale"
 fi
 
 # Always re-measure. build/tables is what the pages cross-check against, and a

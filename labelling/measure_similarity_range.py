@@ -18,10 +18,10 @@ plateau: past it, two frames of one species look no more alike for being near.
 The drone position is where the aircraft hovered, not where the crown is
 (``polygon_identity.py``), so every metre here is a hover-to-hover distance.
 
-Runs against the speciesfirst virtualenv, which carries labelfirst for the run
+Runs against the crownfirst virtualenv, which carries labelfirst for the run
 record; the measurement itself is numpy only:
 
-  "$SPECIESFIRST/.venv/bin/python" labelling/measure_similarity_range.py
+  "$CROWNFIRST/.venv/bin/python" labelling/measure_similarity_range.py
 """
 
 from __future__ import annotations

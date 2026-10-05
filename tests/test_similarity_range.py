@@ -5,7 +5,7 @@ lack, so the behaviour tests skip without it. The run record needs labelfirst
 and is not exercised here.
 
     .venv/bin/pytest tests/test_similarity_range.py
-    "$SPECIESFIRST/.venv/bin/pytest" tests/test_similarity_range.py
+    "$CROWNFIRST/.venv/bin/pytest" tests/test_similarity_range.py
 """
 
 from __future__ import annotations
