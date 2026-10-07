@@ -19,10 +19,11 @@ from types import SimpleNamespace
 
 import assessments as am
 import held_out as ho
+import reference
 import run_log as rl
 from health import load_health
 from core import (
-    add_input_flags, summarise,
+    add_input_flags, add_label_source_flag, summarise,
     ratio, fmt, genus_of, normalize,
     coverage_gate_stats, diagnose, labelbox_urls, inventory_image_urls,
     adjudicated_keys,
@@ -48,7 +49,8 @@ OUT_DIR = os.path.join(
 OUTPUTS = ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
            "confidence_calibration.csv", "name_reconciliation.csv", "send_first_queue.csv",
            "send_batches.csv", "label_review_queue.csv", "coverage_gate.csv",
-           "reject_sweep.csv", "held_out.csv", "flight_holdout.csv", "run_log.txt")
+           "reject_sweep.csv", "held_out.csv", "flight_holdout.csv", "reference.json",
+           "run_log.txt")
 
 # Three of those no build reads back. They are evidence a person opens: what
 # restricting candidates to the BCI list is worth, which tier matched every label
@@ -71,6 +73,7 @@ def parse_args() -> argparse.Namespace:
     add_input_flags(p)
     p.add_argument("--out-dir", default=OUT_DIR,
                    help=f"directory to write the {len(OUTPUTS)} output files to")
+    add_label_source_flag(p)
     return p.parse_args()
 
 
@@ -380,7 +383,7 @@ def send_queue(h):
     support = {d["species"]: d["n_labelled_frames"] for d in per_species}
     top1_of = {d["species"]: d["top1_accuracy"] for d in per_species}
     decided, n_no_answer, held_out = send_first_rows(
-        h.predictions, {stem for _, stem, _ in h.joined}, h.canon, support, top1_of,
+        h.predictions, h.labelled_stems, h.canon, support, top1_of,
         novelty=load_novelty(QUEUE_NOVELTY_CSV), key_prefix=GT_KEY_PREFIX,
         splits=h.split_of)
     distance = load_novelty_distance(QUEUE_NOVELTY_CSV)
@@ -428,7 +431,7 @@ def main() -> None:
     log(rl.RULE)
 
     h = load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
-                    wcvp_cache=args.wcvp_cache, log=log)
+                    wcvp_cache=args.wcvp_cache, label_source=args.label_source, log=log)
     write_name_reconciliation(out_dir, h)
     rl.log_evaluable_sets(log, h)
 
@@ -454,6 +457,7 @@ def main() -> None:
     rl.log_headline(log, head.n, head.n_sp, head.c1, head.c5, head.macro1,
                     head.macro5, head.g1, head.g5, gain.reachable, gain.r1,
                     gain.r5, head.s1, head.s5, head.gn, head.gg1, head.gg5)
+    rl.log_label_sources(log, reference.population_stats(h), h.reference)
     scope = checklist_scope_stats(h, head)
     rl.log_checklist_scope(log, scope, head.n, head.c1, head.n_sp, head.macro1)
     rl.log_gate_comparison(log, h.sp_recs, sweep,
@@ -481,6 +485,7 @@ def main() -> None:
     rl.log_review_queue(log, review_rows, head.n, n_adjudicated)
     am.write_reject_sweep(out_dir, am.load(am.REJECT_SWEEP_JSON))
     ho.write_tables(out_dir, h.sp_recs)
+    reference.write(out_dir, h, args.gt, args.label_source)
     am.log_assessments(log, transductive, disagreement, h.per_species, review_rows)
 
     rl.log_files_written(log, out_dir, OUTPUTS)

@@ -28,6 +28,7 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 DASHBOARD = REPO / "dashboard"
 BOX_CSV = REPO / "input" / "boxes" / "crop_bounding_boxes.csv"
 GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
+PUBLICATION_GT_CSV = REPO / "data" / "gt_publication_reviewed.csv"
 
 
 @contextlib.contextmanager
@@ -507,6 +508,7 @@ def require_buildable():
     tables to verify against, neither of which is tracked in git. Run
     `dashboard/measure.py` to make the tables."""
     for path, label in ((GT_CSV, "data/gt_dominant_taxon.csv"),
+                        (PUBLICATION_GT_CSV, "data/gt_publication_reviewed.csv"),
                         (SPLITS_CSV, "data/splits.csv"),
                         (CACHE_DIR, "data/predictions/cache"),
                         (QUEUE_NOVELTY_CSV,

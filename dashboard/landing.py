@@ -14,7 +14,8 @@ this screen shows the numbers side by side and names the one to quote.
 from __future__ import annotations
 
 import core as hc
-from assets import esc, hero, pctf, svg_hbar
+import reference
+from assets import esc, hero, pctf, svg_hbar, table
 from confirmatory_panels import floor_note, require
 from explain import BAND_SHORT, THIN_MAX
 from status_words import STATUS
@@ -66,6 +67,39 @@ def cards(c) -> str:
                 f"among species with {hc.WELL_SAMPLED_MIN_N} or more labelled frames",
                 "per_species_health.csv"))
     return hero(out, cls="wide")
+
+
+def populations(c) -> str:
+    """Which labels the cards are scored against, the population beside them,
+    and the break in the series, right under the cards they qualify.
+
+    Since core.REFERENCE_SWITCHED_ON the cards count only frames whose label is
+    the reviewed publication name. The frames Labelbox labelled and no review
+    covered are scored on their own row, gated and ungated like the headline,
+    and never pooled into it.
+    """
+    k = c.n_cand
+    rows = [[("<b>headline</b>: " if p["headline"] else "beside it: ")
+             + esc(reference.WORDS[p["label_source"]]),
+             f'{p["n_frames"]:,}', f'{p["n_species"]:,}',
+             pctf(p["macro_top1"]), pctf(hc.ratio(p["n_correct_top1"], p["n_frames"])),
+             pctf(p["macro_top5"]), pctf(hc.ratio(p["n_correct_top5"], p["n_frames"])),
+             f'{p["gated_n_frames"]:,}', pctf(p["gated_macro_top1"]),
+             pctf(hc.ratio(p["gated_n_correct_top1"], p["gated_n_frames"]))]
+            for p in c.populations]
+    ref = esc(reference.WORDS.get(c.reference, c.reference))
+    crossing = reference.break_sentence(reference.LABELBOX, hc.HEADLINE_LABEL_SOURCE)
+    crossing = f'<p class="note">{esc(crossing)}</p>'
+    if not rows:
+        return f'<p class="note"><b>Scored against {ref}.</b></p>' + crossing
+    return (f'<p class="note"><b>Scored against {ref}.</b> The cards count only those '
+            f'frames. The other labelled frames are scored on their own row below, '
+            f'never pooled into the cards.</p>' + crossing
+            + table([("Labels", False), ("Frames", True), ("Species", True),
+                     ("Top-1, per species", True), ("Top-1, per frame", True),
+                     (f"Top-{k}, per species", True), (f"Top-{k}, per frame", True),
+                     ("Gated frames", True), ("Gated top-1, per species", True),
+                     ("Gated top-1, per frame", True)], rows))
 
 
 def status_bar(c) -> str:
@@ -125,5 +159,5 @@ def review_line(c) -> str:
 
 def landing(c) -> str:
     """Everything above the first section heading."""
-    return "\n".join([intro(c), cards(c), floor_note(require(c.cf)),
+    return "\n".join([intro(c), cards(c), populations(c), floor_note(require(c.cf)),
                       status_bar(c), by_frames(c), review_line(c)])

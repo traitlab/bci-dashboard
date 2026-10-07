@@ -149,6 +149,7 @@ def parse_args(doc: str, default_out: str):
 
     ap = argparse.ArgumentParser(description=hc.summarise(doc))
     hc.add_input_flags(ap)
+    hc.add_label_source_flag(ap)
     ap.add_argument("--verify-against", default=None,
                     help="directory holding the measurement CSVs to cross-check; "
                          "defaults to build/tables, what measure.py last wrote. Point it "
@@ -250,7 +251,7 @@ def run(doc: str, out_name: str, build) -> str:
     args = parse_args(doc, out_name)
     verify_dir = args.verify_against or hc.TABLES_DIR
     h = hl.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
-                       wcvp_cache=args.wcvp_cache)
+                       wcvp_cache=args.wcvp_cache, label_source=args.label_source)
     page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),
                          verify_dir=verify_dir, fallback_tag=args.model_tag)
     write_page(page, checks, args.out)

@@ -17,6 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from types import SimpleNamespace
 
+import reference
 import run_log as rl
 from checklist import load_checklist, membership
 from core import (
@@ -27,6 +28,10 @@ from core import (
     HOLDOUT_CSV,
     HOLDOUT_HELD_ROLE,
     HOLDOUT_SPLIT,
+    LABEL_SOURCE_ALL,
+    LABEL_SOURCE_COLUMN,
+    LABEL_SOURCE_REVIEWED,
+    LABELBOX_NAME_COLUMN,
     MIN_CROP_COVERAGE,
     N_CANDIDATES,
     SPLITS_CSV,
@@ -67,6 +72,14 @@ class Health:
     per_species: list
     canon: Callable[[str], str]
     checklist: object | None
+    # Every frame with any label, whichever population is scored: the send
+    # queue holds all of them back, so an unreviewed label is never re-sent.
+    labelled_stems: set
+    # label_source -> the species-level scored records of that population,
+    # the headline's included. Empty for a GT without the column.
+    by_source: dict
+    # What the headline is scored against, a ``reference`` constant.
+    reference: str
 
 
 def scan_cache(cache_dir):
@@ -337,17 +350,34 @@ def require_inputs(paths_and_names, log):
         log(f"  input ok : {path}")
 
 
-def frame_records(joined, split_of, predictions, canon, crop_frames):
+def frame_records(joined, split_of, predictions, canon, crop_frames, box_name_of=None):
     """One record per frame that has both a label and a cached answer.
 
     Raw name forms are kept alongside the canonicalised ones so the run can say
     what canonicalising was worth. Crop coverage rides along: whether the
     labelled crown is inside the square the model saw decides scorability.
+
+    ``box_name_of`` maps a reviewed frame to the Labelbox name its crown boxes
+    carry. A box records a species name and no crown id, so the labelled crown
+    is recognised by name: a dominant species equal to the frame's Labelbox
+    name is taken to be that crown, renamed by the review, and compared as the
+    reviewed label. An approximation: another crown of that same Labelbox
+    species filling the crop would pass too, as it always has under Labelbox.
+    Neither the Labelbox export nor the workbook links a box to a crown, so
+    this cannot be matched by id; ``crop_by_name`` marks the frames the rename
+    let through and ``crop_crowns`` how many crowns of the filling species reach
+    into the crop, which together count how exposed the gate is to it.
     """
+    box_name_of = box_name_of or {}
     records = []
     for gk, stem, gt_name in joined:
         gt_c = canon(gt_name)
         cov = crop_frames.get(stem)
+        dominant = canon(cov["dominant"]) if cov and cov["dominant"] else None
+        by_name = (dominant is not None and dominant != gt_c and gk in box_name_of
+                   and dominant == canon(box_name_of[gk]))
+        if by_name:
+            dominant = gt_c
         records.append({
             "global_key": gk,
             "split": split_of.get(gk, ""),
@@ -360,8 +390,9 @@ def frame_records(joined, split_of, predictions, canon, crop_frames):
             # None means no box row at all, so coverage is unknown rather than
             # zero. The dominant name is canonicalised like the GT label.
             "crop_coverage": cov["coverage"] if cov else None,
-            "crop_dominant": (canon(cov["dominant"])
-                              if cov and cov["dominant"] else None),
+            "crop_dominant": dominant,
+            "crop_by_name": by_name,
+            "crop_crowns": cov.get("crowns") if cov else None,
         })
     return records
 
@@ -393,27 +424,86 @@ def merge_holdout(split_of: dict, held: set) -> dict:
     return displaced
 
 
+def only_label_source(gt_rows: list, label_source: str, gt_csv: str) -> list:
+    """The GT rows whose ``label_source`` is ``label_source``.
+
+    SystemExit when the file has no such column or no such row: asked for one
+    population, a run that scored the whole file, or nothing, would publish a
+    number under the wrong name.
+    """
+    if not gt_rows or LABEL_SOURCE_COLUMN not in gt_rows[0]:
+        raise SystemExit(f"--label-source {label_source}: {gt_csv} has no "
+                         f"{LABEL_SOURCE_COLUMN} column. labelling/gt_from_publication.py "
+                         f"writes one.")
+    kept = [r for r in gt_rows if r[LABEL_SOURCE_COLUMN] == label_source]
+    if not kept:
+        found = sorted({r[LABEL_SOURCE_COLUMN] for r in gt_rows})
+        raise SystemExit(f"--label-source {label_source}: no row of {gt_csv} carries it "
+                         f"(found: {', '.join(found)})")
+    return kept
+
+
+def other_populations(gt_all, gt_rows, sp_recs, predictions, records_of):
+    """Every labelled stem with a cached answer, and the scored species-level
+    records per ``label_source``, the headline's (``sp_recs``) included.
+
+    The headline is one population; the rows it leaves out are still labelled,
+    so they are scored beside it and held out of the send queue.
+    """
+    labelled_stems = {r["global_key"].removeprefix(GT_KEY_PREFIX) for r in gt_all}
+    labelled_stems &= set(predictions)
+    if not gt_all or LABEL_SOURCE_COLUMN not in gt_all[0]:
+        return labelled_stems, {}
+    scored = {id(r) for r in gt_rows}
+    by_source = {}
+    for source in sorted({r[LABEL_SOURCE_COLUMN] for r in gt_all}):
+        rows = [r for r in gt_all if r[LABEL_SOURCE_COLUMN] == source]
+        if all(id(r) in scored for r in rows):
+            keys = {r["global_key"] for r in rows}
+            by_source[source] = [r for r in sp_recs if r["global_key"] in keys]
+            continue
+        joined = [(r["global_key"], r["global_key"].removeprefix(GT_KEY_PREFIX),
+                   r["wcvp_canonical_name"]) for r in rows]
+        joined = [j for j in joined if j[1] in predictions]
+        by_source[source] = [r for r in records_of(joined)
+                             if r["species_level"] and r["ranked"]]
+    return labelled_stems, by_source
+
+
 def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
                 wcvp_cache=WCVP_CACHE_JSON, holdout_csv=HOLDOUT_CSV,
+                label_source: str | None = None,
                 log: Callable[[str], None] | None = None) -> Health:
     """Read the labels, the split and the cached answers into one ``Health``.
 
     Everything downstream reads what this returns rather than the files, so the
     pages and measure.py cannot disagree about what the corpus is. ``log`` is
-    optional; only measure.py passes one.
+    optional; only measure.py passes one. ``label_source`` keeps only the GT
+    rows of that population, so every number downstream is measured on it alone;
+    the other rows are scored beside it in ``by_source`` and never pooled in.
+    ``all`` or None keeps every row.
     """
     def _log(msg: str = "") -> None:
         if log is not None:
             log(msg)
 
-    require_inputs(((gt_csv, "the botanist labels"),
+    labels = "the botanist labels"
+    if label_source and label_source != LABEL_SOURCE_ALL:
+        labels = ("the reviewed-label ground truth labelling/gt_from_publication.py "
+                  "builds from the publication workbook (no fallback to the Labelbox "
+                  "labels)")
+    require_inputs(((gt_csv, labels),
                     (splits_csv, "the grading split"),
                     (cache_dir, "the cached Pl@ntNet answers")), _log)
     _log(f"  wcvp cache: {wcvp_cache if wcvp_cache and os.path.exists(wcvp_cache) else 'ABSENT (tier d disabled)'}")
     _log("")
 
     # ---------------- 1. the two input CSVs ----------------
-    gt_rows = read_csv_rows(gt_csv)
+    gt_all = read_csv_rows(gt_csv)
+    gt_rows = gt_all
+    if label_source and label_source != LABEL_SOURCE_ALL:
+        gt_rows = only_label_source(gt_all, label_source, gt_csv)
+        _log(f"  {LABEL_SOURCE_COLUMN} filter    : {label_source}, {len(gt_rows)} of {len(gt_all)} GT rows")
     split_rows = read_csv_rows(splits_csv)
     split_of = {r["global_key"]: r["split"] for r in split_rows}
     # The flight holdout on top of the frame-by-frame split. Merged before the
@@ -460,10 +550,17 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     import crop_overlap
     crop_frames, crop_suspect = crop_overlap.build()
 
-    records = frame_records(joined, split_of, predictions, canon, crop_frames)
+    box_name_of = {r["global_key"]: r[LABELBOX_NAME_COLUMN] for r in gt_all
+                   if r.get(LABEL_SOURCE_COLUMN) == LABEL_SOURCE_REVIEWED
+                   and r.get(LABELBOX_NAME_COLUMN)}
+    records = frame_records(joined, split_of, predictions, canon, crop_frames, box_name_of)
 
     sp_recs = [r for r in records if r["species_level"] and r["ranked"]]
     genus_recs = [r for r in records if not r["species_level"] and r["ranked"]]
+    labelled_stems, by_source = other_populations(
+        gt_all, gt_rows, sp_recs, predictions,
+        lambda joined_: frame_records(joined_, split_of, predictions, canon, crop_frames,
+                                      box_name_of))
 
     n_crop_joined = sum(1 for r in records if r["crop_coverage"] is not None)
     crop_admitted, crop_rejected = coverage_split(sp_recs, MIN_CROP_COVERAGE)
@@ -482,5 +579,6 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
         corpus_norm=corpus_norm, corpus_canon=corpus_canon, gt_names=gt_names,
         tier_of_name=tier_of_name, tier_crowns=tier_crowns, records=records,
         sp_recs=sp_recs, genus_recs=genus_recs, per_species=per_species, canon=canon,
-        checklist=checklist,
+        checklist=checklist, labelled_stems=labelled_stems, by_source=by_source,
+        reference=reference.reference_of(gt_all, label_source),
     )

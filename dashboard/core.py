@@ -27,6 +27,31 @@ REPO = os.environ.get("BCI_DASHBOARD_REPO") or os.path.dirname(
 BASE = os.environ.get("BCI_DASHBOARD_DATA") or os.path.join(REPO, "data")
 
 GT_CSV = os.path.join(BASE, "gt_dominant_taxon.csv")
+# The reviewed-label ground truth ``labelling/gt_from_publication.py`` writes.
+# Same two columns as GT_CSV plus ``label_source``, which splits the frames into
+# two populations measure.py reports side by side and never pools silently: a
+# frame whose label is the publication's reviewed name, and a frame no reviewed
+# crown matched, which keeps its Labelbox label.
+PUBLICATION_GT_CSV = os.path.join(BASE, "gt_publication_reviewed.csv")
+LABEL_SOURCE_COLUMN = "label_source"
+LABEL_SOURCE_REVIEWED = "publication_reviewed"
+LABEL_SOURCE_UNREVIEWED = "labelbox_unreviewed"
+# The Labelbox label a reviewed row replaced. The crown boxes were drawn and
+# named in Labelbox, so this is the name the frame's own crown carries there.
+LABELBOX_NAME_COLUMN = "labelbox_name"
+# Every row of the file, both populations pooled. Only for a GT without the
+# column, the Labelbox one, or for asking what the pooled number would be.
+LABEL_SOURCE_ALL = "all"
+# The BCI Raw Data Publication final list the reviewed labels are read from.
+# Gitignored like the rest of data/; bin/refresh.sh refuses to run without it
+# rather than publish a headline on the Labelbox labels it replaced.
+PUBLICATION_WORKBOOK = os.path.join(BASE, "publication_final_list.xlsx")
+# The published headline is scored on the reviewed population alone, and the
+# unreviewed one is reported beside it. Until REFERENCE_SWITCHED_ON it was
+# scored on every Labelbox label; a snapshot from before then carries no
+# reference file and is read as that (see reference.py).
+HEADLINE_LABEL_SOURCE = LABEL_SOURCE_REVIEWED
+REFERENCE_SWITCHED_ON = "2026-09-29"
 SPLITS_CSV = os.path.join(BASE, "splits.csv")
 CACHE_DIR = os.path.join(BASE, "predictions", "cache")
 
@@ -410,7 +435,8 @@ def summarise(doc: str) -> str:
 # The four flags naming where the measurement inputs live. Names, defaults and
 # help live here, so every command that reads them words them the same way.
 INPUT_FLAGS = {
-    "--gt": (GT_CSV, "botanist labels, one row per frame"),
+    "--gt": (PUBLICATION_GT_CSV, ("botanist labels, one row per frame, with the "
+                                  "label_source labelling/gt_from_publication.py writes")),
     "--splits": (SPLITS_CSV, "which frames are held back for grading"),
     "--cache-dir": (CACHE_DIR, "folder of cached Pl@ntNet answers, one file per photo"),
     "--wcvp-cache": (WCVP_CACHE_JSON, "cached name crosswalk, used to match synonyms"),
@@ -424,6 +450,17 @@ def add_input_flags(p, *names: str, **help_overrides: str) -> None:
         p.add_argument(name, default=default,
                        help=help_overrides.get(name.lstrip("-").replace("-", "_"), help_)
                             + f" (default: {os.path.relpath(default, REPO)})")
+
+
+def add_label_source_flag(p) -> None:
+    """``--label-source``, the population a command scores, worded once for the
+    commands that publish the headline."""
+    p.add_argument("--label-source", default=HEADLINE_LABEL_SOURCE,
+                   choices=(LABEL_SOURCE_REVIEWED, LABEL_SOURCE_UNREVIEWED, LABEL_SOURCE_ALL),
+                   help=f"score only the --gt rows of this {LABEL_SOURCE_COLUMN}; the "
+                        f"other population is reported beside it. {LABEL_SOURCE_ALL} "
+                        f"scores every row, the only choice for a GT without the column "
+                        f"(default: {HEADLINE_LABEL_SOURCE})")
 
 
 def read_csv_rows(path: str) -> list[dict]:
@@ -860,7 +897,13 @@ def coverage_gate_stats(recs, min_coverage=MIN_CROP_COVERAGE):
     """Headline numbers over the admitted subset of ``recs``.
     ``macro_top1`` averages per-species top-1 over admitted rows only, so its
     species set shrinks with the threshold. Report it beside the ungated macro
-    average and ``n_admitted``."""
+    average and ``n_admitted``.
+
+    ``n_by_name`` counts the admitted frames the reviewed-name rule let in
+    (``health.frame_records``), and ``n_by_name_several_crowns`` those of them
+    whose crop holds more than one crown of the filling species, so the crown
+    the model saw may not be the one reviewed. ``n_several_crowns`` is the same
+    over every admitted frame: a box names a species, never a crown."""
     admitted, rejected = coverage_split(recs, min_coverage)
     by_sp = defaultdict(list)
     for r in admitted:
@@ -876,4 +919,8 @@ def coverage_gate_stats(recs, min_coverage=MIN_CROP_COVERAGE):
         "micro_top1": ratio(hits, len(admitted)),
         "macro_top1": (sum(per) / len(per)) if per else None,
         "n_species": len(by_sp),
+        "n_by_name": sum(1 for r in admitted if r.get("crop_by_name")),
+        "n_by_name_several_crowns": sum(1 for r in admitted if r.get("crop_by_name")
+                                        and (r.get("crop_crowns") or 0) > 1),
+        "n_several_crowns": sum(1 for r in admitted if (r.get("crop_crowns") or 0) > 1),
     }
