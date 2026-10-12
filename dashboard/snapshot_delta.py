@@ -7,6 +7,10 @@ before the build date and reports two things then and now: the species with at
 least the shared floor of labelled frames, and the overall test top-1 when the
 older snapshot recorded one (held_out.csv is newer than most snapshots).
 
+A snapshot scored against other reference labels is not compared at all: the
+note names the break instead, since a change across it is the labels', not the
+model's. ``reference.read`` says which labels a snapshot was scored against.
+
 Read with the standard library only, like everything under dashboard/.
 """
 
@@ -17,6 +21,7 @@ import os
 import re
 
 import core as hc
+import reference
 from history import SNAPSHOT_DIR, SNAPSHOT_GLOB
 
 # The build date is free text on the command line ("2026-08-25-test" in the
@@ -60,11 +65,20 @@ def test_top1_of(snap_dir: str):
 
 
 def compute(now: dict, snapshots_dir: str, generated: str, *, floor: int) -> dict:
-    """``now`` carries n_species_floor, test_n and test_top1 for this build."""
+    """``now`` carries n_species_floor, test_n, test_top1 and the reference
+    this build is scored against. ``then`` stays None across a reference break,
+    and ``crossed`` names the two references instead."""
     prev = previous_snapshot(snapshots_dir, generated)
     out = {"generated": generated, "previous": None, "now": dict(now),
-           "then": None, "date_readable": bool(DATE_RE.match(generated or ""))}
+           "then": None, "date_readable": bool(DATE_RE.match(generated or "")),
+           "crossed": None}
     if prev is None:
+        return out
+    then_ref = reference.read(prev)
+    now_ref = now.get("reference", reference.LABELBOX)
+    if then_ref != now_ref:
+        out["previous"] = SNAPSHOT_DIR.search(prev).group(1)
+        out["crossed"] = (then_ref, now_ref)
         return out
     top1 = test_top1_of(prev)
     out["previous"] = SNAPSHOT_DIR.search(prev).group(1)
@@ -84,6 +98,13 @@ def note(d: dict, *, floor: int) -> str:
     """One paragraph for the frame-counts panel."""
     now = d["now"]
     head = ('<p class="note"><b>Since the last snapshot:</b> ')
+    if d.get("crossed"):
+        then_ref, now_ref = d["crossed"]
+        return (head + f'not compared with {d["previous"]}, the date the counts were '
+                f'last saved. Today {now["n_species_floor"]} species carry at least '
+                f'{floor} labelled frames, and the first guess is right on '
+                f'{_pct(now["test_top1"])} of the {now["test_n"]:,} test frames.</p>'
+                f'<p class="note">{reference.break_sentence(then_ref, now_ref)}</p>')
     if d["then"] is None:
         why = ("the build date is not a date, so no earlier snapshot was looked for"
                if not d["date_readable"] else "this is the first snapshot")

@@ -141,7 +141,7 @@ def test_every_command_offers_the_same_four_input_flags(core):
     core.add_input_flags(p)
     args = p.parse_args([])
     assert (args.gt, args.splits, args.cache_dir, args.wcvp_cache) == (
-        core.GT_CSV, core.SPLITS_CSV, core.CACHE_DIR, core.WCVP_CACHE_JSON)
+        core.PUBLICATION_GT_CSV, core.SPLITS_CSV, core.CACHE_DIR, core.WCVP_CACHE_JSON)
 
 
 def test_a_command_can_ask_for_only_the_flags_it_reads(core):
@@ -149,7 +149,7 @@ def test_a_command_can_ask_for_only_the_flags_it_reads(core):
 
     p = argparse.ArgumentParser()
     core.add_input_flags(p, "--gt")
-    assert p.parse_args([]).gt == core.GT_CSV
+    assert p.parse_args([]).gt == core.PUBLICATION_GT_CSV
     assert not hasattr(p.parse_args([]), "splits")
 
 
@@ -165,7 +165,7 @@ def test_the_help_names_the_default_relative_to_the_repo(core):
     # argparse wraps, so a path can arrive split across two lines.
     help_text = re.sub(r"\s+", " ", p.format_help())
     assert "botanist labels" in help_text
-    assert f"(default: {os.path.relpath(core.GT_CSV, core.REPO)})" in help_text
+    assert f"(default: {os.path.relpath(core.PUBLICATION_GT_CSV, core.REPO)})" in help_text
 
 
 def test_a_command_can_reword_one_flag_without_restating_the_others(core):

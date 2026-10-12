@@ -16,6 +16,7 @@ from collections import Counter
 import assessments
 import core as hc
 import queues
+import reference
 
 SNAPSHOT_DIR = re.compile(r"model-health-(\d{4}-\d{2}-\d{2})$")
 SNAPSHOT_GLOB = "model-health-*"
@@ -342,7 +343,8 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
                     unscoreable, strict_hits,
                     queue_counts=None, n_no_answer=None, review_counts=None,
                     queue_keys=None, limits=None, review_mechanisms=None,
-                    reject_sweep=None, held_out=None, flight_holdout=None):
+                    reject_sweep=None, held_out=None, flight_holdout=None,
+                    scored_against=None, populations=None):
     """Abort the build if the page disagrees with measure.py's snapshot.
 
     One check per file the snapshot holds, each returning the line the page
@@ -352,8 +354,14 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
     to frame count, ``reject_sweep`` the sidecar behind reject_sweep.csv and
     ``held_out`` the populations behind held_out.csv and ``flight_holdout``
     those behind flight_holdout.csv, each only when the page prints from it.
+    ``scored_against`` is the reference the page was scored on and
+    ``populations`` its label_source counts, checked against reference.json:
+    tables scored on other labels abort the build by name.
     """
-    checks = [check_per_species(directory, per_species, limits),
+    checks = []
+    if scored_against is not None:
+        checks.append(reference.check(directory, scored_against, populations or []))
+    checks += [check_per_species(directory, per_species, limits),
               check_support_buckets(directory, buckets),
               check_confidence_bands(directory, bins_all)]
 

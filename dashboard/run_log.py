@@ -14,12 +14,14 @@ from __future__ import annotations
 import os
 from collections import Counter
 
+import reference
 from core import (
     BUCKET_ORDER,
     CONF_BINS,
     CONF_THRESHOLDS,
     EVAL_PROJECT,
     GT_KEY_PREFIX,
+    HEADLINE_LABEL_SOURCE,
     HOLDOUT_SPLIT,
     IDENTIFY_URL,
     MIN_CROP_COVERAGE,
@@ -287,6 +289,31 @@ def log_headline(_log, n, n_sp, c1, c5, macro1, macro5, g1, g5, reachable, r1, r
     _log("")
 
 
+def log_label_sources(_log, rows, ref):
+    """What the headline is scored against, the series break, and one line
+    per label_source population with its own frames and species, gated and
+    ungated. The headline is the first; the others sit beside it, never
+    pooled in."""
+    _log("--- REFERENCE LABELS (dashboard/reference.py) ---")
+    _log(f"  the headline above is scored against {reference.WORDS.get(ref, ref)} ({ref})")
+    _log(f"  {reference.break_sentence(reference.LABELBOX, HEADLINE_LABEL_SOURCE)}")
+    for r in rows:
+        n, gn = r["n_frames"], r["gated_n_frames"]
+        role = "headline" if r["headline"] else "beside, not pooled"
+        _log(f"  {r['label_source']:<22} {role:<18} n={n:<5} species={r['n_species']:<4}"
+             f" top-1 {pct(r['n_correct_top1'], n)} ({r['n_correct_top1']}/{n})"
+             f"  top-{N_CANDIDATES} {pct(r['n_correct_top5'], n)} ({r['n_correct_top5']}/{n})"
+             f"  per-species @1 {_macro(r['macro_top1'], 0)}"
+             f"  @{N_CANDIDATES} {_macro(r['macro_top5'], 0)}")
+        _log(f"  {'':<22} {'gated':<18} n={gn:<5} species={r['gated_n_species']:<4}"
+             f" top-1 {pct(r['gated_n_correct_top1'], gn)} ({r['gated_n_correct_top1']}/{gn})"
+             f"  per-species @1 {_macro(r['gated_macro_top1'], 0)}")
+        _log(f"  {'':<22} {'':<18} admitted by the renamed-crown rule "
+             f"{r['gated_n_by_name']}, of which {r['gated_n_by_name_several_crowns']} "
+             f"with more than one crown of that species in the crop")
+    _log("")
+
+
 def log_checklist_scope(_log, scope, n, c1, n_sp, macro1):
     """Which species are proven out of scope, and the headline recomputed
     without their frames. The published numbers above this block do not move;
@@ -338,6 +365,13 @@ def log_gate_comparison(_log, sp_recs, sweep, gate, n, n_sp, c1, macro1):
         f"{_macro(gate['macro_top1'], 11)}   (N_admitted={gate['n_admitted']}, "
         f"{gate['n_species']} species)")
     _log(f"  {'species':<34} {n_sp:>12} {gate['n_species']:>12}")
+    _log(f"  gated frames whose crop holds more than one crown of the species filling it: "
+        f"{gate['n_several_crowns']}")
+    _log(f"  of which let in only because the reviewed name renamed that species: "
+        f"{gate['n_by_name_several_crowns']} (renamed-crown rule admits "
+        f"{gate['n_by_name']} in all)")
+    _log("  A box names a species, never a crown, so on those frames the crown filling")
+    _log("  the crop may be another tree of the labelled species.")
     _log(f"  threshold in force                  : {MIN_CROP_COVERAGE:.2f} "
         f"(core.MIN_CROP_COVERAGE)")
     _log(f"  {'min_coverage':>12} {'N_admitted':>12} {'frame top-1':>13} "

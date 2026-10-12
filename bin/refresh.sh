@@ -23,6 +23,7 @@ set -euo pipefail
 REPO="${BCI_DASHBOARD_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 DOCS="${BCI_DASHBOARD_SNAPSHOTS:-$REPO/snapshots}"
 GT="$REPO/data/gt_dominant_taxon.csv"
+REVIEWED="$REPO/data/gt_publication_reviewed.csv"
 MARKER="$REPO/data/last_merged_export.txt"
 TODAY="$(date +%F)"
 SNAP="$DOCS/model-health-$TODAY"
@@ -51,6 +52,11 @@ if [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$HASH" ]; then
   exit 0
 fi
 
+# The headline is scored on the reviewed publication labels, so the workbook
+# they come from is checked before anything is merged: a run that stopped after
+# the merge would have recorded the export as merged and never rebuilt.
+python3 labelling/gt_from_publication.py --check
+
 # Fold the export into the GT. Back up first (the sidecar too: gt_from_export.py rewrites
 # it on every run, and a no-change merge must not restamp the batch's date);
 # drop the backups when the merge changed nothing.
@@ -58,11 +64,16 @@ BAK="${GT%.csv}_$TODAY.csv"
 SIDECAR="${GT%.csv}.provenance.txt"
 cp "$GT" "$BAK"
 [ -f "$SIDECAR" ] && cp "$SIDECAR" "$BAK.provenance.txt"
-BEFORE="$(md5 -q "$GT")"
+# Either label file moving is the labels moving: the reviewed one decides the
+# headline, the Labelbox one the population beside it.
+BEFORE="$(cat "$GT" "$REVIEWED" 2>/dev/null | md5 -q)"
 python3 labelling/gt_from_export.py \
   --export "$EXPORT" \
   --note "Ground truth: Labelbox project 2024_bci export of $TODAY, not yet reviewed."
-AFTER="$(md5 -q "$GT")"
+# The reviewed-label GT, rebuilt from the merged Labelbox GT and the workbook.
+# measure.py and both builders read it by default.
+python3 labelling/gt_from_publication.py
+AFTER="$(cat "$GT" "$REVIEWED" | md5 -q)"
 echo "$HASH" > "$MARKER"
 
 # The species-level assessments need labelfirst and crownfirst, which live
@@ -76,7 +87,10 @@ else
 fi
 
 # Always re-measure. build/tables is what the pages cross-check against, and a
-# change to the code that writes a table moves it even when no label did.
+# change to the code that writes a table moves it even when no label did. The
+# headline is the reviewed population; reference.json in the tables, and so in
+# any snapshot, records that, which is how a snapshot from before the switch is
+# told apart.
 python3 dashboard/measure.py --out-dir "$REPO/build/tables" > /dev/null
 
 python3 dashboard/build_external.py \

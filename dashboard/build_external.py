@@ -25,6 +25,7 @@ import core as hc
 import figures
 import landing
 import page as pg
+import reference
 import snapshot_delta
 from assets import esc
 from history import fail, verify_snapshot
@@ -56,14 +57,16 @@ def build(h, *, generated, verify_dir, fallback_tag):
         review_counts=c.review_counts, limits=c.limits,
         review_mechanisms=c.review_mechanisms, reject_sweep=c.reject_sweep,
         held_out=c.held_out,
-        flight_holdout=c.flight_holdout)
+        flight_holdout=c.flight_holdout,
+        scored_against=c.reference, populations=c.populations)
 
     # Then and now, against the newest snapshot dated before this build. Here
     # and not in figures.prepare because only the builder knows the build date.
     c.delta = snapshot_delta.compute(
         {"n_species_floor": sum(1 for d in c.per_species
                                 if d["n_labelled_frames"] >= figures.WAIT_SUPPORT_MIN),
-         "test_n": c.held_out["test"]["n"], "test_top1": c.held_out["test"]["top1"]},
+         "test_n": c.held_out["test"]["n"], "test_top1": c.held_out["test"]["top1"],
+         "reference": c.reference},
         hc.SNAPSHOT_DIR, generated, floor=figures.WAIT_SUPPORT_MIN)
 
     # The first screen is landing.py: the rates, the correction they are read
@@ -72,7 +75,8 @@ def build(h, *, generated, verify_dir, fallback_tag):
     P = [f'<h1>{esc(TITLE)}</h1>',
          f'<div class="subtitle">labels as of {esc(c.snap_date)} &middot; '
          f'Pl@ntNet model {esc(c.tag)} '
-         f'&middot; {c.n:,} labelled frames &middot; {c.n_sp} species</div>',
+         f'&middot; {c.n:,} frames scored against {esc(reference.WORDS[c.reference])} '
+         f'&middot; {c.n_sp} species</div>',
          landing.landing(c)]
     P.append(pg.render(c, pg.EXTERNAL_PANELS))
     P.append(pg.footer(c))

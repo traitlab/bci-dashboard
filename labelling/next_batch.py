@@ -277,7 +277,10 @@ def crop_verdict(rec: dict, top1_name: str, min_coverage: float) -> str:
 def build_contradiction_queue(dataset_rows: list[dict], min_score: float,
                               min_coverage: float, log) -> list[dict]:
     """Field label vs Pl@ntNet top-1, resolved onto live dataset global keys."""
-    health = hl.load_health()
+    # The file measure.py scores, every row of it: a reviewed frame with its
+    # reviewed name, and the unreviewed frames too, which are the ones a
+    # botanist has not yet looked at and so belong in this queue most.
+    health = hl.load_health(gt_csv=hc.PUBLICATION_GT_CSV, label_source=hc.LABEL_SOURCE_ALL)
     by_basename = {basename(r["global_key"]): r for r in dataset_rows}
 
     queue, unresolved = [], 0

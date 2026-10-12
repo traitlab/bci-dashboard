@@ -277,14 +277,14 @@ def write_json(path: Path, doc: dict) -> None:
 
 def main(argv=None) -> int:
     args = parse_args(argv)
-    h = hl.load_health()
+    h = hl.load_health(gt_csv=hc.PUBLICATION_GT_CSV, label_source=hc.HEADLINE_LABEL_SOURCE)
     keys, emb = load_embeddings(args.npz, args.cache_dir)
     recs, X, labels = embedded_frames(h, keys, emb)
     print(f"{len(recs)} of {len(h.sp_recs)} scored frames carry an embedding, "
           f"{len(set(labels))} species")
     npz = args.npz if args.npz.exists() else None
-    with_emb = provenance(h, gt_csv=hc.GT_CSV, npz=npz)
-    without = provenance(h, gt_csv=hc.GT_CSV, npz=None)
+    with_emb = provenance(h, gt_csv=hc.PUBLICATION_GT_CSV, npz=npz)
+    without = provenance(h, gt_csv=hc.PUBLICATION_GT_CSV, npz=None)
 
     files = {
         "transductive.json": {"kind": "transductive", **with_emb,

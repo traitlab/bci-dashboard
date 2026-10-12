@@ -102,7 +102,10 @@ def build():
     """Per-frame view of what the model saw.
 
     Returns (frames, suspect_frames): frames maps base_image to
-    {"dominant": top species (or None), "coverage": its fraction}.
+    {"dominant": top species (or None), "coverage": its fraction, "crowns": how
+    many boxes of that species reach into the crop}. A box is one crown and
+    carries a species name, never a crown id, so "crowns" is the one measure of
+    whether the crown filling the crop could be another tree of that species.
     suspect_frames lists base_images whose boxes fall outside the frame size, so
     their rectangle cannot be trusted. Box files and frame geometry are the
     module constants above, read here rather than passed in.
@@ -125,5 +128,7 @@ def build():
         dominant, cov = (None, 0.0)
         if per:
             dominant, cov = max(per.items(), key=lambda kv: kv[1])
-        out[base] = {"dominant": dominant, "coverage": cov}
+        crowns = sum(1 for b in boxes
+                     if b[4] == dominant and _intersect_area(b[:4], rect) > 0)
+        out[base] = {"dominant": dominant, "coverage": cov, "crowns": crowns}
     return out, suspect
