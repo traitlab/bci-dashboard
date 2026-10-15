@@ -31,6 +31,70 @@ GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
 PUBLICATION_GT_CSV = REPO / "data" / "gt_publication_reviewed.csv"
 
 
+def pytest_addoption(parser):
+    parser.addoption("--private-data", action="store_true",
+                     help="also check the real local snapshot; missing inputs are an error")
+
+
+def _private_required_inputs():
+    """The real inputs used by the separately selected corpus assertions."""
+    required = [GT_CSV, PUBLICATION_GT_CSV, SPLITS_CSV, CACHE_DIR,
+                REPO / "data" / "wcvp_cache.json",
+                QUEUE_NOVELTY_CSV, SNAPSHOT_DIR / "per_species_health.csv",
+                SNAPSHOT_DIR / "send_first_queue.csv",
+                SNAPSHOT_DIR / "label_review_queue.csv",
+                SNAPSHOT_DIR / "confidence_calibration.csv",
+                REPO / "data" / "dataset_rows_combined.jsonl",
+                REPO / "data" / "checklist_bcnm.json",
+                REPO / "data" / "checklist_k-central-america.json",
+                REPO / "data" / "gbif_keys.json",
+                REPO / "data" / "predictions_bcnm" / "cache",
+                REPO / "snapshots" / "model-health-2026-08-24" / "per_species_health.csv",
+                REPO.parent / "bci-dashboard-docs" / "metrics.md",
+                REPO.parent / "bci-dashboard-docs" / "hypothesis.md"]
+    required.extend(REPO / "data" / "model_health" / name for name in
+                    ("transductive.json", "disagreement.json", "reject_sweep.json", "status.json"))
+    return required
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_collection_modifyitems(config, items):
+    # Real-corpus assertions keep their independent expectations. Public page
+    # contracts use public_snapshot instead, never the developer's data/.
+    private_fixtures = {"page", "external_page", "internal_page", "corpus", "gt_csv",
+                        "page_prose", "public_page"}
+    private_tests = {
+        "test_a_sidecar_on_disk_matches_what_the_reader_expects",
+        "test_the_checklist_note_counts_the_names_rank_five_alone_brings_in",
+        "test_the_low_confidence_note_states_what_the_calibration_table_measured",
+        "test_the_split_is_not_blocked_by_site_so_the_caveat_still_applies",
+        "test_every_held_out_frame_sits_at_a_site_the_rule_also_learned_from",
+        "test_the_headline_rates_metrics_md_quotes_are_the_ones_the_snapshot_holds",
+        "test_membership_needs_the_crosswalk_not_normalize_alone",
+        "test_the_measured_absent_species_are_absent_by_name_and_by_key",
+        "test_a_renamed_option_is_found_by_its_key_not_its_name",
+        "test_species_the_corpus_never_returned_are_not_all_out_of_scope",
+    }
+    for item in items:
+        if private_fixtures.intersection(item.fixturenames) or item.name in private_tests:
+            item.add_marker(pytest.mark.private_data)
+    # Let pytest apply the actual -m and -k expressions before deciding
+    # whether a private item was requested. Negation and mixed expressions
+    # retain pytest's own semantics rather than a second expression parser.
+    yield
+    private = [item for item in items if item.get_closest_marker("private_data")]
+    if config.getoption("--private-data"):
+        missing = [str(path) for path in _private_required_inputs() if not path.exists()]
+        if private and missing:
+            raise pytest.UsageError("--private-data requires the real local inputs, missing: "
+                                    + ", ".join(missing))
+        return
+    if private and config.option.markexpr:
+        raise pytest.UsageError("selecting private_data checks requires --private-data and the real local inputs")
+    items[:] = [item for item in items if not item.get_closest_marker("private_data")]
+    config.hook.pytest_deselected(items=private)
+
+
 @contextlib.contextmanager
 def _on_path(directory: pathlib.Path):
     """`directory` on `sys.path` for the duration, and off it afterwards.
@@ -50,6 +114,8 @@ def _on_path(directory: pathlib.Path):
 def load(name: str, path: pathlib.Path):
     """Import a module from its path under a name that cannot collide."""
     spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {name} from {path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)
@@ -482,7 +548,7 @@ GENERATED = "2026-08-25-test"
 # A species row is a row carrying a status tag. The rows used to be found by a
 # `data-status` attribute that repeated on every row what the tag already says;
 # the page dropped it, so the tests look for the tag itself.
-_ANY_ROW = re.compile(r"<tr\b[^>]*>.*?</tr>", re.S)
+_ANY_ROW = re.compile(r"<tr\b[^>]*>.*?</tr>", re.DOTALL)
 
 
 def species_rows(html: str) -> list[str]:
@@ -531,7 +597,7 @@ def build_page(tmp_path_factory, script: str, out_name: str,
     args = [sys.executable, str(DASHBOARD / script), "--out", str(out),
             "--generated", GENERATED,
             "--verify-against", str(SNAPSHOT_DIR), *flags]
-    proc = subprocess.run(args, capture_output=True, text=True, cwd=REPO)
+    proc = subprocess.run(args, capture_output=True, text=True, cwd=REPO, check=False)
     assert proc.returncode == 0, (
         f"{script} exited {proc.returncode}\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}")
     return out.read_text(encoding="utf-8"), proc.stdout

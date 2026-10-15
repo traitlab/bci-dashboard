@@ -1,0 +1,10 @@
+# Public fetch/annotation dependencies. dashboard/ itself remains stdlib only.
+labelbox
+requests
+python-dotenv
+pyyaml
+Pillow
+
+# aggregate_survey.py only.
+numpy
+pandas

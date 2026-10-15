@@ -4,3 +4,4 @@ testpaths = ["tests"]
 # frame-url tests sat unexecuted under an interpreter without the predict deps
 # while the run still reported OK.
 addopts = "-ra --strict-markers"
+markers = ["private_data: independent checks against the local real-data snapshot (select with --private-data)"]

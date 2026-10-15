@@ -247,6 +247,7 @@ CROP_TABLE = (
 )
 
 
+@pytest.mark.private_data
 def test_the_crop_coverage_table_in_metrics_md_still_recomputes(core):
     """The provenance table nobody could check without running the pipeline.
 
