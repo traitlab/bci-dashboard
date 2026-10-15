@@ -16,6 +16,13 @@ import pytest
 INJECT = '<script>&"</script>'
 
 
+@pytest.fixture(autouse=True)
+def method_provenance(explain, monkeypatch):
+    # These formatting tests supply their context, including the offline
+    # export date. Real provenance is checked by the opt-in snapshot suite.
+    monkeypatch.setattr(explain.hc, "gt_export_date_words", lambda: "14 October 2026")
+
+
 def _balanced(html):
     return html.count("<details") == html.count("</details>")
 
