@@ -47,7 +47,7 @@ assert.equal(similarityColour(.98,mapScoreScale(mapCandidates())),'rgb(7,94,84)'
 $('search').value='near';filter();assert.deepEqual(visible,[1]);
 assert.match($('mapMatchSupport').textContent,/2 stored matches, 1 pass browse filters, 1 hidden.*Selected photo stays visible/);
 assert.deepEqual(mapHits.map(row=>row[2]),[1,0]);assert.deepEqual(mapScoreScale(mapCandidates()),{min:-.2,max:.98});
-assert.equal(location.hash,before.hash);assert.equal(selected,before.selected);assert.equal(JSON.stringify(P[0].neighbours),before.rankings);
+assert.equal(location.hash,before.hash+'&atlasSearch=near');assert.equal(selected,before.selected);assert.equal(JSON.stringify(P[0].neighbours),before.rankings);
 """)
 
 
@@ -70,7 +70,7 @@ const before={hash:location.hash,selected,visible,view:{...view}};
 $('mapMissionMode').value='other';$('mapMissionMode').onchange();
 assert.equal(neighborMode,'other');assert.equal($('similarMissionMode').value,'other');assert.equal($('mapMissionMode').value,'other');
 assert.deepEqual(mapCandidates(),[[3,.4]]);assert.deepEqual(photoPair.candidates,[[3,.4]]);
-assert.equal(location.hash,before.hash);assert.equal(selected,before.selected);assert.equal(visible,before.visible);assert.deepEqual(view,before.view);
+assert.equal(location.hash,before.hash+'&missions=other');assert.equal(selected,before.selected);assert.equal(visible,before.visible);assert.deepEqual(view,before.view);
 $('similarMissionMode').value='all';$('similarMissionMode').onchange();assert.equal($('mapMissionMode').value,'all');
 $('mapMissionMode').value='other';$('mapMissionMode').onchange();select(4);
 assert.match($('mapMatchSupport').textContent,/unavailable.*no recorded mission ID.*0 stored matches/);
@@ -89,7 +89,7 @@ assert.equal(view.x,(geo[0][0]+geo[1][0])/2);assert.equal(view.y,geo[0][1]);
 assert.equal(location.hash,before.hash);assert.equal(selected,before.selected);assert.equal(visible,before.visible);assert.equal(neighborMode,before.mode);assert.equal(JSON.stringify(P[0].neighbours),before.ranking);
 $('search').value='no-photo';filter();$('fitMatches').onclick();assert.equal(view.x,geo[0][0]);assert.equal(view.y,geo[0][1]);assert.equal(Number.isFinite(view.scale),true);
 $('togglePlot').onclick();assert.equal($('returnToMap').hidden,false);$('togglePlot').onclick();assert.equal($('returnToMap').hidden,true);
-$('mapInspectPhoto').onclick();assert.equal(atlasView,'photos');assert.equal(document.activeElement,$('selectedPhotoHeading'));assert.equal(selected,before.selected);assert.equal(location.hash,frameHash(P[selected].key,'photos'));
+$('mapInspectPhoto').onclick();assert.equal(atlasView,'photos');assert.equal(document.activeElement,$('selectedPhotoHeading'));assert.equal(selected,before.selected);assert.equal(location.hash,frameHash(P[selected].key,'photos','',neighborMode,atlasBrowseState()));
 """)
 
 
@@ -111,7 +111,7 @@ assert.match(second['aria-label'],/Inspect match 2.*Frame negative.*Cosine simil
 assert.equal(second.children[2].children[1].textContent,'Cosine -0.2');
 second.onclick();assert.equal(photoComparison.query,0);assert.equal(photoComparison.rank,1);assert.deepEqual(photoComparison.candidates,[[1,.98],[2,-.2]]);assert.equal(photoComparison.returnFocus,second);assert.equal(photoComparison,photoPair);assert.equal(selected,0);assert.equal(location.hash,hash);assert.equal($('photoComparison').open,true);
 $('closePhotoComparison').onclick();assert.equal(document.activeElement,second);
-$('mapMissionMode').value='other';$('mapMissionMode').onchange();const other=$('mapMatchList').children[0].children[0];other.onclick();assert.equal(photoComparison.mode,'other');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[3,.4]]);assert.equal(selected,0);assert.equal(location.hash,hash);
+$('mapMissionMode').value='other';$('mapMissionMode').onchange();const other=$('mapMatchList').children[0].children[0];other.onclick();assert.equal(photoComparison.mode,'other');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[3,.4]]);assert.equal(selected,0);assert.equal(location.hash,hash+'&missions=other');
 """)
 
 

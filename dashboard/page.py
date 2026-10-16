@@ -201,7 +201,7 @@ def document(title: str, body: str, *, current: str = "", available=None) -> str
             '<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             f"<title>{title}</title>"
-            f"<style>{css_for(strip_comments(CSS), body + JS)}</style></head><body>" + body
+            f'<style>{css_for(strip_comments(CSS), body + JS)}</style></head><body data-workspace="reports">' + body
             + f"<script>{strip_comments(script_for(body))}</script></body></html>")
 
 

@@ -35,7 +35,7 @@ def synthetic_page(request, public_snapshot):
 # The original suite still checks the actual private snapshot when selected.
 STRUCTURAL = (
     contracts.test_no_page_shows_interval_notation,
-    contracts.test_the_byline_gives_one_readable_date_not_two_unlabelled_ones,
+    contracts.test_the_byline_distinguishes_refresh_from_label_merge_date,
     contracts.test_build_verifies_clean_against_the_snapshot,
     contracts.test_a_page_gates_on_exactly_the_send_queue_it_reports,
     contracts.test_page_has_no_external_asset_references,

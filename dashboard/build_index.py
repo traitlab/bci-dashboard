@@ -35,24 +35,18 @@ OPTIONAL_PAGES = [
 ]
 
 STYLE = """*{box-sizing:border-box;margin:0;padding:0}
-body{
-  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  color:#1a1a1a;background:#f8f9fa;line-height:1.5;
-  max-width:780px;margin:0 auto;padding:32px 24px 64px;
-}
-h1{font-size:1.6rem;font-weight:700;margin-bottom:4px;color:#212121}
-.intro{font-size:0.95rem;color:#424242;margin:12px 0 24px}
-.scope{font-size:0.85rem;color:#54665d;margin:24px 0 0}
-a.card small{display:block;font-size:0.8rem;color:#54665d;margin-top:8px}
-a.card{
-  display:block;text-decoration:none;color:inherit;background:#fff;
-  border:1px solid #e0e0e0;border-radius:6px;padding:16px 18px;margin-bottom:12px;
-}
-a.card:hover{border-color:#245743}
-a.card:focus-visible,summary:focus-visible{outline:3px solid #2d8061;outline-offset:3px}
-a.card b{display:block;font-size:1.05rem;color:#245743;margin-bottom:4px}
-a.card span{font-size:0.9rem;color:#424242}
-details{margin-top:24px}summary{cursor:pointer;margin-bottom:12px;color:#424242}
+main{max-width:1168px;margin:auto;padding:36px 24px 48px}
+h1{font-size:32px;font-weight:650;line-height:1.2;letter-spacing:-.8px;color:var(--ink)}
+.intro{font-size:16px;color:var(--slate);margin:12px 0 28px;max-width:65ch}
+.tasks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+a.card{display:block;text-decoration:none;color:inherit;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;min-height:150px}
+a.card:hover{border-color:var(--green);background:var(--pale)}
+a.card:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+a.card b{display:block;font-size:20px;font-weight:650;color:var(--green);margin-bottom:8px}
+a.card span{display:block;font-size:14px;max-width:52ch;color:var(--ink)}
+a.card small{display:block;font-size:12px;color:var(--slate);margin-top:14px}
+.scope{font-size:13px;color:var(--slate);margin:26px 0 0;max-width:86ch;border-top:1px solid var(--line);padding-top:18px}
+@media(max-width:640px){main{padding:24px 14px 36px}h1{font-size:27px}.tasks{grid-template-columns:1fr;gap:12px}a.card{padding:18px;min-height:0}a.card b{font-size:18px}}
 """
 
 
@@ -63,7 +57,7 @@ def build_stamp(text: str) -> str:
         return ""
     line = html.unescape(re.sub(r"<[^>]+>", "", found.group(1))).strip()
     dates = [field.strip() for field in line.split("\u00b7")
-             if re.fullmatch(r"(?:built|snapshot|labels as of) \d{4}-\d{2}-\d{2}", field.strip())]
+             if re.fullmatch(r"(?:built|snapshot|refreshed|labels as of|Labelbox labels merged) \d{4}-\d{2}-\d{2}", field.strip())]
     return ". ".join(dates)
 
 
@@ -85,23 +79,21 @@ def build(build_dir: str) -> str:
 
     cards = [card(*page) for page in explorer]
     if "crownfirst-atlas.html" in stamps:
-        cards.append(card("crownfirst-atlas.html", "Camera locations",
-                          "Find photos by aircraft camera position, then inspect their visual matches.",
+        cards.append(card("crownfirst-atlas.html", "Drone map",
+                          "Find photos by drone photo location, then inspect their visual matches.",
                           "#view=locations"))
+    cards.extend(card(*page, fragment="#view=models" if page[0] == "crownfirst-atlas.html" else "")
+                 for page in research)
     cards.extend(card(*page) for page in PAGES)
-    if research:
-        cards.append('<details><summary>Similar photos &amp; models</summary>'
-                     + "".join(card(*page, fragment="#view=models" if page[0] == "crownfirst-atlas.html" else "")
-                               for page in research) + '</details>')
     available_names = {name for name, _, _ in available} | {"index.html"}
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
             "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
             "<title>Panama canopy photos and labelling</title>"
-            f"<style>{STYLE}{NAVIGATION_CSS}</style></head><body>"
+            f'<style>{STYLE}{NAVIGATION_CSS}</style></head><body data-workspace="home">'
             + navigation("index.html", available=available_names)
             + '<main id="main-content" tabindex="-1"><h1>Panama canopy photos</h1>'
-            + '<p class="intro">Explore photos, inspect visual matches and choose what to label next.</p>'
-            + "".join(cards)
+            + '<p class="intro">Browse the canopy by taxon or drone photo location, compare visual matches, and choose what to label next.</p>'
+            + '<div class="tasks">' + "".join(cards) + '</div>'
             + '<p class="scope">Photo tools cover Barro Colorado Island and other Panama field sites. '
               'Model health and labelling queues describe their own recorded snapshots. '
               'Photo counts do not measure tree abundance. Model guesses need expert confirmation.</p>'

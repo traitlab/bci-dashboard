@@ -193,7 +193,7 @@ def test_document_embeds_css_and_js_inline_with_no_external_reference(assets, pa
     assert "<p>body</p>" in html
     # page.py inlines the CSS and JS with the maintainer comments stripped, and
     # the CSS also drops the rules for classes this body never renders.
-    body = html.split("<body>", 1)[1].split("<script>", 1)[0]
+    body = html.split('<body data-workspace="reports">', 1)[1].split("<script>", 1)[0]
     css = assets.css_for(strip_comments(pagemod.CSS), body + pagemod.JS)
     assert f"<style>{css}</style>" in html
     # This body has no species table, so it gets the half of the script every

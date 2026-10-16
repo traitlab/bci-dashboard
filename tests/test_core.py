@@ -65,3 +65,10 @@ def test_a_rate_gap_that_is_exact_in_arithmetic_is_not_lost_to_binary(core):
     row = {"n_labelled_frames": 5, "top1_accuracy": 4 / 5, "top5_accuracy": 5 / 5,
            "in_corpus_vocabulary": True, "in_project_checklist": True}
     assert core.diagnose(row) == "ranking"
+
+
+def test_iso_export_provenance_keeps_its_verified_source_date(core, monkeypatch):
+    monkeypatch.setattr(core, "gt_provenance", lambda path=None:
+                        "Ground truth: Labelbox project exports of 2026-10-16, "
+                        "unreviewed, fetched on 2026-10-16.")
+    assert core.gt_export_date_words("unused.csv") == "16 October 2026"

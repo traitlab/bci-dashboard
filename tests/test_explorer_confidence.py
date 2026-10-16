@@ -70,8 +70,8 @@ const saved=location.hash;assert.match(saved,/minConfidence=.41/);
 for(const id of ['cameraLocations','plantnetResearch','crownResearch','similarPhotosTask']){const context=new URLSearchParams(new URL($(id).href,'https://example.org').hash.slice(1)).get('browse'),p=new URLSearchParams(context);assert.equal(p.get('order'),'confidence-desc');assert.equal(p.get('confidence'),'scored');assert.equal(p.get('minConfidence'),'.41')}
 setState({order:'catalogue',confidence:'all',minConfidence:''});location.hash=saved;listeners.popstate();
 assert.equal(state.order,'confidence-desc');assert.equal($('minConfidence').value,'.41');
-$('allPhotos').onclick();assert.equal(state.order,'catalogue');assert.equal(state.confidence,'all');assert.equal(state.minConfidence,'');
-assert.equal(location.hash.includes('confidence'),false);assert.equal(location.hash.includes('order='),false);
+$('allPhotos').onclick();assert.equal(state.order,'confidence-desc');assert.equal(state.confidence,'all');assert.equal(state.minConfidence,'');
+assert.equal(new URLSearchParams(location.hash.slice(1)).has('confidence'),false);assert.equal(new URLSearchParams(location.hash.slice(1)).get('order'),'confidence-desc');
 """, payload=confidence_catalogue())
     context = urlencode({'source':'recorded','status':'compare','order':'confidence-asc','confidence':'scored','minConfidence':'.41'})
     run_atlas([photo('query','flight-a')], r"""
