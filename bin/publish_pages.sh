@@ -23,6 +23,14 @@ for f in $PAGES; do
   [ -s "$BUILD/$f" ] || { echo "publish: $BUILD/$f is missing or empty; run bin/refresh.sh first" >&2; exit 1; }
 done
 
+# Standalone explorers carry their browser data in the HTML.
+# Raw embedding matrices and intermediate JSON exports are never copied.
+for f in explorer.html embedding-atlas.html crownfirst-atlas.html; do
+  if [ -s "$BUILD/$f" ]; then
+    PAGES="$PAGES $f"
+  fi
+done
+
 mkdir -p "$DOCS"
 # .nojekyll or Pages runs the files through Jekyll, which drops anything whose
 # name starts with an underscore and rewrites nothing else usefully.
@@ -48,6 +56,8 @@ for f in $(cd "$BUILD" && grep -ho 'href="[A-Za-z0-9_]*\.csv"' $PAGES \
   echo "  published $f"
 done
 
-python3 "$REPO/dashboard/build_index.py" --build "$BUILD" --out "$DOCS/index.html"
+# Keep already-published standalone explorers discoverable when only the
+# operational pages were rebuilt during this refresh.
+python3 "$REPO/dashboard/build_index.py" --build "$DOCS" --out "$DOCS/index.html"
 
 echo "publish: docs/ updated. Commit it to put the change on the site."
