@@ -53,20 +53,16 @@ body[data-workspace=reports] main{padding:0;max-width:none}}
 
 def navigation(current, *, available=None):
     """Keep the same task labels and expose the current page to assistive tools."""
+    photo_pages = ('' if available is None else ' data-photo-pages="'
+                   + ' '.join(page for page in ('embedding-atlas.html', 'crownfirst-atlas.html')
+                              if page in available) + '"')
     links = []
     for destination, label in LINKS:
         page, _, fragment = destination.partition("#")
-        if (fragment == "view=locations" and available is not None
-                and page not in available and "crownfirst-atlas.html" in available):
-            page = "crownfirst-atlas.html"
-            destination = page + "#" + fragment
         if available is not None and page not in available:
             continue
         view = fragment.removeprefix("view=") if fragment else "photos"
-        active = current == destination or (
-            page == "embedding-atlas.html"
-            and current == "crownfirst-atlas.html" + ("#" + fragment if fragment else "")
-        )
+        active = current == destination
         attributes = ' aria-current="page"' if active else ""
         if page in ("embedding-atlas.html", "crownfirst-atlas.html"):
             task_id = {"photos": "similarPhotosTask", "locations": "cameraMapTask", "models": "compareModelsTask"}[view]
@@ -77,5 +73,5 @@ def navigation(current, *, available=None):
             'href="#main-content">Skip to content</a>'
             '<div class="site-shell"><a class="site-brand" href="index.html">'
             'Panama canopy<span>Photo and labelling workspace</span></a>'
-            '<nav class="site-nav" aria-label="Dashboard pages">'
+            '<nav class="site-nav" aria-label="Dashboard pages"' + photo_pages + '>'
             + "".join(links) + '</nav></div>')

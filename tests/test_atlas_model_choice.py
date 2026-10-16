@@ -9,75 +9,112 @@ from test_atlas_mission_view import photo, run_atlas
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_experimental_model_has_secondary_disclosure_and_select_group():
+def test_research_links_stay_in_closed_disclosure_without_model_selector():
     html = runpy.run_path(ROOT / "dashboard/embedding_atlas_assets.py")["HTML"]
-    control = html.split('<select id="matchingModel"')[1].split("</select>")[0]
-    assert control.index('value="plantnet"') < control.index(
-        '<optgroup label="Experimental">'
-    )
-    assert 'value="plantclef">PlantCLEF (experimental)' in control
-    assert (
-        '<details id="experimentalMatching"><summary>Experimental matching</summary>'
-        in html
-    )
-    assert '<nav class="model-links"' not in html
-    assert html.index('id="matchingModel"') < html.index('<section id="photosView"')
-    assert '<button id="showModelComparisonView"' not in html
+    research = html.split('<details id="experimentalMatching">')[1].split("</details>")[
+        0
+    ]
+    assert 'id="plantclefPhotosLink"' in research
+    assert 'id="plantclefMapLink"' in research
+    assert 'id="compareModelsLink"' in research
+    assert '<select id="matchingModel"' not in html
+    assert "matchingModelControl" not in html
+    assert "pageshow" not in html
 
 
-@pytest.mark.parametrize(
-    "atlas_page,model,target",
-    [
-        ("embedding-atlas.html", "plantnet", "crownfirst-atlas.html"),
-        ("crownfirst-atlas.html", "plantclef", "embedding-atlas.html"),
-    ],
-)
-def test_model_switch_keeps_frame_view_scope_and_both_filter_contexts(
-    atlas_page, model, target
+def navigation_population():
+    points = [
+        photo(
+            "query",
+            "flight-a",
+            [[1, 0.123456789]],
+            other_mission_neighbours=[[1, 0.987654321]],
+        )
+    ] + [photo(f"canopy-{index:03}", "flight-b") for index in range(110)]
+    comparison = {
+        "cohort": [[point["key"], point["label"]] for point in points],
+        "frames": [],
+        "invalid_common_keys": [],
+        "unshared_counts": [0, 0],
+        "sources": [],
+    }
+    return points, comparison
+
+
+@pytest.mark.parametrize("initial_view", ["photos", "locations", "models"])
+def test_experimental_entry_and_ordinary_return_keep_frame_scope_and_filters(
+    initial_view,
 ):
+    points, comparison = navigation_population()
+    run_atlas(
+        points,
+        r"""
+assert.equal(currentMatchingModel(),'plantnet');assert.equal($('ordinaryMatchingLink').hidden,atlasView!=='models');
+for(const [id,expectedView] of [['plantclefPhotosLink','photos'],['plantclefMapLink','locations']]){
+ const link=$(id),destination=link.getAttribute('href');assert.equal(destination.split('#')[0],'crownfirst-atlas.html');const params=new URLSearchParams(destination.split('#')[1]);assert.equal(params.get('frame'),'query');assert.equal(params.get('view'),expectedView==='photos'?null:expectedView);assert.equal(params.get('missions'),'other');assert.equal(params.get('atlasSearch'),'canopy');assert.equal(params.get('atlasLabels'),'with');assert.equal(params.get('atlasShared'),'1');assert.equal(params.get('atlasPage'),'2');assert.equal(new URLSearchParams(params.get('browse')).get('layout'),'table');assert.equal(params.has('matchingModel'),false);
+ let prevented=false;link.onclick({button:0,preventDefault(){prevented=true}});assert.equal(prevented,false);assert.equal(P[selected].key,'query');
+}
+assert.deepEqual(photoPair.candidates,[[1,.987654321]]);
+""",
+        initial_hash="#frame=query&view="
+        + initial_view
+        + "&browse=source%3Dprediction%26layout%3Dtable&missions=other&atlasSearch=canopy&atlasLabels=with&atlasShared=1&atlasPage=2",
+        page="embedding-atlas.html",
+        comparison=comparison,
+    )
+
+
+@pytest.mark.parametrize("initial_view", ["photos", "locations", "models"])
+def test_direct_research_urls_keep_explicit_experimental_context_and_return_to_plantnet(
+    initial_view,
+):
+    points, comparison = navigation_population()
+    run_atlas(
+        points,
+        r"""
+assert.equal(currentMatchingModel(),'plantclef');assert.match($('workspaceTitle').textContent,/Experimental/);assert.match($('matchingMethodStatus').textContent,/Experimental/);assert.equal($('ordinaryMatchingLink').hidden,false);
+const returnParams=new URLSearchParams($('ordinaryMatchingLink').getAttribute('href').split('#')[1]);assert.equal($('ordinaryMatchingLink').getAttribute('href').split('#')[0],'embedding-atlas.html');assert.equal(returnParams.get('view'),atlasView==='locations'?'locations':null);assert.equal(returnParams.get('frame'),'query');assert.equal(returnParams.get('missions'),'other');assert.equal(returnParams.get('atlasSearch'),'canopy');assert.equal(returnParams.get('atlasLabels'),'with');assert.equal(returnParams.get('atlasShared'),'1');assert.equal(returnParams.get('atlasPage'),'2');assert.equal(new URLSearchParams(returnParams.get('browse')).get('layout'),'table');
+for(const link of navLinks.filter(link=>['locations','photos'].includes(link.getAttribute('data-site-task')))){assert.equal(link.getAttribute('href').split('#')[0],'embedding-atlas.html');assert.equal(link.getAttribute('aria-current'),null);let prevented=false;link.onclick({button:0,preventDefault(){prevented=true}});assert.equal(prevented,false)}
+let prevented=false;compareLink.onclick({button:0,preventDefault(){prevented=true}});assert.equal(prevented,true);assert.equal(atlasView,'models');assert.equal(currentMatchingModel(),'plantclef');assert.equal(compareLink.getAttribute('href').split('#')[0],'crownfirst-atlas.html');
+$('showPhotosView').onclick();assert.equal(P[selected].key,'query');assert.equal(currentMatchingModel(),'plantclef');assert.match($('workspaceTitle').textContent,/Experimental PlantCLEF/);assert.equal($('ordinaryMatchingLink').hidden,false);
+const catalogueContext=new URLSearchParams(catalogueHash('query','source=prediction').slice(1));assert.equal(catalogueContext.has('matchingModel'),false);
+""",
+        initial_hash="#frame=query&view="
+        + initial_view
+        + "&browse=source%3Dprediction%26layout%3Dtable&missions=other&atlasSearch=canopy&atlasLabels=with&atlasShared=1&atlasPage=2",
+        page="crownfirst-atlas.html",
+        comparison=comparison,
+    )
+
+
+def test_matching_crop_explanation_uses_recorded_size_and_keeps_unknown_unknown():
     run_atlas(
         [
-            photo(
-                "query",
-                "flight-a",
-                [[1, 0.123456789]],
-                other_mission_neighbours=[[1, 0.987654321]],
-            ),
-            photo("candidate", "flight-b"),
+            photo("query", "flight-a", crop=640, source_width=2000, source_height=1500),
+            photo("unknown", "flight-b"),
         ],
         r"""
-assert.equal(browseState('matchingModel=madeup'),'');assert.equal(browseState('matchingModel=plantclef'),'');assert.equal(currentMatchingModel(),__MODEL__);assert.equal($('matchingModel').value,__MODEL__);
-const before=location.hash;
-const destination=matchingModelHref(__MODEL__==='plantnet'?'plantclef':'plantnet');
-assert.equal(destination.split('#')[0],__TARGET__);
-assert.equal('#'+destination.split('#')[1],before);
-const returned=new URLSearchParams(navLinks[2].getAttribute('href').split('#')[1]);assert.equal(returned.get('atlasSearch'),'query');assert.equal(returned.get('atlasLabels'),'with');assert.equal(returned.get('missions'),'other');
-const params=new URLSearchParams(destination.split('#')[1]);assert.equal(params.get('frame'),'query');assert.equal(params.get('view'),'locations');assert.equal(params.get('missions'),'other');assert.equal(params.get('atlasSearch'),'query');assert.equal(params.get('atlasLabels'),'with');
-assert.equal(new URLSearchParams(params.get('browse')).get('layout'),'table');
-$('matchingModel').value=__MODEL__==='plantnet'?'plantclef':'plantnet';$('matchingModel').onchange();assert.equal(location.href,destination);assert.equal($('matchingModel').value,__MODEL__);$('matchingModel').value=__MODEL__==='plantnet'?'plantclef':'plantnet';listeners.pageshow();assert.equal($('matchingModel').value,__MODEL__);
-assert.equal(P[selected].key,'query');assert.deepEqual(photoPair.candidates,[[1,.987654321]]);
-""".replace("__MODEL__", repr(model)).replace("__TARGET__", repr(target)),
-        initial_hash="#frame=query&view=locations&browse=source%3Dprediction%26layout%3Dtable&missions=other&atlasSearch=query&atlasLabels=with",
-        page=atlas_page,
+assert.match($('matchingMethodStatus').textContent,/Pl@ntNet matching.*640 × 640 px/);assert.doesNotMatch($('matchingMethodStatus').textContent,/1280/);
+select(1);assert.match($('matchingMethodStatus').textContent,/Model crop footprint is not recorded/);assert.doesNotMatch($('matchingMethodStatus').textContent,/640|1280/);
+""",
+        page="embedding-atlas.html",
     )
 
 
 @pytest.mark.parametrize(
-    "atlas_page,model",
-    [("embedding-atlas.html", "plantnet"), ("crownfirst-atlas.html", "plantclef")],
+    "atlas_page", ["embedding-atlas.html", "crownfirst-atlas.html"]
 )
-def test_map_photo_navigation_and_catalogue_return_keep_the_active_model(
-    atlas_page, model
-):
+def test_optional_model_links_respect_published_pages(atlas_page):
     run_atlas(
         [photo("query", "flight-a")],
         r"""
-for(const link of navLinks.filter(link=>['locations','photos'].includes(link.getAttribute('data-site-task'))))assert.equal(link.getAttribute('href').split('#')[0],__PAGE__);
-assert.equal(compareLink.getAttribute('href').split('#')[0],__PAGE__);assert.equal(new URLSearchParams(compareLink.getAttribute('href').split('#')[1]).get('view'),'models');
-const catalogueContext=new URLSearchParams(catalogueHash('query','source=prediction&matchingModel=plantclef').slice(1));
-assert.equal(catalogueContext.get('matchingModel'),__MODEL__==='plantclef'?'plantclef':null);assert.equal(catalogueContext.get('source'),'prediction');assert.equal(catalogueContext.get('frame'),'query');
-let prevented=false;compareLink.onclick({button:0,preventDefault(){prevented=true}});assert.equal(prevented,true);assert.equal(atlasView,'models');assert.equal(currentMatchingModel(),__MODEL__);assert.equal($('matchingModelControl').hidden,true);showAtlasView('photos');showAtlasView('locations');assert.equal($('matchingModelControl').hidden,false);assert.equal(P[selected].key,'query');assert.equal(currentMatchingModel(),__MODEL__);
-""".replace("__PAGE__", repr(atlas_page)).replace("__MODEL__", repr(model)),
+const nav=document.querySelector('.site-nav');nav.setAttribute('data-photo-pages',location.pathname.slice(1));updateLinks('query');
+assert.equal($('ordinaryMatchingLink').hidden,true);
+for(const id of ['plantclefPhotosLink','plantclefMapLink'])assert.equal($(id).hidden,currentMatchingModel()==='plantnet');
+nav.setAttribute('data-photo-pages','embedding-atlas.html crownfirst-atlas.html');updateLinks('query');
+assert.equal($('ordinaryMatchingLink').hidden,currentMatchingModel()==='plantnet');
+for(const id of ['plantclefPhotosLink','plantclefMapLink'])assert.equal($(id).hidden,false);
+""",
         page=atlas_page,
     )
 

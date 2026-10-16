@@ -79,8 +79,7 @@ def build(build_dir: str) -> str:
                 f'<b>{html.escape(title)}</b><span>{html.escape(blurb)}</span>{date}</a>')
 
     cards = [card(*page) for page in explorer]
-    map_page = next((name for name in ("embedding-atlas.html", "crownfirst-atlas.html")
-                     if name in stamps), None)
+    map_page = "embedding-atlas.html" if "embedding-atlas.html" in stamps else None
     if map_page:
         cards.append(card(map_page, "Drone map",
                           "Find photos by drone photo location, then inspect their visual matches.",
@@ -89,7 +88,7 @@ def build(build_dir: str) -> str:
     experimental = (
         '<details class="experiments"><summary>Experimental matching</summary>'
         '<p>Compare Pl@ntNet with the recorded PlantCLEF experiment for the same photos.</p>'
-        f'<a href="{map_page}#view=models">Compare models (experimental)</a></details>'
+        f'<a href="{map_page or "crownfirst-atlas.html"}#view=models">Compare models (experimental)</a></details>'
         if "crownfirst-atlas.html" in stamps else ""
     )
     cards.extend(card(*page) for page in PAGES)

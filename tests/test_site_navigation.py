@@ -55,7 +55,7 @@ class TaskLinks(HTMLParser):
 @pytest.mark.parametrize("available, views", [
     ({"index.html"}, set()),
     ({"embedding-atlas.html"}, {"photos", "locations"}),
-    ({"crownfirst-atlas.html"}, {"locations"}),
+    ({"crownfirst-atlas.html"}, set()),
     (None, {"photos", "locations"}),
 ])
 def test_task_links_keep_distinct_destinations_and_respect_built_pages(available, views):
@@ -66,14 +66,13 @@ def test_task_links_keep_distinct_destinations_and_respect_built_pages(available
     for link in parser.links:
         view = link["data-atlas-view"]
         assert link["data-site-task"] == view
-        page = "crownfirst-atlas.html" if available == {"crownfirst-atlas.html"} else "embedding-atlas.html"
-        assert link["href"] == page + ("#view=locations" if view == "locations" else "")
+        assert link["href"] == "embedding-atlas.html" + ("#view=locations" if view == "locations" else "")
 
 
 @pytest.mark.parametrize("current, active", [
     ("embedding-atlas.html", "photos"),
-    ("crownfirst-atlas.html", "photos"),
-    ("crownfirst-atlas.html#view=locations", "locations"),
+    ("crownfirst-atlas.html", None),
+    ("crownfirst-atlas.html#view=locations", None),
     ("embedding-atlas.html#view=locations", "locations"),
 ])
 def test_initial_atlas_task_is_unique(current, active):
@@ -81,7 +80,7 @@ def test_initial_atlas_task_is_unique(current, active):
     parser = TaskLinks()
     parser.feed(site.navigation(current))
     assert [link["data-site-task"] for link in parser.links
-            if link.get("aria-current") == "page"] == [active]
+            if link.get("aria-current") == "page"] == ([active] if active else [])
 
 
 def test_experimental_comparison_is_not_a_primary_navigation_task():

@@ -12,10 +12,10 @@ select(1);
 assert.equal(location.hash,'#frame=next&view=locations');
 assert.equal(navLinks[0].getAttribute('href'),'embedding-atlas.html#frame=next&view=locations');
 assert.equal(navLinks[1].getAttribute('href'),'crownfirst-atlas.html#frame=next&view=locations');
-assert.equal(navLinks[2].getAttribute('href'),'explorer.html#matchingModel=plantclef&frame=next');
-assert.equal(navLinks[3].getAttribute('href'),'crownfirst-atlas.html#frame=next');
+assert.equal(navLinks[2].getAttribute('href'),'explorer.html#frame=next');
+assert.equal(navLinks[3].getAttribute('href'),'embedding-atlas.html#frame=next');
 assert.equal(navLinks[3].getAttribute('aria-current'),null);
-assert.equal(navLinks[4].getAttribute('aria-current'),'page');
+assert.equal(navLinks[4].getAttribute('aria-current'),null);
 assert.equal(navLinks[0].getAttribute('aria-current'),null);
 assert.equal(navLinks[1].getAttribute('aria-current'),'page');
 showAtlasView('models');
@@ -47,7 +47,7 @@ assert.equal(atlasView,'locations');assert.match($('linkStatus').textContent,/no
 showAtlasView('models');
 assert.equal(location.hash,'#frame=absent&view=models');
 assert.equal(navLinks[0].getAttribute('href'),'embedding-atlas.html#frame=absent&view=models');
-assert.equal(navLinks[2].getAttribute('href'),'explorer.html#matchingModel=plantclef&frame=absent');
+assert.equal(navLinks[2].getAttribute('href'),'explorer.html#frame=absent');
 select(0);assert.equal(requestedFrameKey,null);
 assert.equal(location.hash,'#frame=query&view=models');assert.equal($('linkStatus').textContent,'');
 """, initial_hash="#frame=absent&view=locations")
