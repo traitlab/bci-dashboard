@@ -112,8 +112,9 @@ TEAM_BLOCK_ID = "sending-a-batch"
 DISPATCH = more(
     "For the labelling team: send a batch",
     f'<p class="note"><a href="send_batches.csv">send_batches.csv</a> is this same queue '
-    f'packed into batches of {queues.BATCH_SIZE}, each species kept whole. Send batch 1 '
-    f'of round 1 with:</p>'
+    f'packed into batches of {queues.BATCH_SIZE}, each species kept whole. To send a '
+    'batch, after checking its status in Labelbox, use this command with the chosen '
+    'round and batch numbers. This example selects batch 1 of round 1:</p>'
     '<pre class="cmd">python3 labelling/dispatch_round.py --round 1 --csv build/tables/send_batches.csv --batch 1 --test</pre>'
     '<p class="note"><strong>This creates a live five-photo batch and updates metadata '
     'in Labelbox.</strong> <code>--test</code> limits the send to five photos; it is not '
