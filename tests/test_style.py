@@ -19,6 +19,8 @@ import os
 import re
 import tokenize
 
+from conftest import load
+
 DASHBOARD = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dashboard")
 
 # Class names in the stylesheet, read from the selectors only: the declaration
@@ -63,6 +65,7 @@ def _without_prose(src):
 def test_every_class_a_builder_writes_has_a_rule_in_the_stylesheet(style):
     """An unstyled element is invisible in a diff and obvious on the page."""
     css = _css_classes(style)
+    shared_css = load("_shared_navigation_styles", os.path.join(DASHBOARD, "site_navigation.py")).CSS
     missing = {}
     for name, src in _sources().items():
         # style.py holds the stylesheet these are checked against.
@@ -74,7 +77,7 @@ def test_every_class_a_builder_writes_has_a_rule_in_the_stylesheet(style):
         # Standalone explorers own their inline CSS; dashboard panels use style.py.
         embedded = (re.search(r"<style>(.*?)</style>", src, re.DOTALL)
                     if name in ("embedding_atlas_assets.py", "explorer_assets.py") else None)
-        page_css = (set(_CLASS_RE.findall(re.sub(r"\{[^}]*\}", "", embedded.group(1))))
+        page_css = (set(_CLASS_RE.findall(re.sub(r"\{[^}]*\}", "", embedded.group(1).replace("__SITE_CSS__", shared_css))))
                     if embedded else css)
         for m in _EMITTED_RE.finditer(src):
             for cls in m.group(1).split():
