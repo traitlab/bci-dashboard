@@ -133,15 +133,9 @@ def _links_note(queue_panels, monkeypatch, n_img, n_linked):
     """
     from types import SimpleNamespace
 
-    from queues import SEND_FIRST_COLUMNS
-
     keys = ["comb_a.JPG", "comb_b.JPG"]
-    at = SEND_FIRST_COLUMNS.index("global_key")
-    rows = []
-    for key in keys:
-        made = [""] * len(SEND_FIRST_COLUMNS)
-        made[at] = key
-        rows.append(made)
+    rows = [("long_tail", key.removeprefix("comb_"), "species a", 0.1, 1, "")
+            for key in keys]
     monkeypatch.setattr(queue_panels.hc, "labelbox_link_coverage",
                         lambda _keys: {"n_linked": n_linked,
                                        "n_unlinked": len(keys) - n_linked})

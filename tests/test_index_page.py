@@ -53,16 +53,15 @@ def test_the_date_is_read_off_the_pages_not_typed(build_index, tmp_path):
     assert "2026-09" not in out
 
 
-def test_only_the_build_date_crosses_over(build_index, tmp_path):
-    """The pages' subtitle carries the snapshot date, the model tag and two
-    counts. Each is a number with no provenance beside it here, and the page
-    that can explain it is one click away, so none of them comes across."""
+def test_build_and_label_dates_stay_distinct_without_evaluation_figures(build_index, tmp_path):
+    """A fresh interface must not make an old label snapshot appear current."""
     out = build_index.build(fake_build(
         tmp_path, "built 2027-01-01 &middot; snapshot 2026-12-31 &middot; "
                   "Pl@ntNet model unknown &middot; 3,277 labelled frames &middot; "
                   "186 species"))
     assert "built 2027-01-01" in out
-    for carried in ("snapshot", "Pl@ntNet model", "3,277", "186 species"):
+    assert "snapshot 2026-12-31" in out
+    for carried in ("Pl@ntNet model unknown", "3,277", "186 species"):
         assert carried not in out, carried
 
 
@@ -98,7 +97,9 @@ def test_it_claims_nothing_the_pages_have_to_back_up(build_index, tmp_path):
     assert "over time" not in out
     assert "measurement pass" not in out
     assert "latest state" not in out
-    assert "<p" not in out
+    assert 'class="intro"' in out
+    assert "photo counts do not measure tree abundance" in out
+    assert "model guesses need expert confirmation" in out
 
 
 def test_optional_atlas_cards_only_when_built(build_index, tmp_path):
@@ -118,6 +119,27 @@ def test_taxonomy_explorer_is_first_when_built(build_index, tmp_path):
     (tmp_path / "explorer.html").write_text("<html>Photos</html>")
     (tmp_path / "embedding-atlas.html").write_text("<html>Research</html>")
     out = build_index.build(str(tmp_path))
-    assert out.index('href="explorer.html"') < out.index('href="model_health_dashboard.html"')
-    assert out.index('href="model_health_dashboard.html"') < out.index('href="embedding-atlas.html"')
-    assert out.index('<summary>Similar photos &amp; models</summary>') < out.index('href="embedding-atlas.html"')
+    assert out.index('class="card" href="explorer.html"') < out.index('class="card" href="model_health_dashboard.html"')
+    assert out.index('class="card" href="model_health_dashboard.html"') < out.index('class="card" href="embedding-atlas.html"')
+    assert out.index('<summary>Similar photos &amp; models</summary>') < out.index('class="card" href="embedding-atlas.html"')
+
+
+def test_dates_stay_with_the_page_they_describe(build_index, tmp_path):
+    fake_build(tmp_path)
+    (tmp_path / "label_queue_dashboard.html").write_text(
+        '<div class="subtitle">labels as of 2026-10-15 &middot; model unknown</div>')
+    out = build_index.build(str(tmp_path))
+    assert '<small>built 2026-09-04. snapshot 2026-08-27</small></a>' in out
+    assert '<small>labels as of 2026-10-15</small></a>' in out
+    assert 'class="subtitle"' not in out
+
+
+def test_home_exposes_camera_locations_and_landmarks(build_index, tmp_path):
+    fake_build(tmp_path)
+    (tmp_path / "crownfirst-atlas.html").write_text("<html>Canopy</html>")
+    out = build_index.build(str(tmp_path))
+    assert 'href="crownfirst-atlas.html#view=locations"' in out
+    assert 'href="index.html" aria-current="page"' in out
+    assert 'href="#main-content">Skip to content</a>' in out
+    assert '<main id="main-content" tabindex="-1">' in out
+    assert 'href="explorer.html"' not in out

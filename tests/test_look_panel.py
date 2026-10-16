@@ -216,11 +216,11 @@ def test_the_send_preview_table_prints_three_decimals_and_blank_for_unranked(
     ranked. The table has to print exactly that, not "0.000" or "None"."""
     c = SimpleNamespace(
         queue_rows=[
-            ("long_tail", "comb_a_zoom", "guessed sp", 0.5, 1, "0.421"),
-            ("long_tail", "comb_b_zoom", "guessed sp", 0.3, None, ""),
+            ("long_tail", "a_zoom", "guessed sp", 0.5, 1, "0.421"),
+            ("long_tail", "b_zoom", "guessed sp", 0.3, None, ""),
         ],
         support={"guessed sp": 4},
-        selection_audit=None)
+        selection_audit=None, n_batch1=2)
     html = queue_panels.send_preview_table(c)
     assert "how new it looks" in html
     assert "0.421" in html
@@ -249,14 +249,15 @@ def test_the_ungraded_note_pulls_the_audit_figure_and_degrades_without_one(
          "run": {"extra": {"written": "2026-09-10"}}}
     p = tmp_path / "audit.json"
     p.write_text(json.dumps(d))
-    c = SimpleNamespace(selection_audit=selection_panels.selection_audit(str(p)))
+    c = SimpleNamespace(selection_audit=selection_panels.selection_audit(str(p)),
+                        n_batch1=95, queue_rows=[None] * 100)
     note = queue_panels.ungraded_note(c)
     assert "What this order is measured against" in note
     assert "1,719 labelled frames that already carry a name" in note
     assert "70% fewer labels for the same rare species" in note
     assert "This pool is not: it carries no label yet" in note
 
-    absent = queue_panels.ungraded_note(SimpleNamespace(selection_audit=None))
+    absent = queue_panels.ungraded_note(SimpleNamespace(selection_audit=None, n_batch1=0, queue_rows=[]))
     assert "has not been measured yet" in absent
 
 

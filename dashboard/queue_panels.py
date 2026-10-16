@@ -5,12 +5,14 @@ closed half that argues for the order is ``queue_why_panels.py``, and
 
 from __future__ import annotations
 
+from urllib.parse import quote
+
 import core as hc
 import queues
 from assets import cap, esc, more, panel, pctf, table
 from panels import NAMING_IS, NAMING_NOTE
 from selection_panels import _pct as sel_pct
-from status_words import STATUS, SKIP_STATUSES, uncap
+from status_words import STATUS
 
 # Enough to answer "what do I send next" without a CSV reader. A batch is 100
 # frames, so 25 is one morning\'s work and still short enough to read.
@@ -48,12 +50,16 @@ QL = {"long_tail": ("Species we barely have, or barely get right",
 # Below the un-measured claim either way: a reader who meets the batch-1
 # control before the caveat above it would read the control as the whole
 # answer, rather than as the one thing this checkout can still measure.
-_BATCH1_NOTE = (
-    f'<p class="note"><b>Batch 1 carries the comparison.</b> {queues.control_size()} of its '
-    f'{queues.BATCH_SIZE} photos are drawn at random from the whole pool instead of '
-    'from the head of this order. When they come back labelled, the two halves can be '
-    'compared. This only works on the first batch: every later pool has already been '
-    'reshaped by this order.</p>')
+def _batch1_note(c) -> str:
+    if not c.n_batch1:
+        return ""
+    n_control = min(queues.control_size(), len(c.queue_rows))
+    return (
+        f'<p class="note"><b>Batch 1 carries the comparison.</b> {n_control} of its '
+        f'{c.n_batch1} photos are drawn at random from the whole pool instead of '
+        'from the head of this order. When they come back labelled, the two groups can be '
+        'compared. This only works on the first batch: every later pool has already been '
+        'reshaped by this order.</p>')
 
 # The fallback for a checkout with no audit file: labelfirst has measured
 # nothing yet, so the note cannot say more than that.
@@ -79,7 +85,7 @@ def ungraded_note(c) -> str:
     """
     a = getattr(c, "selection_audit", None)
     if not a:
-        return _UNMEASURED_NOTE + _BATCH1_NOTE
+        return _UNMEASURED_NOTE + _batch1_note(c)
     saved = ""
     if a["passed"] and a["labels_saved_pct"] is not None:
         saved = (f' It needs {sel_pct(a["labels_saved_pct"])} fewer labels for the same '
@@ -89,7 +95,7 @@ def ungraded_note(c) -> str:
             f'ordering finds rare species faster than a random order.{saved} This pool is '
             'not: it carries no label yet, so nothing here checks whether this order '
             'fills gaps faster than a random one on it.</p>'
-            + _BATCH1_NOTE)
+            + _batch1_note(c))
 
 
 # The page's own hand-off: the queue is only worth building if a batch reaches
@@ -109,7 +115,9 @@ DISPATCH = more(
     f'packed into batches of {queues.BATCH_SIZE}, each species kept whole. Send batch 1 '
     f'of round 1 with:</p>'
     '<pre class="cmd">python3 labelling/dispatch_round.py --round 1 --csv build/tables/send_batches.csv --batch 1 --test</pre>'
-    '<p class="note">Drop <code>--test</code> once the dry run looks right.</p>'
+    '<p class="note"><strong>This creates a live five-photo batch and updates metadata '
+    'in Labelbox.</strong> <code>--test</code> limits the send to five photos; it is not '
+    'an offline preview. Omit it to send the full selected batch.</p>'
     '<p class="note">One batch there is one Labelbox '
     'batch, and <code>global_key</code> is the column Labelbox is given.</p>',
     anchor=TEAM_BLOCK_ID)
@@ -130,8 +138,8 @@ def links_note(c) -> str:
     filled there is one sentence, which is the whole truth and is not
     contradicted two lines later.
     """
-    at = queues.SEND_FIRST_COLUMNS.index("global_key")
-    keys = [r[at] for r in c.queue_rows]
+    # Renderer rows carry prediction stems, not the CSV's prefixed global keys.
+    keys = [hc.GT_KEY_PREFIX + r[1] for r in c.queue_rows]
     box = hc.labelbox_link_coverage(keys)
     images = hc.inventory_image_urls()
     n_img = sum(1 for k in keys if images.get(k))
@@ -149,9 +157,7 @@ def links_note(c) -> str:
 
 
 def p_todo(c):
-    """The species statuses as a to-do list, cheapest useful work first."""
-    # These rows are species statuses. How the pool is ordered is the next
-    # panel's subject.
+    """Species-level evidence for reviewing guesses, separate from photo priority."""
     body = ['<ul class="todo">']
     body += [f'<li><span class="n">{c.counts[k]}</span> species '
              f'<span class="tag {k}">{esc(lab)}</span> {esc(act)}</li>'
@@ -163,26 +169,16 @@ def p_todo(c):
                 f'<a href="model_health_dashboard.html">model_health_dashboard.html</a>. '
                 f'Which species sits in which row is a column of '
                 f'<a href="per_species_health.csv">per_species_health.csv</a>.</p>'
-                f'<p class="note"><strong>Cheaper still, and in no row above: '
+                f'<p class="note"><strong>Additional candidate checks: '
                 f'{c.gen_one:,} frames whose label stops at the genus and whose '
                 f'{hc.in_words(c.n_cand)} candidates hold exactly one species from '
-                f'it.</strong></p>')
-    # The heading names only the cheapest work; the lede lists every skippable
-    # row, so one fact does not arrive as two numbers. The count is counted, not
-    # written out: a row that leaves SKIP_STATUSES must leave this sentence too.
-    n_skip = {2: "Two", 3: "Three", 4: "Four"}.get(len(SKIP_STATUSES), str(len(SKIP_STATUSES)))
-    # Whether every skip row also sits last on the page: true only while
-    # SKIP_STATUSES is exactly the tail of STATUS, in the same order.
-    tail = list(STATUS)[-len(SKIP_STATUSES):]
-    position_note = (" They sit last on the page too, in this order." if tail == list(SKIP_STATUSES)
-                     else " They are scattered through the list, not grouped at the bottom.")
-    return panel(f"Cheapest confirmation work: {c.counts['ranking']} species "
-                 f"need a yes or no",
-                 "<b>Work top to bottom.</b> Rows are ordered cheapest useful work "
-                 f"first. {n_skip} of them you can skip: "
-                 + ", ".join(f"&ldquo;{uncap(STATUS[k][0])}&rdquo;" for k in SKIP_STATUSES)
-                 + "." + position_note,
-                 "\n".join(body), open_=True)
+                f'it.</strong> The candidate still needs expert confirmation; '
+                f'alternatives outside the returned list remain possible.</p>')
+    return panel("How to review model guesses",
+                 "<b>These statuses describe model performance, not biodiversity value.</b> "
+                 "Use the photo queue to choose work; use these species-level results "
+                 "to decide how closely to check a guess.",
+                 "\n".join(body), open_=False, anchor="cheapest-confirmation-work")
 
 
 def send_pool_table(c):
@@ -215,30 +211,48 @@ def send_preview_table(c):
     The table above says how much work there is. This says which photo."""
     body = ""
     head = c.queue_rows[:SEND_PREVIEW]
+    urls = hc.labelbox_urls()
+    explorer_available = "explorer.html" in getattr(c, "available_pages", ())
+    images = {} if explorer_available else hc.inventory_image_urls()
+
+    def photo_links(stem):
+        key = hc.GT_KEY_PREFIX + stem
+        photo = f'<code class="key">{esc(stem)}</code>'
+        if explorer_available:
+            browse = f'explorer.html#frame={quote(key, safe="")}'
+            photo = f'<a href="{esc(browse)}">{photo}</a>'
+        elif key in images:
+            photo = (f'<a href="{esc(images[key])}" target="_blank" '
+                     f'rel="noopener noreferrer">{photo}</a>')
+        if key in urls:
+            return (photo + f'<br><a href="{esc(urls[key])}" target="_blank" '
+                    'rel="noopener noreferrer">Suggest label / correction in Labelbox</a>')
+        return photo + '<br><small>No Labelbox item link recorded</small>'
     # One note sits above the table: the queue is ordered weakest first, so the
     # first screen is full of 0.001s and needs the gloss before it, not after.
     # The other two follow the table, where a reader who already has the rows
     # in front of them reads what the order is not measured against and how to
     # read the confidence column.
-    body += ('<h3 class="sub">The next ' + f'{len(head)}' + ' photos, in order</h3>'
-             + '<p class="note"><b>Inside a queue the photo least like everything already '
-               'labelled comes first.</b> Pl@ntNet turns each centre crop into a list of '
-               'numbers, and two photos with close numbers look alike to it. A photo far '
-               'from every labelled one is the photo we know least about. "How new it '
-               'looks" is that distance, so a bigger number leads a smaller one.</p>'
+    body += ('<h3 class="sub">First ' + f'{len(head)}' + ' photos in the ranked pool</h3>'
+             + '<p class="note"><b>Photos least similar to labelled examples come first '
+               'inside each queue.</b> "How new it looks" is the saved visual distance '
+               'to labelled photos, not evidence of a new species. Unranked photos '
+               'keep their confidence order.</p>'
+             + ('<p class="note">Photo links open the catalogue, which carries its own '
+                'saved labels and guesses. Queue scores remain from the snapshot above.</p>'
+                if explorer_available else '')
              + table([("#", True), ("photo", False), ("Pl@ntNet's guess", False),
                       ("confidence", True), ("frames that species has", True),
                       ("how new it looks", True)],
-                     [[f"{i}", f'<code class="key">{esc(stem)}</code>',
+                     [[f"{i}", photo_links(stem),
                        f'<span class="sp">{esc(cap(pred))}</span>', f"{cf:.3f}",
                        f"{c.support.get(pred, 0):,}", esc(how_new)]
                       for i, (_, stem, pred, cf, _rank, how_new) in enumerate(head, 1)],
                      source="send_first_queue.csv")
              + ungraded_note(c)
-             + '<p class="note"><b>Read the confidence column as how little the model '
-               'knows.</b> It breaks the tie, so a number near the bottom of the scale '
-               'means Pl@ntNet recognised almost nothing. That is the reason to look, not '
-               'a reason to doubt the name.</p>')
+             + '<p class="note"><b>Confidence breaks ranking ties.</b> A low score '
+               'means the model gives its first guess little support. Check the guess '
+               'against the photo; the score does not confirm a label.</p>')
     return body
 
 
@@ -252,9 +266,8 @@ def send_notes(c):
     # names species row by row, and the caveat under it (some of these carry
     # more than the support minimum) only existed to correct the list.
     body += (f'<p class="note"><strong>{c.n_no_answer} unlabelled photos got no answer at '
-             f'all</strong>: the candidate list came back empty. Likeliest to be junk or to '
-             f'show no plant, and no automatic rule for junk is reliable, so check that '
-             f'handful by eye.</p>'
+             f'all</strong>: the candidate list came back empty. Inspect these photos '
+             f'by eye; an empty answer does not establish that no plant is visible.</p>'
              # Names an unscored population. It is an export batch, not a camera:
              # saying "the long-lens camera" here invented a lens difference that
              # the flight team confirmed does not exist.
@@ -306,8 +319,8 @@ def p_send(c):
                  f"{c.queue_counts.get('long_tail', 0):,} photos point at a species we "
                  f"barely have, or barely get right; "
                  f"{c.queue_counts.get('low_conf_known', 0):,} show a usually-right species "
-                 f"the model is unsure of here. Both buy more per label than anything "
-                 f"below. Inside each queue the photo least like everything already "
+                 f"the model is unsure of here. These queues come first to target gaps "
+                 f"in labelled evidence. Inside each queue the photo least like everything already "
                  f"labelled comes first, which reaches {c.n_ranked:,} of the "
                  f"{c.n_unlab:,}; the rest keep their place by confidence. "
                  f'<a href="send_first_queue.csv">send_first_queue.csv</a> holds this same '

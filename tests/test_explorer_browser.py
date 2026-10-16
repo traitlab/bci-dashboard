@@ -63,7 +63,7 @@ append(...nodes){for(const n of nodes){if(n?.tagName==='fragment')this.append(..
 function get(id){if(!elements.has(id))elements.set(id,make());return elements.get(id)}
 global.document={getElementById:get,createElement:make,createDocumentFragment:()=>make('fragment'),activeElement:null};global.CSS={escape:value=>value};global.location={hash:__HASH__};global.history={pushState(_,__,hash){historyEntries.push(hash);location.hash=hash},replaceState(_,__,hash){historyEntries.push(hash);location.hash=hash}};global.window={matchMedia:()=>({matches:false,addEventListener(){}}),addEventListener(name,fn){listeners[name]=fn}};
 get('explorer-data').textContent=__DATA__;
-for(const [id,values] of [['source',['prediction','recorded']],['labelStatus',['all','with','without']]])for(const value of values){const option=make('option');option.value=value;get(id).append(option)}
+for(const [id,values] of [['source',['prediction','recorded']],['labelStatus',['all','with','without','compare']]])for(const value of values){const option=make('option');option.value=value;get(id).append(option)}
 """.replace("__HASH__", json.dumps(initial_hash)).replace("__DATA__", json.dumps(json.dumps(payload or catalogue())))
     script = template().split("<script>")[1].split("</script>")[0]
     node(setup + script + checks)
@@ -87,22 +87,22 @@ c.provenance.predictions.available=false;assert.deepEqual(matchingPhotoKeys(c,s)
 def test_label_option_counts_are_prospective_and_compose_with_source_taxon_and_search():
     run_browser(r"""
 function counts(){return Object.fromEntries($('labelStatus').options.map(o=>[o.value,Number(o.textContent.match(/\((\d+)\)$/)[1])]))}
-assert.deepEqual(counts(),{all:6,with:5,without:1});
+assert.deepEqual(counts(),{all:6,with:5,without:1,compare:1});
 setState({taxon:'s',search:'flight-a'});
-assert.deepEqual(counts(),{all:2,with:1,without:1});
+assert.deepEqual(counts(),{all:2,with:1,without:1,compare:0});
 const options=Array.from($('labelStatus').options),sourceOptions=Array.from($('source').options);
 $('labelStatus').focus();$('labelStatus').value='without';$('labelStatus').onchange();
-assert.deepEqual(counts(),{all:2,with:1,without:1});assert.equal($('labelStatus').value,'without');
+assert.deepEqual(counts(),{all:2,with:1,without:1,compare:0});assert.equal($('labelStatus').value,'without');
 assert.equal(document.activeElement,$('labelStatus'));assert.deepEqual($('labelStatus').options,options);
 assert.match($('resultCount').textContent,/1 of 6/);assert.match($('outsideNotice').textContent,/outside these filters/);
 assert.equal($('gallery').children.length,2);assert.equal(state.frame,'a & ä /?.JPG');
 $('source').focus();$('source').value='recorded';$('source').onchange();
-assert.deepEqual(counts(),{all:1,with:1,without:0});assert.equal($('source').value,'recorded');
+assert.deepEqual(counts(),{all:1,with:1,without:0,compare:1});assert.equal($('source').value,'recorded');
 assert.equal(document.activeElement,$('source'));assert.deepEqual($('source').options,sourceOptions);
 assert.equal($('labelStatus').value,'without');assert.match($('resultCount').textContent,/0 of 6/);
 assert.equal($('gallery').children.length,1);
-setState({status:'with'});assert.deepEqual(counts(),{all:1,with:1,without:0});
-setState({search:'no photo matches'});assert.deepEqual(counts(),{all:0,with:0,without:0});
+setState({status:'with'});assert.deepEqual(counts(),{all:1,with:1,without:0,compare:1});
+setState({search:'no photo matches'});assert.deepEqual(counts(),{all:0,with:0,without:0,compare:0});
 assert.equal($('gallery').children.length,1);assert.match($('resultCount').textContent,/0 of 6/);
 """)
 
@@ -114,13 +114,13 @@ def test_source_option_counts_describe_catalogue_evidence_without_filtering_out_
     run_browser(r"""
 function sources(){return $('source').options.map(o=>o.textContent)}
 const coverage=sourceCoverage(catalogue);assert.deepEqual(coverage,{prediction:5,recorded:5});
-assert.deepEqual(labelStatusCounts(catalogue,state),{all:7,with:5,without:2});
+assert.deepEqual(labelStatusCounts(catalogue,state),{all:7,with:5,without:2,compare:1});
 const baseline=sources();assert.match(baseline[0],/\(5\)/);assert.match(baseline[1],/\(5\)/);
 setState({source:'recorded',status:'with'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['a & ä /?.JPG','b','c','e','z']);
 setState({taxon:'f',search:'no matches',status:'without'});assert.deepEqual(sources(),baseline);
 setState({taxon:'',search:'',status:'all'});assert.equal(matchingPhotoKeys(catalogue,state).length,7);
 setState({source:'prediction',taxon:'unassigned'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['c','e','whitespace']);
-assert.deepEqual(sources(),baseline);assert.deepEqual(labelStatusCounts(catalogue,state),{all:3,with:2,without:1});
+assert.deepEqual(sources(),baseline);assert.deepEqual(labelStatusCounts(catalogue,state),{all:3,with:2,without:1,compare:0});
 """, payload=data)
 
 
@@ -129,11 +129,11 @@ def test_count_helpers_preserve_explicit_unavailable_sources_and_empty_populatio
     data['provenance']['predictions']['available'] = False
     run_browser(r"""
 assert.deepEqual(sourceCoverage(catalogue),{prediction:0,recorded:5});
-assert.deepEqual(labelStatusCounts(catalogue,state),{all:0,with:0,without:0});
+assert.deepEqual(labelStatusCounts(catalogue,state),{all:0,with:0,without:0,compare:0});
 assert.match($('source').options[0].textContent,/\(0, unavailable\)/);
 assert.equal(state.source,'prediction');assert.equal($('source').value,'prediction');
-setState({source:'recorded'});assert.deepEqual(labelStatusCounts(catalogue,state),{all:6,with:5,without:1});
-setState({source:'unsupported'});assert.deepEqual(labelStatusCounts(catalogue,state),{all:0,with:0,without:0});
+setState({source:'recorded'});assert.deepEqual(labelStatusCounts(catalogue,state),{all:6,with:5,without:1,compare:0});
+setState({source:'unsupported'});assert.deepEqual(labelStatusCounts(catalogue,state),{all:0,with:0,without:0,compare:0});
 assert.equal(state.source,'unsupported');assert.equal($('source').value,'unsupported');
 assert.match($('source').options.at(-1).textContent,/Unavailable source: unsupported/);
 assert.equal(state.frame,'a & ä /?.JPG');
@@ -141,7 +141,7 @@ assert.equal(state.frame,'a & ä /?.JPG');
     data['photos'] = []
     run_browser(r"""
 assert.deepEqual(sourceCoverage(catalogue),{prediction:0,recorded:0});
-assert.deepEqual(labelStatusCounts(catalogue,state),{all:0,with:0,without:0});
+assert.deepEqual(labelStatusCounts(catalogue,state),{all:0,with:0,without:0,compare:0});
 assert.equal($('gallery').children.length,0);assert.equal(state.frame,'');
 for(const option of $('labelStatus').options)assert.match(option.textContent,/\(0\)$/);
 """, payload=data)

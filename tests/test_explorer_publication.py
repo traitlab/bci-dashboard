@@ -18,7 +18,8 @@ def test_publication_keeps_explorers_discoverable_without_raw_exports(tmp_path, 
     docs = tmp_path / "docs"
     docs.mkdir()
     shutil.copy2(ROOT / "bin/publish_pages.sh", tmp_path / "bin/publish_pages.sh")
-    shutil.copy2(ROOT / "dashboard/build_index.py", tmp_path / "dashboard/build_index.py")
+    for name in ("build_index.py", "site_navigation.py"):
+        shutil.copy2(ROOT / "dashboard" / name, tmp_path / "dashboard" / name)
     operational = ["model_health_dashboard.html", "label_queue_dashboard.html", "label_queue_team.html"]
     explorers = ["explorer.html", "embedding-atlas.html", "crownfirst-atlas.html"]
     expected = {name: "<!doctype html><h1>" + name + "</h1>" for name in operational + explorers}

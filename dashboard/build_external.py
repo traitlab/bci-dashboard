@@ -34,13 +34,14 @@ OUT_NAME = "model_health_dashboard.html"
 TITLE = "How well does Pl@ntNet name BCI trees?"
 
 
-def build(h, *, generated, verify_dir, fallback_tag):
+def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     """The model-health page: how well Pl@ntNet names the trees, and what that
     number does not cover.
 
     Every figure is checked against the snapshot CSVs before any HTML is written.
     """
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
+    c.available_pages = pg.OPERATIONAL_PAGES | frozenset(available_pages or ())
 
     # Four claims on this page come off files bin/refresh.sh does not write:
     # what would help each species, why each review pair differs, the
@@ -81,7 +82,8 @@ def build(h, *, generated, verify_dir, fallback_tag):
     P.append(pg.render(c, pg.EXTERNAL_PANELS))
     P.append(pg.footer(c))
 
-    return pg.document(TITLE, "\n".join(P)), c.checks
+    return pg.document(TITLE, "\n".join(P), current=OUT_NAME,
+                       available=c.available_pages), c.checks
 
 
 def main() -> None:

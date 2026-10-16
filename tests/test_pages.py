@@ -122,9 +122,10 @@ def test_page_has_no_external_asset_references(page):
     assert "script src" not in html
     fetched = re.findall(r'(?:src|srcset|@import\s+url\()\s*=?\s*["\'(]?(https?://[^"\'\s)]+)', html)
     assert not fetched, f"page fetches off-machine assets: {fetched[:3]}"
-    anchors = set(re.findall(r'<a\s[^>]*href="(https?://[^"]+)"', html))
-    assert all(u.startswith("https://app.labelbox.com/projects/") for u in anchors), (
-        f"unexpected outbound link: {sorted(anchors)[:3]}")
+    anchors = re.findall(r'<a\s[^>]*href="https?://[^"]+"[^>]*>', html)
+    for anchor in anchors:
+        assert 'target="_blank"' in anchor
+        assert re.search(r'rel="[^"]*\bnoopener\b', anchor), anchor
 
 
 # ---------------------------------------------------------------------------
@@ -146,14 +147,13 @@ def test_tags_balance(page):
 def test_a_page_opens_only_the_panels_that_are_its_deliverable(page):
     """A panel is open only where it is the thing the page exists to hand over.
 
-    The queue page opens the two a labeller works from. The model-health page
+    The queue page opens the photo queue a labeller works from. The model-health page
     opens the species table: the status buttons on its first screen filter that
     table, and a filter on a closed panel does nothing a reader can see.
     """
     expected = {
         "model_health": ["Look up one species"],
-        "label_queue": ["Cheapest confirmation work",
-                        "What to send to the botanist first"],
+        "label_queue": ["What to send to the botanist first"],
     }
     html, name, _ = page
     want = next(v for k, v in expected.items() if k in name)

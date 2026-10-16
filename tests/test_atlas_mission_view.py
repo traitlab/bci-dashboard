@@ -30,13 +30,14 @@ def run_atlas(points, checks, initial_hash="#frame=query"):
         },
     }
     setup = r"""
-const assert=require('node:assert/strict'),elements=new Map(),contexts=new Map();
+const assert=require('node:assert/strict'),elements=new Map(),contexts=new Map(),listeners={};
 function context(id){if(!contexts.has(id))contexts.set(id,{arcs:[],fills:[],texts:[],fillText(text,x,y){this.texts.push([text,x,y])},strokeText(){},scale(){},fillRect(){},beginPath(){},arc(x,y,r){this.arcs.push(r)},fill(){this.fills.push(this.fillStyle)},stroke(){},drawImage(){}});return contexts.get(id)}
 function make(id){return {children:[],attributes:{},isConnected:true,clientWidth:640,clientHeight:520,value:'',style:{},contains(target){return target===this||this.children.some(child=>child.contains?.(target))},focus(){document.activeElement=this},scrollIntoView(){},getContext:()=>context(id),replaceChildren(...v){this.children=v},append(...v){this.children.push(...v)},getAttribute(name){return this.attributes[name]??null},removeAttribute(name){delete this[name];delete this.attributes[name]},setAttribute(name,value){this[name]=value;this.attributes[name]=value},addEventListener(){},showModal(){this.open=true},close(){this.open=false;this.onclose?.()}}}
 function element(id){if(!elements.has(id))elements.set(id,make(id));return elements.get(id)}
 const payload=__PAYLOAD__;
 element('atlas-data').textContent=JSON.stringify(payload);
-global.document={getElementById:element,querySelector:()=>element('inspector'),querySelectorAll:()=>[],createElement:make};global.devicePixelRatio=1;global.location={hash:'#frame=query'};global.history={replaceState(_,__,hash){location.hash=hash}};global.window={addEventListener(){},matchMedia:()=>({matches:false})};global.requestAnimationFrame=()=>{};global.Image=class{};
+const navLinks=['embedding-atlas.html','crownfirst-atlas.html','explorer.html','embedding-atlas.html#view=photos'].map((href,index)=>{const link=make('nav'+index);link.setAttribute('href',href);if(index===3){link.setAttribute('data-atlas-view','photos');link.setAttribute('data-site-task','similar');link.setAttribute('aria-current','page')}return link});
+global.document={getElementById:element,querySelector:()=>element('inspector'),querySelectorAll:selector=>selector==='nav a'?navLinks:[],createElement:make};global.devicePixelRatio=1;global.location={hash:'#frame=query'};global.history={replaceState(_,__,hash){location.hash=hash}};global.window={addEventListener(name,fn){listeners[name]=fn},matchMedia:()=>({matches:false})};global.requestAnimationFrame=()=>{};global.Image=class{};
 """.replace("__PAYLOAD__", json.dumps(payload)).replace("'#frame=query'", json.dumps(initial_hash))
     subprocess.run(["node", "-e", setup + script + checks], check=True)
 

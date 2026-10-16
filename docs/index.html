@@ -1,17 +1,30 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BCI tree identification dashboards</title><style>*{box-sizing:border-box;margin:0;padding:0}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Panama canopy photos and labelling</title><style>*{box-sizing:border-box;margin:0;padding:0}
 body{
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   color:#1a1a1a;background:#f8f9fa;line-height:1.5;
   max-width:780px;margin:0 auto;padding:32px 24px 64px;
 }
 h1{font-size:1.6rem;font-weight:700;margin-bottom:4px;color:#212121}
-.subtitle{font-size:0.85rem;color:#757575;margin-bottom:28px}
+.intro{font-size:0.95rem;color:#424242;margin:12px 0 24px}
+.scope{font-size:0.85rem;color:#54665d;margin:24px 0 0}
+a.card small{display:block;font-size:0.8rem;color:#54665d;margin-top:8px}
 a.card{
   display:block;text-decoration:none;color:inherit;background:#fff;
   border:1px solid #e0e0e0;border-radius:6px;padding:16px 18px;margin-bottom:12px;
 }
-a.card:hover{border-color:#1565c0}
-a.card b{display:block;font-size:1.05rem;color:#1565c0;margin-bottom:4px}
+a.card:hover{border-color:#245743}
+a.card:focus-visible,summary:focus-visible{outline:3px solid #2d8061;outline-offset:3px}
+a.card b{display:block;font-size:1.05rem;color:#245743;margin-bottom:4px}
 a.card span{font-size:0.9rem;color:#424242}
 details{margin-top:24px}summary{cursor:pointer;margin-bottom:12px;color:#424242}
-</style></head><body><h1>BCI tree identification</h1><div class="subtitle">built 2026-09-11</div><a class="card" href="explorer.html"><b>Browse canopy photos by taxonomy</b><span>Explore families, genera and species using Pl@ntNet first guesses or recorded labels, then inspect whole photos.</span></a><a class="card" href="model_health_dashboard.html"><b>How well does Pl@ntNet name BCI trees?</b><span>Accuracy of the predictions, per species and overall, with what each number was measured on.</span></a><a class="card" href="label_queue_dashboard.html"><b>What to label next</b><span>The order the unlabelled photos should be worked through, and the reasoning behind that order.</span></a><details><summary>Similar photos &amp; models</summary><a class="card" href="embedding-atlas.html"><b>Find similar photos</b><span>Pl@ntNet. Browse photos that look alike.</span></a><a class="card" href="crownfirst-atlas.html#view=models"><b>Compare Pl@ntNet and PlantCLEF</b><span>Inspect each model’s visual matches for the same photos.</span></a></details></body></html>
+
+.site-nav{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:10px 0;margin:0 0 18px;border-bottom:1px solid #c6d6cf;font:13px/1.4 system-ui,sans-serif}
+.site-nav a{display:inline-flex;align-items:center;min-height:44px;padding:8px 10px;color:#245743;text-decoration:none;border-radius:4px}
+.site-nav a:hover{background:#edf2ef;text-decoration:underline}
+.site-nav a[aria-current=page]{background:#e0ebe3;color:#16432e;font-weight:650}
+.site-nav a:focus-visible,.site-skip:focus-visible{outline:3px solid #2d8061;outline-offset:3px}
+.site-skip{position:absolute;top:8px;left:8px;z-index:20;transform:translateY(-160%);background:white;color:#16432e;padding:10px 14px}
+.site-skip:focus{transform:none}
+@media(max-width:640px){.site-nav{gap:0 3px;margin-bottom:12px}.site-nav a{font-size:12px;padding:8px}}
+@media print{.site-nav,.site-skip{display:none}}
+</style></head><body><a class="site-skip" onclick="event.preventDefault();document.getElementById('main-content').focus()" href="#main-content">Skip to content</a><nav class="site-nav" aria-label="Dashboard pages"><a href="index.html" aria-current="page">Home</a><a href="explorer.html">Browse photos</a><a href="embedding-atlas.html" data-atlas-view="photos" data-site-task="similar" id="similarPhotosTask">Similar photos</a><a href="model_health_dashboard.html">Model health</a><a href="label_queue_dashboard.html">Labelling queue</a></nav><main id="main-content" tabindex="-1"><h1>Panama canopy photos</h1><p class="intro">Explore photos, inspect visual matches and choose what to label next.</p><a class="card" href="explorer.html"><b>Browse photos</b><span>Explore families, genera and species using Pl@ntNet first guesses or recorded labels, then inspect the photos.</span></a><a class="card" href="crownfirst-atlas.html#view=locations"><b>Camera locations</b><span>Find photos by aircraft camera position, then inspect their visual matches.</span></a><a class="card" href="model_health_dashboard.html"><b>Model health</b><span>Check how well Pl@ntNet names BCI trees, by species and overall, and what the evaluation covers.</span><small>built 2026-10-16. snapshot 2026-08-27</small></a><a class="card" href="label_queue_dashboard.html"><b>Labelling queue</b><span>Choose the next batch for expert labelling and inspect why those photos come first.</span><small>built 2026-10-16. snapshot 2026-08-27</small></a><details><summary>Similar photos &amp; models</summary><a class="card" href="embedding-atlas.html"><b>Similar photos</b><span>Compare a selected photo with Pl@ntNet’s stored visual matches. Looking alike does not confirm the same species.</span></a><a class="card" href="crownfirst-atlas.html#view=models"><b>Compare models</b><span>Inspect Pl@ntNet and PlantCLEF visual matches for the same photos.</span></a></details><p class="scope">Photo tools cover Barro Colorado Island and other Panama field sites. Model health and labelling queues describe their own recorded snapshots. Photo counts do not measure tree abundance. Model guesses need expert confirmation.</p></main></body></html>
