@@ -20,6 +20,7 @@ import core as hc
 import health as hl
 from assets import css_for, esc, section, strip_comments
 from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
+from site_navigation import navigation
 from confirmatory_panels import p_floor
 from panels import (
     p_calibration, p_ceiling, p_counts, p_coverage, p_method, p_review, p_species,
@@ -27,6 +28,10 @@ from panels import (
 from queue_panels import p_send, p_todo
 from queue_why_panels import p_evidence, p_look
 from selection_panels import audit_footer
+
+OPERATIONAL_PAGES = frozenset({
+    "index.html", "model_health_dashboard.html", "label_queue_dashboard.html",
+})
 
 
 # Order here is reading order. The measurement comes first and the explanation
@@ -103,7 +108,7 @@ PANELS = {
 # Internal is the labelling team's tool and stays thin, its deliverable being
 # send_batches.csv. External leaves the lab, carrying the confident
 # disagreements so they can be worked in Labelbox.
-INTERNAL_PANELS = ("todo", "send", "look", "evidence")
+INTERNAL_PANELS = ("send", "todo", "look", "evidence")
 # Order inside a section is the order these ids are listed in; the sections
 # themselves order the page. The species table now leads, because that is what
 # a reader scrolls to. The glossary and the three-frame-counts panel used to
@@ -184,11 +189,14 @@ def footer(c) -> str:
             f'off. Run {esc(c.tag)}.{audit_footer(c)}</div>')
 
 
-def document(title: str, body: str) -> str:
+def document(title: str, body: str, *, current: str = "", available=None) -> str:
     """One self-contained file: every style and script inlined, nothing fetched.
 
     No footer: the subtitle already carries build date, snapshot and model tag.
     """
+    available = OPERATIONAL_PAGES if available is None else available
+    body = (navigation(current, available=available)
+            + '<main id="main-content" tabindex="-1">' + body + '</main>')
     return ("<!DOCTYPE html>\n"
             '<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -252,8 +260,14 @@ def run(doc: str, out_name: str, build) -> str:
     verify_dir = args.verify_against or hc.TABLES_DIR
     h = hl.load_health(gt_csv=args.gt, splits_csv=args.splits, cache_dir=args.cache_dir,
                        wcvp_cache=args.wcvp_cache, label_source=args.label_source)
+    destination = os.path.dirname(os.path.abspath(args.out))
+    available_pages = OPERATIONAL_PAGES | {
+        name for name in os.listdir(destination)
+        if name.endswith(".html") and os.path.isfile(os.path.join(destination, name))
+    } if os.path.isdir(destination) else OPERATIONAL_PAGES
     page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),
-                         verify_dir=verify_dir, fallback_tag=args.model_tag)
+                         verify_dir=verify_dir, fallback_tag=args.model_tag,
+                         available_pages=available_pages)
     write_page(page, checks, args.out)
     copy_linked_csvs(page, verify_dir, args.out)
     return args.out

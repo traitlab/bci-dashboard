@@ -20,6 +20,7 @@ none of the renderers are.
 from __future__ import annotations
 
 from string import Template
+from site_navigation import CSS as NAVIGATION_CSS
 
 # --- vendored from labelfirst.eval.report._html._CSS -----------------------
 _BASE_CSS = """\
@@ -246,7 +247,7 @@ details.panel:target>summary{background:#e3f2fd}
 }
 """
 
-CSS = _BASE_CSS + _EXTRA_CSS
+CSS = _BASE_CSS + _EXTRA_CSS + NAVIGATION_CSS
 
 TABLE_ID = "species-table"
 INPUT_ID = "species-filter"

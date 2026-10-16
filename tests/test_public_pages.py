@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import csv
+import html as html_lib
+import json
 import re
+from urllib.parse import urlsplit
 
 import public_snapshot as fixture
 import pytest
@@ -156,3 +159,64 @@ def test_changed_measurement_aborts_the_actual_build(tmp_path, script, name):
     assert "VERIFY FAIL" in proc.stderr + proc.stdout
     assert "top1_accuracy for 'hura crepitans'" in proc.stderr + proc.stdout
     assert not (root / "pages" / name).exists()
+
+
+@pytest.mark.parametrize(
+    "optional_pages",
+    [
+        (),
+        ("explorer.html",),
+        ("explorer.html", "embedding-atlas.html", "crownfirst-atlas.html"),
+    ],
+)
+def test_assembled_pages_link_only_to_available_html(tmp_path, optional_pages):
+    root = fixture.write_inputs(tmp_path)
+    measured = fixture.measure(root)
+    assert measured.returncode == 0, measured.stdout + measured.stderr
+    output = root / "pages"
+    images = {
+        json.loads(line)["row_data"]
+        for line in (root / "data" / "dataset_rows_combined.jsonl")
+        .read_text()
+        .splitlines()
+    }
+    # Measurement inputs do not establish whether a photo tool is published.
+    (root / "tables" / "explorer.html").write_text("<html>Not published</html>")
+    for name in optional_pages:
+        (output / name).write_text("<!doctype html><title>Optional photo tool</title>")
+    operational = ("model_health_dashboard.html", "label_queue_dashboard.html")
+    for script, name in zip(("build_external.py", "build_internal.py"), operational):
+        built = fixture.build(root, script, name)
+        assert built.returncode == 0, built.stdout + built.stderr
+    index = fixture.command(
+        root,
+        "build_index.py",
+        "--build",
+        str(output),
+        "--out",
+        str(output / "index.html"),
+    )
+    assert index.returncode == 0, index.stdout + index.stderr
+    for name in (*operational, "index.html"):
+        page = (output / name).read_text(encoding="utf-8")
+        local = {
+            url.path
+            for href in re.findall(r'href="([^"]+)"', page)
+            if not (url := urlsplit(html_lib.unescape(href))).scheme
+            and not url.netloc
+            and url.path.endswith(".html")
+        }
+        for target in local:
+            assert (output / target).is_file(), f"{name} links missing {target}"
+        outbound = {
+            html_lib.unescape(href)
+            for href in re.findall(r'href="(https?://[^"]+)"', page)
+        }
+        assert all(
+            url.startswith("https://app.labelbox.com/projects/") or url in images
+            for url in outbound
+        )
+        assert ("explorer.html" in local) == ("explorer.html" in optional_pages)
+        assert ("embedding-atlas.html" in local) == (
+            "embedding-atlas.html" in optional_pages
+        )

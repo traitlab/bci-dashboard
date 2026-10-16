@@ -1,5 +1,5 @@
 """The status vocabulary all three pages share: what each status is called,
-why a species gets it, and which ones a botanist can pass over.
+why a species gets it, and how to check its model guesses.
 
 One module, so a word changed here changes legend, table and to-do list together.
 """
@@ -8,39 +8,23 @@ from __future__ import annotations
 
 import core as hc
 
-# key -> (label, what to do about it). Order is the order of the to-do list:
-# cheapest useful work first, safe-to-skip last.
+# key -> (label, how to review model guesses). No status ranks biodiversity value.
 STATUS = {
     "ranking": ("Right name in the list, not first",
-                "Cheapest work here. Confirm the name from the short list instead of "
-                "identifying from scratch"),
+                "Compare the candidates with the photo; a lower-ranked guess may fit better"),
     "unmeasured": ("Too few labels to judge",
-                   "Label a few more before trusting any number for it"),
-    "hard": ("Wrong even with enough labels",
-             "More labels will not fix this one. Treat it as a model limit"),
-    "adequate": ("Mixed", "Keep it in the normal review queue"),
-    "reliable": ("Usually right", "Lowest priority. Spot-check a few and move on"),
+                   "Inspect photos and add labelled evidence before trusting this species' rate"),
+    "hard": ("Often wrong on labelled frames",
+             "Use manual identification or expert review; do not rely on the first guess"),
+    "adequate": ("Mixed", "Check the guess against the photo; performance varies"),
+    "reliable": ("Usually right", "Lower priority for checking model guesses. Keep labels needed for biodiversity work"),
     # core.diagnose reads in_corpus_vocabulary, true when the name came back on
     # ANY BCI photo, so 0.0% under a different status is not a contradiction.
     "unreachable": ("Never returned on any BCI photo",
-                    "Label these like any other row. We have not yet asked Pl@ntNet "
-                    "whether it carries this species"),
+                    "Use manual identification; absence from returned guesses does not establish absence from the model"),
     "out_of_scope": ("Not in the project's own species list",
-                      "Skip. Pl@ntNet's own list for this project does not carry it"),
+                      "Use manual identification; this model's project checklist does not carry the species"),
 }
-
-# The rows a botanist can pass over, not simply the tail of STATUS.
-#
-# "Never returned on any BCI photo" is not one of them, and used to be. We only
-# ever asked for hc.N_CANDIDATES names per photo, so a species the model carries
-# but has never ranked that high looks exactly like one it does not carry.
-# Telling a botanist to skip those rows spends an unproven absence as though it
-# were a proven one, which is the opposite of what README.md says about that
-# population. "Not in the project's own species list" is the proven version of
-# that same absence: predict/fetch_checklist.py has shown the name is missing
-# from the project's own species list, so it belongs in this tuple and
-# "unreachable" still does not.
-SKIP_STATUSES = ("hard", "reliable", "out_of_scope")
 
 
 def uncap(label):
@@ -49,21 +33,22 @@ def uncap(label):
     return label[:1].lower() + label[1:]
 
 STATUS_REASON = {
-    "ranking": f"The right name is already in the {hc.N_CANDIDATES}, so this is the "
-               f"cheapest confirmation work.",
+    "ranking": f"The right name was often among the {hc.N_CANDIDATES} returned "
+               f"candidates but below the first guess. Check candidates against the photo.",
     "unmeasured": f"Fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, so the score is "
                   f"too thin to trust yet.",
-    "hard": "Enough frames, but the first guess is still weak, so more labels will not fix it.",
-    "adequate": "Mixed results, so keep it in the normal review queue.",
-    "reliable": "Usually right, so this species is low priority for extra work.",
+    "hard": f"At least {hc.WELL_SAMPLED_MIN_N} labelled frames, but first guesses are right "
+            f"less than {hc.HARD_MAX_TOP1:.0%} of the time. Use manual identification or expert review.",
+    "adequate": "Mixed results on labelled frames. Check each guess against the photo.",
+    "reliable": "Usually right on labelled frames, so lower priority for checking model guesses. "
+                "This does not measure the species' biodiversity importance.",
     "unreachable": "Pl@ntNet never returned this name on any BCI photo. We ask each "
                    f"photo for {hc.N_CANDIDATES} names. A species it carries but never "
                    "ranks that high looks the same to us as one it lacks. A 0.0% "
                    f"\u201cTop-{hc.N_CANDIDATES} accuracy\u201d under another status means "
                    "the name did come back, just never on that species\u2019 frames.",
     "out_of_scope": "Pl@ntNet's own list for this project does not carry it. "
-                    "That is a proven absence, not the "
-                    "sample effect behind “never returned”.",
+                    "Manual identification and biodiversity labels remain useful.",
 }
 
 def status_precedence_note():
@@ -83,7 +68,7 @@ def status_precedence_note():
              + ".")
     return ("Each species gets the first status that fits. " + order +
             f" A few-frame species can still show as &ldquo;{names[2]}&rdquo;, since "
-            "that is cheap work at any count.")
+            "the candidate-list pattern can appear at any count.")
 
 
 def legend_entries():

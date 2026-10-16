@@ -1,0 +1,136 @@
+"""Review signals compare resolved lineage branches without claiming label errors."""
+
+import copy
+
+import pytest
+from test_explorer_browser import catalogue, run_browser
+
+
+def test_compare_filter_counts_compose_and_restore_from_history():
+    run_browser(r"""
+const first=state.frame;
+assert.equal($('labelStatus').options.at(-1).textContent,'Label and guess differ (1)');
+$('labelStatus').value='compare';$('labelStatus').onchange();
+assert.equal(state.status,'compare');assert.match(location.hash,/status=compare/);
+assert.equal($('browseTitle').textContent,'Label and guess differ');
+assert.deepEqual(matchingPhotoKeys(catalogue,state),[first]);
+assert.equal($('stateNotice').textContent,'');assert.match($('resultCount').textContent,/1 of 6/);
+setState({source:'recorded',taxon:'s',search:'flight-a'});
+assert.equal($('browseTitle').textContent,'Canopia alba: Label and guess differ');
+assert.deepEqual(labelStatusCounts(catalogue,state),{all:1,with:1,without:0,compare:1});
+assert.equal(taxonCounts(catalogue,state).get('s'),1);
+const saved=location.hash;setState({status:'without',source:'prediction',taxon:'',search:''});
+location.hash=saved;listeners.popstate();
+assert.equal(state.status,'compare');assert.equal(state.source,'recorded');assert.equal(state.taxon,'s');assert.equal(state.search,'flight-a');assert.equal(state.frame,first);
+assert.equal($('labelStatus').value,'compare');
+setState({source:'prediction',taxon:'s'});
+assert.deepEqual(matchingPhotoKeys(catalogue,state),[]);
+assert.deepEqual(labelStatusCounts(catalogue,state),{all:2,with:1,without:1,compare:0});
+assert.equal($('gallery').children.length,1);assert.match($('outsideNotice').textContent,/outside/);
+location.hash='#source=prediction&status=compare&frame=b';listeners.hashchange();
+assert.equal(state.status,'compare');assert.equal(state.frame,'b');assert.deepEqual(matchingPhotoKeys(catalogue,state),[first]);
+$('allPhotos').onclick();assert.equal(state.status,'all');
+""")
+
+
+@pytest.mark.parametrize("recorded,predicted,expected", [
+    ("s", "t", True), ("s", "other", True),
+    ("s", "s", False), ("g", "s", False), ("s", "g", False),
+    ("f", "s", False), ("s", "f", False),
+    (None, "s", False), ("s", None, False),
+    ("unknown", "s", False), ("s", "unknown", False),
+])
+def test_compare_requires_separate_resolved_branches(recorded, predicted, expected):
+    data = catalogue()
+    sample = data["photos"][0]
+    sample["recorded_taxon"] = recorded
+    sample["prediction"]["taxon"] = predicted
+    data["photos"] = [sample]
+    run_browser("assert.equal(matchingPhotoKeys(catalogue,{...state,status:'compare'}).length," + str(int(expected)) + ");", payload=data)
+
+
+@pytest.mark.parametrize("mutation", ["recorded_unresolved", "prediction_unresolved", "no_label", "no_guess", "predictions_unavailable", "empty"] )
+def test_compare_excludes_unavailable_or_unresolved_evidence(mutation):
+    data = catalogue()
+    data["photos"] = [copy.deepcopy(data["photos"][0])]
+    sample = data["photos"][0]
+    if mutation == "recorded_unresolved":
+        sample["recorded_status"] = "unresolved"
+    elif mutation == "prediction_unresolved":
+        sample["prediction"]["status"] = "unresolved"
+    elif mutation == "no_label":
+        sample["label"] = " \t "
+    elif mutation == "no_guess":
+        sample["prediction"]["name"] = ""
+    elif mutation == "predictions_unavailable":
+        data["provenance"]["predictions"]["available"] = False
+    else:
+        data["photos"] = []
+    run_browser(r"""
+for(const source of ['prediction','recorded']){
+setState({source,status:'compare'});
+assert.deepEqual(matchingPhotoKeys(catalogue,state),[]);
+assert.equal(labelStatusCounts(catalogue,state).compare,0);
+assert.equal(Array.from(taxonCounts(catalogue,state).values()).reduce((a,b)=>a+b,0),0);
+if(catalogue.provenance.predictions.available===false)assert.match($('stateNotice').textContent,/Label comparison unavailable/);
+}
+""", payload=data)
+
+
+def test_similar_photo_links_name_their_evidence_origin_without_changing_rank():
+    data = catalogue()
+    data["photos"][0]["representation"]["neighbours"] = [
+        {"key": "z", "score": .9}, {"key": "d", "score": .8}, {"key": "c", "score": .7}, {"key": "e", "score": .6},
+    ]
+    data["photos"][2]["label"] = None
+    run_browser(r"""
+const names=$('similar').children.map(n=>n.children[0].textContent);
+assert.deepEqual(names,['Recorded label: Elseaceae · cosine 0.9','Pl@ntNet first guess: Canopia alba · cosine 0.8','No recorded label or Pl@ntNet first guess · cosine 0.7','Recorded label: Old unresolved name · cosine 0.6']);
+$('similar').children[1].children[0].onclick();assert.equal(state.frame,'d');
+""", payload=data)
+
+
+def test_global_similarity_task_uses_the_photo_when_available_and_explains_browse_fallback():
+    run_browser(r"""
+const task=$('similarPhotosTask');
+assert.equal(new URLSearchParams(new URL(task.href,'https://example.org').hash.slice(1)).get('frame'),state.frame);
+setState({frame:'b'});assert.equal(task.href,'embedding-atlas.html');
+assert.match(task.getAttribute('aria-label'),/Selected photo has no Pl@ntNet matches; browse available photos/);
+assert.equal($('plantnetResearch').getAttribute('aria-disabled'),'true');
+setState({frame:'a & ä /?.JPG'});assert.match(task.getAttribute('aria-label'),/Find similar photos/);
+assert.equal(new URLSearchParams(new URL(task.href,'https://example.org').hash.slice(1)).get('frame'),state.frame);
+""")
+
+
+def test_compare_cards_show_both_evidence_names_only_for_review_candidates():
+    run_browser(r"""
+function copy(key){return $('gallery').children.find(card=>card.getAttribute('data-frame')===key).children[1].children}
+const first=state.frame;
+assert.equal(copy(first).filter(n=>n.className?.split(' ').includes('card-counterpart')).length,0);
+setState({status:'compare'});
+let text=copy(first).map(n=>n.textContent);
+assert.ok(text.includes('Canopia lutea'));assert.ok(text.includes('Pl@ntNet first guess'));
+assert.ok(text.includes('Recorded label: Canopia alba'));
+setState({source:'recorded'});
+text=copy(first).map(n=>n.textContent);
+assert.ok(text.includes('Canopia alba'));assert.ok(text.includes('Recorded label'));
+assert.ok(text.includes('Pl@ntNet first guess: Canopia lutea'));
+setState({frame:'b'});
+assert.equal(copy('b').filter(n=>n.className?.split(' ').includes('card-counterpart')).length,0);
+setState({status:'all'});
+assert.equal(copy(first).filter(n=>n.className?.split(' ').includes('card-counterpart')).length,0);
+""")
+
+
+def test_review_help_explains_branch_scope_only_while_comparing():
+    run_browser(r"""
+const standard='Counts match the current taxon and search, before this filter.';
+assert.equal($('labelStatusHelp').textContent,standard);
+setState({status:'compare'});
+assert.match($('labelStatusHelp').textContent,/resolved taxa on different branches/);
+assert.match($('labelStatusHelp').textContent,/coarser labels on the same lineage are excluded/);
+assert.match($('labelStatusHelp').textContent,/not verified errors/);
+assert.match($('labelStatusHelp').textContent,/different crowns/);
+setState({status:'without'});assert.equal($('labelStatusHelp').textContent,standard);
+assert.match($('similarPhotosTask').getAttribute('aria-label'),/^Similar photos\./);
+""")

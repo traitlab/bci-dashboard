@@ -58,12 +58,13 @@ def redirect_stub() -> str:
             "</body></html>\n")
 
 
-def build(h, *, generated, verify_dir, fallback_tag):
+def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     """The queue page: which photos to label next, and why that order.
 
     The review queue belongs to the model-health page, so it is not gated here.
     """
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
+    c.available_pages = pg.OPERATIONAL_PAGES | frozenset(available_pages or ())
 
     # Before anything is rendered. This page's leading claim is that inside each
     # queue the photo least like everything already labelled comes first, and
@@ -115,8 +116,8 @@ def build(h, *, generated, verify_dir, fallback_tag):
          # 1 is a batch, so it comes off send_batches.csv; the other two count
          # the pool in queue order, which is send_first_queue.csv.
          hero([("Send next", f"{c.n_batch1:,}", "photos in batch 1",
-                "One Labelbox batch, the head of the order. Everything below is "
-                "the pool it was drawn from, not this week's work.",
+                "The saved first batch from send_batches.csv. The pool below is "
+                "broader than this batch.",
                 "send_batches.csv"),
                ("Worth sending first", f"{send_now:,}", "unlabelled photos",
                 "They point at a species we barely have or barely get right, or at a "
@@ -126,19 +127,14 @@ def build(h, *, generated, verify_dir, fallback_tag):
                 "The whole pool this page puts in an order.",
                 "send_first_queue.csv")]),
          batches_note(c),
-         # Cadence, because the obvious guess is a monthly rebuild and that is
-         # wrong. Nothing about this order changes until the model does: the
-         # queues come from Pl@ntNet's own answers, so re-ranking against an
-         # unchanged model reproduces the order it already gave.
-         ('<p class="note"><strong>This order is recomputed when the Pl@ntNet model '
-          'tag changes, not on a calendar.</strong> Pl@ntNet ships a new model when '
-          'its authors have one, roughly every two months. Until the tag above moves, '
-          're-running this page returns the same order, so work through the batches '
-          'rather than waiting for a refresh.</p>'),
+         ('<p class="note"><strong>This is a saved queue.</strong> It changes after '
+          'labels, predictions or ranking data are refreshed. Work from the published '
+          'batch file; reloading this browser page does not refresh the data.</p>'),
          pg.render(c, pg.INTERNAL_PANELS),
          pg.footer(c)]
 
-    return pg.document(TITLE, "\n".join(P)), c.checks
+    return pg.document(TITLE, "\n".join(P), current=OUT_NAME,
+                       available=c.available_pages), c.checks
 
 
 def batches_note(c):

@@ -96,6 +96,13 @@ def build(source, output, comparison=None, catalogue=None):
     template = runpy.run_path(
         str(Path(__file__).with_name("embedding_atlas_assets.py"))
     )["HTML"]
+    site = runpy.run_path(str(Path(__file__).with_name("site_navigation.py")))
+    current = ("crownfirst-atlas.html" if "crownfirst" in
+               str(data.get("provenance", {}).get("encoder", "")).lower()
+               else "embedding-atlas.html")
+    template = template.replace("__SITE_CSS__", site["CSS"]).replace(
+        "__SITE_NAV__", site["navigation"](current)
+    )
     payload = json.dumps(data, separators=(",", ":"), allow_nan=False).replace(
         "<", "\\u003c"
     )

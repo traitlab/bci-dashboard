@@ -20,6 +20,11 @@ def build(source, output):
         if len(set(values)) != len(values):
             raise ValueError("Duplicate explorer " + identity)
     template = runpy.run_path(str(Path(__file__).with_name("explorer_assets.py")))["HTML"]
+    site = runpy.run_path(str(Path(__file__).with_name("site_navigation.py")))
+    current = "explorer.html"
+    template = template.replace("__SITE_CSS__", site["CSS"]).replace(
+        "__SITE_NAV__", site["navigation"](current)
+    )
     payload = json.dumps(data, separators=(",", ":"), allow_nan=False).replace("<", "\\u003c")
     destination = Path(output)
     destination.parent.mkdir(parents=True, exist_ok=True)

@@ -1,15 +1,8 @@
 #!/usr/bin/env python3
-"""The landing page GitHub Pages serves at the root of the site.
+"""Build the site entry point from the pages present in the publication folder.
 
-Two links and the date they were built. It exists because the reviewer asked for one
-bookmarkable address rather than a file someone has to be sent each time, and a
-bookmark that lands on a directory listing is not that.
-
-The date is read back out of the built pages, so a rebuild moves it here too.
-Nothing else is carried across and nothing is measured: a number belongs on one
-of the two pages, under the provenance that explains it, not on a signpost.
-
-    python3 dashboard/build_index.py --build build --out docs/index.html
+Each task keeps its own recorded date. Optional photo tools appear only when
+built, so an operational-only build remains a useful, honest landing page.
 """
 
 from __future__ import annotations
@@ -22,23 +15,23 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Each card is (file, title, blurb). Both pages are written for anyone; the
-# labelling team's commands are a closed block on the queue page, not a card.
+# Each card is (file, task label, what the reader can do).
+from site_navigation import CSS as NAVIGATION_CSS, navigation
+
 PAGES = [
-    ("model_health_dashboard.html",
-     "How well does Pl@ntNet name BCI trees?",
-     "Accuracy of the predictions, per species and overall, with what each "
-     "number was measured on."),
-    ("label_queue_dashboard.html",
-     "What to label next",
-     "The order the unlabelled photos should be worked through, and the "
-     "reasoning behind that order."),
+    ("model_health_dashboard.html", "Model health",
+     "Check how well Pl@ntNet names BCI trees, by species and overall, and what the evaluation covers."),
+    ("label_queue_dashboard.html", "Labelling queue",
+     "Choose the next batch for expert labelling and inspect why those photos come first."),
 ]
 
 OPTIONAL_PAGES = [
-    ("explorer.html", "Browse canopy photos by taxonomy", "Explore families, genera and species using Pl@ntNet first guesses or recorded labels, then inspect whole photos."),
-    ("embedding-atlas.html", "Find similar photos", "Pl@ntNet. Browse photos that look alike."),
-    ("crownfirst-atlas.html", "Compare Pl@ntNet and PlantCLEF", "Inspect each model’s visual matches for the same photos."),
+    ("explorer.html", "Browse photos",
+     "Explore families, genera and species using Pl@ntNet first guesses or recorded labels, then inspect the photos."),
+    ("embedding-atlas.html", "Similar photos",
+     "Compare a selected photo with Pl@ntNet’s stored visual matches. Looking alike does not confirm the same species."),
+    ("crownfirst-atlas.html", "Compare models",
+     "Inspect Pl@ntNet and PlantCLEF visual matches for the same photos."),
 ]
 
 STYLE = """*{box-sizing:border-box;margin:0;padding:0}
@@ -48,63 +41,71 @@ body{
   max-width:780px;margin:0 auto;padding:32px 24px 64px;
 }
 h1{font-size:1.6rem;font-weight:700;margin-bottom:4px;color:#212121}
-.subtitle{font-size:0.85rem;color:#757575;margin-bottom:28px}
+.intro{font-size:0.95rem;color:#424242;margin:12px 0 24px}
+.scope{font-size:0.85rem;color:#54665d;margin:24px 0 0}
+a.card small{display:block;font-size:0.8rem;color:#54665d;margin-top:8px}
 a.card{
   display:block;text-decoration:none;color:inherit;background:#fff;
   border:1px solid #e0e0e0;border-radius:6px;padding:16px 18px;margin-bottom:12px;
 }
-a.card:hover{border-color:#1565c0}
-a.card b{display:block;font-size:1.05rem;color:#1565c0;margin-bottom:4px}
+a.card:hover{border-color:#245743}
+a.card:focus-visible,summary:focus-visible{outline:3px solid #2d8061;outline-offset:3px}
+a.card b{display:block;font-size:1.05rem;color:#245743;margin-bottom:4px}
 a.card span{font-size:0.9rem;color:#424242}
 details{margin-top:24px}summary{cursor:pointer;margin-bottom:12px;color:#424242}
 """
 
 
 def build_stamp(text: str) -> str:
-    """The build date off a built page, and nothing else.
-
-    A page's own subtitle carries the snapshot date, the model tag and two
-    counts after it, separated by middots. Those are numbers, and a number
-    belongs on the page that can say what it was measured on. Here they are a
-    headline with no provenance under it, so only the first field survives.
-
-    The separator is decoded before the caller escapes the line. Left encoded,
-    it was escaped twice and the front door read `built 2026-09-04 &middot;`.
-    """
+    """Keep label and page dates distinct, without copying evaluation figures."""
     found = re.search(r'<div class="subtitle">(.*?)</div>', text, re.S)
     if not found:
         return ""
     line = html.unescape(re.sub(r"<[^>]+>", "", found.group(1))).strip()
-    return line.split("\u00b7", 1)[0].strip()
+    dates = [field.strip() for field in line.split("\u00b7")
+             if re.fullmatch(r"(?:built|snapshot|labels as of) \d{4}-\d{2}-\d{2}", field.strip())]
+    return ". ".join(dates)
 
 
 def build(build_dir: str) -> str:
-    cards = []
-    stamp = ""
     optional = [page for page in OPTIONAL_PAGES if os.path.isfile(os.path.join(build_dir, page[0]))]
     explorer = [page for page in optional if page[0] == "explorer.html"]
     research = [page for page in optional if page[0] != "explorer.html"]
     available = explorer + PAGES + research
-    for name, title, blurb in available:
-        path = os.path.join(build_dir, name)
-        with open(path, encoding="utf-8") as fh:
-            stamp = stamp or build_stamp(fh.read())
-        destination = name + "#view=models" if name == "crownfirst-atlas.html" else name
-        cards.append(f'<a class="card" href="{html.escape(destination)}">'
-                     f'<b>{html.escape(title)}</b>'
-                     f'<span>{html.escape(blurb)}</span></a>')
-    if explorer and research:
-        split = len(explorer) + len(PAGES)
-        cards = cards[:split] + ['<details><summary>Similar photos &amp; models</summary>'
-                                 + "".join(cards[split:]) + '</details>']
+    stamps = {}
+    for name, _, _ in available:
+        with open(os.path.join(build_dir, name), encoding="utf-8") as fh:
+            stamps[name] = build_stamp(fh.read())
+
+    def card(name, title, blurb, fragment=""):
+        stamp = stamps[name]
+        date = f'<small>{html.escape(stamp)}</small>' if stamp else ""
+        return (f'<a class="card" href="{name}{fragment}">'
+                f'<b>{html.escape(title)}</b><span>{html.escape(blurb)}</span>{date}</a>')
+
+    cards = [card(*page) for page in explorer]
+    if "crownfirst-atlas.html" in stamps:
+        cards.append(card("crownfirst-atlas.html", "Camera locations",
+                          "Find photos by aircraft camera position, then inspect their visual matches.",
+                          "#view=locations"))
+    cards.extend(card(*page) for page in PAGES)
+    if research:
+        cards.append('<details><summary>Similar photos &amp; models</summary>'
+                     + "".join(card(*page, fragment="#view=models" if page[0] == "crownfirst-atlas.html" else "")
+                               for page in research) + '</details>')
+    available_names = {name for name, _, _ in available} | {"index.html"}
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
             "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-            "<title>BCI tree identification dashboards</title>"
-            f"<style>{STYLE}</style></head><body>"
-            "<h1>BCI tree identification</h1>"
-            f'<div class="subtitle">{html.escape(stamp)}</div>'
-            + "".join(cards) +
-            "</body></html>\n")
+            "<title>Panama canopy photos and labelling</title>"
+            f"<style>{STYLE}{NAVIGATION_CSS}</style></head><body>"
+            + navigation("index.html", available=available_names)
+            + '<main id="main-content" tabindex="-1"><h1>Panama canopy photos</h1>'
+            + '<p class="intro">Explore photos, inspect visual matches and choose what to label next.</p>'
+            + "".join(cards)
+            + '<p class="scope">Photo tools cover Barro Colorado Island and other Panama field sites. '
+              'Model health and labelling queues describe their own recorded snapshots. '
+              'Photo counts do not measure tree abundance. Model guesses need expert confirmation.</p>'
+            + "</main></body></html>\n")
 
 
 def main() -> None:
