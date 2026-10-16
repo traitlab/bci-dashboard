@@ -49,6 +49,7 @@ import json
 import os
 import sys
 import time
+import tempfile
 from datetime import date
 
 import labelbox as lb
@@ -111,18 +112,35 @@ def export_project(client, project_id: str, out_dir: str) -> str:
     task = project.export(params=EXPORT_PARAMS)
     task.wait_till_done()
     if task.has_errors():
-        print(f"WARNING: export task for {project_id} reported errors",
-              file=sys.stderr)
+        raise RuntimeError(f"export task for {project_id} reported errors; no snapshot will be published")
 
     os.makedirs(out_dir or ".", exist_ok=True)
     path = os.path.join(out_dir, f"export_{project_id}.ndjson")
     started, written = time.time(), 0
-    with open(path, "w") as out:
-        for row in task.get_buffered_stream():
-            out.write(json.dumps(row.json) + "\n")
-            written += 1
-            if written % 500 == 0:
-                print(f"  {written} rows  {time.time() - started:.0f}s", flush=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=out_dir or ".",
+                                         prefix=".export-", suffix=".ndjson", delete=False) as out:
+            temporary = out.name
+            for row in task.get_buffered_stream():
+                record = row.json
+                if (not isinstance(record, dict)
+                        or not (record.get("data_row") or {}).get("global_key")
+                        or project_id not in (record.get("projects") or {})):
+                    raise ValueError(f"export for {project_id} contains a row without its identity or project")
+                out.write(json.dumps(record) + "\n")
+                written += 1
+                if written % 500 == 0:
+                    print(f"  {written} rows  {time.time() - started:.0f}s", flush=True)
+        if not written:
+            raise RuntimeError(f"export for {project_id} is empty; existing snapshot retained")
+        if task.has_errors():
+            raise RuntimeError(f"export task for {project_id} reported streaming errors")
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary is not None:
+            os.unlink(temporary)
     print(f"wrote {written} rows to {path} in {time.time() - started:.0f}s")
     return path
 

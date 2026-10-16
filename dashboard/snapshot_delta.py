@@ -107,7 +107,7 @@ def note(d: dict, *, floor: int) -> str:
                 f'<p class="note">{reference.break_sentence(then_ref, now_ref)}</p>')
     if d["then"] is None:
         why = ("the build date is not a date, so no earlier snapshot was looked for"
-               if not d["date_readable"] else "this is the first snapshot")
+               if not d["date_readable"] else "no earlier snapshot is available for this build")
         return (head + f'{why}. Today {now["n_species_floor"]} species carry at least '
                 f'{floor} labelled frames, and the first guess is right on '
                 f'{_pct(now["test_top1"])} of the {now["test_n"]:,} test frames.</p>')

@@ -181,7 +181,11 @@ def gt_export_date_words(gt_csv: str = GT_CSV) -> str:
     month first, so ``8_6_2026`` is 6 August 2026. An export whose name has no
     date in it says so rather than inventing one.
     """
-    found = _EXPORT_DATE.search(gt_provenance(gt_csv))
+    provenance = gt_provenance(gt_csv)
+    exported = re.search(r"\bexports? of (\d{4}-\d{2}-\d{2})\b", provenance)
+    if exported:
+        return date_words(exported.group(1))
+    found = _EXPORT_DATE.search(provenance)
     if not found:
         return "an undated export"
     month, day, year = (int(g) for g in found.groups())

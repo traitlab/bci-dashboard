@@ -54,11 +54,11 @@ def test_a_folder_that_is_not_a_snapshot_is_ignored(snapshot_delta, tmp_path):
     assert snapshot_delta.previous_snapshot(str(tmp_path), "2026-09-10") is None
 
 
-def test_the_first_snapshot_says_so(snapshot_delta, tmp_path):
+def test_missing_snapshot_history_is_reported_without_claiming_no_history_exists(snapshot_delta, tmp_path):
     d = snapshot_delta.compute(NOW, str(tmp_path), "2026-09-10", floor=10)
     assert d["previous"] is None
     note = snapshot_delta.note(d, floor=10)
-    assert "first snapshot" in note
+    assert "no earlier snapshot is available for this build" in note
     assert "12 species" in note
 
 

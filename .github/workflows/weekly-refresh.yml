@@ -1,0 +1,144 @@
+name: Weekly real-data snapshot
+
+on:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      refresh_labels:
+        description: Fetch a fresh Labelbox export. Disable only to rebuild the explicitly dated cached inputs.
+        type: boolean
+        default: true
+      deploy:
+        description: Deploy the verified public site after building. Disable for a validation-only run.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-real-snapshot
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: github.repository == 'traitlab/bci-dashboard' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.13'
+      - name: Require an authenticated real input bundle
+        env:
+          BCI_INPUT_BUNDLE_URL: ${{ vars.BCI_INPUT_BUNDLE_URL }}
+          BCI_INPUT_BUNDLE_SHA256: ${{ vars.BCI_INPUT_BUNDLE_SHA256 }}
+          BCI_INPUT_BUNDLE_KEY: ${{ secrets.BCI_INPUT_BUNDLE_KEY }}
+          LABELBOX_API_KEY: ${{ secrets.LABELBOX_API_KEY }}
+          BCI_LABELBOX_PROJECTS: ${{ vars.BCI_LABELBOX_PROJECTS }}
+          FETCH_LABELS: ${{ github.event_name == 'schedule' || inputs.refresh_labels }}
+        run: |
+          python - <<'PY'
+          import os, re
+          required = ['BCI_INPUT_BUNDLE_URL', 'BCI_INPUT_BUNDLE_SHA256', 'BCI_INPUT_BUNDLE_KEY']
+          if os.environ['FETCH_LABELS'] == 'true':
+              required += ['LABELBOX_API_KEY', 'BCI_LABELBOX_PROJECTS']
+          missing = [name for name in required if not os.environ.get(name, '').strip()]
+          if missing:
+              raise SystemExit('Refresh is not configured. Missing: ' + ', '.join(missing) + '. The live snapshot is retained.')
+          if not os.environ['BCI_INPUT_BUNDLE_URL'].startswith('https://'):
+              raise SystemExit('BCI_INPUT_BUNDLE_URL must use HTTPS.')
+          if not re.fullmatch(r'[a-fA-F0-9]{64}', os.environ['BCI_INPUT_BUNDLE_SHA256']):
+              raise SystemExit('BCI_INPUT_BUNDLE_SHA256 must be the encrypted bundle SHA-256.')
+          PY
+      - name: Install the fetch client and pinned assessment libraries
+        # crownfirst requires Python 3.13. Its compatible labelfirst[parquet]
+        # dependency is pinned to 3721bdab143b2c8bd58a1ebabebd2d57b0d5b3ff.
+        run: |
+          python -m pip install -r requirements-predict.txt \
+            'crownfirst @ git+https://github.com/traitlab/crownfirst.git@48dec6b91e762902bac9fe245494c5bda61fe45e'
+      - name: Download, verify, decrypt, and validate the private baseline
+        env:
+          BCI_INPUT_BUNDLE_URL: ${{ vars.BCI_INPUT_BUNDLE_URL }}
+          BCI_INPUT_BUNDLE_SHA256: ${{ vars.BCI_INPUT_BUNDLE_SHA256 }}
+          BCI_INPUT_BUNDLE_KEY: ${{ secrets.BCI_INPUT_BUNDLE_KEY }}
+        run: |
+          umask 077
+          mkdir -p "$RUNNER_TEMP/bci-private"
+          curl --proto '=https' --proto-redir '=https' --fail --location --silent --show-error \
+            --retry 3 --max-time 300 "$BCI_INPUT_BUNDLE_URL" --output "$RUNNER_TEMP/bci-private/inputs.tar.gz.gpg"
+          python - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP']) / 'bci-private/inputs.tar.gz.gpg'
+          if hashlib.file_digest(path.open('rb'), 'sha256').hexdigest() != os.environ['BCI_INPUT_BUNDLE_SHA256'].lower():
+              raise SystemExit('Encrypted baseline checksum mismatch; live snapshot retained.')
+          PY
+          printf '%s' "$BCI_INPUT_BUNDLE_KEY" | gpg --batch --yes --quiet --pinentry-mode loopback \
+            --passphrase-fd 0 --output "$RUNNER_TEMP/bci-private/inputs.tar.gz" \
+            --decrypt "$RUNNER_TEMP/bci-private/inputs.tar.gz.gpg"
+          python -S bin/refresh_snapshot.py unpack --archive "$RUNNER_TEMP/bci-private/inputs.tar.gz" \
+            --destination "$RUNNER_TEMP/bci-private/baseline"
+          cp -a "$RUNNER_TEMP/bci-private/baseline/data/." data/
+      - name: Fetch fresh labels separately from the offline build
+        if: github.event_name == 'schedule' || inputs.refresh_labels
+        env:
+          LABELBOX_API_KEY: ${{ secrets.LABELBOX_API_KEY }}
+          BCI_LABELBOX_PROJECTS: ${{ vars.BCI_LABELBOX_PROJECTS }}
+        run: |
+          python - <<'PY'
+          import os, re, subprocess, sys
+          from pathlib import Path
+          projects = os.environ['BCI_LABELBOX_PROJECTS'].split()
+          if not projects or any(not re.fullmatch(r'[A-Za-z0-9_-]+', project) for project in projects):
+              raise SystemExit('BCI_LABELBOX_PROJECTS must contain space-separated project IDs.')
+          exports = Path(os.environ['RUNNER_TEMP']) / 'bci-private/exports'
+          flags = [value for project in projects for value in ('--project', project)]
+          subprocess.run([sys.executable, 'labelling/fetch_dataset.py', *flags, '--out-dir', str(exports)], check=True)
+          PY
+      - name: Recompute, verify, and stage the public snapshot offline
+        env:
+          FETCH_LABELS: ${{ github.event_name == 'schedule' || inputs.refresh_labels }}
+        run: |
+          python - <<'PY'
+          from datetime import date
+          import os, subprocess, sys
+          from pathlib import Path
+          command = [sys.executable, 'bin/refresh_snapshot.py', 'build', '--date', date.today().isoformat()]
+          if os.environ['FETCH_LABELS'] == 'true':
+              exports = sorted((Path(os.environ['RUNNER_TEMP']) / 'bci-private/exports').glob('*.ndjson'))
+              if not exports:
+                  raise SystemExit('No fresh exports were fetched; refusing to publish.')
+              for path in exports:
+                  command += ['--export', str(path)]
+              command += ['--export-date', date.today().isoformat()]
+          subprocess.run(command, check=True)
+          PY
+      - name: Upload only the verified public site
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: docs
+          retention-days: 1
+      - name: Remove all private baseline and export files
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/bci-private" "$GITHUB_WORKSPACE/data" "$GITHUB_WORKSPACE/build" "$GITHUB_WORKSPACE/snapshots"
+
+  deploy:
+    if: github.event_name == 'schedule' || inputs.deploy
+    needs: refresh
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy verified public snapshot
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

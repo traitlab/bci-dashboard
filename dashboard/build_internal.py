@@ -102,7 +102,7 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     anchor_words = (f"{anchors:,} labelled frames anchor the ranking"
                     if anchors else "anchor count unrecorded")
     P = ['<h1>What to label next</h1>',
-         f'<div class="subtitle">labels as of {esc(c.snap_date)} &middot; '
+         f'<div class="subtitle">refreshed {esc(generated)} &middot; Labelbox labels merged {esc(c.snap_date)} &middot; '
          f'Pl@ntNet model {esc(c.tag)} '
          f'&middot; {anchor_words} &middot; {c.n:,} frames scored against '
          f'{reference.WORDS[c.reference]} behind the species statuses that sort the '

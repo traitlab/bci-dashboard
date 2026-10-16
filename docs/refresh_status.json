@@ -1,0 +1,11 @@
+{
+  "labelbox_export_date": "2026-08-06",
+  "labelbox_exports_merged": false,
+  "labelbox_gt_sha256": "51033bba5f415e3e02227cccb21fc9024cc4c99f4767194486cf1aa20a8184b4",
+  "labelbox_merged_on": "2026-08-27",
+  "labelbox_provenance": "Ground truth merged from Labelbox export Export  project - 2024_bci - 8_6_2026.ndjson on 2026-08-27.",
+  "labelled_frames": 3781,
+  "reviewed_gt_sha256": "df4d712f43cca652e3a8cac7ddee3f8549e1e941944960a54c426badf60dd625",
+  "reviewed_workbook_sha256": "bb15cb9b6722b9998880f843d8e693c5163c7ff942883f869dbdbf4b0882f855",
+  "snapshot_refreshed": "2026-10-16"
+}
