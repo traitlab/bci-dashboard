@@ -34,12 +34,16 @@ const assert=require('node:assert/strict'),elements=new Map(),contexts=new Map()
 function context(id){if(!contexts.has(id))contexts.set(id,{arcs:[],fills:[],texts:[],fillText(text,x,y){this.texts.push([text,x,y])},strokeText(){},scale(){},fillRect(){},beginPath(){},arc(x,y,r){this.arcs.push(r)},fill(){this.fills.push(this.fillStyle)},stroke(){},drawImage(){}});return contexts.get(id)}
 function make(id){return {children:[],attributes:{},isConnected:true,clientWidth:640,clientHeight:520,value:'',style:{},contains(target){return target===this||this.children.some(child=>child.contains?.(target))},focus(){document.activeElement=this},scrollIntoView(){},getContext:()=>context(id),replaceChildren(...v){this.children=v},append(...v){this.children.push(...v)},getAttribute(name){return this.attributes[name]??null},removeAttribute(name){delete this[name];delete this.attributes[name]},setAttribute(name,value){this[name]=value;this.attributes[name]=value},addEventListener(){},showModal(){this.open=true},close(){this.open=false;this.onclose?.()}}}
 function element(id){if(!elements.has(id))elements.set(id,make(id));return elements.get(id)}
+for(const id of ['similarMissionMode','mapMissionMode'])element(id).options=['all','other'].map(value=>({value}));
 const payload=__PAYLOAD__;
 element('atlas-data').textContent=JSON.stringify(payload);
-const navLinks=['embedding-atlas.html','crownfirst-atlas.html','explorer.html','embedding-atlas.html#view=photos'].map((href,index)=>{const link=make('nav'+index);link.setAttribute('href',href);if(index===3){link.setAttribute('data-atlas-view','photos');link.setAttribute('data-site-task','similar');link.setAttribute('aria-current','page')}return link});
-global.document={getElementById:element,querySelector:()=>element('inspector'),querySelectorAll:selector=>selector==='nav a'?navLinks:[],createElement:make};global.devicePixelRatio=1;global.location={hash:'#frame=query'};global.history={replaceState(_,__,hash){location.hash=hash}};global.window={addEventListener(name,fn){listeners[name]=fn},matchMedia:()=>({matches:false})};global.requestAnimationFrame=()=>{};global.Image=class{};
+const navLinks=['embedding-atlas.html','crownfirst-atlas.html','explorer.html','embedding-atlas.html#view=photos','crownfirst-atlas.html#view=locations','crownfirst-atlas.html#view=models'].map((href,index)=>{const link=make('nav'+index);link.setAttribute('href',href);if(index>=3){const view=['photos','locations','models'][index-3];link.setAttribute('data-atlas-view',view);link.setAttribute('data-site-task',view)}return link});
+const historyEntries=[];
+global.document={getElementById:element,querySelector:()=>element('inspector'),querySelectorAll:selector=>selector==='nav a'?navLinks:[],createElement:make};global.devicePixelRatio=1;global.location={hash:'#frame=query'};global.history={pushState(_,__,hash){historyEntries.push(hash);location.hash=hash},replaceState(_,__,hash){location.hash=hash}};global.window={addEventListener(name,fn){listeners[name]=fn},matchMedia:()=>({matches:false})};global.requestAnimationFrame=()=>{};global.Image=class{};
 """.replace("__PAYLOAD__", json.dumps(payload)).replace("'#frame=query'", json.dumps(initial_hash))
-    subprocess.run(["node", "-e", setup + script + checks], check=True)
+    result = subprocess.run(["node", "-e", setup + script + checks], capture_output=True, text=True)
+    if result.returncode:
+        pytest.fail(result.stderr + result.stdout, pytrace=False)
 
 
 def photo(key, mission, neighbours=None, **extra):
@@ -75,13 +79,13 @@ context('map').arcs=[];context('plot').arcs=[];draw();assert.deepEqual(context('
 allButton.onclick();$('workspaceEnlarge').onclick();assert.equal(photoComparison.mode,'all');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[1,.99],[2,.98]]);assert.match($('photoComparisonScore').textContent,/0.990/);$('closePhotoComparison').onclick();
 const initial={selected,hash:location.hash,view:{...view},visible,rows:$('results').children};browsePage=2;
 context('map').arcs=[];context('plot').arcs=[];$('similarMissionMode').value='other';$('similarMissionMode').focus();$('similarMissionMode').onchange();
-assert.equal(selected,initial.selected);assert.equal(location.hash,initial.hash);assert.deepEqual(view,initial.view);assert.equal(visible,initial.visible);assert.equal(browsePage,2);assert.equal($('results').children,initial.rows);assert.equal(document.activeElement,$('similarMissionMode'));
+assert.equal(selected,initial.selected);assert.equal(location.hash,initial.hash+'&missions=other');assert.deepEqual(view,initial.view);assert.equal(visible,initial.visible);assert.equal(browsePage,2);assert.equal($('results').children,initial.rows);assert.equal(document.activeElement,$('similarMissionMode'));
 assert.deepEqual(context('map').arcs,[3,3,3,10,10,7]);assert.deepEqual(context('plot').arcs,[3,3,5,5,3,7]);
 assert.match($('neighborSupport').textContent,/2 of 2 stored matches.*2 photos with other recorded mission IDs/);
 const otherButton=$('neighbors').children[0].children[0];assert.match(otherButton['aria-label'],/other-one.*0.880.*Other recorded mission/);otherButton.onclick();$('workspaceEnlarge').onclick();
-assert.equal(photoComparison.mode,'other');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[3,.88],[4,.77]]);assert.match($('photoComparisonContext').textContent,/Other missions.*do not prove different trees/);assert.match($('photoComparisonScore').textContent,/0.880/);
-$('nextComparison').onclick();assert.match($('photoComparisonScore').textContent,/0.770/);assert.equal($('nextComparison').disabled,true);$('nextComparison').onclick();assert.equal(photoComparison.rank,1);assert.equal(selected,0);assert.equal(location.hash,initial.hash);
-$('previousComparison').onclick();$('chooseComparison').onclick();assert.equal(selected,3);assert.equal(neighborMode,'other');assert.equal($('similarMissionMode').value,'other');assert.equal(location.hash,'#frame=other-one');assert.match($('neighbors').children[0].children[0]['aria-label'],/query.*Other recorded mission/);
+assert.equal(photoComparison.mode,'other');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[3,.88],[4,.77]]);assert.match($('photoComparisonContext').textContent,/Exclude selected flight.*do not prove different trees/);assert.match($('photoComparisonScore').textContent,/0.880/);
+$('nextComparison').onclick();assert.match($('photoComparisonScore').textContent,/0.770/);assert.equal($('nextComparison').disabled,true);$('nextComparison').onclick();assert.equal(photoComparison.rank,1);assert.equal(selected,0);assert.equal(location.hash,initial.hash+'&missions=other');
+$('previousComparison').onclick();$('chooseComparison').onclick();assert.equal(selected,3);assert.equal(neighborMode,'other');assert.equal($('similarMissionMode').value,'other');assert.equal(location.hash,'#frame=other-one&missions=other');assert.match($('neighbors').children[0].children[0]['aria-label'],/query.*Other recorded mission/);
 assert.equal(missionRelation({mission:null},{mission:null}),'Mission unknown');assert.equal(missionRelation({mission:' '},{mission:' '}),'Mission unknown');
 """)
 
@@ -112,7 +116,7 @@ def test_known_query_with_no_eligible_missions_has_explicit_empty_state():
     ]
     run_atlas(points, r"""
 const hash=location.hash,initialView={...view};$('similarMissionMode').value='other';$('similarMissionMode').onchange();
-assert.equal(selected,0);assert.equal(location.hash,hash);assert.deepEqual(view,initialView);assert.equal($('neighbors').children.length,0);assert.match($('neighborSupport').textContent,/0 eligible photos with another recorded mission ID/);assert.equal(openPhotoComparison(0),false);
+assert.equal(selected,0);assert.equal(location.hash,hash+'&missions=other');assert.deepEqual(view,initialView);assert.equal($('neighbors').children.length,0);assert.match($('neighborSupport').textContent,/0 eligible photos with another recorded mission ID/);assert.equal(openPhotoComparison(0),false);
 assert.deepEqual(missionViewSupport(P,0,'other'),{available:true,eligible:0,reason:'0 eligible photos with another recorded mission ID.'});
 $('similarMissionMode').value='all';$('similarMissionMode').onchange();assert.equal($('neighbors').children.length,1);assert.equal(selected,0);
 """)

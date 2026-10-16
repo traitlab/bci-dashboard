@@ -70,7 +70,7 @@ const before={hash:location.hash,selected,visible,view:{...view}};
 $('mapMissionMode').value='other';$('mapMissionMode').onchange();
 assert.equal(neighborMode,'other');assert.equal($('similarMissionMode').value,'other');assert.equal($('mapMissionMode').value,'other');
 assert.deepEqual(mapCandidates(),[[3,.4]]);assert.deepEqual(photoPair.candidates,[[3,.4]]);
-assert.equal(location.hash,before.hash);assert.equal(selected,before.selected);assert.equal(visible,before.visible);assert.deepEqual(view,before.view);
+assert.equal(location.hash,before.hash+'&missions=other');assert.equal(selected,before.selected);assert.equal(visible,before.visible);assert.deepEqual(view,before.view);
 $('similarMissionMode').value='all';$('similarMissionMode').onchange();assert.equal($('mapMissionMode').value,'all');
 $('mapMissionMode').value='other';$('mapMissionMode').onchange();select(4);
 assert.match($('mapMatchSupport').textContent,/unavailable.*no recorded mission ID.*0 stored matches/);
@@ -111,7 +111,7 @@ assert.match(second['aria-label'],/Inspect match 2.*Frame negative.*Cosine simil
 assert.equal(second.children[2].children[1].textContent,'Cosine -0.2');
 second.onclick();assert.equal(photoComparison.query,0);assert.equal(photoComparison.rank,1);assert.deepEqual(photoComparison.candidates,[[1,.98],[2,-.2]]);assert.equal(photoComparison.returnFocus,second);assert.equal(photoComparison,photoPair);assert.equal(selected,0);assert.equal(location.hash,hash);assert.equal($('photoComparison').open,true);
 $('closePhotoComparison').onclick();assert.equal(document.activeElement,second);
-$('mapMissionMode').value='other';$('mapMissionMode').onchange();const other=$('mapMatchList').children[0].children[0];other.onclick();assert.equal(photoComparison.mode,'other');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[3,.4]]);assert.equal(selected,0);assert.equal(location.hash,hash);
+$('mapMissionMode').value='other';$('mapMissionMode').onchange();const other=$('mapMatchList').children[0].children[0];other.onclick();assert.equal(photoComparison.mode,'other');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[3,.4]]);assert.equal(selected,0);assert.equal(location.hash,hash+'&missions=other');
 """)
 
 

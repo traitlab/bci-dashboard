@@ -120,8 +120,8 @@ def test_taxonomy_explorer_is_first_when_built(build_index, tmp_path):
     (tmp_path / "embedding-atlas.html").write_text("<html>Research</html>")
     out = build_index.build(str(tmp_path))
     assert out.index('class="card" href="explorer.html"') < out.index('class="card" href="model_health_dashboard.html"')
-    assert out.index('class="card" href="model_health_dashboard.html"') < out.index('class="card" href="embedding-atlas.html"')
-    assert out.index('<summary>Similar photos &amp; models</summary>') < out.index('class="card" href="embedding-atlas.html"')
+    assert out.index('class="card" href="embedding-atlas.html"') < out.index('class="card" href="model_health_dashboard.html"')
+    assert "<details>" not in out, "primary tasks must be visible without opening a disclosure"
 
 
 def test_dates_stay_with_the_page_they_describe(build_index, tmp_path):

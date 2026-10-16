@@ -39,3 +39,46 @@ assert.equal(focused,'main-content','skip navigation did not focus the main cont
               .replace("__HANDLER__", json.dumps(attributes.get("onclick", "")))
               .replace("__DESTINATION__", json.dumps(attributes["href"])))
     subprocess.run(["node", "-e", script], check=True)
+
+
+class TaskLinks(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.links = []
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag == "a" and attributes.get("data-site-task"):
+            self.links.append(attributes)
+
+
+@pytest.mark.parametrize("available, views", [
+    ({"index.html"}, set()),
+    ({"embedding-atlas.html"}, {"photos"}),
+    ({"crownfirst-atlas.html"}, {"locations", "models"}),
+    (None, {"photos", "locations", "models"}),
+])
+def test_task_links_keep_distinct_destinations_and_respect_built_pages(available, views):
+    site = load("_site_navigation_tasks", DASHBOARD / "site_navigation.py")
+    parser = TaskLinks()
+    parser.feed(site.navigation("index.html", available=available))
+    assert {link["data-atlas-view"] for link in parser.links} == views
+    for link in parser.links:
+        view = link["data-atlas-view"]
+        assert link["data-site-task"] == view
+        assert link["href"] == ("embedding-atlas.html" if view == "photos" else
+                                "crownfirst-atlas.html#view=" + view)
+
+
+@pytest.mark.parametrize("current, active", [
+    ("embedding-atlas.html", "photos"),
+    ("crownfirst-atlas.html", "photos"),
+    ("crownfirst-atlas.html#view=locations", "locations"),
+    ("crownfirst-atlas.html#view=models", "models"),
+])
+def test_initial_atlas_task_is_unique(current, active):
+    site = load("_site_navigation_active_task", DASHBOARD / "site_navigation.py")
+    parser = TaskLinks()
+    parser.feed(site.navigation(current))
+    assert [link["data-site-task"] for link in parser.links
+            if link.get("aria-current") == "page"] == [active]

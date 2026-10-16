@@ -14,7 +14,8 @@ assert.equal(navLinks[0].getAttribute('href'),'embedding-atlas.html#frame=next&v
 assert.equal(navLinks[1].getAttribute('href'),'crownfirst-atlas.html#frame=next&view=locations');
 assert.equal(navLinks[2].getAttribute('href'),'explorer.html#frame=next');
 assert.equal(navLinks[3].getAttribute('href'),'embedding-atlas.html#frame=next');
-assert.equal(navLinks[3].getAttribute('aria-current'),'page');
+assert.equal(navLinks[3].getAttribute('aria-current'),null);
+assert.equal(navLinks[4].getAttribute('aria-current'),'page');
 assert.equal(navLinks[0].getAttribute('aria-current'),null);
 assert.equal(navLinks[1].getAttribute('aria-current'),'page');
 $('showModelComparisonView').onclick();
