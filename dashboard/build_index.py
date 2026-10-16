@@ -57,7 +57,7 @@ def build_stamp(text: str) -> str:
         return ""
     line = html.unescape(re.sub(r"<[^>]+>", "", found.group(1))).strip()
     dates = [field.strip() for field in line.split("\u00b7")
-             if re.fullmatch(r"(?:built|snapshot|labels as of) \d{4}-\d{2}-\d{2}", field.strip())]
+             if re.fullmatch(r"(?:built|snapshot|refreshed|labels as of|Labelbox labels merged) \d{4}-\d{2}-\d{2}", field.strip())]
     return ". ".join(dates)
 
 
@@ -79,8 +79,8 @@ def build(build_dir: str) -> str:
 
     cards = [card(*page) for page in explorer]
     if "crownfirst-atlas.html" in stamps:
-        cards.append(card("crownfirst-atlas.html", "Camera map",
-                          "Find photos by aircraft camera position, then inspect their visual matches.",
+        cards.append(card("crownfirst-atlas.html", "Drone map",
+                          "Find photos by drone photo location, then inspect their visual matches.",
                           "#view=locations"))
     cards.extend(card(*page, fragment="#view=models" if page[0] == "crownfirst-atlas.html" else "")
                  for page in research)
@@ -92,7 +92,7 @@ def build(build_dir: str) -> str:
             f'<style>{STYLE}{NAVIGATION_CSS}</style></head><body data-workspace="home">'
             + navigation("index.html", available=available_names)
             + '<main id="main-content" tabindex="-1"><h1>Panama canopy photos</h1>'
-            + '<p class="intro">Browse the canopy by taxon or camera position, compare visual matches, and choose what to label next.</p>'
+            + '<p class="intro">Browse the canopy by taxon or drone photo location, compare visual matches, and choose what to label next.</p>'
             + '<div class="tasks">' + "".join(cards) + '</div>'
             + '<p class="scope">Photo tools cover Barro Colorado Island and other Panama field sites. '
               'Model health and labelling queues describe their own recorded snapshots. '

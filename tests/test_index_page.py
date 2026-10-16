@@ -143,3 +143,11 @@ def test_home_exposes_camera_locations_and_landmarks(build_index, tmp_path):
     assert 'href="#main-content">Skip to content</a>' in out
     assert '<main id="main-content" tabindex="-1">' in out
     assert 'href="explorer.html"' not in out
+
+
+def test_refreshed_measurement_keeps_the_older_label_date(build_index, tmp_path):
+    out = build_index.build(fake_build(
+        tmp_path, "refreshed 2026-10-16 &middot; labels as of 2026-08-27 &middot; "
+                  "Pl@ntNet model unknown &middot; 2,554 frames scored"))
+    assert "refreshed 2026-10-16. labels as of 2026-08-27" in out
+    assert "2,554 frames" not in out

@@ -68,7 +68,7 @@ def test_top_level_atlas_tasks_keep_selection_filters_and_history_in_one_page():
     run_atlas([photo("query", "flight-a"), photo("next & ä.JPG", "flight-b")], r"""
 const original=location.hash;
 function activeTask(){return navLinks.filter(link=>link.getAttribute('data-site-task')&&link.getAttribute('aria-current')==='page').map(link=>link.getAttribute('data-site-task'))}
-assert.deepEqual(activeTask(),['locations']);assert.equal($('workspaceTitle').textContent,'Camera map');assert.match($('workspaceDescription').textContent,/aircraft camera position.*not tree locations/);
+assert.deepEqual(activeTask(),['locations']);assert.equal($('workspaceTitle').textContent,'Drone map');assert.match($('workspaceDescription').textContent,/drone photo location.*not tree locations/);
 for(const [index,view] of [[3,'photos'],[4,'locations'],[5,'models']]){
  const params=new URLSearchParams(navLinks[index].getAttribute('href').split('#')[1]);
  assert.equal(params.get('frame'),'next & ä.JPG');assert.equal(params.get('view')||'photos',view);

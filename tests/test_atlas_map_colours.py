@@ -47,7 +47,7 @@ assert.equal(similarityColour(.98,mapScoreScale(mapCandidates())),'rgb(7,94,84)'
 $('search').value='near';filter();assert.deepEqual(visible,[1]);
 assert.match($('mapMatchSupport').textContent,/2 stored matches, 1 pass browse filters, 1 hidden.*Selected photo stays visible/);
 assert.deepEqual(mapHits.map(row=>row[2]),[1,0]);assert.deepEqual(mapScoreScale(mapCandidates()),{min:-.2,max:.98});
-assert.equal(location.hash,before.hash);assert.equal(selected,before.selected);assert.equal(JSON.stringify(P[0].neighbours),before.rankings);
+assert.equal(location.hash,before.hash+'&atlasSearch=near');assert.equal(selected,before.selected);assert.equal(JSON.stringify(P[0].neighbours),before.rankings);
 """)
 
 
@@ -89,7 +89,7 @@ assert.equal(view.x,(geo[0][0]+geo[1][0])/2);assert.equal(view.y,geo[0][1]);
 assert.equal(location.hash,before.hash);assert.equal(selected,before.selected);assert.equal(visible,before.visible);assert.equal(neighborMode,before.mode);assert.equal(JSON.stringify(P[0].neighbours),before.ranking);
 $('search').value='no-photo';filter();$('fitMatches').onclick();assert.equal(view.x,geo[0][0]);assert.equal(view.y,geo[0][1]);assert.equal(Number.isFinite(view.scale),true);
 $('togglePlot').onclick();assert.equal($('returnToMap').hidden,false);$('togglePlot').onclick();assert.equal($('returnToMap').hidden,true);
-$('mapInspectPhoto').onclick();assert.equal(atlasView,'photos');assert.equal(document.activeElement,$('selectedPhotoHeading'));assert.equal(selected,before.selected);assert.equal(location.hash,frameHash(P[selected].key,'photos'));
+$('mapInspectPhoto').onclick();assert.equal(atlasView,'photos');assert.equal(document.activeElement,$('selectedPhotoHeading'));assert.equal(selected,before.selected);assert.equal(location.hash,frameHash(P[selected].key,'photos','',neighborMode,atlasBrowseState()));
 """)
 
 

@@ -11,7 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run_atlas(points, checks, initial_hash="#frame=query"):
+def run_atlas(points, checks, initial_hash="#frame=query", comparison=None):
     if not shutil.which("node"):
         pytest.skip("Node is needed to execute mission view behavior")
     html = runpy.run_path(ROOT / "dashboard/embedding_atlas_assets.py")["HTML"]
@@ -29,6 +29,8 @@ def run_atlas(points, checks, initial_hash="#frame=query"):
             "sources": [],
         },
     }
+    if comparison is not None:
+        payload["comparison"] = comparison
     setup = r"""
 const assert=require('node:assert/strict'),elements=new Map(),contexts=new Map(),listeners={};
 function context(id){if(!contexts.has(id))contexts.set(id,{arcs:[],fills:[],texts:[],fillText(text,x,y){this.texts.push([text,x,y])},strokeText(){},scale(){},fillRect(){},beginPath(){},arc(x,y,r){this.arcs.push(r)},fill(){this.fills.push(this.fillStyle)},stroke(){},drawImage(){}});return contexts.get(id)}
@@ -41,7 +43,7 @@ const navLinks=['embedding-atlas.html','crownfirst-atlas.html','explorer.html','
 const historyEntries=[];
 global.document={getElementById:element,querySelector:()=>element('inspector'),querySelectorAll:selector=>selector==='nav a'?navLinks:[],createElement:make};global.devicePixelRatio=1;global.location={hash:'#frame=query'};global.history={pushState(_,__,hash){historyEntries.push(hash);location.hash=hash},replaceState(_,__,hash){location.hash=hash}};global.window={addEventListener(name,fn){listeners[name]=fn},matchMedia:()=>({matches:false})};global.requestAnimationFrame=()=>{};global.Image=class{};
 """.replace("__PAYLOAD__", json.dumps(payload)).replace("'#frame=query'", json.dumps(initial_hash))
-    result = subprocess.run(["node", "-e", setup + script + checks], capture_output=True, text=True)
+    result = subprocess.run(["node", "-e", setup + script + checks], capture_output=True, text=True, check=False)
     if result.returncode:
         pytest.fail(result.stderr + result.stdout, pytrace=False)
 
@@ -79,12 +81,12 @@ context('map').arcs=[];context('plot').arcs=[];draw();assert.deepEqual(context('
 allButton.onclick();$('workspaceEnlarge').onclick();assert.equal(photoComparison.mode,'all');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[1,.99],[2,.98]]);assert.match($('photoComparisonScore').textContent,/0.990/);$('closePhotoComparison').onclick();
 const initial={selected,hash:location.hash,view:{...view},visible,rows:$('results').children};browsePage=2;
 context('map').arcs=[];context('plot').arcs=[];$('similarMissionMode').value='other';$('similarMissionMode').focus();$('similarMissionMode').onchange();
-assert.equal(selected,initial.selected);assert.equal(location.hash,initial.hash+'&missions=other');assert.deepEqual(view,initial.view);assert.equal(visible,initial.visible);assert.equal(browsePage,2);assert.equal($('results').children,initial.rows);assert.equal(document.activeElement,$('similarMissionMode'));
+assert.equal(selected,initial.selected);assert.equal(location.hash,initial.hash+'&missions=other&atlasPage=3');assert.deepEqual(view,initial.view);assert.equal(visible,initial.visible);assert.equal(browsePage,2);assert.equal($('results').children,initial.rows);assert.equal(document.activeElement,$('similarMissionMode'));
 assert.deepEqual(context('map').arcs,[3,3,3,10,10,7]);assert.deepEqual(context('plot').arcs,[3,3,5,5,3,7]);
 assert.match($('neighborSupport').textContent,/2 of 2 stored matches.*2 photos with other recorded mission IDs/);
 const otherButton=$('neighbors').children[0].children[0];assert.match(otherButton['aria-label'],/other-one.*0.880.*Other recorded mission/);otherButton.onclick();$('workspaceEnlarge').onclick();
 assert.equal(photoComparison.mode,'other');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[3,.88],[4,.77]]);assert.match($('photoComparisonContext').textContent,/Exclude selected flight.*do not prove different trees/);assert.match($('photoComparisonScore').textContent,/0.880/);
-$('nextComparison').onclick();assert.match($('photoComparisonScore').textContent,/0.770/);assert.equal($('nextComparison').disabled,true);$('nextComparison').onclick();assert.equal(photoComparison.rank,1);assert.equal(selected,0);assert.equal(location.hash,initial.hash+'&missions=other');
+$('nextComparison').onclick();assert.match($('photoComparisonScore').textContent,/0.770/);assert.equal($('nextComparison').disabled,true);$('nextComparison').onclick();assert.equal(photoComparison.rank,1);assert.equal(selected,0);assert.equal(location.hash,initial.hash+'&missions=other&atlasPage=3');
 $('previousComparison').onclick();$('chooseComparison').onclick();assert.equal(selected,3);assert.equal(neighborMode,'other');assert.equal($('similarMissionMode').value,'other');assert.equal(location.hash,'#frame=other-one&missions=other');assert.match($('neighbors').children[0].children[0]['aria-label'],/query.*Other recorded mission/);
 assert.equal(missionRelation({mission:null},{mission:null}),'Mission unknown');assert.equal(missionRelation({mission:' '},{mission:' '}),'Mission unknown');
 """)

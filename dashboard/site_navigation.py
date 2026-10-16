@@ -5,7 +5,7 @@ from html import escape
 LINKS = (
     ("index.html", "Home"),
     ("explorer.html", "Browse photos"),
-    ("crownfirst-atlas.html#view=locations", "Camera map"),
+    ("crownfirst-atlas.html#view=locations", "Drone map"),
     ("embedding-atlas.html", "Similar photos"),
     ("crownfirst-atlas.html#view=models", "Compare models"),
     ("model_health_dashboard.html", "Model health"),
