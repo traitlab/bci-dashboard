@@ -110,12 +110,12 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
          # Batch 1 leads, not the pool. The pool is 3,919 and a botanist works
          # through a few hundred a month, so leading with it prices the whole
          # queue as the next task and it is many months of them. The number a
-         # reader can act on this week is the one batch that ships.
+         # reader can inspect is the first saved batch, regardless of send status.
          # Each card links the file its own number is counted off, so the reader
          # who wants the photos behind a headline takes them from the card. Batch
          # 1 is a batch, so it comes off send_batches.csv; the other two count
          # the pool in queue order, which is send_first_queue.csv.
-         hero([("Send next", f"{c.n_batch1:,}", "photos in batch 1",
+         hero([("First saved batch", f"{c.n_batch1:,}", "photos in batch 1",
                 "The saved first batch from send_batches.csv. The pool below is "
                 "broader than this batch.",
                 "send_batches.csv"),
@@ -129,7 +129,9 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
          batches_note(c),
          ('<p class="note"><strong>This is a saved queue.</strong> It changes after '
           'labels, predictions or ranking data are refreshed. Work from the published '
-          'batch file; reloading this browser page does not refresh the data.</p>'),
+          'batch file; reloading this browser page does not refresh the data. '
+          'Sending status is not recorded here. Check the batch in Labelbox '
+          'before sending it.</p>'),
          pg.render(c, pg.INTERNAL_PANELS),
          pg.footer(c)]
 

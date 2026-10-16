@@ -61,6 +61,14 @@ def test_public_page_numbers_have_an_independent_oracle(synthetic_page):
     assert "33 frames scored against the reviewed publication labels" in html
     if "species_status" not in carries:
         assert not species_rows(html)
+        first_batch = re.search(
+            r'<div class="metric first">(.*?)</div></div>', html, re.DOTALL
+        )
+        assert first_batch is not None
+        assert '<div class="e">First saved batch</div>' in first_batch.group(1)
+        assert '<div class="v">3</div>' in first_batch.group(1)
+        assert 'href="send_batches.csv"' in first_batch.group(1)
+        assert "photos in batch 1" in first_batch.group(1)
         assert re.findall(r'<code class="key">([^<]+)</code>', html) == [
             "queued_rare_tele.JPG",
             "queued_low_zoom.JPG",
