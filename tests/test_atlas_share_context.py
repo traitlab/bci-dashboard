@@ -12,13 +12,13 @@ select(1);
 assert.equal(location.hash,'#frame=next&view=locations');
 assert.equal(navLinks[0].getAttribute('href'),'embedding-atlas.html#frame=next&view=locations');
 assert.equal(navLinks[1].getAttribute('href'),'crownfirst-atlas.html#frame=next&view=locations');
-assert.equal(navLinks[2].getAttribute('href'),'explorer.html#frame=next');
-assert.equal(navLinks[3].getAttribute('href'),'embedding-atlas.html#frame=next');
+assert.equal(navLinks[2].getAttribute('href'),'explorer.html#matchingModel=plantclef&frame=next');
+assert.equal(navLinks[3].getAttribute('href'),'crownfirst-atlas.html#frame=next');
 assert.equal(navLinks[3].getAttribute('aria-current'),null);
 assert.equal(navLinks[4].getAttribute('aria-current'),'page');
 assert.equal(navLinks[0].getAttribute('aria-current'),null);
 assert.equal(navLinks[1].getAttribute('aria-current'),'page');
-$('showModelComparisonView').onclick();
+showAtlasView('models');
 assert.equal(location.hash,'#frame=next&view=models');
 assert.equal(navLinks[0].getAttribute('href'),'embedding-atlas.html#frame=next&view=models');
 $('showPhotosView').onclick();assert.equal(location.hash,'#frame=next');
@@ -42,12 +42,12 @@ assert.equal(atlasView,'photos');assert.equal(selected,0);
 
 def test_unavailable_photo_identity_survives_view_changes_and_model_switch():
     run_atlas([photo("query", "flight-a")], r"""
-assert.equal(selected,0);assert.equal(requestedFrameKey,'absent');
-assert.equal(atlasView,'locations');assert.match($('linkStatus').textContent,/unavailable/);
-$('showModelComparisonView').onclick();
+assert.equal(P[selected].key,'absent');assert.equal(requestedFrameKey,'absent');
+assert.equal(atlasView,'locations');assert.match($('linkStatus').textContent,/not in the recorded photo inventory/);
+showAtlasView('models');
 assert.equal(location.hash,'#frame=absent&view=models');
 assert.equal(navLinks[0].getAttribute('href'),'embedding-atlas.html#frame=absent&view=models');
-assert.equal(navLinks[2].getAttribute('href'),'explorer.html#frame=absent');
+assert.equal(navLinks[2].getAttribute('href'),'explorer.html#matchingModel=plantclef&frame=absent');
 select(0);assert.equal(requestedFrameKey,null);
 assert.equal(location.hash,'#frame=query&view=models');assert.equal($('linkStatus').textContent,'');
 """, initial_hash="#frame=absent&view=locations")

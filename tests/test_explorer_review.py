@@ -90,13 +90,13 @@ $('similar').children[1].children[0].onclick();assert.equal(state.frame,'d');
 """, payload=data)
 
 
-def test_global_similarity_task_uses_the_photo_when_available_and_explains_browse_fallback():
+def test_global_similarity_task_retains_the_photo_when_matches_are_unavailable():
     run_browser(r"""
 const task=$('similarPhotosTask');
 assert.equal(new URLSearchParams(new URL(task.href,'https://example.org').hash.slice(1)).get('frame'),state.frame);
-setState({frame:'b'});const fallback=new URL(task.href,'https://example.org');assert.equal(fallback.pathname,'/embedding-atlas.html');assert.equal(new URLSearchParams(fallback.hash.slice(1)).has('frame'),false);assert.ok(new URLSearchParams(fallback.hash.slice(1)).get('browse'));
-assert.match(task.getAttribute('aria-label'),/Selected photo has no Pl@ntNet matches; browse available photos/);
-assert.equal($('plantnetResearch').getAttribute('aria-disabled'),'true');
+setState({frame:'b'});const fallback=new URL(task.href,'https://example.org');assert.equal(fallback.pathname,'/embedding-atlas.html');assert.equal(new URLSearchParams(fallback.hash.slice(1)).get('frame'),'b');assert.ok(new URLSearchParams(fallback.hash.slice(1)).get('browse'));
+assert.match(task.getAttribute('aria-label'),/Find similar photos with Pl@ntNet/);
+assert.equal($('plantnetResearch').getAttribute('aria-disabled'),null);
 setState({frame:'a & ä /?.JPG'});assert.match(task.getAttribute('aria-label'),/Find similar photos/);
 assert.equal(new URLSearchParams(new URL(task.href,'https://example.org').hash.slice(1)).get('frame'),state.frame);
 """)

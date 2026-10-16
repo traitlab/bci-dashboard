@@ -111,7 +111,7 @@ def test_optional_atlas_cards_only_when_built(build_index, tmp_path):
     assert 'href="embedding-atlas.html"' in out
     assert 'href="crownfirst-atlas.html#view=models"' not in out
     (tmp_path / 'crownfirst-atlas.html').write_text('<html>Canopy</html>')
-    assert 'href="crownfirst-atlas.html#view=models"' in build_index.build(str(tmp_path))
+    assert 'href="embedding-atlas.html#view=models"' in build_index.build(str(tmp_path))
 
 
 def test_taxonomy_explorer_is_first_when_built(build_index, tmp_path):
@@ -151,3 +151,41 @@ def test_refreshed_measurement_keeps_the_older_label_date(build_index, tmp_path)
                   "Pl@ntNet model unknown &middot; 2,554 frames scored"))
     assert "refreshed 2026-10-16. labels as of 2026-08-27" in out
     assert "2,554 frames" not in out
+
+
+def test_plantnet_map_is_primary_and_plantclef_comparison_is_closed(build_index, tmp_path):
+    from html.parser import HTMLParser
+
+    class HomeLinks(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.in_experiment = False
+            self.experimental_open = None
+            self.primary = []
+            self.experimental = []
+
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if tag == "details" and attrs.get("class") == "experiments":
+                self.in_experiment = True
+                self.experimental_open = "open" in attrs
+            if tag == "a":
+                if self.in_experiment:
+                    self.experimental.append(attrs["href"])
+                elif attrs.get("class") == "card":
+                    self.primary.append(attrs["href"])
+
+        def handle_endtag(self, tag):
+            if tag == "details":
+                self.in_experiment = False
+
+    fake_build(tmp_path)
+    for name in ("embedding-atlas.html", "crownfirst-atlas.html"):
+        (tmp_path / name).write_text("<html>Recorded atlas</html>")
+    page = HomeLinks()
+    page.feed(build_index.build(str(tmp_path)))
+    assert "embedding-atlas.html#view=locations" in page.primary
+    assert "embedding-atlas.html" in page.primary
+    assert not any("crownfirst" in href for href in page.primary)
+    assert page.experimental == ["embedding-atlas.html#view=models"]
+    assert page.experimental_open is False

@@ -11,7 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run_atlas(points, checks, initial_hash="#frame=query", comparison=None):
+def run_atlas(points, checks, initial_hash="#frame=query", comparison=None, page=None, encoder="Crownfirst test encoder"):
     if not shutil.which("node"):
         pytest.skip("Node is needed to execute mission view behavior")
     html = runpy.run_path(ROOT / "dashboard/embedding_atlas_assets.py")["HTML"]
@@ -19,7 +19,7 @@ def run_atlas(points, checks, initial_hash="#frame=query", comparison=None):
     payload = {
         "points": points,
         "provenance": {
-            "encoder": "Crownfirst test encoder",
+            "encoder": encoder,
             "labels": {"available": True},
             "versions": [],
             "dimensions": 3,
@@ -34,15 +34,18 @@ def run_atlas(points, checks, initial_hash="#frame=query", comparison=None):
     setup = r"""
 const assert=require('node:assert/strict'),elements=new Map(),contexts=new Map(),listeners={};
 function context(id){if(!contexts.has(id))contexts.set(id,{arcs:[],fills:[],texts:[],fillText(text,x,y){this.texts.push([text,x,y])},strokeText(){},scale(){},fillRect(){},beginPath(){},arc(x,y,r){this.arcs.push(r)},fill(){this.fills.push(this.fillStyle)},stroke(){},drawImage(){}});return contexts.get(id)}
-function make(id){return {children:[],attributes:{},isConnected:true,clientWidth:640,clientHeight:520,value:'',style:{},contains(target){return target===this||this.children.some(child=>child.contains?.(target))},focus(){document.activeElement=this},scrollIntoView(){},getContext:()=>context(id),replaceChildren(...v){this.children=v},append(...v){this.children.push(...v)},getAttribute(name){return this.attributes[name]??null},removeAttribute(name){delete this[name];delete this.attributes[name]},setAttribute(name,value){this[name]=value;this.attributes[name]=value},addEventListener(){},showModal(){this.open=true},close(){this.open=false;this.onclose?.()}}}
+function make(id){return {id,children:[],attributes:{},isConnected:true,clientWidth:640,clientHeight:520,value:'',style:{},contains(target){return target===this||this.children.some(child=>child.contains?.(target))},focus(){document.activeElement=this},scrollIntoView(){},getContext:()=>context(id),replaceChildren(...v){this.children=v},append(...v){this.children.push(...v)},getAttribute(name){return this.attributes[name]??null},removeAttribute(name){delete this[name];delete this.attributes[name]},setAttribute(name,value){this[name]=value;this.attributes[name]=value},addEventListener(){},showModal(){this.open=true},close(){this.open=false;this.onclose?.()}}}
 function element(id){if(!elements.has(id))elements.set(id,make(id));return elements.get(id)}
 for(const id of ['similarMissionMode','mapMissionMode'])element(id).options=['all','other'].map(value=>({value}));
 const payload=__PAYLOAD__;
 element('atlas-data').textContent=JSON.stringify(payload);
 const navLinks=['embedding-atlas.html','crownfirst-atlas.html','explorer.html','embedding-atlas.html#view=photos','crownfirst-atlas.html#view=locations','crownfirst-atlas.html#view=models'].map((href,index)=>{const link=make('nav'+index);link.setAttribute('href',href);if(index>=3){const view=['photos','locations','models'][index-3];link.setAttribute('data-atlas-view',view);link.setAttribute('data-site-task',view)}return link});
+const compareLink=make('compareModelsLink');compareLink.setAttribute('href','crownfirst-atlas.html#view=models');compareLink.setAttribute('data-atlas-view','models');navLinks.push(compareLink);
 const historyEntries=[];
 global.document={getElementById:element,querySelector:()=>element('inspector'),querySelectorAll:selector=>selector==='nav a'?navLinks:[],createElement:make};global.devicePixelRatio=1;global.location={hash:'#frame=query'};global.history={pushState(_,__,hash){historyEntries.push(hash);location.hash=hash},replaceState(_,__,hash){location.hash=hash}};global.window={addEventListener(name,fn){listeners[name]=fn},matchMedia:()=>({matches:false})};global.requestAnimationFrame=()=>{};global.Image=class{};
 """.replace("__PAYLOAD__", json.dumps(payload)).replace("'#frame=query'", json.dumps(initial_hash))
+    if page is not None:
+        setup += "location.pathname=" + json.dumps("/" + page) + ";"
     result = subprocess.run(["node", "-e", setup + script + checks], capture_output=True, text=True, check=False)
     if result.returncode:
         pytest.fail(result.stderr + result.stdout, pytrace=False)

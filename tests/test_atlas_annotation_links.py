@@ -20,16 +20,16 @@ def inputs(tmp_path):
     sources = [inventory, {"file": "embeddings.npz", "sha256": "b" * 64}]
     atlas = {
         "points": [
-            {"key": "a.JPG", "label": "Canopia alba", "neighbours": [[1, 0.9]], "xy": [1, 2]},
-            {"key": "b.JPG", "label": None, "neighbours": [[0, 0.9]], "xy": [3, 4]},
+            {"key": "a.JPG", "lat": 9.2, "lon": -79.9, "label": "Canopia alba", "neighbours": [[1, 0.9]], "xy": [1, 2]},
+            {"key": "b.JPG", "lat": 9.1, "lon": -79.8, "label": None, "neighbours": [[0, 0.9]], "xy": [3, 4]},
         ],
         "provenance": {"sources": sources, "encoder": "Recorded encoder"},
     }
     catalogue = {
         "photos": [
-            {"key": "b.JPG"},
+            {"key": "b.JPG", "lat": 9.1, "lon": -79.8},
             {"key": "extra.JPG", "annotation_url": None},
-            {"key": "a.JPG", "annotation_url": LINK},
+            {"key": "a.JPG", "annotation_url": LINK, "lat": 9.2, "lon": -79.9},
         ],
         "provenance": {"sources": [copy.deepcopy(inventory)]},
     }
@@ -49,8 +49,14 @@ def test_exact_catalogue_join_preserves_all_representation_evidence_and_input_fi
     output = tmp_path / "atlas.html"
     runpy.run_path(str(BUILDER))["build"](source, output, catalogue=annotations)
     result = payload(output)
-    assert [p.pop("annotation_url") for p in result["points"]] == [LINK, None]
+    assert [p.pop("annotation_url") for p in result["points"]] == [None, LINK]
+    for point in result["points"]:
+        assert point.pop("model_available") is True
+        point["neighbours"][0][0] = 1 - point["neighbours"][0][0]
+    result["points"].reverse()
     provenance = result["provenance"].pop("annotation_links")
+    inventory = result["provenance"].pop("photo_inventory")
+    assert inventory["excluded_position_count"] == 1
     assert result == atlas
     assert provenance["matched_count"] == 1
     assert provenance["pool_size"] == 2
@@ -102,7 +108,7 @@ def test_annotation_join_rejects_untrusted_or_ambiguous_urls(tmp_path, url):
     ("duplicate_photo", "unique, nonempty frame keys"),
     ("blank_photo", "unique, nonempty frame keys"),
     ("alias_only", "Atlas frame absent"),
-    ("duplicate_atlas", "unique, nonempty atlas frame keys"),
+    ("duplicate_atlas", "unique, nonempty frame keys"),
     ("unknown_atlas", "Atlas frame absent"),
 ])
 def test_annotation_join_refuses_mismatched_inventory_and_nonexact_identity(tmp_path, mutation, error):
@@ -136,4 +142,4 @@ def test_annotation_join_cli_is_rebuildable_offline(tmp_path):
         sys.executable, str(BUILDER), "--input", str(source), "--output", str(output),
         "--catalogue", str(annotations),
     ], check=True, capture_output=True, text=True)
-    assert payload(output)["points"][0]["annotation_url"] == LINK
+    assert payload(output)["points"][1]["annotation_url"] == LINK

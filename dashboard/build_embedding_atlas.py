@@ -3,62 +3,13 @@
 import argparse
 import hashlib
 import json
-import re
 import runpy
+import sys
 from pathlib import Path
 
-ANNOTATION_URL = re.compile(
-    r"https://app\.labelbox\.com/projects/[A-Za-z0-9]+/data-rows/[A-Za-z0-9]+"
-)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-
-def inventory_digest(data):
-    sources = data.get("provenance", {}).get("sources", [])
-    inventory = [s for s in sources if s.get("file") == "dataset_rows_combined.jsonl"]
-    if len(inventory) != 1 or not re.fullmatch(
-        r"[a-f0-9]{64}", str(inventory[0].get("sha256", ""))
-    ):
-        raise ValueError("Annotation join requires one hashed inventory source")
-    return inventory[0]["sha256"]
-
-
-def attach_annotation_links(atlas, source):
-    """Attach recorded Labelbox links without altering representation evidence."""
-    source = Path(source)
-    raw = source.read_bytes()
-    catalogue = json.loads(raw)
-    digest = inventory_digest(atlas)
-    if inventory_digest(catalogue) != digest:
-        raise ValueError("Annotation catalogue inventory source hash mismatch")
-    links = {}
-    for photo in catalogue["photos"]:
-        key = photo.get("key")
-        if not isinstance(key, str) or not key.strip() or key in links:
-            raise ValueError("Annotation catalogue requires unique, nonempty frame keys")
-        url = photo.get("annotation_url")
-        if url is not None and (
-            not isinstance(url, str) or not ANNOTATION_URL.fullmatch(url)
-        ):
-            raise ValueError("Invalid source Labelbox annotation URL for: " + key)
-        links[key] = url
-    keys = set()
-    for photo in atlas["points"]:
-        key = photo.get("key")
-        if not isinstance(key, str) or not key.strip() or key in keys:
-            raise ValueError("Annotation join requires unique, nonempty atlas frame keys")
-        if key not in links:
-            raise ValueError("Atlas frame absent from annotation catalogue: " + key)
-        keys.add(key)
-    for photo in atlas["points"]:
-        photo["annotation_url"] = links[photo["key"]]
-    atlas["provenance"]["annotation_links"] = {
-        "source": {"file": source.name, "sha256": hashlib.sha256(raw).hexdigest()},
-        "inventory_sha256": digest,
-        "matched_count": sum(links[key] is not None for key in keys),
-        "pool_size": len(keys),
-        "method": "Exact frame-key join against the same recorded inventory",
-        "meaning": "Recorded Labelbox data-row links; access may require a project login",
-    }
+from atlas_inventory import join_photo_inventory
 
 
 def validate_comparison(atlas, comparison):
@@ -92,7 +43,13 @@ def build(source, output, comparison=None, catalogue=None):
         validate_comparison(data, result)
         data["comparison"] = result
     if catalogue is not None:
-        attach_annotation_links(data, catalogue)
+        catalogue_path = Path(catalogue)
+        raw = catalogue_path.read_bytes()
+        data = join_photo_inventory(data, json.loads(raw), {
+            "file": catalogue_path.name, "sha256": hashlib.sha256(raw).hexdigest(),
+        })
+    if not data.get("points"):
+        raise ValueError("Atlas requires at least one positioned photo; recorded pages retained")
     template = runpy.run_path(
         str(Path(__file__).with_name("embedding_atlas_assets.py"))
     )["HTML"]
@@ -115,6 +72,6 @@ if __name__ == "__main__":
     parser.add_argument("--input", default="build/embedding-atlas.json")
     parser.add_argument("--output", default="build/embedding-atlas.html")
     parser.add_argument("--comparison")
-    parser.add_argument("--catalogue", help="Photo catalogue with source Labelbox links")
+    parser.add_argument("--catalogue", help="Photo catalogue supplying the shared positioned photo inventory")
     args = parser.parse_args()
     build(args.input, args.output, args.comparison, args.catalogue)

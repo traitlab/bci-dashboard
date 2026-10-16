@@ -63,12 +63,6 @@ details.panel{
 details.panel>summary{font-size:0.95rem;color:#0d47a1;padding:12px 0}
 details.panel[open]>summary{border-bottom:1px solid #f0f0f0;margin-bottom:4px}
 .pbody{padding:8px 0 16px}
-th.sortable{cursor:pointer;user-select:none}
-th.sortable abbr{display:inline-block}
-th.sortable:focus-visible{outline:2px solid #1565c0;outline-offset:-2px}
-th.sortable:after{content:" \2195";color:#6d6d6d;font-size:0.75rem}
-th.sortable.asc:after{content:" \2191";color:#1565c0}
-th.sortable.desc:after{content:" \2193";color:#1565c0}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .sp{font-style:italic}
 .tag{
@@ -85,7 +79,6 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .todo{list-style:none;font-size:0.86rem;color:#424242}
 .todo li{margin:7px 0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .todo .n{font-weight:700;color:#212121;font-variant-numeric:tabular-nums}
-tr.hidden{display:none}
 section.grp{margin:38px 0 34px}
 section.grp>h2{
   font-size:1.15rem;font-weight:700;color:#212121;
@@ -153,7 +146,7 @@ body[data-workspace=reports] .hero .metric,body[data-workspace=reports] details.
 @media(max-width:640px){.site-shell{padding:12px 12px 0}.site-brand{display:flex;flex-wrap:wrap;gap:0 12px;font-size:18px}.site-brand span{font-size:11px}.site-nav{gap:0 2px}.site-nav a{font-size:12px;padding:8px;min-height:44px}body>header{padding:20px 14px 0}body>header h1{font-size:23px}body[data-workspace=reports] main{padding:22px 14px 40px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 @media print{body{background:#fff;color:#000}.site-shell,.site-skip{display:none}
-body[data-workspace=reports] main{padding:0;max-width:none}}</style></head><body data-workspace="reports"><a class="site-skip" onclick="event.preventDefault();document.getElementById('main-content').focus()" href="#main-content">Skip to content</a><div class="site-shell"><a class="site-brand" href="index.html">Panama canopy<span>Photo and labelling workspace</span></a><nav class="site-nav" aria-label="Dashboard pages"><a href="index.html">Home</a><a href="explorer.html">Browse photos</a><a href="crownfirst-atlas.html#view=locations" data-atlas-view="locations" data-site-task="locations" id="cameraMapTask">Drone map</a><a href="embedding-atlas.html" data-atlas-view="photos" data-site-task="photos" id="similarPhotosTask">Similar photos</a><a href="crownfirst-atlas.html#view=models" data-atlas-view="models" data-site-task="models" id="compareModelsTask">Compare models</a><a href="model_health_dashboard.html">Model health</a><a href="label_queue_dashboard.html" aria-current="page">Labelling queue</a></nav></div><main id="main-content" tabindex="-1"><h1>What to label next</h1>
+body[data-workspace=reports] main{padding:0;max-width:none}}</style></head><body data-workspace="reports"><a class="site-skip" onclick="event.preventDefault();document.getElementById('main-content').focus()" href="#main-content">Skip to content</a><div class="site-shell"><a class="site-brand" href="index.html">Panama canopy<span>Photo and labelling workspace</span></a><nav class="site-nav" aria-label="Dashboard pages"><a href="index.html">Home</a><a href="explorer.html">Browse photos</a><a href="embedding-atlas.html#view=locations" data-atlas-view="locations" data-site-task="locations" id="cameraMapTask">Drone map</a><a href="embedding-atlas.html" data-atlas-view="photos" data-site-task="photos" id="similarPhotosTask">Similar photos</a><a href="model_health_dashboard.html">Model health</a><a href="label_queue_dashboard.html" aria-current="page">Labelling queue</a></nav></div><main id="main-content" tabindex="-1"><h1>What to label next</h1>
 <div class="subtitle">refreshed 2026-10-16 &middot; Labelbox labels merged 2026-08-27 &middot; Pl@ntNet model k-central-america@2026-03-20 (7.5) &middot; 1,719 labelled frames anchor the ranking &middot; 2,554 frames scored against the reviewed publication labels behind the species statuses that sort the queues</div>
 <div class="hero"><div class="metric first"><div class="e">First saved batch</div><div class="row"><div class="v">57</div><a class="src" href="send_batches.csv">send_batches.csv</a></div><div class="l">photos in batch 1</div><div class="n">The saved first batch from send_batches.csv. The pool below is broader than this batch.</div></div><div class="metric"><div class="e">Worth sending first</div><div class="row"><div class="v">2,452</div><a class="src" href="send_first_queue.csv">send_first_queue.csv</a></div><div class="l">unlabelled photos</div><div class="n">They point at a species we barely have or barely get right, or at a usually-right species the model is unsure of here.</div></div><div class="metric"><div class="e">Queued</div><div class="row"><div class="v">3,875</div><a class="src" href="send_first_queue.csv">send_first_queue.csv</a></div><div class="l">unlabelled photos</div><div class="n">The whole pool this page puts in an order.</div></div></div>
 <p class="note"><strong>The prioritised batches are in <a href="send_batches.csv">send_batches.csv</a>.</strong> Send from that file: it holds 49 batches of at most 100 photos, each species group kept together. This page shows the order and the reason behind each photo’s place in it. How Pl@ntNet scores against the labels is a separate page, <a href="model_health_dashboard.html">model_health_dashboard.html</a>.</p>

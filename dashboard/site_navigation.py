@@ -5,9 +5,8 @@ from html import escape
 LINKS = (
     ("index.html", "Home"),
     ("explorer.html", "Browse photos"),
-    ("crownfirst-atlas.html#view=locations", "Drone map"),
+    ("embedding-atlas.html#view=locations", "Drone map"),
     ("embedding-atlas.html", "Similar photos"),
-    ("crownfirst-atlas.html#view=models", "Compare models"),
     ("model_health_dashboard.html", "Model health"),
     ("label_queue_dashboard.html", "Labelling queue"),
 )
@@ -57,11 +56,16 @@ def navigation(current, *, available=None):
     links = []
     for destination, label in LINKS:
         page, _, fragment = destination.partition("#")
+        if (fragment == "view=locations" and available is not None
+                and page not in available and "crownfirst-atlas.html" in available):
+            page = "crownfirst-atlas.html"
+            destination = page + "#" + fragment
         if available is not None and page not in available:
             continue
         view = fragment.removeprefix("view=") if fragment else "photos"
         active = current == destination or (
-            destination == "embedding-atlas.html" and current == "crownfirst-atlas.html"
+            page == "embedding-atlas.html"
+            and current == "crownfirst-atlas.html" + ("#" + fragment if fragment else "")
         )
         attributes = ' aria-current="page"' if active else ""
         if page in ("embedding-atlas.html", "crownfirst-atlas.html"):
