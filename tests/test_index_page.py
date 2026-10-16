@@ -136,13 +136,23 @@ def test_dates_stay_with_the_page_they_describe(build_index, tmp_path):
 
 def test_home_exposes_camera_locations_and_landmarks(build_index, tmp_path):
     fake_build(tmp_path)
-    (tmp_path / "crownfirst-atlas.html").write_text("<html>Canopy</html>")
+    (tmp_path / "embedding-atlas.html").write_text("<html>Canopy</html>")
     out = build_index.build(str(tmp_path))
-    assert 'href="crownfirst-atlas.html#view=locations"' in out
+    assert 'href="embedding-atlas.html#view=locations"' in out
     assert 'href="index.html" aria-current="page"' in out
     assert 'href="#main-content">Skip to content</a>' in out
     assert '<main id="main-content" tabindex="-1">' in out
     assert 'href="explorer.html"' not in out
+
+
+def test_experiment_only_build_keeps_research_access_without_ordinary_map(build_index, tmp_path):
+    fake_build(tmp_path)
+    (tmp_path / "crownfirst-atlas.html").write_text("<html>Experiment</html>")
+    out = build_index.build(str(tmp_path))
+    assert 'href="crownfirst-atlas.html#view=models"' in out
+    assert 'class="card" href="crownfirst-atlas.html' not in out
+    assert "embedding-atlas.html" not in out
+    assert 'id="cameraMapTask"' not in out
 
 
 def test_refreshed_measurement_keeps_the_older_label_date(build_index, tmp_path):
