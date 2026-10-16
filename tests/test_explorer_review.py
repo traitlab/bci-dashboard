@@ -134,3 +134,58 @@ assert.match($('labelStatusHelp').textContent,/different crowns/);
 setState({status:'without'});assert.equal($('labelStatusHelp').textContent,standard);
 assert.match($('similarPhotosTask').getAttribute('aria-label'),/^Similar photos\./);
 """)
+
+
+def test_selected_guess_confidence_is_rounded_in_place_without_changing_evidence():
+    data = catalogue()
+    data['photos'][0]['prediction']['score'] = .34568
+    data['photos'][1]['prediction']['score'] = .97412
+    run_browser(r"""
+const evidence=JSON.stringify(photos);
+assert.equal($('recordedLabel').children[0].textContent,'Canopia alba');
+assert.equal($('recordedLabel').children.length,1);
+assert.equal($('predictionLabel').children[0].textContent,'Canopia lutea');
+assert.equal($('predictionLabel').children[1].textContent,'Pl@ntNet confidence in this guess: 0.35 / 1');
+assert.equal($('predictionLabel').children[2].textContent,'Higher scores indicate stronger model confidence. This does not confirm the identification.');
+setState({frame:'b'});
+assert.equal($('recordedLabel').children[0].textContent,'Canopia');
+assert.equal($('predictionLabel').children[0].textContent,'Canopia alba');
+assert.equal($('predictionLabel').children[1].textContent,'Pl@ntNet confidence in this guess: 0.97 / 1 Tied first score.');
+setState({frame:'c'});
+assert.equal($('predictionLabel').children[0].textContent,'No cached first guess');
+assert.equal($('predictionLabel').children[1].textContent,'Pl@ntNet confidence unavailable: no first guess.');
+assert.equal(JSON.stringify(photos),evidence);
+""", payload=data)
+
+
+@pytest.mark.parametrize('score,display', [(0, '0.00'), (1, '1.00'), (.34568, '0.35'), (.004, '0.00'), (.999, '1.00')])
+def test_selected_guess_confidence_uses_two_decimals_including_score_boundaries(score, display):
+    data = catalogue()
+    data['photos'][0]['prediction']['score'] = score
+    run_browser("assert.equal($('predictionLabel').children[1].textContent," + repr('Pl@ntNet confidence in this guess: ' + display + ' / 1') + ");", payload=data)
+
+
+@pytest.mark.parametrize('score', ['undefined', 'null', "''", "'0.35'", 'NaN', 'Infinity', '-Infinity', '-.01', '1.01', 'true'])
+def test_selected_guess_confidence_rejects_missing_nonfinite_and_invalid_scores_without_coercion(score):
+    run_browser(r"""
+const prediction=photos[0].prediction;
+prediction.score=__SCORE__;
+const original=prediction.score;
+renderInspector();
+assert.equal($('predictionLabel').children[1].textContent,'Pl@ntNet confidence in this guess: unavailable');
+assert.equal($('predictionLabel').children[2].textContent,'Higher scores indicate stronger model confidence. This does not confirm the identification.');
+assert.ok(Object.is(prediction.score,original));
+""".replace('__SCORE__', score))
+
+
+@pytest.mark.parametrize('name', [None, '', ' \t '])
+def test_confidence_cannot_be_associated_with_a_recorded_label_when_guess_is_missing(name):
+    data = catalogue()
+    data['photos'][0]['prediction'].update(name=name, status='missing', score=.34568)
+    run_browser(r"""
+assert.equal($('recordedLabel').children[0].textContent,'Canopia alba');
+assert.equal($('predictionLabel').children[0].textContent,'No cached first guess');
+assert.equal($('predictionLabel').children[1].textContent,'Pl@ntNet confidence unavailable: no first guess.');
+assert.equal($('predictionLabel').children.length,2);
+assert.equal(photos[0].prediction.score,.34568);
+""", payload=data)
