@@ -94,7 +94,7 @@ def test_global_similarity_task_uses_the_photo_when_available_and_explains_brows
     run_browser(r"""
 const task=$('similarPhotosTask');
 assert.equal(new URLSearchParams(new URL(task.href,'https://example.org').hash.slice(1)).get('frame'),state.frame);
-setState({frame:'b'});assert.equal(task.href,'embedding-atlas.html');
+setState({frame:'b'});const fallback=new URL(task.href,'https://example.org');assert.equal(fallback.pathname,'/embedding-atlas.html');assert.equal(new URLSearchParams(fallback.hash.slice(1)).has('frame'),false);assert.ok(new URLSearchParams(fallback.hash.slice(1)).get('browse'));
 assert.match(task.getAttribute('aria-label'),/Selected photo has no Pl@ntNet matches; browse available photos/);
 assert.equal($('plantnetResearch').getAttribute('aria-disabled'),'true');
 setState({frame:'a & ä /?.JPG'});assert.match(task.getAttribute('aria-label'),/Find similar photos/);
