@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -13,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from assets import css_for, strip_comments
+from atlas_inventory import join_photo_inventory
 from build_index import build as build_index
 from embedding_atlas_assets import HTML as ATLAS_HTML
 from explorer_assets import HTML as EXPLORER_HTML
@@ -28,7 +30,10 @@ PHOTO_PAGES = {
 REPORT_PAGES = ("model_health_dashboard.html", "label_queue_dashboard.html")
 
 
-def refresh_page(name: str, original: str, available: set[str]) -> str:
+def refresh_page(
+    name: str, original: str, available: set[str], catalogue: dict | None = None,
+    catalogue_source: dict | None = None,
+) -> str:
     """Replace presentation while retaining the recorded data and report body."""
     if name in PHOTO_PAGES:
         data_id, template, placeholder = PHOTO_PAGES[name]
@@ -42,9 +47,15 @@ def refresh_page(name: str, original: str, available: set[str]) -> str:
         population = "photos" if name == "explorer.html" else "points"
         if not isinstance(data, dict) or not isinstance(data.get(population), list):
             raise ValueError(f"{name}: recorded {population} must be a list")
+        recorded_payload = payload.group(1)
+        if population == "points" and catalogue is not None:
+            data = join_photo_inventory(data, catalogue, catalogue_source or {})
+            recorded_payload = json.dumps(data, separators=(",", ":"), allow_nan=False).replace("<", "\\u003c")
+        if population == "points" and not data["points"]:
+            raise ValueError(f"{name}: atlas requires at least one positioned photo; recorded pages retained")
         return (template.replace("__SITE_CSS__", SITE_CSS)
                 .replace("__SITE_NAV__", navigation(name, available=available))
-                .replace(placeholder, payload.group(1)))
+                .replace(placeholder, recorded_payload))
     if name not in REPORT_PAGES:
         raise ValueError(f"Unsupported dashboard page: {name}")
     if '<main id="main-content"' not in original:
@@ -74,8 +85,17 @@ def refresh_site(source: Path, output: Path) -> None:
         raise ValueError("Missing recorded reports: " + ", ".join(missing))
     names = [*REPORT_PAGES, *(name for name in PHOTO_PAGES if (source / name).is_file())]
     available = set(names) | {"index.html"}
-    pages = {name: refresh_page(name, (source / name).read_text(encoding="utf-8"), available)
-             for name in names}
+    catalogue = None
+    catalogue_source = None
+    if "explorer.html" in names:
+        text = (source / "explorer.html").read_text(encoding="utf-8")
+        match = re.search(r'<script id="explorer-data" type="application/json">(.*?)</script>', text, re.DOTALL)
+        if match is None:
+            raise ValueError("explorer.html: embedded explorer-data is missing")
+        catalogue = json.loads(match.group(1))
+        catalogue_source = {"file": "explorer.html#explorer-data", "sha256": hashlib.sha256(match.group(1).encode()).hexdigest()}
+    pages = {name: refresh_page(name, (source / name).read_text(encoding="utf-8"), available,
+                                catalogue, catalogue_source) for name in names}
     # Home derives each date from its own page rather than a fresh UI build date.
     with tempfile.TemporaryDirectory(prefix="bci-site-ui-") as folder:
         stage = Path(folder)
@@ -98,7 +118,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         refresh_site(args.site, args.out)
-    except (OSError, ValueError) as error:
+    except (OSError, TypeError, ValueError) as error:
         parser.exit(1, f"UI refresh failed: {error}\n")
 
 

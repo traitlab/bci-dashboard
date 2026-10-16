@@ -30,7 +30,7 @@ OPTIONAL_PAGES = [
      "Explore families, genera and species using Pl@ntNet first guesses or recorded labels, then inspect the photos."),
     ("embedding-atlas.html", "Similar photos",
      "Compare a selected photo with Pl@ntNet’s stored visual matches. Looking alike does not confirm the same species."),
-    ("crownfirst-atlas.html", "Compare models",
+    ("crownfirst-atlas.html", "Compare models (experimental)",
      "Inspect Pl@ntNet and PlantCLEF visual matches for the same photos."),
 ]
 
@@ -45,6 +45,7 @@ a.card:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
 a.card b{display:block;font-size:20px;font-weight:650;color:var(--green);margin-bottom:8px}
 a.card span{display:block;font-size:14px;max-width:52ch;color:var(--ink)}
 a.card small{display:block;font-size:12px;color:var(--slate);margin-top:14px}
+.experiments{margin-top:24px;color:var(--slate);font-size:13px}.experiments summary{cursor:pointer;min-height:44px;display:list-item;padding:12px 0}.experiments p{max-width:65ch;margin:8px 0}
 .scope{font-size:13px;color:var(--slate);margin:26px 0 0;max-width:86ch;border-top:1px solid var(--line);padding-top:18px}
 @media(max-width:640px){main{padding:24px 14px 36px}h1{font-size:27px}.tasks{grid-template-columns:1fr;gap:12px}a.card{padding:18px;min-height:0}a.card b{font-size:18px}}
 """
@@ -78,12 +79,19 @@ def build(build_dir: str) -> str:
                 f'<b>{html.escape(title)}</b><span>{html.escape(blurb)}</span>{date}</a>')
 
     cards = [card(*page) for page in explorer]
-    if "crownfirst-atlas.html" in stamps:
-        cards.append(card("crownfirst-atlas.html", "Drone map",
+    map_page = next((name for name in ("embedding-atlas.html", "crownfirst-atlas.html")
+                     if name in stamps), None)
+    if map_page:
+        cards.append(card(map_page, "Drone map",
                           "Find photos by drone photo location, then inspect their visual matches.",
                           "#view=locations"))
-    cards.extend(card(*page, fragment="#view=models" if page[0] == "crownfirst-atlas.html" else "")
-                 for page in research)
+    cards.extend(card(*page) for page in research if page[0] != "crownfirst-atlas.html")
+    experimental = (
+        '<details class="experiments"><summary>Experimental matching</summary>'
+        '<p>Compare Pl@ntNet with the recorded PlantCLEF experiment for the same photos.</p>'
+        f'<a href="{map_page}#view=models">Compare models (experimental)</a></details>'
+        if "crownfirst-atlas.html" in stamps else ""
+    )
     cards.extend(card(*page) for page in PAGES)
     available_names = {name for name, _, _ in available} | {"index.html"}
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
@@ -93,7 +101,7 @@ def build(build_dir: str) -> str:
             + navigation("index.html", available=available_names)
             + '<main id="main-content" tabindex="-1"><h1>Panama canopy photos</h1>'
             + '<p class="intro">Browse the canopy by taxon or drone photo location, compare visual matches, and choose what to label next.</p>'
-            + '<div class="tasks">' + "".join(cards) + '</div>'
+            + '<div class="tasks">' + "".join(cards) + '</div>' + experimental
             + '<p class="scope">Photo tools cover Barro Colorado Island and other Panama field sites. '
               'Model health and labelling queues describe their own recorded snapshots. '
               'Photo counts do not measure tree abundance. Model guesses need expert confirmation.</p>'

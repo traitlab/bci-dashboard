@@ -161,7 +161,7 @@ $('allPhotos').onclick();assert.equal(state.taxon,'');assert.equal(state.search,
 def test_map_link_preserves_selected_catalogue_photo_without_a_representation():
     run_browser(r"""
 let map=new URL($('cameraLocations').href,'https://example.org/');
-assert.equal(map.pathname,'/crownfirst-atlas.html');
+assert.equal(map.pathname,'/embedding-atlas.html');
 assert.equal(new URLSearchParams(map.hash.slice(1)).get('view'),'locations');
 assert.equal(new URLSearchParams(map.hash.slice(1)).get('frame'),'a & ä /?.JPG');
 setState({frame:'b'});
@@ -171,15 +171,15 @@ assert.equal(new URLSearchParams(map.hash.slice(1)).get('view'),'locations');
 """)
 
 
-def test_similarity_tool_links_preserve_identity_and_disable_unavailable_photo_routes():
+def test_similarity_tool_links_keep_photo_identity_even_without_model_matches():
     run_browser(r"""
 function target(id){const link=$(id);assert.equal(link.getAttribute('aria-disabled'),null);return new URL(link.href,'https://example.org/')}
 let similar=target('plantnetResearch'),comparison=target('crownResearch');
 assert.equal(similar.pathname,'/embedding-atlas.html');assert.equal(new URLSearchParams(similar.hash.slice(1)).get('frame'),'a & ä /?.JPG');
-assert.equal(comparison.pathname,'/crownfirst-atlas.html');assert.equal(new URLSearchParams(comparison.hash.slice(1)).get('frame'),'a & ä /?.JPG');assert.equal(new URLSearchParams(comparison.hash.slice(1)).get('view'),'models');
+assert.equal(comparison.pathname,'/embedding-atlas.html');assert.equal(new URLSearchParams(comparison.hash.slice(1)).get('frame'),'a & ä /?.JPG');assert.equal(new URLSearchParams(comparison.hash.slice(1)).get('view'),'models');
 assert.equal($('plantnetLinkStatus').hidden,true);assert.equal($('plantnetLinkStatus').textContent,'');assert.equal($('browsePlantnet').hidden,true);
 setState({frame:'b'});
-assert.equal($('plantnetResearch').href,undefined);assert.equal($('plantnetResearch').getAttribute('aria-disabled'),'true');assert.equal($('plantnetLinkStatus').hidden,false);assert.match($('plantnetLinkStatus').textContent,/unavailable for this photo/);assert.equal($('browsePlantnet').hidden,false);
+similar=target('plantnetResearch');assert.equal(new URLSearchParams(similar.hash.slice(1)).get('frame'),'b');assert.equal($('plantnetLinkStatus').hidden,false);assert.match($('plantnetLinkStatus').textContent,/unavailable for this photo/);assert.equal($('browsePlantnet').hidden,false);
 comparison=target('crownResearch');assert.equal(new URLSearchParams(comparison.hash.slice(1)).get('frame'),'b');assert.equal(new URLSearchParams(comparison.hash.slice(1)).get('view'),'models');
 setState({frame:'missing'});
 for(const id of ['cameraLocations','plantnetResearch','crownResearch']){assert.equal($(id).href,undefined);assert.equal($(id).getAttribute('aria-disabled'),'true')}

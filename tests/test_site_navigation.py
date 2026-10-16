@@ -54,9 +54,9 @@ class TaskLinks(HTMLParser):
 
 @pytest.mark.parametrize("available, views", [
     ({"index.html"}, set()),
-    ({"embedding-atlas.html"}, {"photos"}),
-    ({"crownfirst-atlas.html"}, {"locations", "models"}),
-    (None, {"photos", "locations", "models"}),
+    ({"embedding-atlas.html"}, {"photos", "locations"}),
+    ({"crownfirst-atlas.html"}, {"locations"}),
+    (None, {"photos", "locations"}),
 ])
 def test_task_links_keep_distinct_destinations_and_respect_built_pages(available, views):
     site = load("_site_navigation_tasks", DASHBOARD / "site_navigation.py")
@@ -66,15 +66,15 @@ def test_task_links_keep_distinct_destinations_and_respect_built_pages(available
     for link in parser.links:
         view = link["data-atlas-view"]
         assert link["data-site-task"] == view
-        assert link["href"] == ("embedding-atlas.html" if view == "photos" else
-                                "crownfirst-atlas.html#view=" + view)
+        page = "crownfirst-atlas.html" if available == {"crownfirst-atlas.html"} else "embedding-atlas.html"
+        assert link["href"] == page + ("#view=locations" if view == "locations" else "")
 
 
 @pytest.mark.parametrize("current, active", [
     ("embedding-atlas.html", "photos"),
     ("crownfirst-atlas.html", "photos"),
     ("crownfirst-atlas.html#view=locations", "locations"),
-    ("crownfirst-atlas.html#view=models", "models"),
+    ("embedding-atlas.html#view=locations", "locations"),
 ])
 def test_initial_atlas_task_is_unique(current, active):
     site = load("_site_navigation_active_task", DASHBOARD / "site_navigation.py")
@@ -82,3 +82,10 @@ def test_initial_atlas_task_is_unique(current, active):
     parser.feed(site.navigation(current))
     assert [link["data-site-task"] for link in parser.links
             if link.get("aria-current") == "page"] == [active]
+
+
+def test_experimental_comparison_is_not_a_primary_navigation_task():
+    site = load("_site_navigation_experimental", DASHBOARD / "site_navigation.py")
+    markup = site.navigation("index.html")
+    assert "Compare models" not in markup
+    assert "crownfirst-atlas.html" not in markup

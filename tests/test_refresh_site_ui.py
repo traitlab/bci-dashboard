@@ -71,3 +71,75 @@ def test_invalid_payload_stops_before_any_output_is_overwritten(tmp_path):
     assert "embedded explorer-data is missing" in result.stderr
     assert (output / "index.html").read_text() == "Previous good home"
     assert not (output / "model_health_dashboard.html").exists()
+
+
+def atlas_site(folder):
+    """A model subset and catalogue with deliberately different point ordering."""
+    recorded_site(folder)
+    inventory = {"file": "dataset_rows_combined.jsonl", "sha256": "a" * 64}
+    catalogue = {
+        "photos": [
+            {"key": "no-model.JPG", "label": None, "lat": 9.2, "lon": -79.2},
+            {"key": "a.JPG", "label": "Recorded", "lat": 9.1, "lon": -79.1},
+        ],
+        "taxa": [], "provenance": {"sources": [inventory]},
+    }
+    (folder / "explorer.html").write_text(
+        '<script id="explorer-data" type="application/json">' + json.dumps(catalogue) + '</script>')
+    atlas = {
+        "points": [{"key": "a.JPG", "label": "Recorded", "lat": 9.1, "lon": -79.1,
+                    "xy": [0.1, 0.2], "neighbours": [], "other_mission_neighbours": None}],
+        "provenance": {"sources": [inventory], "encoder": "Pl@ntNet", "input_count": 1},
+    }
+    (folder / "embedding-atlas.html").write_text(
+        '<script id="atlas-data" type="application/json">' + json.dumps(atlas) + '</script>')
+    return atlas
+
+
+def test_refresh_uses_shared_inventory_without_changing_model_support_or_retry_output(tmp_path):
+    source, output = tmp_path / "recorded", tmp_path / "preview"
+    atlas_site(source)
+    result = refresh(source, output)
+    assert result.returncode == 0, result.stderr
+    first = (output / "embedding-atlas.html").read_bytes()
+    payload = json.loads(re.search(r'<script id="atlas-data" type="application/json">(.*?)</script>',
+                                  first.decode(), re.DOTALL)[1])
+    assert [point["key"] for point in payload["points"]] == ["no-model.JPG", "a.JPG"]
+    assert payload["points"][0]["model_available"] is False
+    assert "xy" not in payload["points"][0]
+    assert payload["provenance"]["input_count"] == 1
+    result = refresh(output, output)
+    assert result.returncode == 0, result.stderr
+    assert (output / "embedding-atlas.html").read_bytes() == first
+
+
+def test_refresh_rejects_cross_inventory_join_before_writing_any_page(tmp_path):
+    source, output = tmp_path / "recorded", tmp_path / "preview"
+    atlas_site(source)
+    path = source / "embedding-atlas.html"
+    path.write_text(path.read_text().replace("a" * 64, "b" * 64))
+    output.mkdir()
+    (output / "index.html").write_text("Previous good home")
+    result = refresh(source, output)
+    assert result.returncode != 0
+    assert "inventory source hash mismatch" in result.stderr
+    assert (output / "index.html").read_text() == "Previous good home"
+    assert not (output / "embedding-atlas.html").exists()
+
+
+def test_zero_positioned_photos_retain_the_last_published_site(tmp_path):
+    source, output = tmp_path / "recorded", tmp_path / "preview"
+    recorded_site(source)
+    output.mkdir()
+    (output / "index.html").write_text("last verified public site")
+    provenance = {"sources": [{"file": "dataset_rows_combined.jsonl", "sha256": "a" * 64}]}
+    catalogue = {"photos": [], "taxa": [], "provenance": provenance}
+    atlas = {"points": [], "provenance": provenance}
+    for name, data_id, data in [("explorer.html", "explorer-data", catalogue),
+                                ("embedding-atlas.html", "atlas-data", atlas)]:
+        (source / name).write_text(f'<script id="{data_id}" type="application/json">' + json.dumps(data) + "</script>")
+    result = refresh(source, output)
+    assert result.returncode != 0
+    assert "at least one positioned photo" in result.stderr
+    assert (output / "index.html").read_text() == "last verified public site"
+    assert not (output / "model_health_dashboard.html").exists()

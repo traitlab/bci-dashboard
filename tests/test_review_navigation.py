@@ -39,7 +39,7 @@ function returned(){return new URLSearchParams(new URL(navLinks[2].getAttribute(
 let params=returned();assert.equal(params.get('source'),'recorded');assert.equal(params.get('taxon'),'s');
 assert.equal(params.get('status'),'compare');assert.equal(params.get('search'),'a & forêt');
 assert.equal(params.get('page'),'2');assert.equal(params.get('frame'),'query');
-$('showModelComparisonView').onclick();select(1);
+showAtlasView('models');select(1);
 params=returned();assert.equal(params.get('frame'),'next & ä.JPG');assert.equal(params.get('status'),'compare');
 const current=new URLSearchParams(location.hash.slice(1));assert.equal(current.get('view'),'models');
 assert.equal(new URLSearchParams(current.get('browse')).get('search'),'a & forêt');
@@ -84,7 +84,7 @@ navLinks[5].onclick({button:0,preventDefault(){}});assert.equal(historyEntries.l
 location.hash=original;listeners.popstate();assert.deepEqual(activeTask(),['locations']);assert.equal(selected,1);
 location.hash=modelHash;listeners.hashchange();assert.deepEqual(activeTask(),['models']);assert.equal(selected,1);
 prevented=false;navLinks[4].onclick({button:0,ctrlKey:true,preventDefault(){prevented=true}});assert.equal(prevented,false);assert.equal(atlasView,'models');
-prevented=false;navLinks[3].onclick({button:0,preventDefault(){prevented=true}});assert.equal(prevented,false);
+prevented=false;navLinks[3].onclick({button:0,preventDefault(){prevented=true}});assert.equal(prevented,true);assert.equal(atlasView,'photos');assert.equal(selected,1);assert.equal(navLinks[3].getAttribute('href').split('#')[0],'crownfirst-atlas.html');
 """, initial_hash=initial)
 
 
@@ -94,7 +94,42 @@ def test_global_map_and_comparison_links_remain_available_for_an_empty_catalogue
     run_browser(r"""
 for(const [id,view] of [['cameraMapTask','locations'],['compareModelsTask','models']]){
  const url=new URL($(id).href,'https://example.org');
- assert.equal(url.pathname,'/crownfirst-atlas.html');
+ assert.equal(url.pathname,'/embedding-atlas.html');
  const params=new URLSearchParams(url.hash.slice(1));assert.equal(params.get('view'),view);assert.equal(params.has('frame'),false);
 }
 """, payload=data)
+
+
+def test_explicit_model_choice_is_independent_of_catalogue_grouping_and_keeps_photo():
+    data = catalogue()
+    data["photos"][0]["representation"] = None
+    run_browser(r"""
+const key=state.frame;
+for(const source of ['prediction','recorded']){
+ setState({source,matchingModel:'plantclef',missions:'other',layout:'table'});
+ for(const id of ['similarPhotosTask','cameraMapTask','cameraLocations']){
+  const url=new URL($(id).href,'https://example.org'),params=new URLSearchParams(url.hash.slice(1));
+  assert.equal(url.pathname,'/crownfirst-atlas.html');assert.equal(params.get('frame'),key);assert.equal(params.get('missions'),'other');
+  assert.equal(new URLSearchParams(params.get('browse')).get('source'),source);
+ }
+ const saved=readExplorerState(location.hash,photos);assert.equal(saved.matchingModel,'plantclef');
+ setState({matchingModel:'plantnet'});
+ for(const id of ['similarPhotosTask','cameraMapTask','cameraLocations','plantnetResearch']){
+  const url=new URL($(id).href,'https://example.org');assert.equal(url.pathname,'/embedding-atlas.html');assert.equal(new URLSearchParams(url.hash.slice(1)).get('frame'),key);
+ }
+ assert.equal(new URLSearchParams(location.hash.slice(1)).has('matchingModel'),false);
+}
+assert.equal(readExplorerState('#matchingModel=untrusted',photos).matchingModel,undefined);
+""", payload=data)
+
+
+def test_catalogue_roundtrip_keeps_separate_atlas_filters_on_every_photo_tool():
+    run_browser(r"""
+setState({search:'catalogue text',layout:'table',matchingModel:'plantclef',atlasSearch:'atlas text',atlasLabels:'with',atlasShared:'1',atlasPage:'3'});
+const restored=readExplorerState(location.hash,photos);assert.equal(restored.atlasSearch,'atlas text');assert.equal(restored.atlasPage,'3');
+for(const id of ['similarPhotosTask','cameraMapTask','cameraLocations','plantnetResearch','crownResearch']){
+ const params=new URLSearchParams(new URL($(id).href,'https://example.org').hash.slice(1));
+ assert.equal(params.get('atlasSearch'),'atlas text');assert.equal(params.get('atlasLabels'),'with');assert.equal(params.get('atlasShared'),'1');assert.equal(params.get('atlasPage'),'3');
+ const browse=new URLSearchParams(params.get('browse'));assert.equal(browse.get('search'),'catalogue text');assert.equal(browse.get('layout'),'table');assert.equal(browse.has('atlasSearch'),false);
+}
+""")
