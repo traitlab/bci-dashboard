@@ -99,3 +99,25 @@ def test_it_claims_nothing_the_pages_have_to_back_up(build_index, tmp_path):
     assert "measurement pass" not in out
     assert "latest state" not in out
     assert "<p" not in out
+
+
+def test_optional_atlas_cards_only_when_built(build_index, tmp_path):
+    fake_build(tmp_path)
+    out = build_index.build(str(tmp_path))
+    assert 'href="embedding-atlas.html"' not in out
+    (tmp_path / 'embedding-atlas.html').write_text('<html>Atlas</html>')
+    out = build_index.build(str(tmp_path))
+    assert 'href="embedding-atlas.html"' in out
+    assert 'href="crownfirst-atlas.html#view=models"' not in out
+    (tmp_path / 'crownfirst-atlas.html').write_text('<html>Canopy</html>')
+    assert 'href="crownfirst-atlas.html#view=models"' in build_index.build(str(tmp_path))
+
+
+def test_taxonomy_explorer_is_first_when_built(build_index, tmp_path):
+    fake_build(tmp_path)
+    (tmp_path / "explorer.html").write_text("<html>Photos</html>")
+    (tmp_path / "embedding-atlas.html").write_text("<html>Research</html>")
+    out = build_index.build(str(tmp_path))
+    assert out.index('href="explorer.html"') < out.index('href="model_health_dashboard.html"')
+    assert out.index('href="model_health_dashboard.html"') < out.index('href="embedding-atlas.html"')
+    assert out.index('<summary>Similar photos &amp; models</summary>') < out.index('href="embedding-atlas.html"')
