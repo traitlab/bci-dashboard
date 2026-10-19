@@ -5,15 +5,15 @@ from test_atlas_mission_view import photo, run_atlas
 
 def plot_photos():
     labels = ["A", "A", "A", "B", "B", "C", "D", "E", "F", "G", "H", "I", "J", None, None]
-    points = [photo(f"p{i}", "flight-b", label=label, xy=[i, i % 3]) for i, label in enumerate(labels)]
-    points[0] = photo("query", "flight-a", [[1, .9], [3, .8]], label="A", xy=[0, 0], other_mission_neighbours=[[5, .7]])
+    points = [photo(f"p{i}", "flight-b", label=label, family=label, xy=[i, i % 3]) for i, label in enumerate(labels)]
+    points[0] = photo("query", "flight-a", [[1, .9], [3, .8]], label="A", family="A", xy=[0, 0], other_mission_neighbours=[[5, .7]])
     return points
 
 
 def test_plot_colours_by_label_draws_ranked_matches_and_supports_zoom_pan_hover():
     run_atlas(plot_photos(), r"""
 const legend=$('plotLegend').children;
-assert.deepEqual(legend.map(b=>b.children[1].textContent),['A (3)','B (2)','C (1)','D (1)','E (1)','F (1)','G (1)','H (1)','Other recorded label (2)','No recorded label (2)']);
+assert.deepEqual(legend.map(b=>b.children[1].textContent),['A (3)','B (2)','C (1)','D (1)','E (1)','F (1)','G (1)','H (1)','Other families (2)','No recorded family (2)']);
 assert.equal(plotClass(P[11]),8);assert.equal(plotClass(P[13]),9);assert.equal(legend[8].children[0].style.background,'#8c8c8c');
 const pc=context('plot');pc.fills=[];pc.arcs=[];pc.texts=[];pc.lines=[];draw();
 assert.deepEqual(pc.fills.slice(0,2),['#cfd8dd','#cfd8dd']);assert.deepEqual(pc.arcs.slice(0,2),[2,2]);assert.equal(pc.fills.at(-1),'#E69F00');assert.deepEqual(pc.arcs.slice(-4),[10,10,14,9]);
@@ -21,6 +21,10 @@ assert.deepEqual(pc.fills.slice(-3,-1),['#E69F00','#56B4E9']);assert.deepEqual(p
 const q=plotHits.find(h=>h[2]===0);assert.deepEqual(pc.lines,[[q[0],q[1]],plotHits.find(h=>h[2]===1).slice(0,2),[q[0],q[1]],plotHits.find(h=>h[2]===3).slice(0,2)]);
 assert.match($('plotExplanation').textContent,/two PCA components.*retained variance is not recorded.*recorded frame label, not independently verified ground truth.*not prove they are the same species/);
 data.provenance.pca_explained_variance=[.2,.1,.05];draw();assert.match($('plotExplanation').textContent,/retain 30.0% of embedding variance/);
+data.provenance.projection='t-SNE (openTSNE)';draw();assert.match($('plotExplanation').textContent,/t-SNE layout.*close matches.*Cluster sizes and the gaps between clusters do not show how different/);assert.doesNotMatch($('plotExplanation').textContent,/about/);
+data.provenance.projection_fidelity={knn_recall_at_10:.463,pca_knn_recall_at_10:.034};draw();assert.match($('plotExplanation').textContent,/about 46% of each photo.s 10 closest matches.*vs 3% with the old PCA layout/);
+data.provenance.projection_fidelity={knn_recall_at_10:.454,pca_knn_recall_at_10:.031};draw();assert.match($('plotExplanation').textContent,/about 45% .*vs 3% /);
+data.provenance.projection='PCA';draw();assert.match($('plotExplanation').textContent,/two PCA components/);
 legend[1].onclick();assert.equal(plotFocus,1);assert.deepEqual(legend.map(b=>b.getAttribute('aria-pressed')),legend.map((_,i)=>String(i===1)));
 pc.fills=[];draw();assert.equal(pc.fills.filter(f=>f==='#56B4E9').length,2);assert.equal(pc.fills.filter(f=>f==='#E69F00').length,2);assert.equal(pc.fills.filter(f=>f==='#dde4e8').length,11);
 legend[1].onclick();assert.equal(plotFocus,null);assert.equal(legend.every(b=>b.getAttribute('aria-pressed')==='false'),true);

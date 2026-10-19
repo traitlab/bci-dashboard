@@ -129,16 +129,16 @@ const [x,y]=plotHits.find(h=>h[2]===7);plot.onpointerdown({offsetX:x,offsetY:y,p
 def test_plot_legend_counts_drawn_points_names_selected_other_label_and_fits_filters():
     run_atlas(plot_photos(), r"""
 const names=()=>$('plotLegend').children.map(b=>b.children[1].textContent);
-select(12);assert.deepEqual(names(),['A (3)','B (2)','C (1)','D (1)','E (1)','F (1)','G (1)','H (1)','Other recorded label (2)','No recorded label (2)','Selected: J (other label)']);assert.equal(plotClass(P[12]),8);
+select(12);assert.deepEqual(names(),['A (3)','B (2)','C (1)','D (1)','E (1)','F (1)','G (1)','H (1)','Other families (2)','No recorded family (2)','Selected: J (other family)']);assert.equal(plotClass(P[12]),8);
 const own=$('plotLegend').children.at(-1);assert.equal(own.children[0].style.background,'#8c8c8c');assert.equal(own.onclick,undefined);assert.equal(own.getAttribute('aria-pressed'),null);
-select(0);assert.deepEqual(names().slice(7),['H (1)','Other recorded label (2)','No recorded label (2)']);
+select(0);assert.deepEqual(names().slice(7),['H (1)','Other families (2)','No recorded family (2)']);
 assert.deepEqual(plotView,{k:1,x:0,y:0});
-$('group').value='Without recorded label';$('group').onchange();assert.deepEqual(visible,[13,14]);assert.deepEqual(names(),['A (1)','No recorded label (2)']);
+$('group').value='Without recorded label';$('group').onchange();assert.deepEqual(visible,[13,14]);assert.deepEqual(names(),['A (1)','No recorded family (2)']);
 assert.deepEqual(plotHits.map(h=>h[2]).sort((a,b)=>a-b),[0,13,14]);
 $('plotLegend').children[1].onclick();assert.equal(plotFocus,9);
-select(13);$('search').value='p1';$('search').oninput();assert.deepEqual(visible,[13,14]);assert.deepEqual(names(),['No recorded label (2)']);assert.equal(plotFocus,9);assert.equal($('plotLegend').children[0].getAttribute('aria-pressed'),'true');
+select(13);$('search').value='p1';$('search').oninput();assert.deepEqual(visible,[13,14]);assert.deepEqual(names(),['No recorded family (2)']);assert.equal(plotFocus,9);assert.equal($('plotLegend').children[0].getAttribute('aria-pressed'),'true');
 assert.equal(plotView.k,2);for(const [x,y] of plotHits){assert.ok(x>=24.99&&x<=640-24.99&&y>=24.99&&y<=520-24.99,`${x},${y}`)}
-$('search').value='p13';$('search').oninput();assert.deepEqual(names(),['No recorded label (1)']);assert.equal(plotFocus,9);assert.equal(plotView.k,64);
+$('search').value='p13';$('search').oninput();assert.deepEqual(names(),['No recorded family (1)']);assert.equal(plotFocus,9);assert.equal(plotView.k,64);
 $('clearBrowseFilters').onclick();assert.deepEqual(plotView,{k:1,x:0,y:0});assert.equal(names().length,10);assert.equal(plotFocus,9);
 """)
 

@@ -57,6 +57,7 @@ def photo(key, mission, neighbours=None, **extra):
         "key": key,
         "mission": mission,
         "label": "Fabaceae",
+        "family": "Fabaceae",
         "lat": 9.1,
         "lon": -79.8,
         "xy": [0, 0],
