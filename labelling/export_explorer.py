@@ -1,4 +1,14 @@
-"""Build an offline photo catalogue independently of representation coverage."""
+"""Build an offline photo catalogue independently of representation coverage.
+
+Rebuild docs/explorer.html byte for byte (OUT is any scratch dir, DATA the data root):
+
+    python labelling/export_explorer.py --data-root DATA --plantnet-atlas embedding-atlas.json --output OUT/cat.json
+    mkdir OUT/site && cp docs/* OUT/site/
+    python dashboard/build_explorer.py --input OUT/cat.json --output OUT/site/explorer.html
+    python -m dashboard.refresh_site_ui --site OUT/site --out OUT/out   # OUT/out/explorer.html
+
+The refresh step adds the full nav (data-photo-pages), so build_explorer output alone differs.
+"""
 
 from __future__ import annotations
 
