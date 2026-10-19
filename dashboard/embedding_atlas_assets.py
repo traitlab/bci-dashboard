@@ -173,7 +173,7 @@ function finishImageDetail(prefix,phase='loaded',crop=null){
  state.phase=phase==='loaded'?(Number.isFinite(width)&&Number.isFinite(height)&&width>0&&height>0?'loaded':'dimensions'):phase;state.width=state.phase==='loaded'?width:0;state.height=state.phase==='loaded'?height:0;if(state.phase!=='loaded')state.mode='fit';renderImageDetail(prefix);
 }
 function setImageDetailMode(prefix,mode){const state=imageDetails.get(prefix);if(!state||!['fit','actual'].includes(mode)||(mode==='actual'&&state.phase!=='loaded'))return false;if(state.mode===mode)return true;state.mode=mode;renderImageDetail(prefix);const viewport=$(prefix+'Viewport'),crop=state.crop;viewport.scrollLeft=mode==='actual'?Math.max(0,(crop?crop.x+crop.side/2:state.width/2)-viewport.clientWidth/2):0;viewport.scrollTop=mode==='actual'?Math.max(0,(crop?crop.y+crop.side/2:state.height/2)-viewport.clientHeight/2):0;return true}
-for(const prefix of enlargedImagePanels){$(prefix+'Fit').onclick=()=>setImageDetailMode(prefix,'fit');$(prefix+'Actual').onclick=()=>setImageDetailMode(prefix,'actual')}
+function scrollArrows(e){const v=e.currentTarget||this;if(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey||!['ArrowLeft','ArrowRight'].includes(e.key)||v.scrollWidth<=v.clientWidth)return;e.preventDefault();v.scrollLeft+=e.key==='ArrowRight'?40:-40}for(const prefix of enlargedImagePanels){$(prefix+'Viewport').onkeydown=scrollArrows;$(prefix+'Fit').onclick=()=>setImageDetailMode(prefix,'fit');$(prefix+'Actual').onclick=()=>setImageDetailMode(prefix,'actual')}
 // IMAGE_DETAIL_HELPERS_END
 let sharedInspection=null;
 function renderSharedFrame(prefix,key,label,comparison){
