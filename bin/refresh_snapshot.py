@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild a real cached snapshot offline, or safely unpack its private inputs.
+"""Rebuild a real cached snapshot offline, or safely pack and unpack its private inputs.
 
 Fetching is deliberately a different command. Explicit --export paths are the
 only exports merged; without them the cached Labelbox provenance stays intact.
@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import io
 import json
 import os
 import re
@@ -37,6 +38,8 @@ REQUIRED_FILES = (
     "next_batch/queue_novelty.csv",
     "embeddings_labelled/embeddings.npz",
 )
+# Beyond REQUIRED_FILES: globs under data/ that the offline build also reads.
+BUNDLE_EXTRA_GLOBS = ("predictions/cache/*.json",)
 PAGES = ("model_health_dashboard.html", "label_queue_dashboard.html")
 MAX_BUNDLE_BYTES = 2 * 1024**3
 MAX_BUNDLE_MEMBERS = 100_000
@@ -89,6 +92,33 @@ def unpack(archive: Path, destination: Path) -> None:
                 ):
                     shutil.copyfileobj(incoming, outgoing)
                 target.chmod(0o600)
+
+
+def pack(data: Path, archive: Path) -> None:
+    """Write the bundle unpack accepts: a manifest plus the data/ files the build reads."""
+    names = {name for name in REQUIRED_FILES}
+    for pattern in BUNDLE_EXTRA_GLOBS:
+        names.update(
+            str(path.relative_to(data)) for path in data.glob(pattern) if path.is_file()
+        )
+    missing = sorted(n for n in names if not (data / n).is_file())
+    if missing:
+        raise ValueError("input files missing from --data: " + ", ".join(missing))
+    provenance = (data / "gt_dominant_taxon.provenance.txt").read_text(encoding="utf-8")
+    manifest = {
+        "schema_version": 1,
+        "prepared_on": datetime.now(timezone.utc).date().isoformat(),
+        "label_source": provenance.strip(),
+        "files": {f"data/{n}": digest(data / n) for n in sorted(names)},
+    }
+    payload = json.dumps(manifest, sort_keys=True, indent=2).encode()
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(archive, "w:gz") as out:
+        header = tarfile.TarInfo("input-manifest.json")
+        header.size = len(payload)
+        out.addfile(header, io.BytesIO(payload))
+        for name in sorted(names):
+            out.add(data / name, arcname=f"data/{name}", recursive=False)
 
 
 def verify_bundle_manifest(source, members) -> None:
@@ -363,6 +393,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     extract.add_argument("--archive", type=Path, required=True)
     extract.add_argument("--destination", type=Path, required=True)
+    bundle = subparsers.add_parser(
+        "pack", help="write the private input bundle that unpack expects"
+    )
+    bundle.add_argument("--data", type=Path, required=True)
+    bundle.add_argument("--archive", type=Path, required=True)
     build = subparsers.add_parser(
         "build", help="recompute and publish the cached snapshot offline"
     )
@@ -374,6 +409,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "unpack":
             unpack(args.archive, args.destination)
+        elif args.command == "pack":
+            pack(args.data.resolve(), args.archive)
         else:
             refresh(
                 args.repo.resolve(),
