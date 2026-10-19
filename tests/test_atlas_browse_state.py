@@ -64,3 +64,13 @@ navigator.clipboard.writeText=async()=>{throw new Error('Permission denied')};aw
 delete navigator.clipboard;await $('copyViewLink').onclick();assert.doesNotMatch($('copyViewStatus').textContent,/copied/i);assert.equal($('copyViewFallback').value,location.href);
 })().catch(error=>{console.error(error);process.exitCode=1});
 """)
+
+
+def test_catalogue_return_link_keeps_evidence_table_column_filters():
+    points = [photo("query", "query-flight", label=None), photo("canopy-000", "flight-b")]
+    context = urlencode({"layout": "table", "order": "guess-asc", "label": "inga", "guess": "lutea", "mission": "bci50"})
+    run_atlas(points, r"""
+const params=new URLSearchParams(navLinks[2].getAttribute('href').split('#')[1]);
+for(const [name,value] of Object.entries({layout:'table',order:'guess-asc',label:'inga',guess:'lutea',mission:'bci50'}))assert.equal(params.get(name),value);
+assert.equal($('collectionExplorerLink').textContent,'Back to filtered photos');
+""", initial_hash="#" + urlencode({"frame": "query", "browse": context}))

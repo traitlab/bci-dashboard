@@ -32,7 +32,7 @@ def test_evidence_view_has_explicit_controls_semantic_headers_and_own_scroll_reg
     assert page.targets['evidenceScroll'][1]['role'] == 'region'
     assert page.targets['evidenceScroll'][1]['tabindex'] == '0'
     assert page.targets['evidenceRows'][0] == 'tbody'
-    assert len(page.headers) == 6
+    assert len(page.headers) == 5
     assert all(header.get('scope') == 'col' for header in page.headers)
     assert page.targets['clearEmptyFilters'][0] == 'button'
     assert '.evidence-scroll{max-width:100%;overflow:auto;' in template()
@@ -58,7 +58,7 @@ assert.equal($('gallery').hidden,true);assert.equal($('evidenceScroll').hidden,f
 assert.equal($('showEvidence').getAttribute('aria-pressed'),'true');assert.equal(document.activeElement,$('showEvidence'));
 assert.deepEqual($('evidenceRows').children.map(row=>row.getAttribute('data-frame')),savedCards);
 assert.equal($('photoPosition').textContent,position);assert.equal($('resultCount').textContent,count);
-const row=$('evidenceRows').children[1],key=row.getAttribute('data-frame');row.children[5].children[0].onclick();
+const row=$('evidenceRows').children[1],key=row.getAttribute('data-frame');row.children[0].children[0].onclick();
 assert.equal(state.frame,key);assert.equal(document.activeElement,$('selectedTitle'));
 assert.deepEqual($('evidenceRows').children.map(row=>row.getAttribute('data-frame')),savedCards);assert.equal($('evidenceRows').children[1].className,'selected-row');
 assert.equal($('enlarge').disabled,false);$('enlarge').onclick();assert.equal($('photoDialog').open,true);$('closeDialog').onclick();
@@ -91,7 +91,7 @@ def test_table_distinguishes_zero_missing_score_missing_guess_and_unavailable_so
     data['photos'][5]['prediction'].update(name=None, status='empty')
     run_browser(r"""
 function row(key){return $('evidenceRows').children.find(row=>row.getAttribute('data-frame')===key)}
-assert.equal(row('p3').children[3].textContent,'0.00 / 1');assert.equal(row('p4').children[3].textContent,'1.00 / 1');
+assert.equal(row('p3').children[3].textContent,'0.00');assert.equal(row('p4').children[3].textContent,'1.00');
 for(const key of ['p5','p6','p7'])assert.equal(row(key).children[3].textContent,'Unavailable');
 assert.equal(row('p0').children[1].textContent,'No recorded label');assert.equal(row('p0').children[4].textContent,'Not recorded');
 assert.equal(row('p5').children[2].textContent,'No names returned');assert.match(row('p0').children[2].textContent,/Canopia lutea/);
@@ -150,7 +150,7 @@ def test_table_jump_targets_inspect_action_or_empty_message_without_changing_sta
 const saved=JSON.stringify(state),hash=location.hash;
 for(const id of ['skipGallery','backToPhotos']){
  let prevented=false;$(id).onclick({preventDefault(){prevented=true}});assert.equal(prevented,true);
- const target=$('evidenceRows').children.length?$('evidenceRows').children[0].children[5].children[0]:$('empty');
+ const target=$('evidenceRows').children.length?$('evidenceRows').children[0].children[0].children[0]:$('empty');
  assert.equal(document.activeElement,target);assert.equal(JSON.stringify(state),saved);assert.equal(location.hash,hash);
 }
 """, payload=data, initial_hash='#layout=table')
@@ -220,3 +220,30 @@ if(failure!=='unavailable_predictions'){
 if(failure==='unavailable_photo')assert.equal($('taxonPivots').hidden,true);
 else {assert.equal($('predictedTaxonHelp').hidden,false);assert.ok($('predictedTaxonHelp').textContent.length)}
 """.replace('__FAILURE__', repr(failure)), payload=data)
+
+
+def test_column_headers_sort_all_matches_and_column_filters_are_removable_constraints():
+    run_browser(r"""
+function keys(){return matchingPhotoKeys(catalogue,state)}
+function labels(){return keys().map(key=>photoIndex.get(key).label?.trim()||null)}
+$('sortLabel').onclick();assert.equal(state.order,'label-asc');assert.equal($('colLabel').getAttribute('aria-sort'),'ascending');assert.equal($('colGuess').getAttribute('aria-sort'),null);
+const named=labels().filter(Boolean);assert.deepEqual(named,[...named].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'})));assert.equal(labels().indexOf(null)===-1||labels().slice(labels().indexOf(null)).every(v=>v===null),true);
+$('sortLabel').onclick();assert.equal(state.order,'label-desc');assert.equal($('colLabel').getAttribute('aria-sort'),'descending');assert.equal($('photoOrder').value,'label-desc');
+$('sortConfidence').onclick();assert.equal(state.order,'confidence-desc');assert.equal(new URLSearchParams(location.hash.slice(1)).get('order'),'confidence-desc');
+$('filterGuess').value='LUTEA';$('filterGuess').oninput();assert.equal(state.guess,'LUTEA');assert.equal(state.page,0);
+assert.ok(keys().length>0);assert.ok(keys().every(key=>/lutea/i.test(photoIndex.get(key).prediction.name)));
+assert.equal(readExplorerState(location.hash,photos).guess,'LUTEA');
+const chip=$('activeFilters').children.find(button=>button.getAttribute('data-filter')==='guess');assert.match(chip.textContent,/Pl@ntNet first guess contains: LUTEA/);
+$('filterMission').value='no such mission';$('filterMission').oninput();assert.deepEqual(keys(),[]);
+$('filterConfidence').value='-';$('filterConfidence').oninput();assert.equal(state.minConfidence??'','');
+$('filterConfidence').value='.5';$('filterConfidence').oninput();assert.equal(state.minConfidence,'.5');assert.equal($('minConfidence').value,'.5');
+clearCatalogueFilters();assert.equal(state.guess,'');assert.equal(state.mission,'');assert.equal($('filterGuess').value,'');assert.equal(state.order,'confidence-desc');
+""", initial_hash='#source=recorded&layout=table')
+
+
+def test_text_column_sort_is_named_in_the_result_count_and_leaves_cards_unscored():
+    run_browser(r"""
+$('sortMission').onclick();assert.match($('resultCount').textContent,/ · Mission A to Z$/);
+$('showPhotos').onclick();assert.ok($('gallery').children.length>0);assert.ok($('gallery').children.every(card=>!card.children[1].children.some(n=>/confidence/.test(n.textContent))));
+assert.equal($('colMission').getAttribute('aria-sort'),'ascending');assert.equal($('colLabel').getAttribute('aria-sort'),null);
+""", initial_hash='#source=recorded&layout=table')

@@ -115,14 +115,13 @@ assert.deepEqual(copy(unlabelled.key)[0],['card-name card-missing','No recorded 
 
 def test_review_help_explains_branch_scope_only_while_comparing():
     run_browser(r"""
-const standard='Counts match the current taxon and search, before this filter.';
-assert.equal($('labelStatusHelp').textContent,standard);
+assert.equal($('labelStatusHelp').hidden,true);
 setState({status:'compare'});
 assert.match($('labelStatusHelp').textContent,/resolved taxa on different branches/);
 assert.match($('labelStatusHelp').textContent,/coarser labels on the same lineage are excluded/);
 assert.match($('labelStatusHelp').textContent,/not verified errors/);
 assert.match($('labelStatusHelp').textContent,/different crowns/);
-setState({status:'without'});assert.equal($('labelStatusHelp').textContent,standard);
+setState({status:'without'});assert.equal($('labelStatusHelp').hidden,true);
 assert.match($('similarPhotosTask').getAttribute('aria-label'),/^Similar photos\./);
 """)
 
