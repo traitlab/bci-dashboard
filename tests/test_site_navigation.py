@@ -90,9 +90,9 @@ def test_experimental_comparison_is_not_a_primary_navigation_task():
     assert "crownfirst-atlas.html" not in markup
 
 
-def test_brand_sits_inside_a_landmark():
+def test_site_name_is_the_first_nav_link_home():
     site = load("_site_navigation_brand", DASHBOARD / "site_navigation.py")
-    markup = site.navigation("index.html")
-    shell = markup[markup.index('<div class="site-shell"'):]
-    assert shell.startswith('<div class="site-shell" role="region" aria-label="')
-    assert shell.index('class="site-brand"') < shell.index("</div>")
+    markup = site.navigation("explorer.html")
+    nav = markup[markup.index('<nav class="site-nav"'):]
+    assert nav.index('<a href="index.html">Panama canopy</a>') < nav.index('href="explorer.html"')
+    assert "site-brand" not in markup

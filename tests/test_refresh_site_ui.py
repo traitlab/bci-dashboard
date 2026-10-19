@@ -44,7 +44,7 @@ def test_offline_ui_refresh_preserves_evidence_and_optional_page_boundaries(tmp_
         pattern = rf"<{tag}\b.*?</{tag}>"
         assert re.search(pattern, updated, re.DOTALL).group() == re.search(pattern, report, re.DOTALL).group()
     assert 'data-workspace="reports"' in updated
-    assert 'class="site-brand"' in updated
+    assert 'class="site-shell"' in updated
     assert "Old navigation" not in updated
     explorer = (output / "explorer.html").read_text()
     assert f'<script id="explorer-data" type="application/json">{payload}</script>' in explorer
@@ -57,7 +57,7 @@ def test_offline_ui_refresh_preserves_evidence_and_optional_page_boundaries(tmp_
     # Updating already refreshed pages does not duplicate the masthead.
     again = refresh(output, output)
     assert again.returncode == 0, again.stderr
-    assert (output / "model_health_dashboard.html").read_text().count('class="site-brand"') == 1
+    assert (output / "model_health_dashboard.html").read_text().count('class="site-shell"') == 1
 
 
 def test_invalid_payload_stops_before_any_output_is_overwritten(tmp_path):
