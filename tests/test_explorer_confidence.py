@@ -170,3 +170,13 @@ const saved=location.hash;assert.match(saved,/minConfidence=.9/);assert.match(sa
 const context=new URLSearchParams(new URL($('cameraLocations').href,'https://example.org').hash.slice(1)).get('browse');assert.equal(new URLSearchParams(context).get('maxConfidence'),'.95');
 setState({minConfidence:'',maxConfidence:''});location.hash=saved;listeners.popstate();assert.equal(state.maxConfidence,'.95');assert.equal($('maxConfidence').value,'.95');
 """, payload=confidence_catalogue(), initial_hash='#minConfidence=.9')
+
+
+def test_score_sliders_and_text_boxes_stay_linked_and_never_cross():
+    run_browser(r"""
+$('minConfidenceSlider').value='0.3';$('minConfidenceSlider').oninput();assert.equal(state.minConfidence,'0.3');assert.equal($('minConfidence').value,'0.3');assert.equal($('scoreRange').style['--lo'],'30%');
+$('maxConfidence').value='.6';$('maxConfidence').onchange();assert.equal($('maxConfidenceSlider').value,'0.6');assert.equal($('scoreRange').style['--hi'],'60%');
+$('minConfidenceSlider').value='0.9';$('minConfidenceSlider').oninput();assert.equal(state.minConfidence,'0.6');assert.equal($('minConfidenceSlider').value,'0.6');assert.equal($('minConfidenceError').hidden,true);assert.equal($('minConfidenceSlider').getAttribute('aria-invalid'),null);
+$('filterConfidence').value='.2';$('filterConfidence').oninput();assert.equal(state.minConfidence,'.2');assert.equal($('minConfidenceSlider').value,'0.2');
+$('maxConfidence').value='1';$('maxConfidence').onchange();$('minConfidenceSlider').value='1';$('minConfidenceSlider').oninput();assert.equal($('minConfidenceSlider').style.zIndex,'1');$('minConfidenceSlider').value='0.4';$('minConfidenceSlider').oninput();assert.equal($('minConfidenceSlider').style.zIndex,'');
+""", payload=confidence_catalogue())
