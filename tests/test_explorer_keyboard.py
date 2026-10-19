@@ -78,3 +78,62 @@ for(const id of ['skipGallery','backToPhotos']){let prevented=false;$(id).onclic
         payload=data,
         initial_hash="#frame=unavailable&search=no-results",
     )
+
+
+def test_photo_buttons_advertise_the_review_shortcuts():
+    html = template()
+    for identity, key, name in [("previousPhoto", "k", "Previous"), ("nextPhoto", "j", "Next"), ("dialogPrevious", "k", "Previous"), ("dialogNext", "j", "Next")]:
+        assert f'<button id="{identity}"' in html
+        tag = html.split(f'<button id="{identity}"')[1].split(">")[0]
+        assert f'aria-keyshortcuts="{key}"' in tag and f'title="{name} photo ({key})"' in tag
+
+
+def test_review_keys_move_and_open_but_never_steal_text_entry_or_actual_pixel_scrolling():
+    run_browser(
+        r"""
+const press=(key,extra={})=>{let prevented=false;listeners['document:keydown']({key,...extra,preventDefault(){prevented=true}});return prevented};
+assert.equal(state.frame,'b');
+press('j');assert.equal(state.frame,'c');press('k');press('k');assert.equal(state.frame,'a & ä /?.JPG');
+press('ArrowRight');press('ArrowLeft');assert.equal(state.frame,'a & ä /?.JPG');
+for(const extra of [{ctrlKey:true},{metaKey:true},{altKey:true},{shiftKey:true}]){press('j',extra);assert.equal(state.frame,'a & ä /?.JPG')}
+for(const tag of ['input','select','textarea']){const field=make(tag);field.focus();press('j');assert.equal(state.frame,'a & ä /?.JPG')}
+$('detailViewport').focus();press('j');press('e');assert.equal($('photoDialog').open,undefined);assert.equal(state.frame,'a & ä /?.JPG');
+document.activeElement=null;press('e');assert.equal($('photoDialog').open,true);
+""",
+        initial_hash="#frame=b",
+    )
+
+
+def test_detail_dialog_compares_labels_and_moves_through_matching_photos():
+    run_browser(
+        r"""
+const press=key=>listeners['document:keydown']({key,preventDefault(){}});
+press('e');assert.equal($('dialogKey').textContent,'b');assert.equal($('dialogCompare').textContent,'Recorded: Canopia · Pl@ntNet: Canopia alba (0.81)');
+assert.equal($('dialogPrevious').disabled,false);
+$('dialogNext').focus();$('dialogNext').onclick();assert.equal($('dialogKey').textContent,'c');assert.equal($('dialogCompare').textContent,'Recorded: Forestaceae');
+press('j');assert.equal($('dialogKey').textContent,'d');assert.equal($('dialogCompare').textContent,'Pl@ntNet: Canopia alba (0.81)');
+press('e');assert.equal($('dialogKey').textContent,'d');
+press('j');assert.equal($('dialogCompare').textContent,'Recorded: Old unresolved name');
+press('k');assert.equal($('dialogKey').textContent,'d');
+$('dialogNext').focus();press('j');press('j');assert.equal($('dialogKey').textContent,'z');
+assert.equal($('dialogNext').disabled,true);assert.equal(document.activeElement,$('closeDialog'));
+$('dialogPrevious').onclick();assert.equal($('dialogKey').textContent,'e');
+""",
+        initial_hash="#frame=b",
+    )
+
+
+def test_dead_review_options_are_disabled_unless_current_and_back_to_photos_finds_the_card():
+    run_browser(
+        r"""
+const disabled=()=>Object.fromEntries($('labelStatus').options.map(o=>[o.value,Boolean(o.disabled)]));
+assert.deepEqual(disabled(),{all:false,with:false,without:false,compare:false});
+setState({taxon:'s',search:'flight-a'});assert.deepEqual(disabled(),{all:false,with:false,without:false,compare:true});
+setState({status:'compare'});assert.deepEqual(disabled(),{all:false,with:false,without:false,compare:false});
+setState({status:'all',taxon:'',search:''});
+let prevented=false;$('backToPhotos').onclick({preventDefault(){prevented=true}});
+assert.equal(prevented,true);assert.equal(document.activeElement.getAttribute('data-frame'),'c');assert.equal(document.activeElement.revealed,true);
+setState({layout:'table'});assert.equal($('evidenceRows').children[2].children[4].title,'flight-a');
+""",
+        initial_hash="#frame=c",
+    )
