@@ -423,3 +423,27 @@ def test_representation_cannot_name_a_different_inventory(exporter, catalogue_so
         exporter.export_catalogue(
             catalogue_sources, {"points": [{"key": "foreign.JPG"}]}
         )
+
+
+def test_labelbox_rename_applies_to_guess_and_keeps_original_name(
+    monkeypatch, catalogue_sources
+):
+    monkeypatch.syspath_prepend(str(ROOT / "labelling"))
+    import atlas_taxonomy
+
+    sources = catalogue_sources
+    keys = json.loads((sources / "gbif_keys.json").read_text())
+    keys["by_legacy"]["old virola name"] = 10
+    taxonomy = atlas_taxonomy.Taxonomy(
+        json.loads((sources / "checklist_k-central-america.json").read_text()), keys
+    )
+    renamed = atlas_taxonomy.prediction_record(
+        survey([("Old Virola name", 20, 0.9)]), taxonomy
+    )
+    assert renamed["taxon"] == "gbif:10"
+    assert renamed["name"] == "Dendropanax alaris"
+    assert renamed["original_name"] == "Old Virola name"
+    plain = atlas_taxonomy.prediction_record(
+        survey([("Virola fosteri", 20, 0.9)]), taxonomy
+    )
+    assert plain["taxon"] == "gbif:20" and plain["original_name"] is None
