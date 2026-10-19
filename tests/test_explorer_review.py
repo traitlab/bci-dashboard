@@ -26,7 +26,7 @@ assert.equal($('labelStatus').value,'compare');
 setState({source:'prediction',taxon:'s'});
 assert.deepEqual(matchingPhotoKeys(catalogue,state),[]);
 assert.deepEqual(labelStatusCounts(catalogue,state),{all:2,with:1,without:1,compare:0});
-assert.equal($('gallery').children.length,1);assert.match($('outsideNotice').textContent,/outside/);
+assert.equal($('gallery').children.length,0);assert.match($('outsideNotice').textContent,/outside/);
 location.hash='#source=prediction&status=compare&frame=b';listeners.hashchange();
 assert.equal(state.status,'compare');assert.equal(state.frame,'b');assert.deepEqual(matchingPhotoKeys(catalogue,state),[first]);
 $('allPhotos').onclick();assert.equal(state.status,'all');

@@ -24,8 +24,8 @@ def test_raw_sort_stable_ties_missing_last_and_ordered_navigation_preserve_evide
     run_browser(r"""
 const evidence=JSON.stringify(photos);
 setState({order:'confidence-desc'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['p4','p1','p2','p0','p3','p5','p6','p7']);
-assert.equal(state.frame,'p0');assert.equal($('gallery').children[0].getAttribute('data-frame'),'p0');
-assert.match($('resultCount').textContent,/Confidence highest first.*Selected photo stays pinned/);
+assert.equal(state.frame,'p0');assert.deepEqual($('gallery').children.map(card=>card.getAttribute('data-frame')),['p4','p1','p2','p0','p3','p5','p6','p7']);
+assert.match($('resultCount').textContent,/Highest confidence first$/);
 assert.equal($('photoPosition').textContent,'Photo 4 of 8 matching photos');
 $('nextPhoto').focus();$('nextPhoto').onclick();assert.equal(state.frame,'p3');assert.equal(document.activeElement,$('nextPhoto'));
 assert.equal($('selectedImage').src,'https://example.org/3.jpg');assert.equal($('annotation').href,'https://example.org/annotation/3');
@@ -33,7 +33,7 @@ $('previousPhoto').onclick();assert.equal(state.frame,'p0');
 setState({order:'confidence-asc'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['p3','p0','p1','p2','p4','p5','p6','p7']);
 assert.equal($('photoPosition').textContent,'Photo 2 of 8 matching photos');
 assert.equal(JSON.stringify(photos),evidence);
-assert.ok($('gallery').children[0].children[1].children.some(n=>n.textContent==='Pl@ntNet confidence: 0.41 / 1'));
+assert.ok($('gallery').children.find(card=>card.getAttribute('data-frame')==='p0').children[1].children.some(n=>n.textContent==='Pl@ntNet confidence: 0.41 / 1'));
 """, payload=confidence_catalogue())
 
 
@@ -78,3 +78,13 @@ assert.equal(new URLSearchParams(location.hash.slice(1)).has('confidence'),false
 const params=new URLSearchParams(navLinks[2].getAttribute('href').split('#')[1]);
 assert.equal(params.get('order'),'confidence-asc');assert.equal(params.get('confidence'),'scored');assert.equal(params.get('minConfidence'),'.41');
 """, initial_hash='#'+urlencode({'frame':'query','browse':context}))
+
+
+def test_minimum_applies_while_typing_and_waits_for_a_valid_value():
+    run_browser(r"""
+$('minConfidence').value='.9';$('minConfidence').oninput();assert.equal(state.minConfidence,'.9');assert.deepEqual(matchingPhotoKeys(catalogue,state),['p1','p2','p4']);
+const cards=$('gallery').children;$('minConfidence').onchange();assert.equal($('gallery').children,cards);
+$('minConfidence').value='.';$('minConfidence').oninput();assert.equal(state.minConfidence,'.9');assert.equal($('stateNotice').textContent.includes('confidence controls unavailable'),false);
+$('minConfidence').onchange();assert.equal(state.minConfidence,'.');assert.match($('stateNotice').textContent,/confidence controls unavailable/);
+$('minConfidence').value='';$('minConfidence').oninput();assert.equal(state.minConfidence,'');assert.equal(matchingPhotoKeys(catalogue,state).length,8);
+""", payload=confidence_catalogue())

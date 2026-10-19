@@ -38,7 +38,7 @@ def test_evidence_view_has_explicit_controls_semantic_headers_and_own_scroll_reg
     assert '.evidence-scroll{max-width:100%;overflow:auto;' in template()
 
 
-def test_view_switch_preserves_exact_order_pagination_pinned_identity_and_evidence():
+def test_view_switch_preserves_exact_order_pagination_selection_and_evidence():
     data = confidence_catalogue()
     sample = data['photos'][0]
     data['photos'] = []
@@ -50,7 +50,7 @@ def test_view_switch_preserves_exact_order_pagination_pinned_identity_and_eviden
     run_browser(r"""
 setState({source:'recorded',taxon:'f',search:'flight-a',status:'compare',order:'confidence-desc',page:1});
 const evidence=JSON.stringify(photos),savedState={...state},savedCards=$('gallery').children.map(card=>card.getAttribute('data-frame')),position=$('photoPosition').textContent,count=$('resultCount').textContent;
-assert.equal(savedCards.length,25);assert.equal(savedCards[0],'p0');
+assert.equal(savedCards.length,24);assert.equal(savedCards.includes('p0'),false);
 $('showEvidence').focus();$('showEvidence').onclick();
 assert.equal(state.layout,'table');assert.equal(state.page,1);assert.equal(state.frame,'p0');
 for(const name of ['source','taxon','search','status','order'])assert.equal(state[name],savedState[name]);
@@ -60,11 +60,11 @@ assert.deepEqual($('evidenceRows').children.map(row=>row.getAttribute('data-fram
 assert.equal($('photoPosition').textContent,position);assert.equal($('resultCount').textContent,count);
 const row=$('evidenceRows').children[1],key=row.getAttribute('data-frame');row.children[5].children[0].onclick();
 assert.equal(state.frame,key);assert.equal(document.activeElement,$('selectedTitle'));
-assert.equal($('evidenceRows').children[0].getAttribute('data-frame'),key);
+assert.deepEqual($('evidenceRows').children.map(row=>row.getAttribute('data-frame')),savedCards);assert.equal($('evidenceRows').children[1].className,'selected-row');
 assert.equal($('enlarge').disabled,false);$('enlarge').onclick();assert.equal($('photoDialog').open,true);$('closeDialog').onclick();
 $('showPhotos').onclick();assert.equal(state.layout,'photos');assert.equal(state.page,1);assert.equal(state.frame,key);
 assert.equal($('gallery').hidden,false);assert.equal($('evidenceScroll').hidden,true);
-assert.equal($('gallery').children[0].getAttribute('data-frame'),key);assert.equal(JSON.stringify(photos),evidence);
+assert.equal($('gallery').children[1].getAttribute('data-frame'),key);assert.equal(JSON.stringify(photos),evidence);
 """, payload=data)
 
 
@@ -124,8 +124,7 @@ assert.equal($('activeFilters').hidden,true);assert.equal(document.activeElement
 def test_clear_constraints_from_empty_results_keeps_grouping_selection_scope_layout_order(clear_control):
     run_browser(r"""
 setState({source:'recorded',frame:'b',taxon:'s',search:'no matches',status:'without',confidence:'missing',minConfidence:'.9',order:'confidence-desc',layout:'table',missions:'other'});
-assert.equal($('empty').hidden,false);assert.equal($('evidenceRows').children.length,1);
-assert.equal($('evidenceRows').children[0].getAttribute('data-frame'),'b');
+assert.equal($('empty').hidden,false);assert.equal($('evidenceRows').children.length,0);assert.match($('outsideNotice').textContent,/outside these filters/);
 const control=__CONTROL__==='strip'?$('activeFilters').children.at(-1):$(__CONTROL__);control.focus();control.onclick();
 assert.equal(state.source,'recorded');assert.equal(state.frame,'b');assert.equal(state.layout,'table');assert.equal(state.order,'confidence-desc');assert.equal(state.missions,'other');
 assert.equal(state.taxon,'');assert.equal(state.search,'');assert.equal(state.status,'all');assert.equal(state.confidence,'all');assert.equal(state.minConfidence,'');assert.equal(state.page,0);
@@ -137,7 +136,7 @@ def test_invalid_minimum_has_removable_chip_without_substituting_matching_result
     run_browser(r"""
 assert.equal($('empty').hidden,false);assert.match($('stateNotice').textContent,/confidence controls unavailable/);
 const chip=$('activeFilters').children.find(button=>button.getAttribute('data-filter')==='minConfidence');assert.match(chip.textContent,/NaN/);
-assert.equal($('evidenceRows').children.length,1);assert.equal(state.frame,'b');
+assert.equal($('evidenceRows').children.length,0);assert.equal(state.frame,'b');
 chip.onclick();assert.equal(state.minConfidence,'');assert.equal($('stateNotice').textContent,'');assert.equal(state.frame,'b');assert.equal(state.layout,'table');assert.equal($('empty').hidden,true);
 """, initial_hash='#source=recorded&frame=b&minConfidence=NaN&layout=table')
 
@@ -173,7 +172,7 @@ def test_confidence_disclosure_starts_closed_and_exposes_active_or_invalid_contr
     run_browser(r"""
 assert.equal(Boolean($('confidenceOptions').open),false);
 $('confidenceOptions').open=true;setState({search:'flight-a'});assert.equal($('confidenceOptions').open,true);
-$('confidenceOptions').open=false;setState({order:'confidence-desc'});assert.equal($('confidenceOptions').open,true);
+$('confidenceOptions').open=false;setState({order:'confidence-desc'});assert.equal($('confidenceOptions').open,false);
 $('confidenceOptions').open=false;setState({order:'catalogue',minConfidence:'NaN'});assert.equal($('confidenceOptions').open,true);
 assert.match($('stateNotice').textContent,/confidence controls unavailable/);
 """)

@@ -96,15 +96,15 @@ $('labelStatus').focus();$('labelStatus').value='without';$('labelStatus').oncha
 assert.deepEqual(counts(),{all:2,with:1,without:1,compare:0});assert.equal($('labelStatus').value,'without');
 assert.equal(document.activeElement,$('labelStatus'));assert.deepEqual($('labelStatus').options,options);
 assert.match($('resultCount').textContent,/1 of 6/);assert.match($('outsideNotice').textContent,/outside these filters/);
-assert.equal($('gallery').children.length,2);assert.equal(state.frame,'a & ä /?.JPG');
+assert.equal($('gallery').children.length,1);assert.equal(state.frame,'a & ä /?.JPG');
 root('recorded').focus();root('recorded').onclick();assert.equal(state.source,'recorded');assert.equal(state.taxon,'any');
 assert.deepEqual(counts(),{all:4,with:4,without:0,compare:1});assert.equal(root('recorded').getAttribute('aria-current'),'true');
 assert.equal(document.activeElement,root('recorded'));
 assert.equal($('labelStatus').value,'without');assert.match($('resultCount').textContent,/0 of 6/);
-assert.equal($('gallery').children.length,1);
+assert.equal($('gallery').children.length,0);
 setState({status:'with'});assert.deepEqual(counts(),{all:4,with:4,without:0,compare:1});
 setState({search:'no photo matches'});assert.deepEqual(counts(),{all:0,with:0,without:0,compare:0});
-assert.equal($('gallery').children.length,1);assert.match($('resultCount').textContent,/0 of 6/);
+assert.equal($('gallery').children.length,0);assert.match($('resultCount').textContent,/0 of 6/);
 """)
 
 
@@ -154,8 +154,8 @@ def test_filtering_retains_unrepresented_photo_pin_and_exact_neighbor_ranking():
     run_browser(r"""
 assert.equal(state.frame,'a & ä /?.JPG');assert.equal($('gallery').children.length,6);assert.match($('predictionLabel').children[0].textContent,/Canopia lutea/);assert.match($('recordedLabel').children[0].textContent,/Canopia alba/);assert.match($('predictionProvenance').textContent,/Model version not recorded/);
 const image=$('selectedImage').src,neighbors=$('similar').children.map(n=>n.children[0]?.textContent),rep=JSON.stringify(photos[0].representation);
-chooseTaxon('other');assert.equal(state.frame,'a & ä /?.JPG');assert.equal($('selectedImage').src,image);assert.match($('outsideNotice').textContent,/stays pinned/);assert.equal($('gallery').children[0].getAttribute('data-frame'),state.frame);assert.match($('resultCount').textContent,/1 of 6/);assert.deepEqual($('similar').children.map(n=>n.children[0]?.textContent),neighbors);assert.equal(JSON.stringify(photos[0].representation),rep);
-setState({search:'no results'});assert.equal($('gallery').children.length,1);assert.equal($('empty').hidden,false);assert.equal($('nextPage').disabled,true);assert.match($('resultCount').textContent,/0 of 6/);
+chooseTaxon('other');assert.equal(state.frame,'a & ä /?.JPG');assert.equal($('selectedImage').src,image);assert.match($('outsideNotice').textContent,/stays open in the inspector/);assert.equal($('gallery').children.some(card=>card.getAttribute('data-frame')===state.frame),false);assert.match($('resultCount').textContent,/1 of 6/);assert.deepEqual($('similar').children.map(n=>n.children[0]?.textContent),neighbors);assert.equal(JSON.stringify(photos[0].representation),rep);
+setState({search:'no results'});assert.equal($('gallery').children.length,0);assert.equal($('empty').hidden,false);assert.equal($('nextPage').disabled,true);assert.match($('resultCount').textContent,/0 of 6/);
 setState({frame:'b'},{focusPhoto:true});assert.equal(state.frame,'b');assert.match($('representationStatus').textContent,/unavailable.*catalogue photo remains/);assert.equal($('selectedImage').src,'https://example.org/b.jpg');assert.equal($('annotation').href,'https://example.org/annotation/b');assert.equal(document.activeElement,$('selectedTitle'));assert.match($('predictionLabel').children[1].textContent,/Tied first score/);
 $('allPhotos').onclick();assert.equal(state.taxon,'');assert.equal(state.search,'');assert.equal(state.status,'all');assert.equal(state.frame,'b');
 """)
@@ -227,7 +227,7 @@ const family=$('taxonomy').querySelector('[data-taxon="f"]'),disclosure=$('taxon
 
 def test_breadcrumb_focus_and_unavailable_source_do_not_select_a_new_photo():
     run_browser(r"""
-chooseTaxon('s');const family=$('breadcrumbs').children.find(n=>n.getAttribute('data-crumb')==='f');family.focus();family.onclick();assert.equal(state.taxon,'f');assert.equal(document.activeElement,$('breadcrumbs').children.find(n=>n.getAttribute('data-crumb')==='f'));const selected=state.frame;setState({source:'unsupported'});assert.equal(state.frame,selected);assert.match($('stateNotice').textContent,/source unavailable/);const copy=$('gallery').children[0].children[1];assert.equal(copy.children[1].textContent,'Canopia alba');assert.equal(copy.children[2].textContent,'Recorded label');
+chooseTaxon('s');const family=$('breadcrumbs').children.find(n=>n.getAttribute('data-crumb')==='f');family.focus();family.onclick();assert.equal(state.taxon,'f');assert.equal(document.activeElement,$('breadcrumbs').children.find(n=>n.getAttribute('data-crumb')==='f'));const selected=state.frame,copy=$('gallery').children.find(card=>card.getAttribute('data-frame')===selected).children[1];setState({source:'unsupported'});assert.equal(state.frame,selected);assert.match($('stateNotice').textContent,/source unavailable/);assert.equal($('gallery').children.length,0);assert.equal(copy.children[1].textContent,'Canopia alba');assert.equal(copy.children[2].textContent,'Recorded label');
 """)
 
 
@@ -256,11 +256,13 @@ $('detailImage').onerror();assert.equal($('actualImage').disabled,true);assert.e
 """)
 
 
-def test_paging_counts_matching_photos_separately_from_pinned_selection():
+def test_paging_keeps_the_selection_in_place_instead_of_pinning_it():
     node(helpers() + r"""
 const assert=require('node:assert/strict'),keys=Array.from({length:60},(_,i)=>'p'+i),page=photoPage(keys,'outside',1);
-assert.deepEqual(page.keys,['outside',...keys.slice(24,48)]);assert.equal(page.total,60);assert.equal(page.start,25);assert.equal(page.end,48);assert.equal(page.outside,true);assert.equal(page.pages,3);
-const only=photoPage(['selected'],'selected',7);assert.deepEqual(only.keys,['selected']);assert.equal(only.total,0);assert.equal(only.outside,false);
+assert.deepEqual(page.keys,keys.slice(24,48));assert.equal(page.total,60);assert.equal(page.start,25);assert.equal(page.end,48);assert.equal(page.outside,true);assert.equal(page.pages,3);
+const inside=photoPage(keys,'p30',0);assert.deepEqual(inside.keys,keys.slice(0,24));assert.equal(inside.outside,false);
+const only=photoPage(['selected'],'selected',7);assert.deepEqual(only.keys,['selected']);assert.equal(only.total,1);assert.equal(only.page,0);assert.equal(only.outside,false);
+const none=photoPage([],'',0);assert.deepEqual(none.keys,[]);assert.equal(none.start,0);assert.equal(none.pages,1);
 """)
 
 
