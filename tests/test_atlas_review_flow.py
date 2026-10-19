@@ -152,9 +152,9 @@ $('showPlotView').onclick();assert.equal(atlasView,'plot');assert.equal($('plotV
 $('showPlotView').onclick();assert.equal(historyEntries.length,entries+1);
 $('showPhotosView').onclick();assert.deepEqual(pressed(),['true','false','false']);assert.equal($('locationsView').hidden,true);assert.equal($('plotView').hidden,true);
 $('showLocationsView').onclick();assert.equal($('plotView').hidden,true);assert.deepEqual(pressed(),['false','true','false']);assert.equal($('togglePlot').textContent,'Explore visual relationships');assert.match(location.hash,/view=locations/);
-$('togglePlot').onclick();assert.equal(atlasView,'plot');assert.equal($('plotView').hidden,false);assert.deepEqual(pressed(),['false','false','true']);assert.equal($('returnToMap').hidden,false);assert.match(location.hash,/view=plot/);
+$('togglePlot').onclick();assert.equal(atlasView,'plot');assert.equal($('plotView').hidden,false);assert.deepEqual(pressed(),['false','false','true']);assert.equal($('togglePlot').textContent,'Hide visual relationships');assert.match(location.hash,/view=plot/);
 $('closePlot').onclick();assert.equal(atlasView,'locations');assert.equal($('plotView').hidden,true);assert.deepEqual(pressed(),['false','true','false']);assert.match(location.hash,/view=locations/);assert.equal(document.activeElement,$('mapView'));
-$('togglePlot').onclick();$('returnToMap').onclick();assert.equal(atlasView,'locations');assert.equal($('returnToMap').hidden,true);
+$('togglePlot').onclick();$('togglePlot').onclick();assert.equal(atlasView,'locations');assert.equal($('plotView').hidden,true);
 location.hash='#frame=query';listeners.popstate();assert.equal(atlasView,'photos');assert.deepEqual(pressed(),['true','false','false']);
 location.hash='#frame=query&view=locations';listeners.popstate();assert.deepEqual(pressed(),['false','true','false']);assert.equal($('plotView').hidden,true);
 location.hash='#frame=query&view=plot';listeners.popstate();assert.deepEqual(pressed(),['false','false','true']);assert.equal($('plotView').hidden,false);

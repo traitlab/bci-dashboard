@@ -88,7 +88,7 @@ $('fitMatches').onclick();
 assert.equal(view.x,(geo[0][0]+geo[1][0])/2);assert.equal(view.y,geo[0][1]);
 assert.equal(location.hash,before.hash);assert.equal(selected,before.selected);assert.equal(visible,before.visible);assert.equal(neighborMode,before.mode);assert.equal(JSON.stringify(P[0].neighbours),before.ranking);
 $('search').value='no-photo';filter();$('fitMatches').onclick();assert.equal(view.x,geo[0][0]);assert.equal(view.y,geo[0][1]);assert.equal(Number.isFinite(view.scale),true);
-$('togglePlot').onclick();assert.equal($('returnToMap').hidden,false);$('togglePlot').onclick();assert.equal($('returnToMap').hidden,true);
+$('togglePlot').onclick();assert.equal($('togglePlot').textContent,'Hide visual relationships');$('togglePlot').onclick();assert.equal($('togglePlot').textContent,'Explore visual relationships');
 $('mapInspectPhoto').onclick();assert.equal(atlasView,'photos');assert.equal(document.activeElement,$('selectedPhotoHeading'));assert.equal(selected,before.selected);assert.equal(location.hash,frameHash(P[selected].key,'photos','',neighborMode,atlasBrowseState()));
 """)
 
