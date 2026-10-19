@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import assess_panels as ap
 import core as hc
-from assets import (cap, esc, filterable_table, hero, more, num_cell, panel,
+from assets import (cap, esc, explorer_link, filterable_table, hero, more, num_cell, panel,
                     pctf, scroll_region, source_note, status_legend, status_tag,
                     svg_hbar, table)
 from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
@@ -159,7 +159,7 @@ REVIEW_COLUMNS = [("botanist label", False), ("Pl@ntNet's first guess", False),
                   ("confidence", True), ("frame", False)]
 
 
-def _review_table(groups, urls):
+def _review_table(c, groups, urls):
     """One table, every review frame, a recurring pair written once over its rows.
 
     Not two tables: a pairs table capped at one number beside a frames table
@@ -190,8 +190,8 @@ def _review_table(groups, urls):
             key = r["global_key"]
             frame = (f'<a href="{esc(urls[key])}" target="_blank" rel="noopener">'
                      f'{esc(key)}</a>') if key in urls else esc(key)
-            pair = (f'<td class="pair"{span}><span class="sp">{esc(cap(gt))}</span></td>'
-                    f'<td class="pair"{span}><span class="sp">{esc(cap(pr))}</span>'
+            pair = (f'<td class="pair"{span}><span class="sp">{explorer_link(c, gt, "recorded", esc(cap(gt)))}</span></td>'
+                    f'<td class="pair"{span}><span class="sp">{explorer_link(c, pr, "prediction", esc(cap(pr)))}</span>'
                     f'{tally}</td>') if i == 0 else ""
             out.append(f'<tr{first if i == 0 else ""}>{pair}'
                        f'<td class="num">{conf(r):.2f}</td>'
@@ -248,7 +248,7 @@ def p_review(c):
             # join, which is not the question a botanist opened this panel with.
             + more("How many of these rows link to Labelbox",
                    _link_note(here, wide))
-            + (_review_table(groups, urls) if groups
+            + (_review_table(c, groups, urls) if groups
                else '<p class="note">None at this confidence.</p>')
             + '<p class="note">Work this list after the label queue. A pair that keeps '
               'recurring says something about the species, not just the photo.</p>')
@@ -392,7 +392,7 @@ def p_species(c):
     for d in c.per_species:
         sp, st = d["species"], c.status[d["species"]]
         sp_rows.append([
-            esc(cap(sp)),
+            explorer_link(c, sp, "recorded", esc(cap(sp))),
             num_cell(d["n_labelled_frames"], f'{d["n_labelled_frames"]:,}'),
             num_cell(d["top1_accuracy"], pctf(d["top1_accuracy"])),
             num_cell(d["top5_accuracy"], pctf(d["top5_accuracy"])),

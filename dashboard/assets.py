@@ -21,12 +21,24 @@ import html
 import math
 import re
 from typing import NamedTuple
+from urllib.parse import quote
 
 from style import COUNT_ID, INPUT_ID, SELECT_ID, TABLE_ID, THIN_ID
 
 def esc(s: object) -> str:
     """HTML-escape any value (same role as labelfirst's ``_esc``)."""
     return html.escape(str(s))
+
+
+def explorer_link(c, name: str, source: str, label: str) -> str:
+    """``label`` linked to the explorer's search for ``name``, or bare when the
+    explorer is not published beside this page. The explorer's hash carries
+    taxon ids from its own export, which this build does not have, so it
+    searches by name."""
+    if "explorer.html" not in getattr(c, "available_pages", ()):
+        return label
+    href = f"explorer.html#source={source}&search={quote(name, safe='')}"
+    return f'<a href="{esc(href)}">{label}</a>'
 
 
 def cap(s: str) -> str:

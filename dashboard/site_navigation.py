@@ -26,6 +26,7 @@ a{color:var(--green);text-underline-offset:3px}
 main{min-width:0}
 body>header{max-width:1600px;margin:auto;background:transparent;color:var(--ink);border:0;padding:24px 24px 0}
 body>header h1{font-size:26px;line-height:1.25;font-weight:650;letter-spacing:-.6px;color:var(--ink);margin:0}
+body h1,body[data-workspace]>header h1{font-size:26px;line-height:1.25;font-weight:650;letter-spacing:-.6px}
 body>header p{font-size:14px;color:var(--slate);margin:6px 0 0}
 button,input,select,textarea{font-family:inherit;border-color:#a8bdb0;border-radius:var(--radius);accent-color:var(--green)}
 button,select,input[type=search]{min-height:44px}
@@ -33,7 +34,7 @@ button:hover{background:var(--pale)}
 button:disabled{cursor:default}
 button[aria-pressed=true]{border-color:var(--green)}
 body[data-workspace=reports] main{max-width:1168px;margin:auto;padding:28px 24px 64px}
-body[data-workspace=reports] h1{font-size:26px;font-weight:650;color:var(--ink);letter-spacing:-.6px}
+body[data-workspace=reports] h1{color:var(--ink)}
 body[data-workspace=reports] summary{color:var(--green)}
 body[data-workspace=reports] h2{color:var(--ink)}
 body[data-workspace=reports] th{background:var(--pale);color:var(--ink)}
@@ -42,7 +43,7 @@ body[data-workspace=reports] .hero .metric .e,body[data-workspace=reports] .hero
 body[data-workspace=reports] .hero .metric .e{text-transform:none;letter-spacing:0;font-size:.78rem}
 body[data-workspace=reports] details.panel>summary{color:var(--green)}
 body[data-workspace=reports] .hero .metric,body[data-workspace=reports] details.panel{box-shadow:none;border-color:var(--line);border-radius:var(--radius)}
-@media(max-width:640px){.site-shell{padding:12px 12px 0}.site-nav{gap:0 2px}.site-nav a{font-size:12px;padding:8px;min-height:44px}body>header{padding:20px 14px 0}body>header h1{font-size:23px}body[data-workspace=reports] main{padding:22px 14px 40px}}
+@media(max-width:640px){.site-shell{padding:12px 12px 0}.site-nav{gap:0 2px;flex-wrap:nowrap;overflow-x:auto}.site-nav a:focus-visible{outline-offset:-3px}.site-nav a{font-size:12px;padding:8px;min-height:44px}body>header{padding:20px 14px 0}body h1,body[data-workspace]>header h1{font-size:23px}body[data-workspace=reports] main{padding:22px 14px 40px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 @media print{body{background:#fff;color:#000}.site-shell,.site-skip{display:none}
 body[data-workspace=reports] main{padding:0;max-width:none}}
@@ -71,4 +72,8 @@ def navigation(current, *, available=None):
             'href="#main-content">Skip to content</a>'
             '<div class="site-shell" role="region" aria-label="Site">'
             '<nav class="site-nav" aria-label="Dashboard pages"' + photo_pages + '>'
-            + "".join(links) + '</nav></div>')
+            + "".join(links) + '</nav></div>'
+            # Phone: the nav scrolls sideways, so centre the current tab.
+            '<script>(function(){var n=document.querySelector(".site-nav"),'
+            'a=n&&n.querySelector("[aria-current]");'
+            'if(a)n.scrollLeft=a.offsetLeft-(n.clientWidth-a.offsetWidth)/2})()</script>')

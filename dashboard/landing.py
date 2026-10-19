@@ -118,14 +118,16 @@ def status_bar(c) -> str:
         for k in STATUS if counts[k])
     # A div, not a paragraph: the buttons are controls, not a sentence.
     return (f'<div class="statusbar"><b>{c.n_sp} species by status.</b> {buttons}</div>'
-            f'<script>(function(){{'
+            # After DOMContentLoaded: this bar sits above the table, so the
+            # select does not exist yet when the script first runs.
+            f'<script>document.addEventListener("DOMContentLoaded",function(){{'
             f'var s=document.getElementById("{SELECT_ID}");if(!s)return;'
             f'Array.prototype.forEach.call(document.querySelectorAll(".statusbar button"),'
             f'function(b){{b.addEventListener("click",function(){{'
             f's.value=b.getAttribute("data-status");'
             f's.dispatchEvent(new Event("change"));'
             f'var d=s.closest("details");if(d){{d.open=true;d.scrollIntoView();}}'
-            f'}});}});}})();</script>')
+            f'}});}});}});</script>')
 
 
 def by_frames(c) -> str:

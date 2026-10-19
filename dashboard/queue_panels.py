@@ -9,7 +9,7 @@ from urllib.parse import quote
 
 import core as hc
 import queues
-from assets import cap, esc, more, panel, pctf, table
+from assets import cap, esc, explorer_link, more, panel, pctf, table
 from panels import NAMING_IS, NAMING_NOTE
 from selection_panels import _pct as sel_pct
 from status_words import STATUS
@@ -246,7 +246,8 @@ def send_preview_table(c):
                       ("confidence", True), ("frames that species has", True),
                       ("how new it looks", True)],
                      [[f"{i}", photo_links(stem),
-                       f'<span class="sp">{esc(cap(pred))}</span>', f"{cf:.3f}",
+                       f'<span class="sp">{explorer_link(c, pred, "prediction", esc(cap(pred)))}</span>',
+                       f"{cf:.3f}",
                        f"{c.support.get(pred, 0):,}", esc(how_new)]
                       for i, (_, stem, pred, cf, _rank, how_new) in enumerate(head, 1)],
                      source="send_first_queue.csv")
