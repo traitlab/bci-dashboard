@@ -85,5 +85,6 @@ def test_wide_screens_put_map_and_plot_in_two_columns_and_narrow_ones_stack():
     css = re.search(r"@media\(min-width:1100px\)\{#locationsView:has\(#plotView:not\(\[hidden\]\)\)\{(.*?)\}", HTML).group(1)
     assert "grid-template-columns:repeat(2,minmax(0,1fr))" in css
     assert "#locationsView:has(#plotView:not([hidden]))>#plotView{grid-column:2" in HTML
+    assert "#locationsView:has(#plotView:not([hidden])) #closePlot{display:none}" in HTML.split("@media(min-width:1100px)")[1].split("\n")[0]
     assert HTML.index('id="mapView"') < HTML.index('id="plotView"') < HTML.index('id="mapHelp"')
     assert HTML.index('id="plotView"') < HTML.index('id="modelComparisonView"')
