@@ -117,7 +117,7 @@ def parse_args(argv=None):
                    metavar=("EXPLORER", "ATLAS", "CROWNFIRST"))
     p.add_argument("--out", type=Path, default=REPO / "data" / "thumbs" / "480")
     p.add_argument("--width", type=int, default=480)
-    p.add_argument("--quality", type=int, default=75)
+    p.add_argument("--quality", type=int, default=65)
     p.add_argument("--workers", type=int, default=6)
     p.add_argument("--limit", type=int, help="only the first N photos")
     return p.parse_args(argv)
