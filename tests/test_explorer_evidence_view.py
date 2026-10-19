@@ -160,7 +160,7 @@ def test_table_image_failures_do_not_change_selected_photo_or_other_evidence():
     run_browser(r"""
 const row=$('evidenceRows').children[0],image=row.children[0].children[0].children[1],status=row.children[0].children[0].children[0],original=JSON.stringify(photos);
 assert.equal(status.textContent,'Loading photo…');image.onload();assert.equal(status.hidden,true);
-image.onerror();assert.equal(image.hidden,true);assert.equal(status.textContent,'Photo unavailable');assert.equal(status.hidden,false);
+image.onerror();image.onerror();assert.equal(image.hidden,true);assert.equal(status.textContent,'Photo unavailable');assert.equal(status.hidden,false);
 assert.equal(state.frame,'a & ä /?.JPG');assert.equal(row.children[1].textContent,'Canopia alba');assert.equal(row.children[2].textContent,'Canopia lutea');assert.equal(JSON.stringify(photos),original);
 """, initial_hash='#layout=table')
 

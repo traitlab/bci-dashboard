@@ -140,7 +140,7 @@ def test_ranked_thumbnail_pending_failure_and_empty_states_are_explicit():
     run_atlas(map_photos(), r"""
 const preview=$('mapMatchList').children[0].children[0].children[1],status=preview.children[0],image=preview.children[1];
 assert.equal(image.loading,'lazy');assert.notEqual(image.hidden,true);assert.equal(status.textContent,'Loading photo');
-image.onload();assert.equal(status.hidden,true);image.onerror();assert.equal(image.hidden,true);assert.equal(status.hidden,false);assert.equal(status.textContent,'Photo unavailable');
+image.onload();assert.equal(status.hidden,true);image.onerror();image.onerror();assert.equal(image.hidden,true);assert.equal(status.hidden,false);assert.equal(status.textContent,'Photo unavailable');
 $('mapMissionMode').value='other';$('mapMissionMode').onchange();select(4);
 assert.equal($('mapMatchList').children.length,0);assert.equal($('mapMatchEmpty').hidden,false);assert.match($('mapMatchEmpty').textContent,/no recorded mission ID/);
 """)
