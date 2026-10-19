@@ -99,6 +99,30 @@ def test_bundle_rejects_unlisted_extra_or_corrupted_data_before_extracting(
     assert not destination.exists()
 
 
+def test_pack_round_trips_through_unpack_and_skips_unused_data(tmp_path):
+    data = tmp_path / "data"
+    for name in (*refresh.REQUIRED_FILES, "predictions/cache/a.json", "thumbs/t.webp"):
+        (data / name).parent.mkdir(parents=True, exist_ok=True)
+        (data / name).write_text(name)
+    (data / "gt_dominant_taxon.provenance.txt").write_text(" export of 2026-08-27 \n")
+    archive, destination = tmp_path / "input.tar.gz", tmp_path / "unpacked"
+    refresh.pack(data, archive)
+    refresh.unpack(archive, destination)
+    manifest = json.loads((destination / "input-manifest.json").read_text())
+    assert manifest["label_source"] == "export of 2026-08-27"
+    assert "data/predictions/cache/a.json" in manifest["files"]
+    assert not (destination / "data/thumbs").exists()
+    for name, checksum in manifest["files"].items():
+        assert refresh.digest(destination / name) == checksum
+
+
+def test_pack_names_missing_inputs_and_writes_nothing(tmp_path):
+    (tmp_path / "data").mkdir()
+    with pytest.raises(ValueError, match="splits.csv"):
+        refresh.pack(tmp_path / "data", tmp_path / "input.tar.gz")
+    assert not (tmp_path / "input.tar.gz").exists()
+
+
 def test_bundle_checks_total_size_before_writing_any_file(tmp_path, monkeypatch):
     archive, destination = tmp_path / "input.tar.gz", tmp_path / "unpacked"
     bundle(archive, "data/input.csv")
