@@ -127,7 +127,7 @@ function point(ctx,x,y,i,near,fill,rank=null){
 }
 
 // PLOT_HELPERS_START
-const PLOT_COLOURS=['#E69F00','#56B4E9','#009E73','#C9A800','#0072B2','#D55E00','#CC79A7','#882255','#8c8c8c','#cfd8dd'];
+const PLOT_COLOURS=['#E69F00','#56B4E9','#009E73','#A0A000','#0072B2','#D55E00','#CC79A7','#882255','#8c8c8c','#cfd8dd'];
 function plotted(p){return p.model_available!==false&&Array.isArray(p.xy)&&p.xy.length>=2&&p.xy.slice(0,2).every(Number.isFinite)}
 // Colour follows the label: the 8 most frequent recorded labels in the full data, fixed once.
 function plotTopLabels(points){const counts=new Map();for(const p of points)if(p.label&&plotted(p))counts.set(p.label,(counts.get(p.label)||0)+1);return [...counts].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,8).map(row=>row[0])}

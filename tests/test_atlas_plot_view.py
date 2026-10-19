@@ -12,7 +12,7 @@ for(const link of navLinks.filter(link=>link.getAttribute('data-site-task')))ass
 const back=location.hash;navLinks[4].onclick({button:0,preventDefault(){}});assert.equal(atlasView,'locations');assert.equal($('plotView').hidden,true);assert.equal(historyEntries.at(-1),'#frame=query&view=locations');
 location.hash=back;listeners.popstate();assert.equal(atlasView,'plot');assert.equal($('plotView').hidden,false);
 select(3);assert.equal(location.hash,'#frame=p3&view=plot');
-openPhotoComparison(0);$('chooseComparison').onclick();assert.equal(atlasView,'plot');assert.equal(document.activeElement,$('plotView'));
+select(0);$('inspectPhoto').focus();assert.equal(openPhotoComparison(0,$('inspectPhoto')),true);$('chooseComparison').onclick();assert.equal(atlasView,'plot');assert.equal(selected,1);assert.equal(document.activeElement,$('plotView'));
 """, initial_hash="#frame=query&view=plot", page="embedding-atlas.html")
 
 
