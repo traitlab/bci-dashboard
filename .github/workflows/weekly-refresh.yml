@@ -118,6 +118,19 @@ jobs:
               command += ['--export-date', date.today().isoformat()]
           subprocess.run(command, check=True)
           PY
+      - name: Add photo thumbnails from the thumbs-480 release
+        # Read-only. A missing release is not an error: the pages fall back to the original photo.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dir="$RUNNER_TEMP/thumbs"
+          mkdir -p "$dir"
+          if gh release download thumbs-480 --repo "$GITHUB_REPOSITORY" --pattern thumbs-480.tar --dir "$dir"; then
+            mkdir -p docs/thumbs/480
+            tar -xf "$dir/thumbs-480.tar" --no-same-owner -C docs/thumbs/480
+          else
+            echo "::warning::release thumbs-480 not found; publishing without thumbnails"
+          fi
       - name: Upload only the verified public site
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:

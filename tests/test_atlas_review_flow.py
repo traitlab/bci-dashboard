@@ -25,9 +25,9 @@ def test_main_pair_loads_first_and_strip_thumbnails_wait_for_it():
     assert '<img id="workspaceCandidateImage" alt="" fetchpriority="high"' in HTML
     run_atlas(strip_photos(), r"""
 const thumbs=()=>$('neighbors').children.map(li=>li.children[0].children[0]);
-assert.equal(thumbs().length,3);assert.equal(thumbs().every(t=>t.src===undefined&&/^https:/.test(t.getAttribute('data-src'))),true);
+assert.equal(thumbs().length,3);assert.equal(thumbs().every(t=>t.src===undefined&&/^thumbs\/480\//.test(t.getAttribute('data-src'))),true);
 $('photo').onload();assert.equal(thumbs().every(t=>t.src===undefined),true);
-$('workspaceCandidateImage').onerror();assert.deepEqual(thumbs().map(t=>t.src),['https://example.org/one.jpg','https://example.org/two.jpg','https://example.org/three.jpg']);
+$('workspaceCandidateImage').onerror();assert.deepEqual(thumbs().map(t=>t.src),['thumbs/480/one.webp','thumbs/480/two.webp','thumbs/480/three.webp']);
 """)
 
 

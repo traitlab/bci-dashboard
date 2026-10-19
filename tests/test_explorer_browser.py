@@ -212,7 +212,7 @@ setState({source:'recorded',taxon:'root-genus'});assert.deepEqual(matchingPhotoK
 
 def test_gallery_loading_and_failure_states_keep_photo_identity():
     run_browser(r"""
-const card=$('gallery').children[0],preview=card.children[0],message=preview.children[0],image=preview.children[1];assert.equal(message.hidden,false);assert.equal(message.textContent,'Loading photo…');assert.equal(image.hidden,false);assert.equal(image.loading,'lazy');image.onload();assert.equal(message.hidden,true);assert.equal(image.hidden,false);image.onerror();assert.equal(message.hidden,false);assert.equal(message.textContent,'Photo unavailable');assert.equal(image.hidden,true);assert.equal(card.getAttribute('data-frame'),'a & ä /?.JPG');assert.match(card.children[1].children.at(-1).textContent,/a & ä/);
+const card=$('gallery').children[0],preview=card.children[0],message=preview.children[0],image=preview.children[1];assert.equal(message.hidden,false);assert.equal(message.textContent,'Loading photo…');assert.equal(image.hidden,false);assert.equal(image.loading,'lazy');image.onload();assert.equal(message.hidden,true);assert.equal(image.hidden,false);image.onerror();assert.equal(image.hidden,false);image.onerror();assert.equal(message.hidden,false);assert.equal(message.textContent,'Photo unavailable');assert.equal(image.hidden,true);assert.equal(card.getAttribute('data-frame'),'a & ä /?.JPG');assert.match(card.children[1].children.at(-1).textContent,/a & ä/);
 """)
 
 
