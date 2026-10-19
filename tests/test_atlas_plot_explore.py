@@ -21,6 +21,9 @@ assert.deepEqual(pc.fills.slice(-3,-1),['#E69F00','#56B4E9']);assert.deepEqual(p
 const q=plotHits.find(h=>h[2]===0);assert.deepEqual(pc.lines,[[q[0],q[1]],plotHits.find(h=>h[2]===1).slice(0,2),[q[0],q[1]],plotHits.find(h=>h[2]===3).slice(0,2)]);
 assert.match($('plotExplanation').textContent,/two PCA components.*retained variance is not recorded.*recorded frame label, not independently verified ground truth.*not prove they are the same species/);
 data.provenance.pca_explained_variance=[.2,.1,.05];draw();assert.match($('plotExplanation').textContent,/retain 30.0% of embedding variance/);
+data.provenance.projection='t-SNE (openTSNE)';draw();assert.match($('plotExplanation').textContent,/t-SNE layout.*close matches.*Cluster sizes and the gaps between clusters do not show how different/);assert.doesNotMatch($('plotExplanation').textContent,/about/);
+data.provenance.projection_fidelity={knn_recall_at_10:.463,pca_knn_recall_at_10:.034};draw();assert.match($('plotExplanation').textContent,/about 46% of each photo.s 10 closest matches.*vs 3% with the old PCA layout/);
+data.provenance.projection='PCA';draw();assert.match($('plotExplanation').textContent,/two PCA components/);
 legend[1].onclick();assert.equal(plotFocus,1);assert.deepEqual(legend.map(b=>b.getAttribute('aria-pressed')),legend.map((_,i)=>String(i===1)));
 pc.fills=[];draw();assert.equal(pc.fills.filter(f=>f==='#56B4E9').length,2);assert.equal(pc.fills.filter(f=>f==='#E69F00').length,2);assert.equal(pc.fills.filter(f=>f==='#dde4e8').length,11);
 legend[1].onclick();assert.equal(plotFocus,null);assert.equal(legend.every(b=>b.getAttribute('aria-pressed')==='false'),true);
