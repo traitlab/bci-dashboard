@@ -55,10 +55,10 @@ def helpers():
     return template().split("// EXPLORER_HELPERS_START")[1].split("// EXPLORER_HELPERS_END")[0]
 
 
-def run_browser(checks, payload=None, initial_hash=""):
+def run_browser(checks, payload=None, initial_hash="", prelude=""):
     setup = r"""
 const assert=require('node:assert/strict'),elements=new Map(),listeners={},historyEntries=[];
-function make(tag='div') {return {tagName:tag,children:[],attributes:{},dataset:{},style:{},value:'',isConnected:true,clientWidth:600,clientHeight:450,scrollLeft:0,scrollTop:0,naturalWidth:0,naturalHeight:0,
+function make(tag='div') {return {tagName:tag,children:[],attributes:{},dataset:{},style:{setProperty(name,value){this[name]=value},removeProperty(name){delete this[name]}},value:'',isConnected:true,clientWidth:600,clientHeight:450,scrollLeft:0,scrollTop:0,naturalWidth:0,naturalHeight:0,
 append(...nodes){for(const n of nodes){if(n?.tagName==='fragment')this.append(...n.children);else this.children.push(n)}},replaceChildren(...nodes){this.children=[];this.append(...nodes)},setAttribute(name,value){this.attributes[name]=String(value)},getAttribute(name){return this.attributes[name]??null},removeAttribute(name){delete this.attributes[name];if(name==='src')delete this.src;if(name==='href')delete this.href},focus(){document.activeElement=this},scrollIntoView(){this.revealed=true},showModal(){this.open=true},close(){this.open=false;this.onclose?.()},remove(){this.removed=true},querySelector(selector){const match=selector.match(/data-taxon="([^"]*)"/);function find(n){if(match&&n.attributes?.['data-taxon']===match[1])return n;for(const child of n.children||[]){const found=find(child);if(found)return found}return null}return find(this)},get options(){return this.children}}}
 function get(id){if(!elements.has(id))elements.set(id,make());return elements.get(id)}
 global.document={getElementById:get,createElement:make,createDocumentFragment:()=>make('fragment'),activeElement:null};global.CSS={escape:value=>value};global.location={hash:__HASH__};global.history={pushState(_,__,hash){historyEntries.push(hash);location.hash=hash},replaceState(_,__,hash){historyEntries.push(hash);location.hash=hash}};global.window={matchMedia:()=>({matches:false,addEventListener(){}}),addEventListener(name,fn){listeners[name]=fn}};
@@ -66,7 +66,7 @@ get('explorer-data').textContent=__DATA__;
 for(const [id,values] of [['source',['prediction','recorded']],['labelStatus',['all','with','without','compare']]])for(const value of values){const option=make('option');option.value=value;get(id).append(option)}
 """.replace("__HASH__", json.dumps(initial_hash)).replace("__DATA__", json.dumps(json.dumps(payload or catalogue())))
     script = template().split("<script>")[1].split("</script>")[0]
-    node(setup + script + checks)
+    node(setup + prelude + script + checks)
 
 
 def test_taxon_membership_counts_compose_without_promoting_guesses_to_labels():
