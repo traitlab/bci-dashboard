@@ -171,6 +171,7 @@ def export_catalogue(data_root, plantnet_atlas=None):
                 "project": None,
                 "project_source": None,
                 "tied": False,
+                "original_name": None,
             },
         )
         metadata = row.get("metadata")

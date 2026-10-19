@@ -192,6 +192,16 @@ class Taxonomy:
             return found
         return None
 
+    def renamed(self, name):
+        """Taxon of the Labelbox option (current or retired name) called ``name``."""
+        for section in ("by_name", "by_legacy"):
+            value = self.keys.get(section, {}).get(name.casefold())
+            if value is not None:
+                key = self.prediction(value)
+                if key:
+                    return key
+        return None
+
     def recorded(self, label):
         if not label:
             return None, "missing"
@@ -219,12 +229,9 @@ class Taxonomy:
                 if key:
                     return key, "ok"
         lookup_name = "-".join(parts).strip()
-        for section in ("by_name", "by_legacy"):
-            value = self.keys.get(section, {}).get(lookup_name.casefold())
-            if value is not None:
-                key = self.prediction(value)
-                if key:
-                    return key, "ok"
+        key = self.renamed(lookup_name)
+        if key:
+            return key, "ok"
         if lookup_name.casefold() in self.by_name:
             key = self.by_name[lookup_name.casefold()]
             return key, "ok" if self.taxa[key]["parent"] else "unresolved"
@@ -299,6 +306,7 @@ def prediction_record(entry, taxonomy):
         "project": project,
         "project_source": source,
         "tied": False,
+        "original_name": None,
     }
     rows = entry.get("results")
     if isinstance(rows, dict):
@@ -331,9 +339,15 @@ def prediction_record(entry, taxonomy):
         return result
     name, score, gbif = candidates[0]
     taxon = taxonomy.prediction(gbif) if project == PROJECT else None
+    # Apply the botanists' Labelbox renames so guess and label share one naming scheme.
+    renamed = taxonomy.renamed(name) if taxon and name else None
+    original = name if renamed and renamed != taxon else None
+    if original:
+        taxon, name = renamed, taxonomy.taxa[renamed]["name"]
     result.update(
         status="ok" if taxon and name else "unresolved",
         name=name,
+        original_name=original,
         score=score,
         taxon=taxon,
         tied=len(candidates) > 1 and score == candidates[1][1],
