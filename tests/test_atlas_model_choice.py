@@ -144,7 +144,7 @@ def test_photo_without_model_data_stays_selected_mapped_and_inspectable():
         points,
         r"""
 assert.equal(P[selected].key,'query');assert.equal(recordedCrop(P[selected]),null);assert.deepEqual(photoPair.candidates,[]);assert.equal($('neighbors').children.length,0);assert.equal($('mapMatchList').children.length,0);
-for(const id of ['neighborSupport','workspaceCandidateEmpty','mapMatchEmpty'])assert.equal($(id).textContent,'Pl@ntNet matches unavailable for this photo');
+for(const id of ['neighborSupport','workspaceCandidateEmpty','mapMatchEmpty'])assert.equal($(id).textContent,'Pl@ntNet matches unavailable for this photo.');
 assert.equal($('workspaceEnlarge').disabled,true);assert.equal(openPhotoComparison(0),false);assert.equal(openPhotoComparison(),true);assert.equal(photoComparison.query,0);assert.equal($('comparisonCandidate').hidden,true);$('closePhotoComparison').onclick();
 draw();assert.equal(mapHits.some(row=>row[2]===0),true);assert.equal(plotHits.some(row=>row[2]===0),false);assert.equal(mapPointColour(P[0],0,1,'pca',new Map(),null),'#74858e');
 assert.equal(missionViewSupport(P,1,'all').eligible,1);assert.equal(missionViewSupport(P,1,'other').eligible,1);assert.deepEqual(storedPhotoCandidates(P,1),[[2,.123456789]]);
@@ -159,7 +159,7 @@ def test_unrecorded_frame_never_shows_another_photo_as_selected():
         [photo("query", "flight-a", [[1, 0.99]]), photo("candidate", "flight-b")],
         r"""
 assert.equal(P[selected].key,'not-recorded');assert.equal(P[selected].model_available,false);assert.equal($('key').textContent.includes('not-recorded'),true);assert.equal($('neighbors').children.length,0);assert.equal(mapHits.some(row=>row[2]===selected),false);
-assert.match($('linkStatus').textContent,/No replacement photo is selected/);assert.equal($('photo').getAttribute('src'),null);assert.equal($('neighborSupport').textContent,'Pl@ntNet matches unavailable for this photo');
+assert.match($('linkStatus').textContent,/No replacement photo is selected/);assert.equal($('photo').getAttribute('src'),null);assert.equal($('neighborSupport').textContent,'Pl@ntNet matches unavailable for this photo.');
 showAtlasView('locations');$('locate').onclick();$('fitMatches').onclick();assert.equal(P[selected].key,'not-recorded');assert.equal(new URLSearchParams(location.hash.slice(1)).get('frame'),'not-recorded');assert.match($('status').textContent,/2 of 2 frames/);assert.equal(visible.length,2);
 location.hash='#frame=another-unknown';listeners.hashchange();assert.equal(P.length,3);assert.equal(P[selected].key,'another-unknown');assert.equal(P.some(p=>p.key==='not-recorded'),false);assert.equal(visible.length,2);
 location.hash='#frame=query';listeners.hashchange();assert.equal(P.length,2);assert.equal(P[selected].key,'query');assert.equal(P.some(p=>p.inventory_available===false),false);
