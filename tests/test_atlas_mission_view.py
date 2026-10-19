@@ -81,12 +81,12 @@ def test_mission_toggle_updates_cards_rings_and_modal_without_changing_query():
 assert.equal(neighborMode,'all');assert.equal($('similarMissionMode').value,'all');assert.match($('similarModel').textContent,/Crownfirst test encoder/);
 assert.match($('neighborSupport').textContent,/2 of 2 stored matches.*5 other photos/);
 const allButton=$('neighbors').children[0].children[0];assert.match(allButton['aria-label'],/same-one.*0.990.*Same recorded mission/);
-context('map').arcs=[];context('plot').arcs=[];draw();assert.deepEqual(context('map').arcs,[3,3,3,10,10,7]);assert.deepEqual(context('plot').arcs,[3,3,3,10,10,7]);
+context('map').arcs=[];context('plot').arcs=[];draw();assert.deepEqual(context('map').arcs,[3,3,3,10,10,14,9]);assert.deepEqual(context('plot').arcs,[3,3,3,10,10,14,9]);
 allButton.onclick();$('workspaceEnlarge').onclick();assert.equal(photoComparison.mode,'all');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[1,.99],[2,.98]]);assert.match($('photoComparisonScore').textContent,/0.990/);$('closePhotoComparison').onclick();
 const initial={selected,hash:location.hash,view:{...view},visible,rows:$('results').children};browsePage=2;
 context('map').arcs=[];context('plot').arcs=[];$('similarMissionMode').value='other';$('similarMissionMode').focus();$('similarMissionMode').onchange();
 assert.equal(selected,initial.selected);assert.equal(location.hash,initial.hash+'&missions=other&atlasPage=3');assert.deepEqual(view,initial.view);assert.equal(visible,initial.visible);assert.equal(browsePage,2);assert.equal($('results').children,initial.rows);assert.equal(document.activeElement,$('similarMissionMode'));
-assert.deepEqual(context('map').arcs,[3,3,3,10,10,7]);assert.deepEqual(context('plot').arcs,[3,3,3,10,10,7]);
+assert.deepEqual(context('map').arcs,[3,3,3,10,10,14,9]);assert.deepEqual(context('plot').arcs,[3,3,3,10,10,14,9]);
 assert.match($('neighborSupport').textContent,/2 of 2 stored matches.*2 photos with other recorded mission IDs/);
 const otherButton=$('neighbors').children[0].children[0];assert.match(otherButton['aria-label'],/other-one.*0.880.*Other recorded mission/);otherButton.onclick();$('workspaceEnlarge').onclick();
 assert.equal(photoComparison.mode,'other');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[3,.88],[4,.77]]);assert.match($('photoComparisonContext').textContent,/Exclude selected flight.*do not prove different trees/);assert.match($('photoComparisonScore').textContent,/0.880/);
@@ -105,7 +105,7 @@ def test_missing_mission_and_old_payloads_never_fall_back_to_all_missions():
     run_atlas(points, r"""
 $('similarMissionMode').value='other';$('similarMissionMode').onchange();select(2);
 assert.equal(neighborMode,'other');assert.equal($('neighbors').children.length,0);assert.match($('neighborSupport').textContent,/unavailable.*no recorded mission ID/);assert.equal(openPhotoComparison(0),false);
-context('map').arcs=[];context('plot').arcs=[];draw();assert.deepEqual(context('map').arcs,[3,3,7]);assert.deepEqual(context('plot').arcs,[3,3,7]);
+context('map').arcs=[];context('plot').arcs=[];draw();assert.deepEqual(context('map').arcs,[3,3,14,9]);assert.deepEqual(context('plot').arcs,[3,3,14,9]);
 $('inspectPhoto').onclick();assert.equal($('photoComparison').open,true);assert.equal(photoComparison.mode,'other');assert.equal($('comparisonCandidate').hidden,true);$('closePhotoComparison').onclick();
 select(1);assert.equal(neighborMode,'other');assert.equal($('neighbors').children.length,0);assert.match($('neighborSupport').textContent,/unavailable.*no stored other-mission ranking/);assert.equal(openPhotoComparison(0),false);
 $('similarMissionMode').value='all';$('similarMissionMode').onchange();assert.equal($('neighbors').children.length,1);assert.match($('neighbors').children[0].children[0]['aria-label'],/query.*Same recorded mission/);
