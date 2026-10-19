@@ -86,41 +86,46 @@ c.provenance.predictions.available=false;assert.deepEqual(matchingPhotoKeys(c,s)
 
 def test_label_option_counts_are_prospective_and_compose_with_source_taxon_and_search():
     run_browser(r"""
+function root(source){return $('taxonomy').children.find(n=>n.getAttribute?.('data-root')===source)}
 function counts(){return Object.fromEntries($('labelStatus').options.map(o=>[o.value,Number(o.textContent.match(/\((\d+)\)$/)[1])]))}
 assert.deepEqual(counts(),{all:6,with:5,without:1,compare:1});
 setState({taxon:'s',search:'flight-a'});
 assert.deepEqual(counts(),{all:2,with:1,without:1,compare:0});
-const options=Array.from($('labelStatus').options),sourceOptions=Array.from($('source').options);
+const options=Array.from($('labelStatus').options);
 $('labelStatus').focus();$('labelStatus').value='without';$('labelStatus').onchange();
 assert.deepEqual(counts(),{all:2,with:1,without:1,compare:0});assert.equal($('labelStatus').value,'without');
 assert.equal(document.activeElement,$('labelStatus'));assert.deepEqual($('labelStatus').options,options);
 assert.match($('resultCount').textContent,/1 of 6/);assert.match($('outsideNotice').textContent,/outside these filters/);
 assert.equal($('gallery').children.length,2);assert.equal(state.frame,'a & ä /?.JPG');
-$('source').focus();$('source').value='recorded';$('source').onchange();
-assert.deepEqual(counts(),{all:1,with:1,without:0,compare:1});assert.equal($('source').value,'recorded');
-assert.equal(document.activeElement,$('source'));assert.deepEqual($('source').options,sourceOptions);
+root('recorded').focus();root('recorded').onclick();assert.equal(state.source,'recorded');assert.equal(state.taxon,'any');
+assert.deepEqual(counts(),{all:4,with:4,without:0,compare:1});assert.equal(root('recorded').getAttribute('aria-current'),'true');
+assert.equal(document.activeElement,root('recorded'));
 assert.equal($('labelStatus').value,'without');assert.match($('resultCount').textContent,/0 of 6/);
 assert.equal($('gallery').children.length,1);
-setState({status:'with'});assert.deepEqual(counts(),{all:1,with:1,without:0,compare:1});
+setState({status:'with'});assert.deepEqual(counts(),{all:4,with:4,without:0,compare:1});
 setState({search:'no photo matches'});assert.deepEqual(counts(),{all:0,with:0,without:0,compare:0});
 assert.equal($('gallery').children.length,1);assert.match($('resultCount').textContent,/0 of 6/);
 """)
 
 
-def test_source_option_counts_describe_catalogue_evidence_without_filtering_out_missing_taxa():
+def test_taxon_roots_filter_by_source_and_split_the_filtered_population():
     data = catalogue()
     data['photos'][4]['prediction'].update(status='unresolved', name='Unresolved first name')
     data['photos'].append({**data['photos'][3], 'key': 'whitespace', 'label': ' \t ', 'prediction': {'status': 'missing', 'name': None}})
     run_browser(r"""
-function sources(){return $('source').options.map(o=>o.textContent)}
-const coverage=sourceCoverage(catalogue);assert.deepEqual(coverage,{prediction:5,recorded:5});
+function root(source){return $('taxonomy').children.find(n=>n.getAttribute?.('data-root')===source)}
 assert.deepEqual(labelStatusCounts(catalogue,state),{all:7,with:5,without:2,compare:1});
-const baseline=sources();assert.match(baseline[0],/\(5\)/);assert.match(baseline[1],/\(5\)/);
+assert.equal(root('recorded').children[1].textContent,'4');assert.equal(root('prediction').children[1].textContent,'4');assert.equal(root('recorded').getAttribute('aria-current'),'false');
 setState({source:'recorded',status:'with'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['a & ä /?.JPG','b','c','e','z']);
-setState({taxon:'f',search:'no matches',status:'without'});assert.deepEqual(sources(),baseline);
+setState({taxon:'f',search:'no matches',status:'without'});assert.equal(root('recorded').children[1].textContent,'0');
 setState({taxon:'',search:'',status:'all'});assert.equal(matchingPhotoKeys(catalogue,state).length,7);
 setState({source:'prediction',taxon:'unassigned'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['c','e','whitespace']);
-assert.deepEqual(sources(),baseline);assert.deepEqual(labelStatusCounts(catalogue,state),{all:3,with:2,without:1,compare:0});
+assert.equal($('browseTitle').textContent,'No Pl@ntNet guess or unresolved name');assert.match($('sourceHelp').textContent,/Taxa below use the Pl@ntNet first guess/);
+setState({taxon:'any'});assert.equal($('browseTitle').textContent,'Any Pl@ntNet taxon');assert.deepEqual(matchingPhotoKeys(catalogue,state).filter(k=>['c','e','whitespace'].includes(k)),[]);assert.equal(matchingPhotoKeys(catalogue,state).length,4);
+setState({source:'recorded'});assert.equal($('browseTitle').textContent,'Any recorded taxon');assert.deepEqual(matchingPhotoKeys(catalogue,state),['a & ä /?.JPG','b','c','z']);assert.equal(taxonCounts(catalogue,state).get('any'),4);assert.equal(taxonCounts(catalogue,state).get('unassigned'),3);
+setState({status:'without'});assert.equal(taxonCounts(catalogue,state).get('any'),0);assert.equal(matchingPhotoKeys(catalogue,state).length,0);assert.match($('activeFilters').children[0].textContent,/^Taxon \(recorded label\): Any recorded taxon/);
+setState({taxon:'unassigned',status:'all'});assert.equal($('browseTitle').textContent,'No recorded label or unresolved name');assert.match($('sourceHelp').textContent,/Taxa below use the recorded label/);setState({source:'prediction'});
+assert.deepEqual(labelStatusCounts(catalogue,state),{all:3,with:2,without:1,compare:0});
 """, payload=data)
 
 
@@ -128,19 +133,17 @@ def test_count_helpers_preserve_explicit_unavailable_sources_and_empty_populatio
     data = catalogue()
     data['provenance']['predictions']['available'] = False
     run_browser(r"""
-assert.deepEqual(sourceCoverage(catalogue),{prediction:0,recorded:5});
 assert.deepEqual(labelStatusCounts(catalogue,state),{all:0,with:0,without:0,compare:0});
-assert.match($('source').options[0].textContent,/\(0, unavailable\)/);
-assert.equal(state.source,'prediction');assert.equal($('source').value,'prediction');
+function root(source){return $('taxonomy').children.find(n=>n.getAttribute?.('data-root')===source)}
+assert.equal(root('prediction').disabled,true);assert.equal(root('prediction').children[0].textContent,'Pl@ntNet guesses unavailable');
+assert.equal(state.source,'prediction');
 setState({source:'recorded'});assert.deepEqual(labelStatusCounts(catalogue,state),{all:6,with:5,without:1,compare:0});
 setState({source:'unsupported'});assert.deepEqual(labelStatusCounts(catalogue,state),{all:0,with:0,without:0,compare:0});
-assert.equal(state.source,'unsupported');assert.equal($('source').value,'unsupported');
-assert.match($('source').options.at(-1).textContent,/Unavailable source: unsupported/);
+assert.equal(state.source,'unsupported');assert.match($('stateNotice').textContent,/taxon source unavailable/);
 assert.equal(state.frame,'a & ä /?.JPG');
 """, payload=data)
     data['photos'] = []
     run_browser(r"""
-assert.deepEqual(sourceCoverage(catalogue),{prediction:0,recorded:0});
 assert.deepEqual(labelStatusCounts(catalogue,state),{all:0,with:0,without:0,compare:0});
 assert.equal($('gallery').children.length,0);assert.equal(state.frame,'');
 for(const option of $('labelStatus').options)assert.match(option.textContent,/\(0\)$/);
@@ -224,16 +227,16 @@ const family=$('taxonomy').querySelector('[data-taxon="f"]'),disclosure=$('taxon
 
 def test_breadcrumb_focus_and_unavailable_source_do_not_select_a_new_photo():
     run_browser(r"""
-chooseTaxon('s');const family=$('breadcrumbs').children.find(n=>n.getAttribute('data-crumb')==='f');family.focus();family.onclick();assert.equal(state.taxon,'f');assert.equal(document.activeElement,$('breadcrumbs').children.find(n=>n.getAttribute('data-crumb')==='f'));const selected=state.frame;setState({source:'unsupported'});assert.equal(state.frame,selected);assert.match($('stateNotice').textContent,/source unavailable/);const copy=$('gallery').children[0].children[1];assert.equal(copy.children[1].textContent,'Selected photo');assert.equal(copy.children[2].textContent,'Grouping source unavailable');
+chooseTaxon('s');const family=$('breadcrumbs').children.find(n=>n.getAttribute('data-crumb')==='f');family.focus();family.onclick();assert.equal(state.taxon,'f');assert.equal(document.activeElement,$('breadcrumbs').children.find(n=>n.getAttribute('data-crumb')==='f'));const selected=state.frame;setState({source:'unsupported'});assert.equal(state.frame,selected);assert.match($('stateNotice').textContent,/source unavailable/);const copy=$('gallery').children[0].children[1];assert.equal(copy.children[1].textContent,'Canopia alba');assert.equal(copy.children[2].textContent,'Recorded label');
 """)
 
 
 def test_url_history_restores_source_taxon_search_and_identity_without_fallback():
     run_browser(r"""
 const first=state.frame;setState({source:'recorded',taxon:'f',search:'flight',status:'with',frame:'c'});const saved=location.hash;setState({source:'prediction',taxon:'s',search:'',status:'without',frame:'d'});
-location.hash=saved;listeners.popstate();assert.deepEqual(state,{source:'recorded',taxon:'f',search:'flight',status:'with',frame:'c',page:0});assert.equal($('source').value,'recorded');assert.equal($('selectedImage').src,'https://example.org/c.jpg');assert.equal($('breadcrumbs').children.at(-1).textContent,'Forestaceae');
+location.hash=saved;listeners.popstate();assert.deepEqual(state,{source:'recorded',taxon:'f',search:'flight',status:'with',frame:'c',page:0});assert.equal($('taxonomy').children.find(n=>n.className==='taxa-heading').textContent,'Recorded label taxa');assert.equal($('selectedImage').src,'https://example.org/c.jpg');assert.equal($('breadcrumbs').children.at(-1).textContent,'Forestaceae');
 const special={...state,frame:first,search:'à & /? #',taxon:'s'};assert.deepEqual(readExplorerState(explorerHash(special),photos),special);
-location.hash='#source=absent&taxon=not-here&frame=absent';listeners.hashchange();assert.equal(state.frame,'absent');assert.match($('selectedUnavailable').textContent,/Requested photo unavailable/);assert.match($('stateNotice').textContent,/grouping source unavailable.*taxon unavailable.*No replacement/);assert.equal($('gallery').children.length,0);assert.equal($('selectedImageFrame').hidden,true);
+location.hash='#source=absent&taxon=not-here&frame=absent';listeners.hashchange();assert.equal(state.frame,'absent');assert.match($('selectedUnavailable').textContent,/Requested photo unavailable/);assert.match($('stateNotice').textContent,/taxon source unavailable.*taxon unavailable.*No replacement/);assert.equal($('gallery').children.length,0);assert.equal($('selectedImageFrame').hidden,true);
 """)
 
 
