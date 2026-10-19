@@ -58,7 +58,15 @@ jobs:
       - name: Install the fetch client and pinned assessment libraries
         # crownfirst requires Python 3.13. Its compatible labelfirst[parquet]
         # dependency is pinned to 3721bdab143b2c8bd58a1ebabebd2d57b0d5b3ff.
+        # Both repos are private: a read-only token covering them lets pip clone.
+        env:
+          TRAITLAB_READ_TOKEN: ${{ secrets.TRAITLAB_READ_TOKEN }}
         run: |
+          if [ -z "$TRAITLAB_READ_TOKEN" ]; then
+            echo '::error::TRAITLAB_READ_TOKEN is not set; pip cannot clone private traitlab/crownfirst and traitlab/labelfirst. The live snapshot is retained.'
+            exit 1
+          fi
+          git config --global url."https://x-access-token:${TRAITLAB_READ_TOKEN}@github.com/traitlab/".insteadOf "https://github.com/traitlab/"
           python -m pip install -r requirements-predict.txt \
             'crownfirst @ git+https://github.com/traitlab/crownfirst.git@48dec6b91e762902bac9fe245494c5bda61fe45e'
       - name: Download, verify, decrypt, and validate the private baseline
