@@ -25,7 +25,6 @@ import core as hc
 import figures
 import landing
 import page as pg
-import reference
 import snapshot_delta
 from assets import esc
 from history import fail, verify_snapshot
@@ -74,10 +73,8 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     # against, the species by status, and the review list. Everything that
     # qualifies them is a panel below.
     P = [f'<h1>{esc(TITLE)}</h1>',
-         f'<div class="subtitle">refreshed {esc(generated)} &middot; Labelbox labels merged {esc(c.snap_date)} &middot; '
-         f'Pl@ntNet model {esc(c.tag)} '
-         f'&middot; {c.n:,} frames scored against {esc(reference.WORDS[c.reference])} '
-         f'&middot; {c.n_sp} species</div>',
+         (f'<div class="subtitle">refreshed {esc(generated)} &middot; Labelbox labels merged {esc(c.snap_date)} &middot; '
+          f'Pl@ntNet model {esc(c.tag)}</div>'),
          landing.landing(c)]
     P.append(pg.render(c, pg.EXTERNAL_PANELS))
     P.append(pg.footer(c))
