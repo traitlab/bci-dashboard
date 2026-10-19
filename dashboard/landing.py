@@ -42,7 +42,8 @@ BAR = "#1565c0"
 def intro(c) -> str:
     """What is measured, on what, and why the model has not seen our labels."""
     return (f'<p class="intro">How often Pl@ntNet names the tree a botanist labelled, '
-            f'over {c.n:,} drone frames of {c.n_sp} species. The model dates from '
+            f'over {c.n:,} drone frames of {c.n_sp} species, scored against '
+            f'{esc(reference.WORDS[c.reference])}. The model dates from '
             f'{esc(hc.plantnet_version_words())}, before any BCI label was sent to '
             f'Pl@ntNet. What to label next is on the '
             f'<a href="label_queue_dashboard.html">label queue page</a>.</p>')
