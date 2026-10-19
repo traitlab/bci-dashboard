@@ -76,3 +76,16 @@ def test_toolbar_chooser_name_and_small_link_targets():
     assert 'aria-controls="browsePhotos">Choose photo</button>' in html
     assert "Browse photos" not in html
     assert ".matching-context a,#experimentalMatching nav a,#advanced nav a{display:inline-flex;align-items:center;min-height:44px}" in html
+
+
+def test_image_viewports_scroll_horizontally_with_arrow_keys_only_when_overflowing():
+    run_atlas([photo("query", "flight-a", [])], r"""
+for(const prefix of ['comparisonQuery','comparisonCandidate','sharedQuery','sharedCandidate']){const VIEW=$(prefix+'Viewport');const ev=(key,extra={})=>({key,prevented:false,preventDefault(){this.prevented=true},...extra});
+VIEW.scrollWidth=4000;VIEW.scrollLeft=100;
+let e=ev('ArrowRight');VIEW.onkeydown(e);assert.equal(VIEW.scrollLeft,140);assert.equal(e.prevented,true);
+e=ev('ArrowLeft');VIEW.onkeydown(e);assert.equal(VIEW.scrollLeft,100);assert.equal(e.prevented,true);
+e=ev('ArrowDown');VIEW.onkeydown(e);assert.equal(VIEW.scrollLeft,100);assert.equal(e.prevented,false);
+e=ev('ArrowRight',{shiftKey:true});VIEW.onkeydown(e);assert.equal(VIEW.scrollLeft,100);assert.equal(e.prevented,false);
+VIEW.scrollWidth=VIEW.clientWidth;e=ev('ArrowRight');VIEW.onkeydown(e);assert.equal(VIEW.scrollLeft,100);assert.equal(e.prevented,false);
+}
+""")

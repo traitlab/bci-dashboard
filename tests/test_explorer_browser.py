@@ -362,3 +362,15 @@ def test_out_of_range_page_is_clamped_in_the_url_without_a_new_entry():
     run_browser(r"""
 assert.equal(state.page,0);assert.equal(new URLSearchParams(location.hash.slice(1)).has('page'),false);assert.equal(new URLSearchParams(location.hash.slice(1)).get('taxon'),'f');assert.equal(historyEntries.length,1);
 """, initial_hash='#taxon=f&page=9999')
+
+
+def test_detail_viewport_arrow_keys_scroll_horizontally_only_when_overflowing():
+    run_browser(r"""
+const ev=(key,extra={})=>({key,prevented:false,preventDefault(){this.prevented=true},...extra});
+$('detailViewport').scrollWidth=4000;$('detailViewport').scrollLeft=100;
+let e=ev('ArrowRight');$('detailViewport').onkeydown(e);assert.equal($('detailViewport').scrollLeft,140);assert.equal(e.prevented,true);
+e=ev('ArrowLeft');$('detailViewport').onkeydown(e);assert.equal($('detailViewport').scrollLeft,100);assert.equal(e.prevented,true);
+e=ev('ArrowDown');$('detailViewport').onkeydown(e);assert.equal($('detailViewport').scrollLeft,100);assert.equal(e.prevented,false);
+e=ev('ArrowRight',{shiftKey:true});$('detailViewport').onkeydown(e);assert.equal($('detailViewport').scrollLeft,100);assert.equal(e.prevented,false);
+$('detailViewport').scrollWidth=$('detailViewport').clientWidth;e=ev('ArrowRight');$('detailViewport').onkeydown(e);assert.equal($('detailViewport').scrollLeft,100);assert.equal(e.prevented,false);
+""")
