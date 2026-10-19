@@ -45,10 +45,10 @@ assert.deepEqual(matchingPhotoKeys(catalogue,state),['p0','p1','p2','p4']);
 assert.equal(taxonCounts(catalogue,state).get('s'),4);assert.equal(labelStatusCounts(catalogue,state).compare,4);
 setState({minConfidence:'.41210'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['p1','p2','p4']);
 assert.equal(state.frame,'p0');assert.match($('outsideNotice').textContent,/outside these filters/);
-setState({minConfidence:'0'});assert.equal(matchingPhotoKeys(catalogue,state).length,5);
+setState({minConfidence:'0'});assert.equal(matchingPhotoKeys(catalogue,state).length,5+3);setState({minConfidence:'.01'});assert.equal(matchingPhotoKeys(catalogue,state).length,4);
 setState({minConfidence:'1'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['p4']);
 setState({minConfidence:'',confidence:'missing'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['p5','p6','p7']);
-setState({minConfidence:'0'});assert.deepEqual(matchingPhotoKeys(catalogue,state),[]);assert.match($('confidenceHelp').textContent,/missing scores do not satisfy a minimum/);
+setState({minConfidence:'.5'});assert.deepEqual(matchingPhotoKeys(catalogue,state),[]);assert.match($('confidenceHelp').textContent,/missing scores do not satisfy a narrowed range/);setState({minConfidence:'0',maxConfidence:'1'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['p5','p6','p7']);setState({minConfidence:'',maxConfidence:''});
 setState({minConfidence:'',confidence:'scored'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['p0','p1','p2','p3','p4']);
 catalogue.provenance.predictions.available=false;setState({status:'all',confidence:'missing'});assert.equal(matchingPhotoKeys(catalogue,state).length,8);
 """, payload=confidence_catalogue(), initial_hash='#frame=p0')
@@ -100,7 +100,7 @@ input.value='abc';input.oninput();assert.equal(state.minConfidence,'0.9');input.
 assert.equal(state.minConfidence,'0.9');assert.equal(input.value,'0.9');assert.equal(input.getAttribute('aria-invalid'),'true');assert.equal(error.hidden,false);assert.match(error.textContent,/number from 0 to 1/);
 assert.equal(other.getAttribute('aria-invalid'),null);assert.match($('resultCount').textContent,/^3 of 8/);assert.equal(new URLSearchParams(location.hash.slice(1)).get('minConfidence'),'0.9');
 input.value='0,41209';input.oninput();assert.equal(state.minConfidence,'0.41209');assert.equal(input.getAttribute('aria-invalid'),null);assert.equal(error.hidden,true);
-setState({minConfidence:''});input.value='1,5';input.onchange();assert.equal(state.minConfidence,'');assert.equal(input.value,'');assert.equal(input.getAttribute('aria-invalid'),'true');
+setState({minConfidence:''});input.value='1,5';input.onchange();assert.equal(state.minConfidence,'');assert.equal(input.value,'0');assert.equal(input.getAttribute('aria-invalid'),'true');
 """.replace('__FIELD__', repr(field)), payload=confidence_catalogue())
 
 
@@ -112,9 +112,9 @@ def test_only_without_score_checkbox_replaces_the_score_select_and_disables_the_
 setState({minConfidence:'.5'});$('missingScore').checked=true;$('missingScore').onchange();
 assert.equal(state.confidence,'missing');assert.equal(state.minConfidence,'');assert.deepEqual(matchingPhotoKeys(catalogue,state),['p5','p6','p7']);
 assert.equal(new URLSearchParams(location.hash.slice(1)).get('confidence'),'missing');
-for(const id of ['minConfidence','filterConfidence'])assert.equal($(id).disabled,true);assert.match($('confidenceHelp').textContent,/missing scores do not satisfy a minimum/);
+for(const id of ['minConfidence','maxConfidence','filterConfidence','filterMaxConfidence'])assert.equal($(id).disabled,true);assert.match($('confidenceHelp').textContent,/missing scores do not satisfy a narrowed range/);
 $('missingScore').checked=false;$('missingScore').onchange();assert.equal(state.confidence,'all');assert.equal(matchingPhotoKeys(catalogue,state).length,8);
-for(const id of ['minConfidence','filterConfidence'])assert.equal($(id).disabled,false);assert.equal($('confidenceHelp').textContent.includes('missing scores'),false);
+for(const id of ['minConfidence','maxConfidence','filterConfidence','filterMaxConfidence'])assert.equal($(id).disabled,false);assert.equal($('confidenceHelp').textContent.includes('missing scores'),false);
 """, payload=confidence_catalogue())
     run_browser(r"""
 assert.equal($('missingScore').checked,true);assert.equal($('minConfidence').disabled,true);assert.deepEqual(matchingPhotoKeys(catalogue,state),['p5','p6','p7']);
@@ -127,3 +127,46 @@ assert.deepEqual(matchingPhotoKeys(catalogue,state),['p0','p1','p2','p3','p4']);
 const chip=$('activeFilters').children.find(button=>button.getAttribute('data-filter')==='confidence');assert.match(chip.textContent,/Has score/);
 chip.onclick();assert.equal(state.confidence,'all');assert.equal(matchingPhotoKeys(catalogue,state).length,8);assert.equal(new URLSearchParams(location.hash.slice(1)).has('confidence'),false);
 """, payload=confidence_catalogue(), initial_hash='#confidence=scored')
+
+
+def test_score_range_defaults_keep_unscored_photos_and_narrowing_drops_them():
+    html = runpy.run_path(ROOT / 'dashboard/explorer_assets.py')['HTML']
+    for field, value in [('minConfidence', '0'), ('maxConfidence', '1')]:
+        assert f'<input id="{field}" type="text" inputmode="decimal" value="{value}"' in html
+    run_browser(r"""
+assert.equal($('minConfidence').value,'0');assert.equal($('maxConfidence').value,'1');assert.equal($('filterConfidence').value,'0');assert.equal($('filterMaxConfidence').value,'1');
+assert.equal(matchingPhotoKeys(catalogue,state).length,8);assert.equal(explorerHash(state).includes('Confidence'),false);
+setState({minConfidence:'0',maxConfidence:'1'});assert.equal(matchingPhotoKeys(catalogue,state).length,8);assert.equal(explorerHash(state).includes('Confidence'),false);
+setState({minConfidence:'',maxConfidence:'.9'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['p0','p1','p2','p3']);
+setState({maxConfidence:'.41209'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['p0','p3']);
+setState({minConfidence:'.9',maxConfidence:'.9'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['p1','p2']);
+setState({minConfidence:'0',maxConfidence:'.5'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['p0','p3']);
+assert.match(new URLSearchParams(explorerHash(state).slice(1)).get('maxConfidence'),/^.5$/);
+const chips=$('activeFilters').children.map(button=>button.getAttribute('data-filter')).filter(Boolean);assert.deepEqual(chips,['maxConfidence']);
+$('activeFilters').children[0].onclick();assert.equal(state.maxConfidence,'');assert.equal(matchingPhotoKeys(catalogue,state).length,8);
+""", payload=confidence_catalogue())
+
+
+def test_lower_above_upper_is_rejected_inline_and_never_committed():
+    run_browser(r"""
+for(const [id,other] of [['minConfidence','maxConfidence'],['filterConfidence','filterMaxConfidence']]){
+setState({minConfidence:'',maxConfidence:'.5'});$(id).value='.8';$(id).oninput();assert.equal(state.minConfidence,'');
+$(id).onchange();assert.equal(state.minConfidence,'');assert.equal($(id).value,'0');assert.equal($(id).getAttribute('aria-invalid'),'true');
+assert.match($(id+'Error').textContent,/lower score must not be above the upper/);assert.equal($(id+'Error').hidden,false);
+$(id).value='.2';$(id).oninput();assert.equal(state.minConfidence,'.2');assert.equal($(id).getAttribute('aria-invalid'),null);assert.equal($(id+'Error').hidden,true)}
+setState({minConfidence:'',maxConfidence:'.5'});$('maxConfidence').value='-1';$('maxConfidence').onchange();assert.match($('maxConfidenceError').textContent,/number from 0 to 1/);assert.equal(state.maxConfidence,'.5');
+""", payload=confidence_catalogue())
+    run_browser(r"""
+assert.deepEqual(matchingPhotoKeys(catalogue,state),[]);assert.match($('stateNotice').textContent,/confidence controls unavailable/);
+""", payload=confidence_catalogue(), initial_hash='#source=recorded&frame=p0&minConfidence=.8&maxConfidence=.2')
+
+
+def test_old_minimum_link_reads_as_the_lower_bound_and_upper_bound_roundtrips():
+    run_browser(r"""
+assert.equal(state.minConfidence,'.9');assert.equal($('minConfidence').value,'.9');assert.equal($('maxConfidence').value,'1');
+assert.deepEqual(matchingPhotoKeys(catalogue,state),['p1','p2','p4']);
+$('maxConfidence').value='.95';$('maxConfidence').oninput();assert.deepEqual(matchingPhotoKeys(catalogue,state),['p1','p2']);
+const saved=location.hash;assert.match(saved,/minConfidence=.9/);assert.match(saved,/maxConfidence=.95/);
+const context=new URLSearchParams(new URL($('cameraLocations').href,'https://example.org').hash.slice(1)).get('browse');assert.equal(new URLSearchParams(context).get('maxConfidence'),'.95');
+setState({minConfidence:'',maxConfidence:''});location.hash=saved;listeners.popstate();assert.equal(state.maxConfidence,'.95');assert.equal($('maxConfidence').value,'.95');
+""", payload=confidence_catalogue(), initial_hash='#minConfidence=.9')
