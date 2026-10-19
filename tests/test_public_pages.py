@@ -58,7 +58,10 @@ def test_public_page_structure(synthetic_page, contract):
 
 def test_public_page_numbers_have_an_independent_oracle(synthetic_page):
     html, _, carries = synthetic_page
-    assert re.search(r"33 (?:drone )?frames[^<]*?scored against the reviewed publication labels", html)
+    assert re.search(
+        r"33 (?:drone )?frames[^<]*?scored against the reviewed publication labels",
+        html,
+    )
     if "species_status" not in carries:
         assert not species_rows(html)
         first_batch = re.search(
