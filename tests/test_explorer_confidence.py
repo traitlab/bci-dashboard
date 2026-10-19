@@ -86,7 +86,7 @@ def test_minimum_applies_while_typing_and_waits_for_a_valid_value():
 $('minConfidence').value='.9';$('minConfidence').oninput();assert.equal(state.minConfidence,'.9');assert.deepEqual(matchingPhotoKeys(catalogue,state),['p1','p2','p4']);
 const cards=$('gallery').children;$('minConfidence').onchange();assert.equal($('gallery').children,cards);
 $('minConfidence').value='.';$('minConfidence').oninput();assert.equal(state.minConfidence,'.9');assert.equal($('stateNotice').textContent.includes('confidence controls unavailable'),false);
-$('minConfidence').onchange();assert.equal(state.minConfidence,'.9');assert.equal($('minConfidence').value,'.9');assert.equal($('stateNotice').textContent.includes('confidence controls unavailable'),false);
+$('minConfidence').onchange();assert.equal(state.minConfidence,'.9');assert.equal($('minConfidence').value,'.');assert.equal($('stateNotice').textContent.includes('confidence controls unavailable'),false);
 $('minConfidence').value='';$('minConfidence').oninput();assert.equal(state.minConfidence,'');assert.equal(matchingPhotoKeys(catalogue,state).length,8);
 """, payload=confidence_catalogue())
 
@@ -97,10 +97,10 @@ def test_minimum_accepts_comma_decimals_and_never_commits_an_invalid_value(field
 const input=$(__FIELD__),other=$(__FIELD__==='minConfidence'?'filterConfidence':'minConfidence'),error=$(__FIELD__+'Error');
 input.value='0,9';input.oninput();assert.equal(state.minConfidence,'0.9');assert.deepEqual(matchingPhotoKeys(catalogue,state),['p1','p2','p4']);assert.equal(other.value,'0.9');
 input.value='abc';input.oninput();assert.equal(state.minConfidence,'0.9');input.onchange();
-assert.equal(state.minConfidence,'0.9');assert.equal(input.value,'0.9');assert.equal(input.getAttribute('aria-invalid'),'true');assert.equal(error.hidden,false);assert.match(error.textContent,/number from 0 to 1/);
+assert.equal(state.minConfidence,'0.9');assert.equal(input.value,'abc');assert.equal(input.getAttribute('aria-invalid'),'true');assert.equal(error.hidden,false);assert.match(error.textContent,/number from 0 to 1/);
 assert.equal(other.getAttribute('aria-invalid'),null);assert.match($('resultCount').textContent,/^3 of 8/);assert.equal(new URLSearchParams(location.hash.slice(1)).get('minConfidence'),'0.9');
 input.value='0,41209';input.oninput();assert.equal(state.minConfidence,'0.41209');assert.equal(input.getAttribute('aria-invalid'),null);assert.equal(error.hidden,true);
-setState({minConfidence:''});input.value='1,5';input.onchange();assert.equal(state.minConfidence,'');assert.equal(input.value,'0');assert.equal(input.getAttribute('aria-invalid'),'true');
+setState({minConfidence:''});input.value='1,5';input.onchange();assert.equal(state.minConfidence,'');assert.equal(input.value,'1,5');assert.equal(input.getAttribute('aria-invalid'),'true');
 """.replace('__FIELD__', repr(field)), payload=confidence_catalogue())
 
 
@@ -151,7 +151,7 @@ def test_lower_above_upper_is_rejected_inline_and_never_committed():
     run_browser(r"""
 for(const [id,other] of [['minConfidence','maxConfidence'],['filterConfidence','filterMaxConfidence']]){
 setState({minConfidence:'',maxConfidence:'.5'});$(id).value='.8';$(id).oninput();assert.equal(state.minConfidence,'');
-$(id).onchange();assert.equal(state.minConfidence,'');assert.equal($(id).value,'0');assert.equal($(id).getAttribute('aria-invalid'),'true');
+$(id).onchange();assert.equal(state.minConfidence,'');assert.equal($(id).value,'.8');assert.equal($(id).getAttribute('aria-invalid'),'true');
 assert.match($(id+'Error').textContent,/lower score must not be above the upper/);assert.equal($(id+'Error').hidden,false);
 $(id).value='.2';$(id).oninput();assert.equal(state.minConfidence,'.2');assert.equal($(id).getAttribute('aria-invalid'),null);assert.equal($(id+'Error').hidden,true)}
 setState({minConfidence:'',maxConfidence:'.5'});$('maxConfidence').value='-1';$('maxConfidence').onchange();assert.match($('maxConfidenceError').textContent,/number from 0 to 1/);assert.equal(state.maxConfidence,'.5');
