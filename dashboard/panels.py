@@ -11,8 +11,8 @@ from __future__ import annotations
 import assess_panels as ap
 import core as hc
 from assets import (cap, esc, filterable_table, hero, more, num_cell, panel,
-                    pctf, source_note, status_legend, status_tag, svg_hbar,
-                    table)
+                    pctf, scroll_region, source_note, status_legend, status_tag,
+                    svg_hbar, table)
 from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
 from explain import CONF_BAND_WORDS, method_panel, weighting_panel
 from figures import WAIT_SUPPORT_MIN, conf, top1
@@ -197,7 +197,7 @@ def _review_table(groups, urls):
                        f'<td class="num">{conf(r):.2f}</td>'
                        f'<td>{frame}</td></tr>')
     out.append("</tbody></table>")
-    return ('<div class="tscroll">' + "\n".join(out) + "</div>"
+    return (scroll_region("\n".join(out), REVIEW_COLUMNS)
             + source_note("label_review_queue.csv"))
 
 

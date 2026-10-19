@@ -1,11 +1,12 @@
 """Confidence review uses raw scores, with stable order and transparent missing data."""
 
 import copy
+import runpy
 from urllib.parse import urlencode
 
 import pytest
 from test_atlas_mission_view import photo, run_atlas
-from test_explorer_browser import catalogue, run_browser
+from test_explorer_browser import ROOT, catalogue, run_browser
 
 
 def confidence_catalogue():
@@ -34,7 +35,7 @@ setState({order:'confidence-asc'});assert.deepEqual(matchingPhotoKeys(catalogue,
 assert.equal($('photoPosition').textContent,'Photo 2 of 8 matching photos');
 assert.equal(JSON.stringify(photos),evidence);
 assert.ok($('gallery').children.find(card=>card.getAttribute('data-frame')==='p0').children[1].children.some(n=>n.textContent==='Pl@ntNet confidence: 0.41 / 1'));
-""", payload=confidence_catalogue())
+""", payload=confidence_catalogue(), initial_hash='#frame=p0')
 
 
 def test_inclusive_unrounded_minimum_score_presence_and_counts_compose():
@@ -50,7 +51,7 @@ setState({minConfidence:'',confidence:'missing'});assert.deepEqual(matchingPhoto
 setState({minConfidence:'0'});assert.deepEqual(matchingPhotoKeys(catalogue,state),[]);assert.match($('confidenceHelp').textContent,/missing scores do not satisfy a minimum/);
 setState({minConfidence:'',confidence:'scored'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['p0','p1','p2','p3','p4']);
 catalogue.provenance.predictions.available=false;setState({status:'all',confidence:'missing'});assert.equal(matchingPhotoKeys(catalogue,state).length,8);
-""", payload=confidence_catalogue())
+""", payload=confidence_catalogue(), initial_hash='#frame=p0')
 
 
 @pytest.mark.parametrize('suffix', ['order=unknown', 'confidence=unknown', 'minConfidence=-.1', 'minConfidence=1.1', 'minConfidence=NaN', 'minConfidence=%20'])
@@ -65,7 +66,7 @@ def test_confidence_controls_reset_page_and_roundtrip_history_and_atlas_context(
     run_browser(r"""
 const defaultHash=explorerHash(state);assert.equal(defaultHash.includes('confidence'),false);assert.equal(defaultHash.includes('order='),false);
 $('photoOrder').value='confidence-desc';$('photoOrder').onchange();assert.equal(state.order,'confidence-desc');assert.equal(state.page,0);
-$('confidenceFilter').value='scored';$('confidenceFilter').onchange();$('minConfidence').value='.41';$('minConfidence').onchange();
+setState({confidence:'scored'});$('minConfidence').value='.41';$('minConfidence').onchange();
 const saved=location.hash;assert.match(saved,/minConfidence=.41/);
 for(const id of ['cameraLocations','plantnetResearch','crownResearch','similarPhotosTask']){const context=new URLSearchParams(new URL($(id).href,'https://example.org').hash.slice(1)).get('browse'),p=new URLSearchParams(context);assert.equal(p.get('order'),'confidence-desc');assert.equal(p.get('confidence'),'scored');assert.equal(p.get('minConfidence'),'.41')}
 setState({order:'catalogue',confidence:'all',minConfidence:''});location.hash=saved;listeners.popstate();
@@ -85,6 +86,44 @@ def test_minimum_applies_while_typing_and_waits_for_a_valid_value():
 $('minConfidence').value='.9';$('minConfidence').oninput();assert.equal(state.minConfidence,'.9');assert.deepEqual(matchingPhotoKeys(catalogue,state),['p1','p2','p4']);
 const cards=$('gallery').children;$('minConfidence').onchange();assert.equal($('gallery').children,cards);
 $('minConfidence').value='.';$('minConfidence').oninput();assert.equal(state.minConfidence,'.9');assert.equal($('stateNotice').textContent.includes('confidence controls unavailable'),false);
-$('minConfidence').onchange();assert.equal(state.minConfidence,'.');assert.match($('stateNotice').textContent,/confidence controls unavailable/);
+$('minConfidence').onchange();assert.equal(state.minConfidence,'.9');assert.equal($('minConfidence').value,'.9');assert.equal($('stateNotice').textContent.includes('confidence controls unavailable'),false);
 $('minConfidence').value='';$('minConfidence').oninput();assert.equal(state.minConfidence,'');assert.equal(matchingPhotoKeys(catalogue,state).length,8);
 """, payload=confidence_catalogue())
+
+
+@pytest.mark.parametrize('field', ['minConfidence', 'filterConfidence'])
+def test_minimum_accepts_comma_decimals_and_never_commits_an_invalid_value(field):
+    run_browser(r"""
+const input=$(__FIELD__),other=$(__FIELD__==='minConfidence'?'filterConfidence':'minConfidence'),error=$(__FIELD__+'Error');
+input.value='0,9';input.oninput();assert.equal(state.minConfidence,'0.9');assert.deepEqual(matchingPhotoKeys(catalogue,state),['p1','p2','p4']);assert.equal(other.value,'0.9');
+input.value='abc';input.oninput();assert.equal(state.minConfidence,'0.9');input.onchange();
+assert.equal(state.minConfidence,'0.9');assert.equal(input.value,'0.9');assert.equal(input.getAttribute('aria-invalid'),'true');assert.equal(error.hidden,false);assert.match(error.textContent,/number from 0 to 1/);
+assert.equal(other.getAttribute('aria-invalid'),null);assert.match($('resultCount').textContent,/^3 of 8/);assert.equal(new URLSearchParams(location.hash.slice(1)).get('minConfidence'),'0.9');
+input.value='0,41209';input.oninput();assert.equal(state.minConfidence,'0.41209');assert.equal(input.getAttribute('aria-invalid'),null);assert.equal(error.hidden,true);
+setState({minConfidence:''});input.value='1,5';input.onchange();assert.equal(state.minConfidence,'');assert.equal(input.value,'');assert.equal(input.getAttribute('aria-invalid'),'true');
+""".replace('__FIELD__', repr(field)), payload=confidence_catalogue())
+
+
+def test_only_without_score_checkbox_replaces_the_score_select_and_disables_the_minimum():
+    html = runpy.run_path(ROOT / 'dashboard/explorer_assets.py')['HTML']
+    assert 'id="confidenceFilter"' not in html and 'Has score</option>' not in html
+    assert '<input id="missingScore" type="checkbox" aria-describedby="confidenceHelp">Only photos without a score</label>' in html
+    run_browser(r"""
+setState({minConfidence:'.5'});$('missingScore').checked=true;$('missingScore').onchange();
+assert.equal(state.confidence,'missing');assert.equal(state.minConfidence,'');assert.deepEqual(matchingPhotoKeys(catalogue,state),['p5','p6','p7']);
+assert.equal(new URLSearchParams(location.hash.slice(1)).get('confidence'),'missing');
+for(const id of ['minConfidence','filterConfidence'])assert.equal($(id).disabled,true);assert.match($('confidenceHelp').textContent,/missing scores do not satisfy a minimum/);
+$('missingScore').checked=false;$('missingScore').onchange();assert.equal(state.confidence,'all');assert.equal(matchingPhotoKeys(catalogue,state).length,8);
+for(const id of ['minConfidence','filterConfidence'])assert.equal($(id).disabled,false);assert.equal($('confidenceHelp').textContent.includes('missing scores'),false);
+""", payload=confidence_catalogue())
+    run_browser(r"""
+assert.equal($('missingScore').checked,true);assert.equal($('minConfidence').disabled,true);assert.deepEqual(matchingPhotoKeys(catalogue,state),['p5','p6','p7']);
+""", payload=confidence_catalogue(), initial_hash='#confidence=missing')
+
+
+def test_legacy_has_score_link_still_filters_and_its_chip_removes_it():
+    run_browser(r"""
+assert.deepEqual(matchingPhotoKeys(catalogue,state),['p0','p1','p2','p3','p4']);assert.equal($('missingScore').checked,false);assert.equal($('minConfidence').disabled,false);
+const chip=$('activeFilters').children.find(button=>button.getAttribute('data-filter')==='confidence');assert.match(chip.textContent,/Has score/);
+chip.onclick();assert.equal(state.confidence,'all');assert.equal(matchingPhotoKeys(catalogue,state).length,8);assert.equal(new URLSearchParams(location.hash.slice(1)).has('confidence'),false);
+""", payload=confidence_catalogue(), initial_hash='#confidence=scored')

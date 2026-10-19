@@ -146,7 +146,8 @@ def test_a_hero_card_of_the_wrong_shape_stops_the_build(assets):
 
 def test_table_marks_numeric_columns_and_wraps_in_a_scroll_box(assets):
     out = assets.table([("Name", False), ("Count", True)], [["a", "1"], ["b", "2"]])
-    assert '<div class="tscroll">' in out
+    assert ('<div class="tscroll" tabindex="0" role="region" '
+            'aria-label="Table: Name / Count">') in out
     assert "<th>Name</th>" in out
     assert '<th class="num">Count</th>' in out
     assert '<td class="num">1</td>' in out
@@ -475,6 +476,19 @@ def test_a_stated_contrast_ratio_is_the_one_the_two_colours_have(where, phrase, 
     assert phrase.format(r=ratio) in text, (
         f"{where} states a contrast for {fg} on {bg} that is not {ratio}:1, which "
         f"is what those two colours measure.")
+
+
+def test_out_of_scope_tag_text_meets_aa_contrast():
+    from conftest import REPO
+    css = (REPO / "dashboard/style.py").read_text(encoding="utf-8")
+    fg, bg = re.search(r"\.tag\.out_of_scope\{background:(#\w+);color:(#\w+)\}", css).groups()[::-1]
+    fg = "#" + "".join(c * 2 for c in fg[1:]) if len(fg) == 4 else fg
+    assert _contrast(fg, bg) >= 4.5
+
+
+def test_a_table_scroll_box_is_a_named_focusable_region(assets):
+    out = assets.table([('<abbr>"Q"</abbr>', False)], [["1"]])
+    assert 'tabindex="0" role="region" aria-label="Table: &quot;Q&quot;"' in out
 
 
 def test_a_table_names_no_file_unless_one_is_passed(assets):

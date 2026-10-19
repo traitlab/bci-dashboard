@@ -5,10 +5,13 @@ import runpy
 import shutil
 import subprocess
 from pathlib import Path
+from urllib.parse import urlencode
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+# An explicit selection: without one, the default selection follows the first match.
+SELECTED = '#' + urlencode({'frame': 'a & ä /?.JPG'})
 
 
 def template():
@@ -55,18 +58,18 @@ def helpers():
     return template().split("// EXPLORER_HELPERS_START")[1].split("// EXPLORER_HELPERS_END")[0]
 
 
-def run_browser(checks, payload=None, initial_hash=""):
+def run_browser(checks, payload=None, initial_hash="", prelude=""):
     setup = r"""
 const assert=require('node:assert/strict'),elements=new Map(),listeners={},historyEntries=[];
-function make(tag='div') {return {tagName:tag,children:[],attributes:{},dataset:{},style:{},value:'',isConnected:true,clientWidth:600,clientHeight:450,scrollLeft:0,scrollTop:0,naturalWidth:0,naturalHeight:0,
-append(...nodes){for(const n of nodes){if(n?.tagName==='fragment')this.append(...n.children);else this.children.push(n)}},replaceChildren(...nodes){this.children=[];this.append(...nodes)},setAttribute(name,value){this.attributes[name]=String(value)},getAttribute(name){return this.attributes[name]??null},removeAttribute(name){delete this.attributes[name];if(name==='src')delete this.src;if(name==='href')delete this.href},focus(){document.activeElement=this},scrollIntoView(){this.revealed=true},showModal(){this.open=true},close(){this.open=false;this.onclose?.()},remove(){this.removed=true},querySelector(selector){const match=selector.match(/data-taxon="([^"]*)"/);function find(n){if(match&&n.attributes?.['data-taxon']===match[1])return n;for(const child of n.children||[]){const found=find(child);if(found)return found}return null}return find(this)},get options(){return this.children}}}
+function make(tag='div') {return {tagName:tag,children:[],attributes:{},dataset:{},style:{setProperty(name,value){this[name]=value},removeProperty(name){delete this[name]}},value:'',isConnected:true,clientWidth:600,clientHeight:450,scrollLeft:0,scrollTop:0,naturalWidth:0,naturalHeight:0,
+append(...nodes){for(const n of nodes){if(n?.tagName==='fragment')this.append(...n.children);else this.children.push(n)}},replaceChildren(...nodes){this.children=[];this.append(...nodes)},setAttribute(name,value){this.attributes[name]=String(value)},getAttribute(name){return this.attributes[name]??null},removeAttribute(name){delete this.attributes[name];if(name==='src')delete this.src;if(name==='href')delete this.href},focus(){document.activeElement=this},scrollIntoView(){this.revealed=true},showModal(){this.open=true},close(){this.open=false;this.onclose?.()},remove(){this.removed=true},querySelector(selector){const match=selector.match(/(data-taxon|data-root)="([^"]*)"/);function find(n){if(match&&n.attributes?.[match[1]]===match[2])return n;for(const child of n.children||[]){const found=find(child);if(found)return found}return null}return find(this)},get options(){return this.children}}}
 function get(id){if(!elements.has(id))elements.set(id,make());return elements.get(id)}
 global.document={getElementById:get,createElement:make,createDocumentFragment:()=>make('fragment'),activeElement:null};global.CSS={escape:value=>value};global.location={hash:__HASH__};global.history={pushState(_,__,hash){historyEntries.push(hash);location.hash=hash},replaceState(_,__,hash){historyEntries.push(hash);location.hash=hash}};global.window={matchMedia:()=>({matches:false,addEventListener(){}}),addEventListener(name,fn){listeners[name]=fn}};
 get('explorer-data').textContent=__DATA__;
 for(const [id,values] of [['source',['prediction','recorded']],['labelStatus',['all','with','without','compare']]])for(const value of values){const option=make('option');option.value=value;get(id).append(option)}
 """.replace("__HASH__", json.dumps(initial_hash)).replace("__DATA__", json.dumps(json.dumps(payload or catalogue())))
     script = template().split("<script>")[1].split("</script>")[0]
-    node(setup + script + checks)
+    node(setup + prelude + script + checks)
 
 
 def test_taxon_membership_counts_compose_without_promoting_guesses_to_labels():
@@ -105,7 +108,7 @@ assert.equal($('gallery').children.length,0);
 setState({status:'with'});assert.deepEqual(counts(),{all:4,with:4,without:0,compare:1});
 setState({search:'no photo matches'});assert.deepEqual(counts(),{all:0,with:0,without:0,compare:0});
 assert.equal($('gallery').children.length,0);assert.match($('resultCount').textContent,/0 of 6/);
-""")
+""", initial_hash=SELECTED)
 
 
 def test_taxon_roots_filter_by_source_and_split_the_filtered_population():
@@ -158,7 +161,7 @@ chooseTaxon('other');assert.equal(state.frame,'a & ä /?.JPG');assert.equal($('s
 setState({search:'no results'});assert.equal($('gallery').children.length,0);assert.equal($('empty').hidden,false);assert.equal($('nextPage').disabled,true);assert.match($('resultCount').textContent,/0 of 6/);
 setState({frame:'b'},{focusPhoto:true});assert.equal(state.frame,'b');assert.match($('representationStatus').textContent,/unavailable.*catalogue photo remains/);assert.equal($('selectedImage').src,'https://example.org/b.jpg');assert.equal($('annotation').href,'https://example.org/annotation/b');assert.equal(document.activeElement,$('selectedTitle'));assert.match($('predictionLabel').children[1].textContent,/Tied first score/);
 $('allPhotos').onclick();assert.equal(state.taxon,'');assert.equal(state.search,'');assert.equal(state.status,'all');assert.equal(state.frame,'b');
-""")
+""", initial_hash=SELECTED)
 
 
 def test_map_link_preserves_selected_catalogue_photo_without_a_representation():
@@ -221,7 +224,13 @@ setState({source:'recorded',search:'no matches',taxon:'s'});const tree=$('taxono
 
 def test_visible_family_button_filters_without_expanding_first_or_duplicates():
     run_browser(r"""
-const family=$('taxonomy').querySelector('[data-taxon="f"]'),disclosure=$('taxonomy').children.find(n=>n.tagName==='details'&&n.children[0].children.includes(family));assert.ok(disclosure);assert.equal(disclosure.open,false);let prevented=false,stopped=false;family.focus();family.onclick({preventDefault(){prevented=true},stopPropagation(){stopped=true}});assert.equal(prevented,true);assert.equal(stopped,true);assert.equal(state.taxon,'f');assert.deepEqual(matchingPhotoKeys(catalogue,state),['a & ä /?.JPG','b','d']);assert.equal(state.frame,'a & ä /?.JPG');assert.equal(document.activeElement,$('taxonomy').querySelector('[data-taxon="f"]'));let occurrences=0;function visit(n){if(n.getAttribute?.('data-taxon')==='f')occurrences++;for(const child of n.children||[])visit(child)}visit($('taxonomy'));assert.equal(occurrences,1);
+const family=$('taxonomy').querySelector('[data-taxon="f"]'),disclosure=$('taxonomy').children.find(n=>n.className==='taxon-node'&&n.children.includes(family)).children[0];assert.ok(disclosure);assert.equal(disclosure.open,false);let prevented=false,stopped=false;family.focus();family.onclick({preventDefault(){prevented=true},stopPropagation(){stopped=true}});assert.equal(prevented,true);assert.equal(stopped,true);assert.equal(state.taxon,'f');assert.deepEqual(matchingPhotoKeys(catalogue,state),['a & ä /?.JPG','b','d']);assert.equal(state.frame,'a & ä /?.JPG');assert.equal(document.activeElement,$('taxonomy').querySelector('[data-taxon="f"]'));let occurrences=0;function visit(n){if(n.getAttribute?.('data-taxon')==='f')occurrences++;for(const child of n.children||[])visit(child)}visit($('taxonomy'));assert.equal(occurrences,1);
+""")
+
+
+def test_taxon_tree_summaries_hold_no_interactive_controls():
+    run_browser(r"""
+let summaries=0;function visit(n,inSummary){if(inSummary)assert.ok(!['button','a','input','select'].includes(n.tagName),'interactive '+n.tagName+' inside summary');if(n.tagName==='summary')summaries++;for(const child of n.children||[])visit(child,inSummary||n.tagName==='summary')}visit($('taxonomy'),false);assert.ok(summaries>0);
 """)
 
 
@@ -292,3 +301,64 @@ def test_labelbox_correction_link_is_available_when_enlarging_the_exact_photo():
 setState({frame:'b'});$('enlarge').onclick();assert.equal($('annotation').href,photos[1].annotation_url);assert.equal($('detailAnnotation').href,photos[1].annotation_url);assert.equal($('detailAnnotation').hidden,false);assert.match($('detailAnnotationStatus').textContent,/Labelbox project access.*data refresh/);
 $('closeDialog').onclick();setState({frame:'c'});$('enlarge').onclick();assert.equal($('detailAnnotation').hidden,true);assert.equal($('detailAnnotation').getAttribute('href'),null);assert.match($('detailAnnotationStatus').textContent,/No Labelbox item link/);
 """, payload=payload)
+
+
+def test_text_sort_uses_one_collator_and_keeps_numeric_accent_insensitive_order():
+    data = catalogue()
+    sample = data['photos'][0]
+    labels = ['b10', 'B2', 'a', 'Á', 'é', 'e', None, ' ', 'Z', 'item 9', 'item 10', 'Éclair', 'eclair', 'b2']
+    data['photos'] = [{**sample, 'key': f'k{i}', 'label': label} for i, label in enumerate(labels)]
+    node(helpers() + "\nconst c=" + json.dumps(data) + r""";
+const assert=require('node:assert/strict'),s=readExplorerState('',c.photos),compare=String.prototype.localeCompare;let calls=0;
+String.prototype.localeCompare=function(...args){calls++;return compare.apply(this,args)};
+assert.deepEqual(matchingPhotoKeys(c,{...s,order:'label-asc'}),['k2','k3','k1','k13','k0','k4','k5','k11','k12','k9','k10','k8','k6','k7']);
+assert.deepEqual(matchingPhotoKeys(c,{...s,order:'label-desc'}),['k8','k10','k9','k11','k12','k4','k5','k0','k1','k13','k2','k3','k6','k7']);
+assert.equal(calls,0);
+""")
+
+
+def test_render_scans_the_catalogue_at_most_once_per_count():
+    run_browser(r"""
+let scans=0;const base=basePhotoMatches;basePhotoMatches=(...args)=>{scans++;return base(...args)};
+setState({order:'label-asc',search:'flight'});scans=0;render();assert.equal(scans,3*photos.length);
+setState({status:'with'});scans=0;render();assert.equal(scans,4*photos.length);
+assert.deepEqual(labelStatusCounts(catalogue,state),{all:6,with:5,without:1,compare:1});
+""")
+
+
+def test_one_history_step_restores_once_even_when_both_events_fire():
+    run_browser(r"""
+setState({taxon:'f'});const saved=location.hash;setState({taxon:'s'});
+let renders=0;const original=render;render=()=>{renders++;original()};
+location.hash=saved;listeners.popstate();listeners.hashchange();assert.equal(renders,1);assert.equal(state.taxon,'f');
+location.hash='#source=recorded';listeners.hashchange();listeners.popstate();assert.equal(renders,2);assert.equal(state.source,'recorded');
+setState({taxon:'g'});location.hash=saved;listeners.popstate();assert.equal(renders,4);assert.equal(state.taxon,'f');
+""")
+
+
+def test_root_taxon_focus_survives_rerender_without_array_children():
+    run_browser(r"""
+const host=$('taxonomy'),replace=host.replaceChildren;host.replaceChildren=function(...nodes){replace.apply(this,nodes);this.children.find=undefined};render();
+const root=source=>Array.prototype.find.call(host.children,n=>n.getAttribute?.('data-root')===source);
+root('recorded').focus();root('recorded').onclick();assert.equal(state.taxon,'any');assert.equal(document.activeElement,root('recorded'));
+""")
+
+
+@pytest.mark.parametrize('initial_hash,patch,expected', [
+    ('', "{search:'Elseaceae'}", 'z'),
+    ('#status=compare', '{}', 'a & ä /?.JPG'),
+    ('#source=recorded&taxon=unassigned', '{}', 'd'),
+])
+def test_fresh_load_selects_the_first_match_until_a_photo_is_chosen(initial_hash, patch, expected):
+    run_browser(r"""
+setState(__PATCH__);assert.equal(state.frame,__EXPECTED__);assert.equal($('outsideNotice').textContent,'');assert.equal(new URLSearchParams(location.hash.slice(1)).has('frame'),false);
+assert.equal($('gallery').children[0].getAttribute('aria-pressed'),'true');assert.match($('photoPosition').textContent,/^Photo 1 of/);
+setState({search:'',status:'all',taxon:'',source:'prediction'});assert.equal(state.frame,'a & ä /?.JPG');
+setState({frame:'c'});setState({search:'Elseaceae'});assert.equal(state.frame,'c');assert.match($('outsideNotice').textContent,/outside these filters/);assert.equal(new URLSearchParams(location.hash.slice(1)).get('frame'),'c');
+""".replace('__PATCH__', patch).replace('__EXPECTED__', json.dumps(expected)), initial_hash=initial_hash)
+
+
+def test_out_of_range_page_is_clamped_in_the_url_without_a_new_entry():
+    run_browser(r"""
+assert.equal(state.page,0);assert.equal(new URLSearchParams(location.hash.slice(1)).has('page'),false);assert.equal(new URLSearchParams(location.hash.slice(1)).get('taxon'),'f');assert.equal(historyEntries.length,1);
+""", initial_hash='#taxon=f&page=9999')

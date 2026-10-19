@@ -71,7 +71,7 @@ def navigation(current, *, available=None):
     return ('<a class="site-skip" onclick="event.preventDefault();'
             'document.getElementById(\'main-content\').focus()" '
             'href="#main-content">Skip to content</a>'
-            '<div class="site-shell"><a class="site-brand" href="index.html">'
+            '<div class="site-shell" role="region" aria-label="Site"><a class="site-brand" href="index.html">'
             'Panama canopy<span>Photo and labelling workspace</span></a>'
             '<nav class="site-nav" aria-label="Dashboard pages"' + photo_pages + '>'
             + "".join(links) + '</nav></div>')

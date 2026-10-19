@@ -3,7 +3,7 @@
 import copy
 
 import pytest
-from test_explorer_browser import catalogue, run_browser
+from test_explorer_browser import SELECTED, catalogue, run_browser
 
 
 def test_compare_filter_counts_compose_and_restore_from_history():
@@ -30,7 +30,7 @@ assert.equal($('gallery').children.length,0);assert.match($('outsideNotice').tex
 location.hash='#source=prediction&status=compare&frame=b';listeners.hashchange();
 assert.equal(state.status,'compare');assert.equal(state.frame,'b');assert.deepEqual(matchingPhotoKeys(catalogue,state),[first]);
 $('allPhotos').onclick();assert.equal(state.status,'all');
-""")
+""", initial_hash=SELECTED)
 
 
 @pytest.mark.parametrize("recorded,predicted,expected", [
