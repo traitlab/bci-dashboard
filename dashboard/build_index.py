@@ -98,11 +98,10 @@ def build(build_dir: str) -> str:
             "<title>Panama canopy photos and labelling</title>"
             f'<style>{STYLE}{NAVIGATION_CSS}</style></head><body data-workspace="home">'
             + navigation("index.html", available=available_names)
-            + '<main id="main-content" tabindex="-1"><h1>Panama canopy photos</h1>'
-            + '<p class="intro">Browse the canopy by taxon or drone photo location, compare visual matches, and choose what to label next.</p>'
+            + '<main id="main-content" tabindex="-1"><h1>Choose a task</h1>'
+            + '<p class="intro">Drone photos of the canopy on Barro Colorado Island and other Panama field sites, with Pl@ntNet guesses and recorded labels.</p>'
             + '<div class="tasks">' + "".join(cards) + '</div>' + experimental
-            + '<p class="scope">Photo tools cover Barro Colorado Island and other Panama field sites. '
-              'Model health and labelling queues describe their own recorded snapshots. '
+            + '<p class="scope">Model health and labelling queues describe their own recorded snapshots. '
               'Photo counts do not measure tree abundance. Model guesses need expert confirmation.</p>'
             + "</main></body></html>\n")
 

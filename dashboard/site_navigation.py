@@ -15,8 +15,7 @@ CSS = """
 :root{--ink:#213e33;--navy:#245743;--green:#245743;--slate:#52665e;--line:#d3dfd8;--paper:#fff;--pale:#eaf1ec;--surface:#f3f6f3;--focus:#287752;--radius:6px;font:15px/1.5 "Avenir Next",Avenir,system-ui,sans-serif;color:var(--ink);background:var(--surface)}
 body{font-family:inherit;color:var(--ink);background:var(--surface);margin:0;max-width:none;padding:0;line-height:1.5}
 .site-shell{background:var(--paper);border-top:4px solid var(--green);border-bottom:1px solid var(--line);padding:18px max(24px,calc((100% - 1552px)/2)) 0}
-.site-brand{display:inline-flex;align-items:baseline;gap:14px;color:var(--ink);text-decoration:none;font-size:20px;font-weight:700;letter-spacing:-.4px;min-height:38px}
-.site-brand span{color:var(--slate);font-size:12px;font-weight:400;letter-spacing:0}
+.site-brand{display:inline-flex;align-items:baseline;color:var(--ink);text-decoration:none;font-size:20px;font-weight:700;letter-spacing:-.4px;min-height:38px}
 .site-nav{display:flex;flex-wrap:wrap;align-items:center;gap:0 8px;margin:8px 0 0;padding:0;font-size:14px;line-height:1.5}
 .site-nav a{display:inline-flex;align-items:center;min-height:48px;padding:10px 12px;color:var(--slate);text-decoration:none;border-radius:4px 4px 0 0;border-bottom:3px solid transparent;white-space:nowrap}
 .site-nav a:hover{background:var(--pale);color:var(--green)}
@@ -44,7 +43,7 @@ body[data-workspace=reports] .hero .metric .e,body[data-workspace=reports] .hero
 body[data-workspace=reports] .hero .metric .e{text-transform:none;letter-spacing:0;font-size:.78rem}
 body[data-workspace=reports] details.panel>summary{color:var(--green)}
 body[data-workspace=reports] .hero .metric,body[data-workspace=reports] details.panel{box-shadow:none;border-color:var(--line);border-radius:var(--radius)}
-@media(max-width:640px){.site-shell{padding:12px 12px 0}.site-brand{display:flex;flex-wrap:wrap;gap:0 12px;font-size:18px}.site-brand span{font-size:11px}.site-nav{gap:0 2px}.site-nav a{font-size:12px;padding:8px;min-height:44px}body>header{padding:20px 14px 0}body>header h1{font-size:23px}body[data-workspace=reports] main{padding:22px 14px 40px}}
+@media(max-width:640px){.site-shell{padding:12px 12px 0}.site-brand{font-size:18px}.site-nav{gap:0 2px}.site-nav a{font-size:12px;padding:8px;min-height:44px}body>header{padding:20px 14px 0}body>header h1{font-size:23px}body[data-workspace=reports] main{padding:22px 14px 40px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 @media print{body{background:#fff;color:#000}.site-shell,.site-skip{display:none}
 body[data-workspace=reports] main{padding:0;max-width:none}}
@@ -72,6 +71,6 @@ def navigation(current, *, available=None):
             'document.getElementById(\'main-content\').focus()" '
             'href="#main-content">Skip to content</a>'
             '<div class="site-shell" role="region" aria-label="Site"><a class="site-brand" href="index.html">'
-            'Panama canopy<span>Photo and labelling workspace</span></a>'
+            'Panama canopy</a>'
             '<nav class="site-nav" aria-label="Dashboard pages"' + photo_pages + '>'
             + "".join(links) + '</nav></div>')
