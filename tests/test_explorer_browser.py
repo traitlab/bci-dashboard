@@ -224,7 +224,13 @@ setState({source:'recorded',search:'no matches',taxon:'s'});const tree=$('taxono
 
 def test_visible_family_button_filters_without_expanding_first_or_duplicates():
     run_browser(r"""
-const family=$('taxonomy').querySelector('[data-taxon="f"]'),disclosure=$('taxonomy').children.find(n=>n.tagName==='details'&&n.children[0].children.includes(family));assert.ok(disclosure);assert.equal(disclosure.open,false);let prevented=false,stopped=false;family.focus();family.onclick({preventDefault(){prevented=true},stopPropagation(){stopped=true}});assert.equal(prevented,true);assert.equal(stopped,true);assert.equal(state.taxon,'f');assert.deepEqual(matchingPhotoKeys(catalogue,state),['a & ä /?.JPG','b','d']);assert.equal(state.frame,'a & ä /?.JPG');assert.equal(document.activeElement,$('taxonomy').querySelector('[data-taxon="f"]'));let occurrences=0;function visit(n){if(n.getAttribute?.('data-taxon')==='f')occurrences++;for(const child of n.children||[])visit(child)}visit($('taxonomy'));assert.equal(occurrences,1);
+const family=$('taxonomy').querySelector('[data-taxon="f"]'),disclosure=$('taxonomy').children.find(n=>n.className==='taxon-node'&&n.children.includes(family)).children[0];assert.ok(disclosure);assert.equal(disclosure.open,false);let prevented=false,stopped=false;family.focus();family.onclick({preventDefault(){prevented=true},stopPropagation(){stopped=true}});assert.equal(prevented,true);assert.equal(stopped,true);assert.equal(state.taxon,'f');assert.deepEqual(matchingPhotoKeys(catalogue,state),['a & ä /?.JPG','b','d']);assert.equal(state.frame,'a & ä /?.JPG');assert.equal(document.activeElement,$('taxonomy').querySelector('[data-taxon="f"]'));let occurrences=0;function visit(n){if(n.getAttribute?.('data-taxon')==='f')occurrences++;for(const child of n.children||[])visit(child)}visit($('taxonomy'));assert.equal(occurrences,1);
+""")
+
+
+def test_taxon_tree_summaries_hold_no_interactive_controls():
+    run_browser(r"""
+let summaries=0;function visit(n,inSummary){if(inSummary)assert.ok(!['button','a','input','select'].includes(n.tagName),'interactive '+n.tagName+' inside summary');if(n.tagName==='summary')summaries++;for(const child of n.children||[])visit(child,inSummary||n.tagName==='summary')}visit($('taxonomy'),false);assert.ok(summaries>0);
 """)
 
 
