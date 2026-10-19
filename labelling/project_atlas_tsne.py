@@ -3,12 +3,15 @@
     uv run --with numpy --with openTSNE --with scikit-learn labelling/project_atlas_tsne.py \
         --atlas docs/embedding-atlas.html --data data --output build/embedding-atlas.json
 
+--data is a directory holding embeddings_labelled/ and embeddings_queue/, or one JSON dict of frame stem to
+vector (PlantCLEF); the JSON must hash to the atlas page's recorded source of the same name.
 Then: python3 dashboard/build_embedding_atlas.py --input build/embedding-atlas.json --output docs/embedding-atlas.html
 Reads the atlas JSON (or the payload embedded in a built page), joins embeddings by frame key,
 and records how well the 2-d layout keeps each photo's 10 closest matches.
 """
 
 import argparse
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -20,6 +23,29 @@ from sklearn.neighbors import NearestNeighbors
 
 K = 10
 PROJECTION = "t-SNE (openTSNE, cosine, perplexity 30, PCA init) of L2-normalized vectors, fitted on this pool"
+
+
+def canonical_key(key):
+    return key.removeprefix("comb_").removesuffix(".JPG")
+
+
+def read_vectors(data, atlas):
+    data = Path(data)
+    if data.is_dir():
+        vectors = {}
+        for part in ("labelled", "queue"):
+            found = np.load(data / f"embeddings_{part}" / "embeddings.npz")
+            vectors.update(zip(found["keys"].tolist(), found["embeddings"].astype(np.float64), strict=True))
+        return vectors
+    raw = data.read_bytes()
+    recorded = [s["sha256"] for s in atlas["provenance"].get("sources", []) if s["file"] == data.name]
+    if recorded != [hashlib.sha256(raw).hexdigest()]:
+        raise ValueError(f"{data.name} does not match the source recorded in the atlas provenance")
+    return {key: np.asarray(vector, dtype=np.float64) for key, vector in json.loads(raw).items()}
+
+
+def vector_for(vectors, key):
+    return vectors.get(key, vectors.get(canonical_key(key)))
 
 
 def read_atlas(path):
@@ -39,14 +65,11 @@ def recall(high, layout):
 
 def main(atlas_path, data, output):
     atlas = read_atlas(atlas_path)
-    vectors = {}
-    for part in ("labelled", "queue"):
-        found = np.load(Path(data) / f"embeddings_{part}" / "embeddings.npz")
-        vectors.update(zip(found["keys"].tolist(), found["embeddings"].astype(np.float64), strict=True))
-    pool = [p for p in atlas["points"] if p.get("model_available") is not False and p["key"] in vectors]
+    vectors = read_vectors(data, atlas)
+    pool = [p for p in atlas["points"] if p.get("model_available") is not False and vector_for(vectors, p["key"]) is not None]
     if len(pool) < K + 2:
         raise ValueError(f"Only {len(pool)} atlas points have embeddings; t-SNE needs more")
-    x = np.stack([vectors[p["key"]] for p in pool])
+    x = np.stack([vector_for(vectors, p["key"]) for p in pool])
     x /= np.linalg.norm(x, axis=1, keepdims=True)
     centered = x - x.mean(axis=0)
     _, _, axes = np.linalg.svd(centered, full_matrices=False)

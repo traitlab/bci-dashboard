@@ -23,6 +23,7 @@ assert.match($('plotExplanation').textContent,/two PCA components.*retained vari
 data.provenance.pca_explained_variance=[.2,.1,.05];draw();assert.match($('plotExplanation').textContent,/retain 30.0% of embedding variance/);
 data.provenance.projection='t-SNE (openTSNE)';draw();assert.match($('plotExplanation').textContent,/t-SNE layout.*close matches.*Cluster sizes and the gaps between clusters do not show how different/);assert.doesNotMatch($('plotExplanation').textContent,/about/);
 data.provenance.projection_fidelity={knn_recall_at_10:.463,pca_knn_recall_at_10:.034};draw();assert.match($('plotExplanation').textContent,/about 46% of each photo.s 10 closest matches.*vs 3% with the old PCA layout/);
+data.provenance.projection_fidelity={knn_recall_at_10:.454,pca_knn_recall_at_10:.031};draw();assert.match($('plotExplanation').textContent,/about 45% .*vs 3% /);
 data.provenance.projection='PCA';draw();assert.match($('plotExplanation').textContent,/two PCA components/);
 legend[1].onclick();assert.equal(plotFocus,1);assert.deepEqual(legend.map(b=>b.getAttribute('aria-pressed')),legend.map((_,i)=>String(i===1)));
 pc.fills=[];draw();assert.equal(pc.fills.filter(f=>f==='#56B4E9').length,2);assert.equal(pc.fills.filter(f=>f==='#E69F00').length,2);assert.equal(pc.fills.filter(f=>f==='#dde4e8').length,11);
