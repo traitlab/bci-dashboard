@@ -183,19 +183,16 @@ section.grp>h2{
 .subtitle{color:#6d6d6d}
 /* A sub-heading inside a panel body, count table apart from photo table. */
 h3.sub{font-size:0.95rem;font-weight:700;color:#37474f;margin:22px 0 8px}
-/* The contact sheet: the head of a queue as pictures. The column count is
-   fixed rather than left to the width, because a wrapping row divides the fixed
-   count per queue by whatever fits and leaves a ragged last row that reads as a
-   gap in the data. Six columns divide the twelve frames evenly and fit inside
-   the panel on both pages. max-content, so the pixel size stays in one place,
-   on the img tag, where THUMB_PX writes it. */
+/* The contact sheet: the head of a queue as pictures. Columns fill the width the
+   panel has, so a phone gets three and a desktop gets more, and the image fills
+   its cell rather than overflowing it. */
 /* The rule a queue selects on, under its heading. Everywhere else the two
    travel together; the sheet used to show the name alone, which made the name
    carry a distinction the rule already draws. */
 .qrule{font-size:0.85rem;color:#616161;margin:-4px 0 8px}
-.sheet{display:grid;grid-template-columns:repeat(6,max-content);
-  justify-content:start;gap:6px;margin:0 0 14px}
-.sheet img{display:block;border-radius:3px;border:1px solid #e0e0e0}
+.sheet{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
+  gap:6px;margin:0 0 14px}
+.sheet img{width:100%;height:auto;display:block;border-radius:3px;border:1px solid #e0e0e0}
 /* A command meant to be copied whole, so it wraps rather than running off the
    right edge on a phone. */
 pre.cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.76rem;
@@ -206,16 +203,9 @@ pre.cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.76re
 code.key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.72rem;
   color:#37474f;word-break:break-all}
 
-/* Freeze the top row, as a spreadsheet does. A sticky heading sticks to its
-   nearest scrolling ancestor, and this box is already one (`overflow-x:auto`
-   creates a scrollport on both axes), so the box has to be what scrolls
-   vertically too or the heading never leaves the top of a table nobody can see
-   the top of. Hence a height cap here rather than a sticky heading alone.
-   The 2px border under a heading does not survive `position:sticky` under
-   `border-collapse:collapse`, so it is drawn as an inset shadow instead. */
-.tscroll{overflow:auto;max-height:80vh}
+/* Sideways scroll only: a height cap hid rows below the fold with no cue. */
+.tscroll{overflow-x:auto}
 .tscroll:focus-visible{outline:3px solid #287752;outline-offset:-3px}
-thead th{position:sticky;top:0;z-index:2;box-shadow:inset 0 -2px 0 #e0e0e0}
 /* A recurring label-and-guess pair is written once and spanned down its own
    frames, so the pair cells align to the first of them and the block that
    starts a new pair carries the rule between pairs. */
@@ -233,18 +223,14 @@ th abbr{text-decoration:underline dotted;text-underline-offset:3px}
 /* Every panel carries an id, so it must be findable once scrolled to. */
 details.panel:target>summary{background:#e3f2fd}
 
-/* Paper does not scroll, so the height cap and the sticky heading both come
-   off: a capped box prints as a clipped table. */
+/* Paper does not scroll, so a scroll box prints as a clipped table. */
 @media print{
-  .tscroll{overflow:visible;max-height:none}
-  thead th{position:static}
+  .tscroll{overflow:visible}
 }
 
 /* No room for two columns on a phone; the vendored 640px query stays as it is. */
 @media(max-width:640px){
   .hero,.hero.wide{grid-template-columns:1fr}
-  /* Six 112px columns run off a phone; three fit and still divide twelve. */
-  .sheet{grid-template-columns:repeat(3,max-content)}
 }
 """
 

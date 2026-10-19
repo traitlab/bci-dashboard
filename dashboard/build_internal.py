@@ -125,7 +125,7 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
                 "send_first_queue.csv"),
                ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
                 "The whole pool this page puts in an order.",
-                "send_first_queue.csv")]),
+                "send_first_queue.csv")], cls="wide"),
          batches_note(c),
          ('<p class="note"><strong>This is a saved queue.</strong> It changes after '
           'labels, predictions or ranking data are refreshed. Work from the published '

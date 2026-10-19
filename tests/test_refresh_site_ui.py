@@ -42,7 +42,9 @@ def test_offline_ui_refresh_preserves_evidence_and_optional_page_boundaries(tmp_
     updated = (output / "model_health_dashboard.html").read_text()
     for tag in ("main", "script"):
         pattern = rf"<{tag}\b.*?</{tag}>"
-        assert re.search(pattern, updated, re.DOTALL).group() == re.search(pattern, report, re.DOTALL).group()
+        # From <main> on: the refreshed navigation carries its own small script before it.
+        tail = lambda text: text[text.index("<main"):]
+        assert re.search(pattern, tail(updated), re.DOTALL).group() == re.search(pattern, tail(report), re.DOTALL).group()
     assert 'data-workspace="reports"' in updated
     assert 'class="site-shell"' in updated
     assert "Old navigation" not in updated

@@ -119,9 +119,8 @@ section.grp>h2{
 }
 .lede{font-size:0.86rem;color:#546e7a;margin:0 0 14px}
 .subtitle{color:#6d6d6d}
-.tscroll{overflow:auto;max-height:80vh}
+.tscroll{overflow-x:auto}
 .tscroll:focus-visible{outline:3px solid #287752;outline-offset:-3px}
-thead th{position:sticky;top:0;z-index:2;box-shadow:inset 0 -2px 0 #e0e0e0}
 td.pair{vertical-align:top}
 tr.pair>td{border-top:1px solid #cfd8dc}
 .tally{font-size:0.74rem;color:#6d6d6d;white-space:nowrap;margin-left:6px}
@@ -130,13 +129,10 @@ details.more>summary{font-size:0.84rem;font-weight:600}
 th abbr{text-decoration:underline dotted;text-underline-offset:3px}
 details.panel:target>summary{background:#e3f2fd}
 @media print{
-  .tscroll{overflow:visible;max-height:none}
-  thead th{position:static}
+  .tscroll{overflow:visible}
 }
 @media(max-width:640px){
   .hero,.hero.wide{grid-template-columns:1fr}
-  
-  .sheet{grid-template-columns:repeat(3,max-content)}
 }
 :root{--ink:#213e33;--navy:#245743;--green:#245743;--slate:#52665e;--line:#d3dfd8;--paper:#fff;--pale:#eaf1ec;--surface:#f3f6f3;--focus:#287752;--radius:6px;font:15px/1.5 "Avenir Next",Avenir,system-ui,sans-serif;color:var(--ink);background:var(--surface)}
 body{font-family:inherit;color:var(--ink);background:var(--surface);margin:0;max-width:none;padding:0;line-height:1.5}
@@ -152,6 +148,7 @@ a{color:var(--green);text-underline-offset:3px}
 main{min-width:0}
 body>header{max-width:1600px;margin:auto;background:transparent;color:var(--ink);border:0;padding:24px 24px 0}
 body>header h1{font-size:26px;line-height:1.25;font-weight:650;letter-spacing:-.6px;color:var(--ink);margin:0}
+body h1,body[data-workspace]>header h1{font-size:26px;line-height:1.25;font-weight:650;letter-spacing:-.6px}
 body>header p{font-size:14px;color:var(--slate);margin:6px 0 0}
 button,input,select,textarea{font-family:inherit;border-color:#a8bdb0;border-radius:var(--radius);accent-color:var(--green)}
 button,select,input[type=search]{min-height:44px}
@@ -159,7 +156,7 @@ button:hover{background:var(--pale)}
 button:disabled{cursor:default}
 button[aria-pressed=true]{border-color:var(--green)}
 body[data-workspace=reports] main{max-width:1168px;margin:auto;padding:28px 24px 64px}
-body[data-workspace=reports] h1{font-size:26px;font-weight:650;color:var(--ink);letter-spacing:-.6px}
+body[data-workspace=reports] h1{color:var(--ink)}
 body[data-workspace=reports] summary{color:var(--green)}
 body[data-workspace=reports] h2{color:var(--ink)}
 body[data-workspace=reports] th{background:var(--pale);color:var(--ink)}
@@ -168,10 +165,10 @@ body[data-workspace=reports] .hero .metric .e,body[data-workspace=reports] .hero
 body[data-workspace=reports] .hero .metric .e{text-transform:none;letter-spacing:0;font-size:.78rem}
 body[data-workspace=reports] details.panel>summary{color:var(--green)}
 body[data-workspace=reports] .hero .metric,body[data-workspace=reports] details.panel{box-shadow:none;border-color:var(--line);border-radius:var(--radius)}
-@media(max-width:640px){.site-shell{padding:12px 12px 0}.site-nav{gap:0 2px}.site-nav a{font-size:12px;padding:8px;min-height:44px}body>header{padding:20px 14px 0}body>header h1{font-size:23px}body[data-workspace=reports] main{padding:22px 14px 40px}}
+@media(max-width:640px){.site-shell{padding:12px 12px 0}.site-nav{gap:0 2px;flex-wrap:nowrap;overflow-x:auto}.site-nav a:focus-visible{outline-offset:-3px}.site-nav a{font-size:12px;padding:8px;min-height:44px}body>header{padding:20px 14px 0}body h1,body[data-workspace]>header h1{font-size:23px}body[data-workspace=reports] main{padding:22px 14px 40px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 @media print{body{background:#fff;color:#000}.site-shell,.site-skip{display:none}
-body[data-workspace=reports] main{padding:0;max-width:none}}</style></head><body data-workspace="reports"><a class="site-skip" onclick="event.preventDefault();document.getElementById('main-content').focus()" href="#main-content">Skip to content</a><div class="site-shell" role="region" aria-label="Site"><nav class="site-nav" aria-label="Dashboard pages" data-photo-pages="embedding-atlas.html crownfirst-atlas.html"><a href="index.html">Panama canopy</a><a href="explorer.html">Browse photos</a><a href="embedding-atlas.html#view=locations" data-atlas-view="locations" data-site-task="locations" id="cameraMapTask">Drone map</a><a href="embedding-atlas.html" data-atlas-view="photos" data-site-task="photos" id="similarPhotosTask">Similar photos</a><a href="model_health_dashboard.html" aria-current="page">Model health</a><a href="label_queue_dashboard.html">Labelling queue</a></nav></div><main id="main-content" tabindex="-1"><h1>How well does Pl@ntNet name BCI trees?</h1>
+body[data-workspace=reports] main{padding:0;max-width:none}}</style></head><body data-workspace="reports"><a class="site-skip" onclick="event.preventDefault();document.getElementById('main-content').focus()" href="#main-content">Skip to content</a><div class="site-shell" role="region" aria-label="Site"><nav class="site-nav" aria-label="Dashboard pages" data-photo-pages="embedding-atlas.html crownfirst-atlas.html"><a href="index.html">Panama canopy</a><a href="explorer.html">Browse photos</a><a href="embedding-atlas.html#view=locations" data-atlas-view="locations" data-site-task="locations" id="cameraMapTask">Drone map</a><a href="embedding-atlas.html" data-atlas-view="photos" data-site-task="photos" id="similarPhotosTask">Similar photos</a><a href="model_health_dashboard.html" aria-current="page">Model health</a><a href="label_queue_dashboard.html">Labelling queue</a></nav></div><script>(function(){var n=document.querySelector(".site-nav"),a=n&&n.querySelector("[aria-current]");if(a)n.scrollLeft=a.offsetLeft-(n.clientWidth-a.offsetWidth)/2})()</script><main id="main-content" tabindex="-1"><h1>How well does Pl@ntNet name BCI trees?</h1>
 <div class="subtitle">refreshed 2026-10-16 &middot; Labelbox labels merged 2026-08-27 &middot; Pl@ntNet model k-central-america@2026-03-20 (7.5) &middot; 2,554 frames scored against the reviewed publication labels &middot; 93 species</div>
 <p class="intro">How often Pl@ntNet names the tree a botanist labelled, over 2,554 drone frames of 93 species. The model dates from 20 March 2026 (release 7.5), before any BCI label was sent to Pl@ntNet. What to label next is on the <a href="label_queue_dashboard.html">label queue page</a>.</p>
 <div class="hero wide"><div class="metric first"><div class="e">Top-1 accuracy, per species</div><div class="row"><div class="v">56.0%</div></div><div class="l">The first guess is right</div><div class="n">each of the 93 species counts once. Quote this one</div></div><div class="metric"><div class="e">Top-1 accuracy, per frame</div><div class="row"><div class="v">78.5%</div></div><div class="l">The first guess is right</div><div class="n">each frame counts once, so common species dominate</div></div><div class="metric"><div class="e">Precision, per species</div><div class="row"><div class="v">57.0%</div><a class="src" href="per_species_health.csv">per_species_health.csv</a></div><div class="l">When it offers a name, that name is right</div><div class="n">averaged over the 93 species</div></div><div class="metric"><div class="e">Top-5 accuracy, per species</div><div class="row"><div class="v">73.0%</div></div><div class="l">The right name is among the 5 returned</div><div class="n">a ceiling on our 5-name request, not on the model</div></div><div class="metric"><div class="e">Top-5 accuracy, per frame</div><div class="row"><div class="v">87.6%</div></div><div class="l">The right name is among the 5 returned</div><div class="n">we only ever asked Pl@ntNet for 5 names</div></div><div class="metric"><div class="e">Species it usually gets right</div><div class="row"><div class="v">14 of 46</div><a class="src" href="per_species_health.csv">per_species_health.csv</a></div><div class="l">First guess right at least 90% of the time</div><div class="n">among species with 10 or more labelled frames</div></div></div>

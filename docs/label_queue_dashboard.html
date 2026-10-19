@@ -88,29 +88,25 @@ section.grp>h2{
 .subtitle{color:#6d6d6d}
 h3.sub{font-size:0.95rem;font-weight:700;color:#37474f;margin:22px 0 8px}
 .qrule{font-size:0.85rem;color:#616161;margin:-4px 0 8px}
-.sheet{display:grid;grid-template-columns:repeat(6,max-content);
-  justify-content:start;gap:6px;margin:0 0 14px}
-.sheet img{display:block;border-radius:3px;border:1px solid #e0e0e0}
+.sheet{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
+  gap:6px;margin:0 0 14px}
+.sheet img{width:100%;height:auto;display:block;border-radius:3px;border:1px solid #e0e0e0}
 pre.cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.76rem;
   color:#37474f;background:#f5f5f5;padding:10px 12px;border-radius:4px;
   border-left:3px solid #b0bec5;white-space:pre-wrap;margin:8px 0}
 code.key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.72rem;
   color:#37474f;word-break:break-all}
-.tscroll{overflow:auto;max-height:80vh}
+.tscroll{overflow-x:auto}
 .tscroll:focus-visible{outline:3px solid #287752;outline-offset:-3px}
-thead th{position:sticky;top:0;z-index:2;box-shadow:inset 0 -2px 0 #e0e0e0}
 details.more{margin:2px 0 12px}
 details.more>summary{font-size:0.84rem;font-weight:600}
 th abbr{text-decoration:underline dotted;text-underline-offset:3px}
 details.panel:target>summary{background:#e3f2fd}
 @media print{
-  .tscroll{overflow:visible;max-height:none}
-  thead th{position:static}
+  .tscroll{overflow:visible}
 }
 @media(max-width:640px){
   .hero,.hero.wide{grid-template-columns:1fr}
-  
-  .sheet{grid-template-columns:repeat(3,max-content)}
 }
 :root{--ink:#213e33;--navy:#245743;--green:#245743;--slate:#52665e;--line:#d3dfd8;--paper:#fff;--pale:#eaf1ec;--surface:#f3f6f3;--focus:#287752;--radius:6px;font:15px/1.5 "Avenir Next",Avenir,system-ui,sans-serif;color:var(--ink);background:var(--surface)}
 body{font-family:inherit;color:var(--ink);background:var(--surface);margin:0;max-width:none;padding:0;line-height:1.5}
@@ -126,6 +122,7 @@ a{color:var(--green);text-underline-offset:3px}
 main{min-width:0}
 body>header{max-width:1600px;margin:auto;background:transparent;color:var(--ink);border:0;padding:24px 24px 0}
 body>header h1{font-size:26px;line-height:1.25;font-weight:650;letter-spacing:-.6px;color:var(--ink);margin:0}
+body h1,body[data-workspace]>header h1{font-size:26px;line-height:1.25;font-weight:650;letter-spacing:-.6px}
 body>header p{font-size:14px;color:var(--slate);margin:6px 0 0}
 button,input,select,textarea{font-family:inherit;border-color:#a8bdb0;border-radius:var(--radius);accent-color:var(--green)}
 button,select,input[type=search]{min-height:44px}
@@ -133,7 +130,7 @@ button:hover{background:var(--pale)}
 button:disabled{cursor:default}
 button[aria-pressed=true]{border-color:var(--green)}
 body[data-workspace=reports] main{max-width:1168px;margin:auto;padding:28px 24px 64px}
-body[data-workspace=reports] h1{font-size:26px;font-weight:650;color:var(--ink);letter-spacing:-.6px}
+body[data-workspace=reports] h1{color:var(--ink)}
 body[data-workspace=reports] summary{color:var(--green)}
 body[data-workspace=reports] h2{color:var(--ink)}
 body[data-workspace=reports] th{background:var(--pale);color:var(--ink)}
@@ -142,10 +139,10 @@ body[data-workspace=reports] .hero .metric .e,body[data-workspace=reports] .hero
 body[data-workspace=reports] .hero .metric .e{text-transform:none;letter-spacing:0;font-size:.78rem}
 body[data-workspace=reports] details.panel>summary{color:var(--green)}
 body[data-workspace=reports] .hero .metric,body[data-workspace=reports] details.panel{box-shadow:none;border-color:var(--line);border-radius:var(--radius)}
-@media(max-width:640px){.site-shell{padding:12px 12px 0}.site-nav{gap:0 2px}.site-nav a{font-size:12px;padding:8px;min-height:44px}body>header{padding:20px 14px 0}body>header h1{font-size:23px}body[data-workspace=reports] main{padding:22px 14px 40px}}
+@media(max-width:640px){.site-shell{padding:12px 12px 0}.site-nav{gap:0 2px;flex-wrap:nowrap;overflow-x:auto}.site-nav a:focus-visible{outline-offset:-3px}.site-nav a{font-size:12px;padding:8px;min-height:44px}body>header{padding:20px 14px 0}body h1,body[data-workspace]>header h1{font-size:23px}body[data-workspace=reports] main{padding:22px 14px 40px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 @media print{body{background:#fff;color:#000}.site-shell,.site-skip{display:none}
-body[data-workspace=reports] main{padding:0;max-width:none}}</style></head><body data-workspace="reports"><a class="site-skip" onclick="event.preventDefault();document.getElementById('main-content').focus()" href="#main-content">Skip to content</a><div class="site-shell" role="region" aria-label="Site"><nav class="site-nav" aria-label="Dashboard pages" data-photo-pages="embedding-atlas.html crownfirst-atlas.html"><a href="index.html">Panama canopy</a><a href="explorer.html">Browse photos</a><a href="embedding-atlas.html#view=locations" data-atlas-view="locations" data-site-task="locations" id="cameraMapTask">Drone map</a><a href="embedding-atlas.html" data-atlas-view="photos" data-site-task="photos" id="similarPhotosTask">Similar photos</a><a href="model_health_dashboard.html">Model health</a><a href="label_queue_dashboard.html" aria-current="page">Labelling queue</a></nav></div><main id="main-content" tabindex="-1"><h1>What to label next</h1>
+body[data-workspace=reports] main{padding:0;max-width:none}}</style></head><body data-workspace="reports"><a class="site-skip" onclick="event.preventDefault();document.getElementById('main-content').focus()" href="#main-content">Skip to content</a><div class="site-shell" role="region" aria-label="Site"><nav class="site-nav" aria-label="Dashboard pages" data-photo-pages="embedding-atlas.html crownfirst-atlas.html"><a href="index.html">Panama canopy</a><a href="explorer.html">Browse photos</a><a href="embedding-atlas.html#view=locations" data-atlas-view="locations" data-site-task="locations" id="cameraMapTask">Drone map</a><a href="embedding-atlas.html" data-atlas-view="photos" data-site-task="photos" id="similarPhotosTask">Similar photos</a><a href="model_health_dashboard.html">Model health</a><a href="label_queue_dashboard.html" aria-current="page">Labelling queue</a></nav></div><script>(function(){var n=document.querySelector(".site-nav"),a=n&&n.querySelector("[aria-current]");if(a)n.scrollLeft=a.offsetLeft-(n.clientWidth-a.offsetWidth)/2})()</script><main id="main-content" tabindex="-1"><h1>What to label next</h1>
 <div class="subtitle">refreshed 2026-10-16 &middot; Labelbox labels merged 2026-08-27 &middot; Pl@ntNet model k-central-america@2026-03-20 (7.5) &middot; 1,719 labelled frames anchor the ranking &middot; 2,554 frames scored against the reviewed publication labels behind the species statuses that sort the queues</div>
 <div class="hero"><div class="metric first"><div class="e">First saved batch</div><div class="row"><div class="v">57</div><a class="src" href="send_batches.csv">send_batches.csv</a></div><div class="l">photos in batch 1</div><div class="n">The saved first batch from send_batches.csv. The pool below is broader than this batch.</div></div><div class="metric"><div class="e">Worth sending first</div><div class="row"><div class="v">2,452</div><a class="src" href="send_first_queue.csv">send_first_queue.csv</a></div><div class="l">unlabelled photos</div><div class="n">They point at a species we barely have or barely get right, or at a usually-right species the model is unsure of here.</div></div><div class="metric"><div class="e">Queued</div><div class="row"><div class="v">3,875</div><a class="src" href="send_first_queue.csv">send_first_queue.csv</a></div><div class="l">unlabelled photos</div><div class="n">The whole pool this page puts in an order.</div></div></div>
 <p class="note"><strong>The prioritised batches are in <a href="send_batches.csv">send_batches.csv</a>.</strong> Send from that file: it holds 49 batches of at most 100 photos, each species group kept together. This page shows the order and the reason behind each photo’s place in it. How Pl@ntNet scores against the labels is a separate page, <a href="model_health_dashboard.html">model_health_dashboard.html</a>.</p>
