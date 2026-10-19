@@ -51,6 +51,16 @@ def _positioned(photo: dict[str, Any]) -> bool:
     return True
 
 
+def recorded_lineage(photo: dict[str, Any], taxa: dict[str, dict[str, Any]]):
+    """Family and genus of the photo's recorded taxon, never of a predicted one."""
+    found: dict[str, str] = {}
+    taxon = taxa.get(photo.get("recorded_taxon"))
+    while taxon and taxon["rank"] not in found:
+        found[taxon["rank"]] = taxon["name"]
+        taxon = taxa.get(taxon["parent"])
+    return found.get("family"), found.get("genus")
+
+
 def join_photo_inventory(
     atlas: dict[str, Any], catalogue: dict[str, Any], source: dict[str, str]
 ) -> dict[str, Any]:
@@ -81,6 +91,7 @@ def join_photo_inventory(
         ):
             raise ValueError("Invalid source Labelbox annotation URL for: " + key)
     positioned = [photo for photo in catalogue["photos"] if _positioned(photo)]
+    taxa = {taxon["id"]: taxon for taxon in catalogue.get("taxa", [])}
     new_indices = {photo["key"]: index for index, photo in enumerate(positioned)}
     for key, point in existing.items():
         if point.get("model_available", True) is not False and key not in new_indices:
@@ -151,6 +162,7 @@ def join_photo_inventory(
                 neighbours=[],
                 other_mission_neighbours=None,
             )
+        point["family"], point["genus"] = recorded_lineage(photo, taxa)
         points.append(point)
     result = copy.deepcopy(atlas)
     result["points"] = points

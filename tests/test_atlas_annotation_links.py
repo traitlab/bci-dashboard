@@ -52,6 +52,7 @@ def test_exact_catalogue_join_preserves_all_representation_evidence_and_input_fi
     assert [p.pop("annotation_url") for p in result["points"]] == [None, LINK]
     for point in result["points"]:
         assert point.pop("model_available") is True
+        assert (point.pop("family"), point.pop("genus")) == (None, None)
         point["neighbours"][0][0] = 1 - point["neighbours"][0][0]
     result["points"].reverse()
     provenance = result["provenance"].pop("annotation_links")

@@ -113,6 +113,8 @@ def test_missing_model_photo_has_no_invented_representation_and_join_is_idempote
         "model_available": False,
         "neighbours": [],
         "other_mission_neighbours": None,
+        "family": None,
+        "genus": None,
     }
     assert JOIN(first, catalogue, SOURCE) == first
 
@@ -241,3 +243,21 @@ def test_builder_rejects_an_empty_photo_inventory_before_overwriting_a_page(tmp_
     with pytest.raises(ValueError, match="at least one positioned photo"):
         build(source, output)
     assert output.read_text() == "last verified page"
+
+
+def test_points_carry_the_family_and_genus_of_the_recorded_taxon_only():
+    atlas, catalogue = fixture()
+    catalogue["taxa"] = [
+        {"id": "f", "name": "Fabaceae", "rank": "family", "parent": None},
+        {"id": "g", "name": "Inga", "rank": "genus", "parent": "f"},
+        {"id": "s", "name": "Inga alba", "rank": "species", "parent": "g"},
+        {"id": "other", "name": "Moraceae", "rank": "family", "parent": None},
+    ]
+    by_key = {p["key"]: p for p in catalogue["photos"]}
+    by_key["a.JPG"].update(recorded_taxon="s", predicted_taxon="other")
+    by_key["b.JPG"]["recorded_taxon"] = "f"
+    by_key["missing.JPG"]["recorded_taxon"] = "unknown"
+    points = {p["key"]: p for p in JOIN(atlas, catalogue, SOURCE)["points"]}
+    assert (points["a.JPG"]["family"], points["a.JPG"]["genus"]) == ("Fabaceae", "Inga")
+    assert (points["b.JPG"]["family"], points["b.JPG"]["genus"]) == ("Fabaceae", None)
+    assert (points["missing.JPG"]["family"], points["missing.JPG"]["genus"]) == (None, None)
