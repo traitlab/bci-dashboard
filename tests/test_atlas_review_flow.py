@@ -109,12 +109,13 @@ $('downloadReviewRecord').onclick();assert.equal(downloads,3);assert.equal(liste
 """)
 
 
-def test_plot_click_compares_without_changing_selection_and_marker_is_not_a_legend_colour():
-    assert ".selected-key{background:#06283b;border:2px solid #f6bd4f}" in HTML
+def test_plot_click_compares_without_changing_selection_and_marker_keeps_label_colour():
+    assert ".selected-key{background:#fff;border:3px solid #06283b;box-shadow:0 0 0 3px #f6bd4f}" in HTML
+    assert "Selected photo, ringed" in HTML
     run_atlas(plot_photos(), r"""
 const click=index=>{const [x,y]=plotHits.find(h=>h[2]===index);plot.onpointerdown({offsetX:x,offsetY:y,pointerId:1});plot.onpointerup({offsetX:x,offsetY:y})};
 assert.equal(PLOT_COLOURS.includes(mapPointColour(P[0],0,0,'locations',new Map(),null)),false);assert.equal(PLOT_COLOURS.map(c=>c.toLowerCase()).includes('#f6bd4f'),false);
-const pc=context('plot');pc.fills=[];draw();assert.equal(pc.fills.at(-1),'#06283b');
+const pc=context('plot');pc.fills=[];draw();assert.equal(pc.fills.at(-1),PLOT_COLOURS[0]);
 click(7);assert.equal($('photoComparison').open,true);assert.equal(selected,0);assert.equal(photoPair.rank,0);assert.equal(photoComparison.plotPoint,true);assert.deepEqual(photoComparison.candidates,[[7,null]]);
 assert.equal($('comparisonCandidate').hidden,false);assert.equal($('photoComparisonRank').textContent,'Plot point');assert.match($('photoComparisonScore').textContent,/not a stored match/);
 assert.equal($('previousComparison').disabled,true);assert.equal($('nextComparison').disabled,true);assert.equal($('reviewNote').disabled,true);assert.equal($('downloadReviewRecord').disabled,true);assert.match($('reviewDownloadStatus').textContent,/stored matches only/);
@@ -125,10 +126,11 @@ const [x,y]=plotHits.find(h=>h[2]===7);plot.onpointerdown({offsetX:x,offsetY:y,p
 """)
 
 
-def test_plot_legend_counts_drawn_points_keeps_selected_label_and_fits_filters():
+def test_plot_legend_counts_drawn_points_names_selected_other_label_and_fits_filters():
     run_atlas(plot_photos(), r"""
 const names=()=>$('plotLegend').children.map(b=>b.children[1].textContent);
-select(12);assert.deepEqual(names(),['A (3)','B (2)','C (1)','D (1)','E (1)','F (1)','G (1)','J (1)','Other recorded label (2)','No recorded label (2)']);assert.equal(plotClass(P[12]),7);
+select(12);assert.deepEqual(names(),['A (3)','B (2)','C (1)','D (1)','E (1)','F (1)','G (1)','H (1)','Other recorded label (2)','No recorded label (2)','Selected: J (other label)']);assert.equal(plotClass(P[12]),8);
+const own=$('plotLegend').children.at(-1);assert.equal(own.children[0].style.background,'#8c8c8c');assert.equal(own.onclick,undefined);assert.equal(own.getAttribute('aria-pressed'),null);
 select(0);assert.deepEqual(names().slice(7),['H (1)','Other recorded label (2)','No recorded label (2)']);
 assert.deepEqual(plotView,{k:1,x:0,y:0});
 $('group').value='Without recorded label';$('group').onchange();assert.deepEqual(visible,[13,14]);assert.deepEqual(names(),['A (1)','No recorded label (2)']);
@@ -141,17 +143,19 @@ $('clearBrowseFilters').onclick();assert.deepEqual(plotView,{k:1,x:0,y:0});asser
 """)
 
 
-def test_visual_relationships_nav_opens_plot_within_locations():
+def test_visual_relationships_nav_opens_plot_as_its_own_view():
     nav = HTML.split('<nav class="workspace-nav"')[1].split("</nav>")[0]
     assert nav.index('id="showLocationsView"') < nav.index('id="showPlotView" aria-controls="plotView" aria-pressed="false">Visual relationships</button>')
     run_atlas(plot_photos(), r"""
 const pressed=()=>['showPhotosView','showLocationsView','showPlotView'].map(id=>$(id).getAttribute('aria-pressed'));const entries=historyEntries.length;
-$('showPlotView').onclick();assert.equal(atlasView,'locations');assert.equal($('plotView').hidden,false);assert.equal($('locationsView').hidden,false);assert.deepEqual(pressed(),['false','false','true']);assert.match(location.hash,/view=locations/);assert.equal($('togglePlot').getAttribute('aria-expanded'),'true');assert.equal(document.activeElement,$('plotView'));
-$('showPhotosView').onclick();assert.deepEqual(pressed(),['true','false','false']);assert.equal($('locationsView').hidden,true);
-$('showLocationsView').onclick();assert.equal($('plotView').hidden,true);assert.deepEqual(pressed(),['false','true','false']);assert.equal($('togglePlot').textContent,'Explore visual relationships');
-$('togglePlot').onclick();assert.equal($('plotView').hidden,false);assert.deepEqual(pressed(),['false','false','true']);assert.equal($('returnToMap').hidden,false);
-$('closePlot').onclick();assert.equal($('plotView').hidden,true);assert.deepEqual(pressed(),['false','true','false']);
-$('showPlotView').onclick();assert.equal(historyEntries.length,entries);
+$('showPlotView').onclick();assert.equal(atlasView,'plot');assert.equal($('plotView').hidden,false);assert.equal($('locationsView').hidden,false);assert.deepEqual(pressed(),['false','false','true']);assert.equal(location.hash,'#frame=query&view=plot');assert.equal(historyEntries.length,entries+1);assert.equal($('togglePlot').getAttribute('aria-expanded'),'true');assert.equal(document.activeElement,$('plotView'));assert.match($('workspaceTitle').textContent,/visual relationships/i);
+$('showPlotView').onclick();assert.equal(historyEntries.length,entries+1);
+$('showPhotosView').onclick();assert.deepEqual(pressed(),['true','false','false']);assert.equal($('locationsView').hidden,true);assert.equal($('plotView').hidden,true);
+$('showLocationsView').onclick();assert.equal($('plotView').hidden,true);assert.deepEqual(pressed(),['false','true','false']);assert.equal($('togglePlot').textContent,'Explore visual relationships');assert.match(location.hash,/view=locations/);
+$('togglePlot').onclick();assert.equal(atlasView,'plot');assert.equal($('plotView').hidden,false);assert.deepEqual(pressed(),['false','false','true']);assert.equal($('returnToMap').hidden,false);assert.match(location.hash,/view=plot/);
+$('closePlot').onclick();assert.equal(atlasView,'locations');assert.equal($('plotView').hidden,true);assert.deepEqual(pressed(),['false','true','false']);assert.match(location.hash,/view=locations/);assert.equal(document.activeElement,$('mapView'));
+$('togglePlot').onclick();$('returnToMap').onclick();assert.equal(atlasView,'locations');assert.equal($('returnToMap').hidden,true);
 location.hash='#frame=query';listeners.popstate();assert.equal(atlasView,'photos');assert.deepEqual(pressed(),['true','false','false']);
-location.hash='#frame=query&view=locations';listeners.popstate();assert.deepEqual(pressed(),['false','false','true']);
+location.hash='#frame=query&view=locations';listeners.popstate();assert.deepEqual(pressed(),['false','true','false']);assert.equal($('plotView').hidden,true);
+location.hash='#frame=query&view=plot';listeners.popstate();assert.deepEqual(pressed(),['false','false','true']);assert.equal($('plotView').hidden,false);
 """)
