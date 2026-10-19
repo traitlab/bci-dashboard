@@ -153,7 +153,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .tag.unmeasured{background:#fff3e0;color:#bf360c}
 .tag.hard{background:#ffebee;color:#c62828}
 .tag.unreachable{background:#eceff1;color:#455a64}
-.tag.out_of_scope{background:#f5f5f5;color:#757575}
+.tag.out_of_scope{background:#f5f5f5;color:#666}
 /* Sits directly above/below the table it explains, so a status stays legible
    without leaving the table. Text colour matches .todo li. */
 .status-legend{list-style:none;font-size:0.82rem;color:#424242;
@@ -214,6 +214,7 @@ code.key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.72r
    The 2px border under a heading does not survive `position:sticky` under
    `border-collapse:collapse`, so it is drawn as an inset shadow instead. */
 .tscroll{overflow:auto;max-height:80vh}
+.tscroll:focus-visible{outline:3px solid #287752;outline-offset:-3px}
 thead th{position:sticky;top:0;z-index:2;box-shadow:inset 0 -2px 0 #e0e0e0}
 /* A recurring label-and-guess pair is written once and spanned down its own
    frames, so the pair cells align to the first of them and the block that

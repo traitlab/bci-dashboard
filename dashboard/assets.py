@@ -153,6 +153,13 @@ def source_note(source) -> str:
             f'with the columns it does not show.</p>') if source else ""
 
 
+def scroll_region(inner, headers):
+    """The table's scroll box, focusable so a keyboard can scroll it, named by its columns."""
+    name = " / ".join(re.sub(r"<[^>]+>", "", text) for text, _ in headers[:3])
+    return ('<div class="tscroll" tabindex="0" role="region" '
+            f'aria-label="Table: {name.replace(chr(34), "&quot;")}">{inner}</div>')
+
+
 def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None, source=None):
     """headers = [(text, is_numeric)]; rows = [[cell_html, ...]].
 
@@ -190,7 +197,7 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None, source
         out.append("</tr>")
     out.append("</tbody></table>")
     # Scrolls in its own box, or the 7-column table sets page width on a phone.
-    return (rule + '<div class="tscroll">' + "\n".join(out) + "</div>"
+    return (rule + scroll_region("\n".join(out), headers)
             + source_note(source))
 
 
