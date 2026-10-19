@@ -17,8 +17,8 @@ def test_neutral_default_layers_matches_and_preserves_pca_plot():
     run_atlas(map_photos(), r"""
 assert.equal(mapColourMode,'locations');assert.equal($('mapColourMode').value,'locations');assert.equal($('mapColourSummary').hidden,true);assert.equal($('mapMatchKey').style.background,'#087f72');assert.equal($('mapContextKey').style.background,'#74858e');
 context('map').fills=[];context('plot').fills=[];draw();
-assert.deepEqual(context('map').fills,['#74858e','#74858e','#087f72','#087f72','#f6bd4f']);
-assert.deepEqual(context('plot').fills,['#E69F00','#E69F00','#E69F00','#E69F00','#f6bd4f']);
+assert.deepEqual(context('map').fills,['#74858e','#74858e','#087f72','#087f72','#06283b']);
+assert.deepEqual(context('plot').fills,['#E69F00','#E69F00','#E69F00','#E69F00','#06283b']);
 assert.deepEqual(mapHits.map(row=>row[2]),[3,4,1,2,0]);
 assert.match($('mapColourExplanation').textContent,/Neutral.*stored similar photos.*do not identify species/);
 assert.match($('mapMatchSupport').textContent,/2 stored matches, 2 pass browse filters, 0 hidden/);
@@ -29,7 +29,7 @@ assert.equal(location.hash,before.hash);assert.equal(selected,before.selected);a
 assert.equal($('mapColourSummary').hidden,false);assert.match($('mapMatchKey').style.background,/linear-gradient/);assert.equal($('mapContextKey').style.background,$('mapMatchKey').style.background);
 assert.match($('mapColourExplanation').textContent,/three PCA components.*Retained variance is not recorded.*do not show species, confidence or distance/);
 data.provenance.pca_explained_variance=[.1,.06,.045,.01];draw();assert.match($('mapColourExplanation').textContent,/20.5%/);
-context('map').fills=[];draw();assert.deepEqual(context('map').fills,['rgb(1,2,3)','rgb(1,2,3)','rgb(1,2,3)','rgb(1,2,3)','#f6bd4f']);
+context('map').fills=[];draw();assert.deepEqual(context('map').fills,['rgb(1,2,3)','rgb(1,2,3)','rgb(1,2,3)','rgb(1,2,3)','#06283b']);
 """)
 
 

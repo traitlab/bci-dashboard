@@ -16,7 +16,7 @@ const legend=$('plotLegend').children;
 assert.deepEqual(legend.map(b=>b.children[1].textContent),['A (3)','B (2)','C (1)','D (1)','E (1)','F (1)','G (1)','H (1)','Other recorded label (2)','No recorded label (2)']);
 assert.equal(plotClass(P[11]),8);assert.equal(plotClass(P[13]),9);assert.equal(legend[8].children[0].style.background,'#8c8c8c');
 const pc=context('plot');pc.fills=[];pc.arcs=[];pc.texts=[];pc.lines=[];draw();
-assert.deepEqual(pc.fills.slice(0,2),['#cfd8dd','#cfd8dd']);assert.deepEqual(pc.arcs.slice(0,2),[2,2]);assert.equal(pc.fills.at(-1),'#f6bd4f');assert.deepEqual(pc.arcs.slice(-3),[10,10,7]);
+assert.deepEqual(pc.fills.slice(0,2),['#cfd8dd','#cfd8dd']);assert.deepEqual(pc.arcs.slice(0,2),[2,2]);assert.equal(pc.fills.at(-1),'#06283b');assert.deepEqual(pc.arcs.slice(-3),[10,10,7]);
 assert.deepEqual(pc.fills.slice(-3,-1),['#E69F00','#56B4E9']);assert.deepEqual(pc.texts.map(t=>t[0]),['1','2']);
 const q=plotHits.find(h=>h[2]===0);assert.deepEqual(pc.lines,[[q[0],q[1]],plotHits.find(h=>h[2]===1).slice(0,2),[q[0],q[1]],plotHits.find(h=>h[2]===3).slice(0,2)]);
 assert.match($('plotExplanation').textContent,/two PCA components.*retained variance is not recorded.*recorded frame label, not independently verified ground truth.*not prove they are the same species/);
@@ -33,5 +33,5 @@ plot.onpointermove({offsetX:tx+3,offsetY:ty});assert.equal($('plotTip').hidden,f
 const blank=plotHits.find(h=>h[2]===13);plot.onpointermove({offsetX:blank[0],offsetY:blank[1]});assert.equal($('plotTip').textContent,'No recorded label · p13');
 plot.onpointerleave();assert.equal($('plotTip').hidden,true);
 plot.onpointerdown({offsetX:tx,offsetY:ty,pointerId:1});plot.onpointermove({offsetX:tx+40,offsetY:ty});plot.onpointerup({offsetX:tx+40,offsetY:ty});assert.equal(selected,0);assert.equal(plotView.x,40);assert.equal(plotDrag,null);
-$('plotReset').onclick();plot.onpointerdown({offsetX:tx,offsetY:ty,pointerId:1});plot.onpointerup({offsetX:tx,offsetY:ty});assert.equal(selected,7);
+$('plotReset').onclick();plot.onpointerdown({offsetX:tx,offsetY:ty,pointerId:1});plot.onpointerup({offsetX:tx,offsetY:ty});assert.equal(selected,0);assert.equal($('photoComparison').open,true);assert.deepEqual(photoComparison.candidates,[[7,null]]);
 """)
