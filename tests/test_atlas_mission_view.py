@@ -33,8 +33,8 @@ def run_atlas(points, checks, initial_hash="#frame=query", comparison=None, page
         payload["comparison"] = comparison
     setup = r"""
 const assert=require('node:assert/strict'),elements=new Map(),contexts=new Map(),listeners={};
-function context(id){if(!contexts.has(id))contexts.set(id,{arcs:[],fills:[],texts:[],fillText(text,x,y){this.texts.push([text,x,y])},strokeText(){},scale(){},fillRect(){},beginPath(){},arc(x,y,r){this.arcs.push(r)},fill(){this.fills.push(this.fillStyle)},stroke(){},drawImage(){}});return contexts.get(id)}
-function make(id){return {id,children:[],attributes:{},isConnected:true,clientWidth:640,clientHeight:520,value:'',style:{},contains(target){return target===this||this.children.some(child=>child.contains?.(target))},focus(){document.activeElement=this},scrollIntoView(){},getContext:()=>context(id),replaceChildren(...v){this.children=v},append(...v){this.children.push(...v)},getAttribute(name){return this.attributes[name]??null},removeAttribute(name){delete this[name];delete this.attributes[name]},setAttribute(name,value){this[name]=value;this.attributes[name]=value},addEventListener(){},showModal(){this.open=true},close(){this.open=false;this.onclose?.()}}}
+function context(id){if(!contexts.has(id))contexts.set(id,{arcs:[],fills:[],texts:[],lines:[],moveTo(x,y){this.lines.push([x,y])},lineTo(x,y){this.lines.push([x,y])},fillText(text,x,y){this.texts.push([text,x,y])},strokeText(){},scale(){},fillRect(){},beginPath(){},arc(x,y,r){this.arcs.push(r)},fill(){this.fills.push(this.fillStyle)},stroke(){},drawImage(){}});return contexts.get(id)}
+function make(id){return {id,children:[],attributes:{},isConnected:true,clientWidth:640,clientHeight:520,value:'',style:{},contains(target){return target===this||this.children.some(child=>child.contains?.(target))},focus(){document.activeElement=this},scrollIntoView(){},setPointerCapture(){},getContext:()=>context(id),replaceChildren(...v){this.children=v},append(...v){this.children.push(...v)},getAttribute(name){return this.attributes[name]??null},removeAttribute(name){delete this[name];delete this.attributes[name]},setAttribute(name,value){this[name]=value;this.attributes[name]=value},addEventListener(){},showModal(){this.open=true},close(){this.open=false;this.onclose?.()}}}
 function element(id){if(!elements.has(id))elements.set(id,make(id));return elements.get(id)}
 for(const id of ['similarMissionMode','mapMissionMode'])element(id).options=['all','other'].map(value=>({value}));
 const payload=__PAYLOAD__;
@@ -81,12 +81,12 @@ def test_mission_toggle_updates_cards_rings_and_modal_without_changing_query():
 assert.equal(neighborMode,'all');assert.equal($('similarMissionMode').value,'all');assert.match($('similarModel').textContent,/Crownfirst test encoder/);
 assert.match($('neighborSupport').textContent,/2 of 2 stored matches.*5 other photos/);
 const allButton=$('neighbors').children[0].children[0];assert.match(allButton['aria-label'],/same-one.*0.990.*Same recorded mission/);
-context('map').arcs=[];context('plot').arcs=[];draw();assert.deepEqual(context('map').arcs,[3,3,3,10,10,7]);assert.deepEqual(context('plot').arcs,[5,5,3,3,3,7]);
+context('map').arcs=[];context('plot').arcs=[];draw();assert.deepEqual(context('map').arcs,[3,3,3,10,10,7]);assert.deepEqual(context('plot').arcs,[3,3,3,10,10,7]);
 allButton.onclick();$('workspaceEnlarge').onclick();assert.equal(photoComparison.mode,'all');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[1,.99],[2,.98]]);assert.match($('photoComparisonScore').textContent,/0.990/);$('closePhotoComparison').onclick();
 const initial={selected,hash:location.hash,view:{...view},visible,rows:$('results').children};browsePage=2;
 context('map').arcs=[];context('plot').arcs=[];$('similarMissionMode').value='other';$('similarMissionMode').focus();$('similarMissionMode').onchange();
 assert.equal(selected,initial.selected);assert.equal(location.hash,initial.hash+'&missions=other&atlasPage=3');assert.deepEqual(view,initial.view);assert.equal(visible,initial.visible);assert.equal(browsePage,2);assert.equal($('results').children,initial.rows);assert.equal(document.activeElement,$('similarMissionMode'));
-assert.deepEqual(context('map').arcs,[3,3,3,10,10,7]);assert.deepEqual(context('plot').arcs,[3,3,5,5,3,7]);
+assert.deepEqual(context('map').arcs,[3,3,3,10,10,7]);assert.deepEqual(context('plot').arcs,[3,3,3,10,10,7]);
 assert.match($('neighborSupport').textContent,/2 of 2 stored matches.*2 photos with other recorded mission IDs/);
 const otherButton=$('neighbors').children[0].children[0];assert.match(otherButton['aria-label'],/other-one.*0.880.*Other recorded mission/);otherButton.onclick();$('workspaceEnlarge').onclick();
 assert.equal(photoComparison.mode,'other');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[3,.88],[4,.77]]);assert.match($('photoComparisonContext').textContent,/Exclude selected flight.*do not prove different trees/);assert.match($('photoComparisonScore').textContent,/0.880/);

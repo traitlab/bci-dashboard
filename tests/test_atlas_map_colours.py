@@ -18,7 +18,7 @@ def test_neutral_default_layers_matches_and_preserves_pca_plot():
 assert.equal(mapColourMode,'locations');assert.equal($('mapColourMode').value,'locations');assert.equal($('mapColourSummary').hidden,true);assert.equal($('mapMatchKey').style.background,'#087f72');assert.equal($('mapContextKey').style.background,'#74858e');
 context('map').fills=[];context('plot').fills=[];draw();
 assert.deepEqual(context('map').fills,['#74858e','#74858e','#087f72','#087f72','#f6bd4f']);
-assert.deepEqual(context('plot').fills,Array(5).fill('rgb(1,2,3)'));
+assert.deepEqual(context('plot').fills,['#E69F00','#E69F00','#E69F00','#E69F00','#f6bd4f']);
 assert.deepEqual(mapHits.map(row=>row[2]),[3,4,1,2,0]);
 assert.match($('mapColourExplanation').textContent,/Neutral.*stored similar photos.*do not identify species/);
 assert.match($('mapMatchSupport').textContent,/2 stored matches, 2 pass browse filters, 0 hidden/);
