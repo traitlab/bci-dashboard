@@ -49,7 +49,7 @@ def test_gallery_and_inspector_jumps_preserve_filters_page_identity_and_history(
     run_browser(
         r"""
 const originalHash=location.hash,originalState=JSON.stringify(state),originalHistory=historyEntries.slice(),originalPhotos=JSON.stringify(photos),cards=$('gallery').children;
-assert.equal(state.page,1);assert.equal(cards[0].getAttribute('data-frame'),'photo-0');
+assert.equal(state.page,1);assert.equal(cards[0].getAttribute('data-frame'),'photo-24');
 function jump(id,target){let prevented=false;$(id).onclick({preventDefault(){prevented=true}});assert.equal(prevented,true);assert.equal(document.activeElement,target);assert.equal(location.hash,originalHash);assert.equal(JSON.stringify(state),originalState);assert.deepEqual(historyEntries,originalHistory);assert.equal($('gallery').children,cards);assert.equal(JSON.stringify(photos),originalPhotos)}
 jump('skipGallery',cards[0]);jump('skipSelected',$('selectedTitle'));
 $('annotation').focus();jump('backToPhotos',cards[0]);

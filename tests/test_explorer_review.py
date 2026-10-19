@@ -26,7 +26,7 @@ assert.equal($('labelStatus').value,'compare');
 setState({source:'prediction',taxon:'s'});
 assert.deepEqual(matchingPhotoKeys(catalogue,state),[]);
 assert.deepEqual(labelStatusCounts(catalogue,state),{all:2,with:1,without:1,compare:0});
-assert.equal($('gallery').children.length,1);assert.match($('outsideNotice').textContent,/outside/);
+assert.equal($('gallery').children.length,0);assert.match($('outsideNotice').textContent,/outside/);
 location.hash='#source=prediction&status=compare&frame=b';listeners.hashchange();
 assert.equal(state.status,'compare');assert.equal(state.frame,'b');assert.deepEqual(matchingPhotoKeys(catalogue,state),[first]);
 $('allPhotos').onclick();assert.equal(state.status,'all');
@@ -102,36 +102,26 @@ assert.equal(new URLSearchParams(new URL(task.href,'https://example.org').hash.s
 """)
 
 
-def test_compare_cards_show_both_evidence_names_only_for_review_candidates():
+def test_cards_show_both_evidence_names_in_a_fixed_order_in_every_view():
     run_browser(r"""
-function copy(key){return $('gallery').children.find(card=>card.getAttribute('data-frame')===key).children[1].children}
-const first=state.frame;
-assert.equal(copy(first).filter(n=>n.className?.split(' ').includes('card-counterpart')).length,0);
-setState({status:'compare'});
-let text=copy(first).map(n=>n.textContent);
-assert.ok(text.includes('Canopia lutea'));assert.ok(text.includes('Pl@ntNet first guess'));
-assert.ok(text.includes('Recorded label: Canopia alba'));
-setState({source:'recorded'});
-text=copy(first).map(n=>n.textContent);
-assert.ok(text.includes('Canopia alba'));assert.ok(text.includes('Recorded label'));
-assert.ok(text.includes('Pl@ntNet first guess: Canopia lutea'));
-setState({frame:'b'});
-assert.equal(copy('b').filter(n=>n.className?.split(' ').includes('card-counterpart')).length,0);
-setState({status:'all'});
-assert.equal(copy(first).filter(n=>n.className?.split(' ').includes('card-counterpart')).length,0);
+function copy(key){return $('gallery').children.find(card=>card.getAttribute('data-frame')===key).children[1].children.filter(n=>n.className!=='card-selection').map(n=>[n.className,n.textContent])}
+const first=state.frame,expected=[['card-name','Canopia alba'],['card-evidence','Recorded label'],['card-name','Canopia lutea'],['card-evidence','Pl@ntNet first guess']];
+assert.deepEqual(copy(first).slice(0,4),expected);
+for(const patch of [{status:'compare'},{source:'recorded'},{status:'all'}]){setState(patch);assert.deepEqual(copy(first).slice(0,4),expected)}
+const unlabelled=photos.find(p=>!hasRecordedLabel(p)&&matchingPhotoKeys(catalogue,state).includes(p.key));
+assert.deepEqual(copy(unlabelled.key)[0],['card-name card-missing','No recorded label']);
 """)
 
 
 def test_review_help_explains_branch_scope_only_while_comparing():
     run_browser(r"""
-const standard='Counts match the current taxon and search, before this filter.';
-assert.equal($('labelStatusHelp').textContent,standard);
+assert.equal($('labelStatusHelp').hidden,true);
 setState({status:'compare'});
 assert.match($('labelStatusHelp').textContent,/resolved taxa on different branches/);
 assert.match($('labelStatusHelp').textContent,/coarser labels on the same lineage are excluded/);
 assert.match($('labelStatusHelp').textContent,/not verified errors/);
 assert.match($('labelStatusHelp').textContent,/different crowns/);
-setState({status:'without'});assert.equal($('labelStatusHelp').textContent,standard);
+setState({status:'without'});assert.equal($('labelStatusHelp').hidden,true);
 assert.match($('similarPhotosTask').getAttribute('aria-label'),/^Similar photos\./);
 """)
 

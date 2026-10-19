@@ -21,7 +21,7 @@ def test_reload_restores_atlas_filters_page_and_separate_catalogue_context():
     run_atlas(points, r"""
 assert.equal(selected,0);assert.equal(atlasView,'locations');assert.equal(neighborMode,'other');
 assert.equal($('search').value,'canopy');assert.equal($('group').value,'With recorded label');assert.equal(browseSharedOnly,true);assert.equal($('sharedBrowseScope').checked,true);assert.equal(browsePage,1);
-assert.equal(visible.length,120);assert.equal($('results').children.length,51);assert.equal($('results').children[1].getAttribute('data-frame'),'canopy-050');assert.equal($('browsePhotos').open,true);assert.match($('selectionStatus').textContent,/outside/);
+assert.equal(visible.length,120);assert.equal($('results').children.length,50);assert.equal($('results').children[0].getAttribute('data-frame'),'canopy-050');assert.equal($('browsePhotos').open,true);assert.match($('selectionStatus').textContent,/outside/);
 const before=new URLSearchParams(location.hash.slice(1)),catalogue=before.get('browse');assert.equal(new URLSearchParams(catalogue).get('layout'),'table');
 for(const index of [0,1]){const params=new URLSearchParams(navLinks[index].getAttribute('href').split('#')[1]);assert.equal(params.get('atlasSearch'),'canopy');assert.equal(params.get('atlasLabels'),'with');assert.equal(params.get('atlasShared'),'1');assert.equal(params.get('atlasPage'),'2');assert.equal(params.get('browse'),catalogue);assert.equal(params.get('missions'),'other');assert.equal(params.get('frame'),'query')}
 const catalogueParams=new URLSearchParams(navLinks[2].getAttribute('href').split('#')[1]);assert.equal(catalogueParams.get('search'),'other catalogue text');assert.equal(catalogueParams.get('page'),'4');assert.equal(catalogueParams.get('layout'),'table');assert.equal(catalogueParams.get('atlasSearch'),'canopy');assert.equal(catalogueParams.get('atlasLabels'),'with');assert.equal(catalogueParams.get('atlasShared'),'1');assert.equal(catalogueParams.get('atlasPage'),'2');
@@ -36,7 +36,7 @@ def test_search_edit_history_and_page_navigation_restore_same_query():
 const initial=location.hash;const originalNeighbors=$('neighbors').children;
 $('search').value='can';$('search').oninput();const edits=historyEntries.length;assert.equal(edits,1);
 $('search').value='canopy';$('search').oninput();assert.equal(historyEntries.length,edits);assert.equal(new URLSearchParams(location.hash.slice(1)).get('atlasSearch'),'canopy');assert.equal(selected,0);assert.equal($('neighbors').children,originalNeighbors);
-$('search').onblur();const filtered=location.hash;$('nextBrowsePage').onclick();assert.equal(browsePage,1);assert.equal(new URLSearchParams(location.hash.slice(1)).get('atlasPage'),'2');assert.equal($('results').children[1].getAttribute('data-frame'),'canopy-50');
+$('search').onblur();const filtered=location.hash;$('nextBrowsePage').onclick();assert.equal(browsePage,1);assert.equal(new URLSearchParams(location.hash.slice(1)).get('atlasPage'),'2');assert.equal($('results').children[0].getAttribute('data-frame'),'canopy-50');
 location.hash=filtered;listeners.popstate();assert.equal(browsePage,0);assert.equal($('search').value,'canopy');assert.equal(selected,0);
 location.hash=initial;listeners.popstate();assert.equal($('search').value,'');assert.equal(browsePage,0);assert.equal(visible.length,111);assert.equal(selected,0);
 """)
@@ -63,4 +63,23 @@ $('group').value='Without recorded label';$('group').onchange();assert.equal($('
 navigator.clipboard.writeText=async()=>{throw new Error('Permission denied')};await $('copyViewLink').onclick();assert.doesNotMatch($('copyViewStatus').textContent,/copied/i);assert.match($('copyViewStatus').textContent,/Select and copy/);assert.equal($('copyViewFallback').hidden,false);assert.equal($('copyViewFallback').value,location.href);assert.equal(document.activeElement,$('copyViewFallback'));
 delete navigator.clipboard;await $('copyViewLink').onclick();assert.doesNotMatch($('copyViewStatus').textContent,/copied/i);assert.equal($('copyViewFallback').value,location.href);
 })().catch(error=>{console.error(error);process.exitCode=1});
+""")
+
+
+def test_catalogue_return_link_keeps_evidence_table_column_filters():
+    points = [photo("query", "query-flight", label=None), photo("canopy-000", "flight-b")]
+    context = urlencode({"layout": "table", "order": "guess-asc", "label": "inga", "guess": "lutea", "mission": "bci50"})
+    run_atlas(points, r"""
+const params=new URLSearchParams(navLinks[2].getAttribute('href').split('#')[1]);
+for(const [name,value] of Object.entries({layout:'table',order:'guess-asc',label:'inga',guess:'lutea',mission:'bci50'}))assert.equal(params.get(name),value);
+assert.equal($('collectionExplorerLink').textContent,'Back to filtered photos');
+""", initial_hash="#" + urlencode({"frame": "query", "browse": context}))
+
+
+def test_selected_photo_keeps_its_place_in_the_chooser():
+    points = [photo(f"canopy-{index}", "flight-b") for index in range(3)] + [photo("query", "flight-a")]
+    run_atlas(points, r"""
+const frames=()=>Array.from($('results').children,b=>b.getAttribute('data-frame'));
+assert.deepEqual(frames(),['canopy-0','canopy-1','canopy-2','query']);assert.equal($('results').children[3].getAttribute('aria-pressed'),'true');
+$('search').value='canopy';$('search').oninput();assert.deepEqual(frames(),['canopy-0','canopy-1','canopy-2']);assert.match($('selectionStatus').textContent,/outside/);assert.equal(selected,3);
 """)

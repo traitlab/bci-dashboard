@@ -1,4 +1,4 @@
-"""Consecutive inspection follows the filtered population, not pinned gallery order."""
+"""Consecutive inspection follows the filtered population, and the gallery page follows the selection."""
 
 import pytest
 from test_explorer_browser import ROOT, catalogue, run_browser, template
@@ -15,7 +15,7 @@ def test_consecutive_matches_cross_pages_in_both_directions_and_keep_exact_evide
         for index in range(60)
     ]
     run_browser(r"""
-const before=JSON.stringify(photos),scope={source:state.source,taxon:state.taxon,search:state.search,status:state.status,page:state.page};
+const before=JSON.stringify(photos),scope={source:state.source,taxon:state.taxon,search:state.search,status:state.status};
 function exact(index){
 assert.equal(state.frame,'photo-'+index);assert.equal($('selectedKey').textContent,state.frame);
 assert.equal($('selectedImage').src,'https://example.org/'+index+'.jpg');
@@ -25,7 +25,7 @@ assert.equal($('annotation').href,'https://example.org/annotation/'+index);
 assert.equal($('photoPosition').textContent,'Photo '+(index+1)+' of 60 matching photos');
 assert.equal(new URLSearchParams(location.hash.slice(1)).get('frame'),state.frame);
 for(const field of Object.keys(scope))assert.equal(state[field],scope[field]);
-assert.equal($('gallery').children[0].getAttribute('data-frame'),state.frame);
+assert.equal(state.page,Math.floor(index/24));assert.equal($('gallery').children.find(card=>card.getAttribute('aria-pressed')==='true').getAttribute('data-frame'),state.frame);
 }
 $('nextPhoto').focus();
 for(let index=1;index<60;index++){$('nextPhoto').onclick();exact(index);assert.equal(document.activeElement,index<59?$('nextPhoto'):$('photoPosition'))}
