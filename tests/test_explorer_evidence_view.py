@@ -65,7 +65,7 @@ assert.equal($('enlarge').disabled,false);$('enlarge').onclick();assert.equal($(
 $('showPhotos').onclick();assert.equal(state.layout,'photos');assert.equal(state.page,1);assert.equal(state.frame,key);
 assert.equal($('gallery').hidden,false);assert.equal($('evidenceScroll').hidden,true);
 assert.equal($('gallery').children[1].getAttribute('data-frame'),key);assert.equal(JSON.stringify(photos),evidence);
-""", payload=data)
+""", payload=data, initial_hash='#frame=p0')
 
 
 def test_view_and_filters_roundtrip_history_and_selected_photo_tool_context():

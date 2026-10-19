@@ -1,7 +1,7 @@
 """Consecutive inspection follows the filtered population, and the gallery page follows the selection."""
 
 import pytest
-from test_explorer_browser import ROOT, catalogue, run_browser, template
+from test_explorer_browser import ROOT, SELECTED, catalogue, run_browser, template
 from test_explorer_keyboard import PageTargets
 
 
@@ -55,7 +55,7 @@ assert.equal($('previousPhoto').disabled,true);assert.equal($('nextPhoto').disab
 assert.ok($('photoPosition').textContent.includes(__REASON__));
 $('previousPhoto').onclick();$('nextPhoto').onclick();
 assert.equal(JSON.stringify(state),before);assert.equal(historyEntries.length,entries);
-""".replace('__PATCH__', patch).replace('__REASON__', repr(reason)))
+""".replace('__PATCH__', patch).replace('__REASON__', repr(reason)), initial_hash=SELECTED)
 
 
 def test_position_recomputes_on_filters_and_restores_without_changing_selection():
