@@ -66,8 +66,8 @@ function cropImageFootprint(crop,width,height){
  if(!crop)return {show:false,text:'Full frame shown. Model crop footprint unknown in this source.'};
  const recorded=crop.width+' × '+crop.height+' px';
  if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)return {show:false,text:'Outline hidden: loaded image dimensions unavailable. Recorded crop source: '+recorded+'. Recorded '+crop.side+'px crop metadata retained.'};
- if(width!==crop.width||height!==crop.height)return {show:false,text:'Outline hidden: loaded image '+width+' × '+height+' px; recorded crop source '+recorded+'. Recorded '+crop.side+'px crop metadata retained.'};
- return {show:true,text:'Outline: recorded '+crop.side+'px model crop. Full frame shown.'};
+ if(Math.abs(width*crop.height-height*crop.width)>Math.max(width,height))return {show:false,text:'Outline hidden: loaded image '+width+' × '+height+' px; recorded crop source '+recorded+'. Recorded '+crop.side+'px crop metadata retained.'};
+ return {show:true,text:'Outline: recorded '+crop.side+'px model crop. Full frame shown'+(width===crop.width?'.':' at '+width+' px wide; enlarge for the original.')};
 }
 // CROP_HELPERS_END
 // MAP_HELPERS_START
@@ -208,7 +208,7 @@ function renderSharedFrame(prefix,key,label,comparison){
  renderAnnotationLink(prefix,meta);$(prefix+'Label').textContent=sharedRecordedLabel(label,comparison.labels_available);$(prefix+'Key').textContent=key;$(prefix+'Mission').textContent=missionId(meta)?'Recorded mission: '+meta.mission:'Mission unavailable in this atlas.';
  if(image.getAttribute?.('data-frame')===key)return;beginImageDetail(prefix,key);image.setAttribute('data-frame',key);image.alt='Full original frame '+key;image.hidden=true;status.hidden=false;image.onload=null;image.onerror=null;image.removeAttribute('src');
  if(!/^https?:\/\//.test(meta?.image)){status.textContent='Image unavailable in this atlas.';finishImageDetail(prefix,'missing');original.hidden=true;original.removeAttribute('href');return}
- original.hidden=false;original.href=meta.image;status.textContent='Loading full frame…';image.onload=()=>{if(image.getAttribute('data-frame')!==key)return;image.hidden=false;status.hidden=true;finishImageDetail(prefix)};image.onerror=()=>{if(image.getAttribute('data-frame')!==key)return;image.hidden=true;status.hidden=false;status.textContent='Image unavailable. Open full image to retry.';finishImageDetail(prefix,'error')};image.src=meta.image;
+ original.hidden=false;original.href=meta.image;status.textContent='Loading photo…';image.fb=0;image.onload=()=>{if(image.getAttribute('data-frame')!==key)return;image.hidden=false;status.hidden=true;finishImageDetail(prefix)};image.onerror=()=>{if(image.getAttribute('data-frame')!==key)return;if(!image.fb){image.fb=1;image.src=meta.image;return}image.hidden=true;status.hidden=false;status.textContent='Image unavailable. Open full image to retry.';finishImageDetail(prefix,'error')};image.src=thumbSrc(meta);
 }
 function renderSharedInspection(){
  const state=sharedInspection,comparison=state.comparison,candidate=state.candidates[state.rank],query=comparison.cohort.find(record=>record[0]===state.queryKey);
@@ -358,10 +358,10 @@ function renderComparisonPhoto(prefix,index){
  beginImageDetail(prefix,p.key);image.setAttribute('data-frame',p.key);image.alt='Full drone frame '+p.key;image.hidden=true;overlay.setAttribute('hidden','');status.hidden=false;image.onload=null;image.onerror=null;image.removeAttribute('src');
  if(crop){overlay.setAttribute('viewBox',`0 0 ${crop.width} ${crop.height}`);for(const [name,value] of Object.entries({x:crop.x,y:crop.y,width:crop.side,height:crop.side}))element('Outline').setAttribute(name,value)}
  if(!/^https?:\/\//.test(p.image)){status.textContent='Photo unavailable for this frame.';element('Crop').textContent=cropImageFootprint(crop,0,0).text;finishImageDetail(prefix,'missing');original.hidden=true;original.removeAttribute('href');return}
- original.hidden=false;original.href=p.image;status.textContent='Loading full frame…';
+ original.hidden=false;original.href=p.image;status.textContent='Loading photo…';image.fb=0;
  image.onload=()=>{if(image.getAttribute('data-frame')!==p.key)return;image.hidden=false;const footprint=cropImageFootprint(crop,image.naturalWidth,image.naturalHeight);element('Crop').textContent=footprint.text;if(footprint.show)overlay.removeAttribute('hidden');else overlay.setAttribute('hidden','');status.hidden=true;finishImageDetail(prefix,'loaded',footprint.show?crop:null);if(pendingMainImages.delete(prefix))releaseThumbnails()};
- image.onerror=()=>{if(image.getAttribute('data-frame')!==p.key)return;image.hidden=true;overlay.setAttribute('hidden','');status.hidden=false;status.textContent='Photo unavailable. Open full image to retry.';element('Crop').textContent=cropImageFootprint(crop,0,0).text;finishImageDetail(prefix,'error');if(pendingMainImages.delete(prefix))releaseThumbnails()};
- if(prefix==='selected'||prefix==='workspaceCandidate')pendingMainImages.add(prefix);image.src=p.image;
+ image.onerror=()=>{if(image.getAttribute('data-frame')!==p.key)return;if(!image.fb){image.fb=1;image.src=p.image;return}image.hidden=true;overlay.setAttribute('hidden','');status.hidden=false;status.textContent='Photo unavailable. Open full image to retry.';element('Crop').textContent=cropImageFootprint(crop,0,0).text;finishImageDetail(prefix,'error');if(pendingMainImages.delete(prefix))releaseThumbnails()};
+ if(prefix==='selected'||prefix==='workspaceCandidate')pendingMainImages.add(prefix);image.src=thumbSrc(p);
 }
 function renderPhotoComparison(){
  const state=photoComparison,comparing=state.rank!==null;

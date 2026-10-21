@@ -159,7 +159,7 @@ assert.equal(state.frame,'a & ä /?.JPG');assert.equal($('gallery').children.len
 const image=$('selectedImage').src,neighbors=$('similar').children.map(n=>n.children[0]?.textContent),rep=JSON.stringify(photos[0].representation);
 chooseTaxon('other');assert.equal(state.frame,'a & ä /?.JPG');assert.equal($('selectedImage').src,image);assert.match($('outsideNotice').textContent,/stays open in the inspector/);assert.equal($('gallery').children.some(card=>card.getAttribute('data-frame')===state.frame),false);assert.match($('resultCount').textContent,/1 of 6/);assert.deepEqual($('similar').children.map(n=>n.children[0]?.textContent),neighbors);assert.equal(JSON.stringify(photos[0].representation),rep);
 setState({search:'no results'});assert.equal($('gallery').children.length,0);assert.equal($('empty').hidden,false);assert.equal($('nextPage').disabled,true);assert.match($('resultCount').textContent,/0 of 6/);
-setState({frame:'b'},{focusPhoto:true});assert.equal(state.frame,'b');assert.match($('representationStatus').textContent,/unavailable.*catalogue photo remains/);assert.equal($('selectedImage').src,'https://example.org/b.jpg');assert.equal($('annotation').href,'https://example.org/annotation/b');assert.equal(document.activeElement,$('selectedTitle'));assert.match($('predictionLabel').children[1].textContent,/Tied first score/);
+setState({frame:'b'},{focusPhoto:true});assert.equal(state.frame,'b');assert.match($('representationStatus').textContent,/unavailable.*catalogue photo remains/);assert.equal($('selectedImage').src,'thumbs/480/b.webp');assert.equal($('annotation').href,'https://example.org/annotation/b');assert.equal(document.activeElement,$('selectedTitle'));assert.match($('predictionLabel').children[1].textContent,/Tied first score/);
 $('allPhotos').onclick();assert.equal(state.taxon,'');assert.equal(state.search,'');assert.equal(state.status,'all');assert.equal(state.frame,'b');
 """, initial_hash=SELECTED)
 
@@ -243,7 +243,7 @@ chooseTaxon('s');const family=$('breadcrumbs').children.find(n=>n.getAttribute('
 def test_url_history_restores_source_taxon_search_and_identity_without_fallback():
     run_browser(r"""
 const first=state.frame;setState({source:'recorded',taxon:'f',search:'flight',status:'with',frame:'c'});const saved=location.hash;setState({source:'prediction',taxon:'s',search:'',status:'without',frame:'d'});
-location.hash=saved;listeners.popstate();assert.deepEqual(state,{source:'recorded',taxon:'f',search:'flight',status:'with',frame:'c',page:0});assert.equal($('taxonomy').children.find(n=>n.className==='taxa-heading').textContent,'Recorded label taxa');assert.equal($('selectedImage').src,'https://example.org/c.jpg');assert.equal($('breadcrumbs').children.at(-1).textContent,'Forestaceae');
+location.hash=saved;listeners.popstate();assert.deepEqual(state,{source:'recorded',taxon:'f',search:'flight',status:'with',frame:'c',page:0});assert.equal($('taxonomy').children.find(n=>n.className==='taxa-heading').textContent,'Recorded label taxa');assert.equal($('selectedImage').src,'thumbs/480/c.webp');assert.equal($('breadcrumbs').children.at(-1).textContent,'Forestaceae');
 const special={...state,frame:first,search:'à & /? #',taxon:'s'};assert.deepEqual(readExplorerState(explorerHash(special),photos),special);
 location.hash='#source=absent&taxon=not-here&frame=absent';listeners.hashchange();assert.equal(state.frame,'absent');assert.match($('selectedUnavailable').textContent,/Requested photo unavailable/);assert.match($('stateNotice').textContent,/taxon source unavailable.*taxon unavailable.*No replacement/);assert.equal($('gallery').children.length,0);assert.equal($('selectedImageFrame').hidden,true);
 """)
@@ -252,7 +252,7 @@ location.hash='#source=absent&taxon=not-here&frame=absent';listeners.hashchange(
 @pytest.mark.parametrize("event", ["popstate", "hashchange"])
 def test_history_navigation_closes_stale_enlargement_and_focuses_restored_identity(event):
     run_browser(r"""
-setState({frame:'b'});$('enlarge').focus();$('enlarge').onclick();assert.equal($('photoDialog').open,true);assert.equal($('dialogKey').textContent,'b');location.hash=explorerHash({...state,frame:'c',source:'recorded',taxon:'f'});listeners.__EVENT__();assert.equal(state.frame,'c');assert.equal($('photoDialog').open,false);assert.equal($('selectedKey').textContent,'c');assert.equal(document.activeElement,$('selectedTitle'));assert.equal($('selectedImage').src,'https://example.org/c.jpg');
+setState({frame:'b'});$('enlarge').focus();$('enlarge').onclick();assert.equal($('photoDialog').open,true);assert.equal($('dialogKey').textContent,'b');location.hash=explorerHash({...state,frame:'c',source:'recorded',taxon:'f'});listeners.__EVENT__();assert.equal(state.frame,'c');assert.equal($('photoDialog').open,false);assert.equal($('selectedKey').textContent,'c');assert.equal(document.activeElement,$('selectedTitle'));assert.equal($('selectedImage').src,'thumbs/480/c.webp');
 """.replace("__EVENT__", event))
 
 
