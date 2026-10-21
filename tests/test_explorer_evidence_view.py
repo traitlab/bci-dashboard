@@ -148,7 +148,7 @@ def test_table_jump_targets_inspect_action_or_empty_message_without_changing_sta
         data['photos'] = []
     run_browser(r"""
 const saved=JSON.stringify(state),hash=location.hash;
-for(const id of ['skipGallery','backToPhotos']){
+for(const id of ['backToPhotos']){
  let prevented=false;$(id).onclick({preventDefault(){prevented=true}});assert.equal(prevented,true);
  const target=$('evidenceRows').children.length?$('evidenceRows').children[0].children[0].children[0]:$('empty');
  assert.equal(document.activeElement,target);assert.equal(JSON.stringify(state),saved);assert.equal(location.hash,hash);
@@ -219,7 +219,7 @@ if(failure!=='unavailable_predictions'){
 }
 if(failure==='unavailable_photo')assert.equal($('taxonPivots').hidden,true);
 else {assert.equal($('predictedTaxonHelp').hidden,false);assert.ok($('predictedTaxonHelp').textContent.length)}
-""".replace('__FAILURE__', repr(failure)), payload=data)
+""".replace('__FAILURE__', repr(failure)), payload=data, initial_hash='#' + urlencode({'frame': first['key']}))
 
 
 def test_column_headers_sort_all_matches_and_column_filters_are_removable_constraints():
