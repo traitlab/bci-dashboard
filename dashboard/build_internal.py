@@ -31,7 +31,7 @@ import figures
 import page as pg
 import queues
 import reference
-from assets import esc, hero
+from assets import esc, hero, pctf
 from queue_panels import TEAM_BLOCK_ID
 from queues import BATCH_SIZE
 from selection_panels import selection_complaint
@@ -120,8 +120,9 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
                 "broader than this batch.",
                 "send_batches.csv"),
                ("Worth sending first", f"{send_now:,}", "unlabelled photos",
-                "They point at a species we barely have or barely get right, or at a "
-                "usually-right species the model is unsure of here.",
+                f"They point at a species with fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, "
+                f"or one the model gets right less than {pctf(hc.HARD_MAX_TOP1, 0)} of the time, "
+                "or a usually-right species the model is unsure of here.",
                 "send_first_queue.csv"),
                ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
                 "The whole pool this page puts in an order.",

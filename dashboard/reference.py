@@ -32,7 +32,7 @@ POOLED = "pooled"
 WORDS = {
     LABELBOX: "the Labelbox labels",
     hc.LABEL_SOURCE_REVIEWED: "the reviewed publication labels",
-    hc.LABEL_SOURCE_UNREVIEWED: "the Labelbox labels no review has covered",
+    hc.LABEL_SOURCE_UNREVIEWED: "Labelbox labels not yet reviewed",
     POOLED: "reviewed and unreviewed labels pooled",
 }
 

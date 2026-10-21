@@ -30,7 +30,7 @@ HEADLINES = [
     ("micro_top1", "Top-1 accuracy", "The first guess is right", "per frame",
      "each frame counts once, so common species dominate"),
     ("macro_top5", "Top-{k} accuracy", "The right name is among the {k} returned",
-     "per species", "a ceiling on our {k}-name request, not on the model"),
+     "per species", "capped by our {k}-name request, not by the model"),
     ("micro_top5", "Top-{k} accuracy", "The right name is among the {k} returned",
      "per frame", "we only ever asked Pl@ntNet for {k} names"),
 ]
@@ -70,6 +70,11 @@ def cards(c) -> str:
     return hero(out, cls="wide")
 
 
+def _h(text, definition):
+    """A column heading with its definition on hover, as panels._hint does."""
+    return f'<abbr title="{esc(definition)}">{esc(text)}</abbr>'
+
+
 def populations(c) -> str:
     """Which labels the cards are scored against, the population beside them,
     and the break in the series, right under the cards they qualify.
@@ -80,7 +85,7 @@ def populations(c) -> str:
     and never pooled into it.
     """
     k = c.n_cand
-    rows = [[("<b>headline</b>: " if p["headline"] else "beside it: ")
+    rows = [[("<b>on the cards</b>: " if p["headline"] else "also scored: ")
              + esc(reference.WORDS[p["label_source"]]),
              f'{p["n_frames"]:,}', f'{p["n_species"]:,}',
              pctf(p["macro_top1"]), pctf(hc.ratio(p["n_correct_top1"], p["n_frames"])),
@@ -99,8 +104,9 @@ def populations(c) -> str:
             + table([("Labels", False), ("Frames", True), ("Species", True),
                      ("Top-1, per species", True), ("Top-1, per frame", True),
                      (f"Top-{k}, per species", True), (f"Top-{k}, per frame", True),
-                     ("Gated frames", True), ("Gated top-1, per species", True),
-                     ("Gated top-1, per frame", True)], rows))
+                     (_h("Frames with the tree in the crop", "Frames whose centre crop shows the labelled tree, the coverage requirement the gated rates use."), True),
+                     (_h("Top-1 there, per species", "First-guess accuracy on those frames only, averaged over species."), True),
+                     (_h("Top-1 there, per frame", "First-guess accuracy on those frames only, counting each frame once."), True)], rows))
 
 
 def status_bar(c) -> str:

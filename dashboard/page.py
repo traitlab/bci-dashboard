@@ -68,7 +68,7 @@ SECTIONS = {
     "limits": (
         "What this cannot tell you",
         # The method panel sits here too and is provenance, not a ceiling.
-        "The ceilings on every number above, and where the numbers came from."),
+        "The limits on every number above, and where the numbers came from."),
 }
 
 # panel id -> (section key, builder). A panel belongs to the goal it serves, so

@@ -22,7 +22,7 @@ SEND_PREVIEW = 25
 # rule `queues.queue_of_prediction` applies, written from the same constants it
 # reads, in the order it tries them: first match wins. Shown in the order
 # queues.QUEUE_ORDER gives, which is the order the CSV is sorted in.
-QL = {"long_tail": ("Species we barely have, or barely get right",
+QL = {"long_tail": ("Species with few labelled frames, or often wrong",
                     f"Fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, or right less "
                     f"than {pctf(hc.HARD_MAX_TOP1, 0)} of the time"),
       "low_conf_known": ("A usually-right species, guessed weakly",
@@ -253,7 +253,7 @@ def send_preview_table(c):
                      source="send_first_queue.csv")
              + ungraded_note(c)
              + '<p class="note"><b>Confidence breaks ranking ties.</b> A low score '
-               'means the model gives its first guess little support. Check the guess '
+               'means the model is unsure of its first guess. Check the guess '
                'against the photo; the score does not confirm a label.</p>')
     return body
 
@@ -300,8 +300,8 @@ def held_out_note(c) -> str:
     if not n:
         return ""
     return (f'<p class="note"><strong>{n} frames are kept out of this queue.</strong> '
-            f'They are held back for grading, so they are '
-            f'part of how this page\'s own numbers are graded. Sending one back for '
+            f'They are the test set '
+            f'this page\'s own accuracy is measured on. Sending one back for '
             f'labelling would put a new answer into the set those numbers are measured '
             f'on. They are not lost: they are labelled work already accounted for '
             f'elsewhere.</p>')
@@ -318,12 +318,13 @@ def p_send(c):
     return panel(f"What to send to the botanist first: {send_now:,} "
                  f"of {c.n_unlab:,} unlabelled photos",
                  f"<b>Work the queues top to bottom.</b> "
-                 f"{c.queue_counts.get('long_tail', 0):,} photos point at a species we "
-                 f"barely have, or barely get right; "
+                 f"{c.queue_counts.get('long_tail', 0):,} photos point at a species with "
+                 f"fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, or one the model gets right "
+                 f"less than {pctf(hc.HARD_MAX_TOP1, 0)} of the time; "
                  f"{c.queue_counts.get('low_conf_known', 0):,} show a usually-right species "
                  f"the model is unsure of here. These queues come first to target gaps "
                  f"in labelled evidence. Inside each queue the photo least like everything already "
-                 f"labelled comes first, which reaches {c.n_ranked:,} of the "
+                 f"labelled comes first, which applies to {c.n_ranked:,} of the "
                  f"{c.n_unlab:,}; the rest keep their place by confidence. "
                  f'<a href="send_first_queue.csv">send_first_queue.csv</a> holds this same '
                  f"order, one row per frame.",

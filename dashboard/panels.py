@@ -372,9 +372,9 @@ def _species_columns_note():
             '<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s score '
             'for its first guess, averaged over the species&rsquo; frames. 0.86 means '
             'nearly all of it went on one name, and 0.32 means it was spread thin. '
-            '<b>Middle half</b> is where the middle 50% of those frames fall, the 25th '
-            'to the 75th percentile. A wide range is two behaviours averaged into one '
-            'number, and the column sorts on the width.</p></details>')
+            '<b>Confidence range</b> is where the middle 50% of those frames fall, the 25th '
+            'to the 75th percentile. A wide range means the model\'s confidence varies a lot '
+            'from frame to frame on this species, and the column sorts on the width.</p></details>')
 
 
 def _species_status_note():
@@ -452,7 +452,7 @@ def p_species(c):
                 f"{c.n_cand} names requested."), True),
          (_hint("Frames guessed",
                 "Labelled frames the model returned this name on, right or "
-                "wrong. The population precision is scored over."), True),
+                "wrong. Precision is scored over these frames."), True),
          (_hint("Precision",
                 "Of the frames the model guessed this name on, the share that "
                 "really were it."), True),
@@ -461,7 +461,7 @@ def p_species(c):
          (_hint("Model's confidence",
                 "Pl@ntNet's own score for its first guess, averaged over this "
                 "species' frames."), True),
-         (_hint("Middle half",
+         (_hint("Confidence range (middle 50%)",
                 "Where the middle 50% of this species' frames fall, the 25th to "
                 "the 75th percentile. Sorts on the width, not the ends."), True),
          ("Status", False),
@@ -577,13 +577,13 @@ def p_ceiling(c):
             f'label, genus-only and uncached ones included, {c.never_all} carry a name the '
             f'model never returned to us.</p>'
             + scope_html
-            + f'<p class="note">The cap did not always bite. On {c.short5:,} of the '
-            f'{c.n_pred:,} frames with a cached answer ({pctf(c.short5 / c.n_pred)}) fewer '
-            f'than {c.n_cand} came back. On the other {c.n_pred - c.short5:,}, anything '
+            + f'<p class="note">Fewer than {c.n_cand} names often came back. On {c.short5:,} of the '
+            f'{c.n_pred:,} frames with a cached answer ({pctf(c.short5 / c.n_pred)}) '
+            f'Pl@ntNet returned fewer than {c.n_cand}. On the other {c.n_pred - c.short5:,}, anything '
             f'ranked {c.n_cand + 1} or lower is invisible to us.</p>'
-            + f'<p class="note"><strong>Spelling and renamed species cost no '
-              f'frames.</strong> Labels and predictions are normalised and old names '
-              f'resolved before comparison. Raw names would score {pctf(c.strict1 / n)} '
+            + f'<p class="note"><strong>Spelling differences and renamed species lose no '
+              f'frames:</strong> labels and guesses are matched by accepted name '
+              f'before scoring. Raw names would score {pctf(c.strict1 / n)} '
               f'rather than {pctf(c.c1 / n)}, so matching already adds '
               f'{c.c1 - c.strict1} frames to every rate here. Every label, what it '
               f'resolved to and how, is in '
@@ -740,8 +740,8 @@ def p_coverage(c):
           f'collected.</p></div>'
         + f'<p class="note">{dropped:,} of the {c.n:,} scored frames are in no row. '
           f'Either no crown geometry was recorded for their crop, or its largest crown '
-          f'is a different species from the label. The rates at the top of this page use no '
-          f'bar, which is the top row.</p>'
+          f'is a different species from the label. The rates at the top of this page apply no '
+          f'coverage requirement, so they equal the top row.</p>'
 )
     return panel(
         "What the rates become when the crop really shows the labelled tree",
