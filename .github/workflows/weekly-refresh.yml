@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       refresh_labels:
-        description: Fetch a fresh Labelbox export. Disable only to rebuild the explicitly dated cached inputs.
+        description: Download the latest Labelbox export from Arbutus. Disable only to rebuild the explicitly dated cached inputs.
         type: boolean
         default: true
       deploy:
@@ -38,7 +38,10 @@ jobs:
           BCI_INPUT_BUNDLE_URL: ${{ vars.BCI_INPUT_BUNDLE_URL }}
           BCI_INPUT_BUNDLE_SHA256: ${{ vars.BCI_INPUT_BUNDLE_SHA256 }}
           BCI_INPUT_BUNDLE_KEY: ${{ secrets.BCI_INPUT_BUNDLE_KEY }}
-          LABELBOX_API_KEY: ${{ secrets.LABELBOX_API_KEY }}
+          ARBUTUS_S3_ENDPOINT: ${{ vars.ARBUTUS_S3_ENDPOINT }}
+          ARBUTUS_S3_ACCESS_KEY: ${{ secrets.ARBUTUS_S3_ACCESS_KEY }}
+          ARBUTUS_S3_SECRET_KEY: ${{ secrets.ARBUTUS_S3_SECRET_KEY }}
+          BCI_LABELBOX_EXPORTS: ${{ vars.BCI_LABELBOX_EXPORTS }}
           BCI_LABELBOX_PROJECTS: ${{ vars.BCI_LABELBOX_PROJECTS }}
           FETCH_LABELS: ${{ github.event_name == 'schedule' || inputs.refresh_labels }}
         run: |
@@ -46,12 +49,14 @@ jobs:
           import os, re
           required = ['BCI_INPUT_BUNDLE_URL', 'BCI_INPUT_BUNDLE_SHA256', 'BCI_INPUT_BUNDLE_KEY']
           if os.environ['FETCH_LABELS'] == 'true':
-              required += ['LABELBOX_API_KEY', 'BCI_LABELBOX_PROJECTS']
+              required += ['ARBUTUS_S3_ENDPOINT', 'ARBUTUS_S3_ACCESS_KEY', 'ARBUTUS_S3_SECRET_KEY', 'BCI_LABELBOX_EXPORTS', 'BCI_LABELBOX_PROJECTS']
           missing = [name for name in required if not os.environ.get(name, '').strip()]
           if missing:
               raise SystemExit('Refresh is not configured. Missing: ' + ', '.join(missing) + '. The live snapshot is retained.')
           if not os.environ['BCI_INPUT_BUNDLE_URL'].startswith('https://'):
               raise SystemExit('BCI_INPUT_BUNDLE_URL must use HTTPS.')
+          if os.environ['FETCH_LABELS'] == 'true' and not os.environ['ARBUTUS_S3_ENDPOINT'].startswith('https://'):
+              raise SystemExit('ARBUTUS_S3_ENDPOINT must use HTTPS.')
           if not re.fullmatch(r'[a-fA-F0-9]{64}', os.environ['BCI_INPUT_BUNDLE_SHA256']):
               raise SystemExit('BCI_INPUT_BUNDLE_SHA256 must be the encrypted bundle SHA-256.')
           PY
@@ -95,18 +100,47 @@ jobs:
       - name: Fetch fresh labels separately from the offline build
         if: github.event_name == 'schedule' || inputs.refresh_labels
         env:
-          LABELBOX_API_KEY: ${{ secrets.LABELBOX_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.ARBUTUS_S3_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.ARBUTUS_S3_SECRET_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_EC2_METADATA_DISABLED: 'true'
+          ARBUTUS_S3_ENDPOINT: ${{ vars.ARBUTUS_S3_ENDPOINT }}
+          BCI_LABELBOX_EXPORTS: ${{ vars.BCI_LABELBOX_EXPORTS }}
           BCI_LABELBOX_PROJECTS: ${{ vars.BCI_LABELBOX_PROJECTS }}
         run: |
+          umask 077
+          exports="$RUNNER_TEMP/bci-private/exports"
+          mkdir -p "$exports"
+          i=0
+          newest=''
+          for path in $BCI_LABELBOX_EXPORTS; do
+            i=$((i + 1))
+            name=$(basename "$path")
+            aws --endpoint-url "$ARBUTUS_S3_ENDPOINT" s3 cp "s3://$path" "$(printf '%s/%02d_%s.ndjson' "$exports" "$i" "${name%.*}")"
+            modified=$(aws --endpoint-url "$ARBUTUS_S3_ENDPOINT" s3api head-object --bucket "${path%%/*}" --key "${path#*/}" --query LastModified --output text)
+            modified=$(date -u -d "$modified" +%F)
+            if [[ "$modified" > "$newest" ]]; then newest="$modified"; fi
+          done
+          printf '%s\n' "$newest" > "$exports/export_date.txt"
           python - <<'PY'
-          import os, re, subprocess, sys
+          import json, os, re
           from pathlib import Path
-          projects = os.environ['BCI_LABELBOX_PROJECTS'].split()
+          projects = set(os.environ['BCI_LABELBOX_PROJECTS'].split())
           if not projects or any(not re.fullmatch(r'[A-Za-z0-9_-]+', project) for project in projects):
               raise SystemExit('BCI_LABELBOX_PROJECTS must contain space-separated project IDs.')
-          exports = Path(os.environ['RUNNER_TEMP']) / 'bci-private/exports'
-          flags = [value for project in projects for value in ('--project', project)]
-          subprocess.run([sys.executable, 'labelling/fetch_dataset.py', *flags, '--out-dir', str(exports)], check=True)
+          files = sorted((Path(os.environ['RUNNER_TEMP']) / 'bci-private/exports').glob('*.ndjson'))
+          if not files:
+              raise SystemExit('No exports were downloaded; refusing to publish.')
+          for path in files:
+              rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+              if not rows:
+                  raise SystemExit(f'{path.name} is empty; refusing to publish.')
+              for row in rows:
+                  data_row = row.get('data_row') or {}
+                  if not data_row.get('id') or not data_row.get('global_key'):
+                      raise SystemExit(f'{path.name} has a row without data_row id and global_key; refusing to publish.')
+                  if not isinstance(row.get('projects'), dict) or not set(row['projects']) <= projects:
+                      raise SystemExit(f'{path.name} has a row outside BCI_LABELBOX_PROJECTS; refusing to publish.')
           PY
       - name: Recompute, verify, and stage the public snapshot offline
         env:
@@ -118,12 +152,13 @@ jobs:
           from pathlib import Path
           command = [sys.executable, 'bin/refresh_snapshot.py', 'build', '--date', date.today().isoformat()]
           if os.environ['FETCH_LABELS'] == 'true':
-              exports = sorted((Path(os.environ['RUNNER_TEMP']) / 'bci-private/exports').glob('*.ndjson'))
+              exports_dir = Path(os.environ['RUNNER_TEMP']) / 'bci-private/exports'
+              exports = sorted(exports_dir.glob('*.ndjson'))
               if not exports:
                   raise SystemExit('No fresh exports were fetched; refusing to publish.')
               for path in exports:
                   command += ['--export', str(path)]
-              command += ['--export-date', date.today().isoformat()]
+              command += ['--export-date', (exports_dir / 'export_date.txt').read_text().strip()]
           subprocess.run(command, check=True)
           PY
       - name: Add photo thumbnails from the thumbs-480 release
