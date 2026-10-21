@@ -99,12 +99,12 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     # frames that have an embedding, a smaller and differently-selected set.
     # Both are load-bearing here, so both are named, each against its own work.
     anchors = queues.novelty_provenance(hc.QUEUE_NOVELTY_CSV)["anchors"]
-    anchor_words = (f"{anchors:,} labelled frames anchor the ranking"
-                    if anchors else "anchor count unrecorded")
+    anchor_clause = (f"&middot; {anchors:,} labelled frames anchor the ranking "
+                     if anchors else "")
     P = ['<h1>What to label next</h1>',
          f'<div class="subtitle">refreshed {esc(generated)} &middot; Labelbox labels merged {esc(c.snap_date)} &middot; '
          f'Pl@ntNet model {esc(c.tag)} '
-         f'&middot; {anchor_words} &middot; {c.n:,} frames scored against '
+         f'{anchor_clause}&middot; {c.n:,} frames scored against '
          f'{reference.WORDS[c.reference]} behind the species statuses that sort the '
          f'queues</div>',
          # Batch 1 leads, not the pool. The pool is 3,919 and a botanist works
