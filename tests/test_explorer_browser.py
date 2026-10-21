@@ -236,7 +236,7 @@ let summaries=0;function visit(n,inSummary){if(inSummary)assert.ok(!['button','a
 
 def test_breadcrumb_focus_and_unavailable_source_do_not_select_a_new_photo():
     run_browser(r"""
-chooseTaxon('s');const family=$('breadcrumbs').children.find(n=>n.getAttribute('data-crumb')==='f');family.focus();family.onclick();assert.equal(state.taxon,'f');assert.equal(document.activeElement,$('breadcrumbs').children.find(n=>n.getAttribute('data-crumb')==='f'));const selected=state.frame,copy=$('gallery').children.find(card=>card.getAttribute('data-frame')===selected).children[1];setState({source:'unsupported'});assert.equal(state.frame,selected);assert.match($('stateNotice').textContent,/source unavailable/);assert.equal($('gallery').children.length,0);assert.equal(copy.children[0].textContent,'Canopia alba');assert.equal(copy.children[1].textContent,'Recorded label');
+chooseTaxon('s');const family=$('breadcrumbs').children.find(n=>n.getAttribute('data-crumb')==='f');family.focus();family.onclick();assert.equal(state.taxon,'f');assert.equal(document.activeElement,$('breadcrumbs').children.find(n=>n.getAttribute('data-crumb')==='f'));const selected=state.frame,copy=$('gallery').children.find(card=>card.getAttribute('data-frame')===selected).children[1];setState({source:'unsupported'});assert.equal(state.frame,selected);assert.match($('stateNotice').textContent,/source unavailable/);assert.equal($('gallery').children.length,0);assert.equal(copy.children[0].textContent,'Recorded label');assert.equal(copy.children[1].textContent,'Canopia alba');
 """)
 
 

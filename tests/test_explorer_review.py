@@ -105,11 +105,11 @@ assert.equal(new URLSearchParams(new URL(task.href,'https://example.org').hash.s
 def test_cards_show_both_evidence_names_in_a_fixed_order_in_every_view():
     run_browser(r"""
 function copy(key){return $('gallery').children.find(card=>card.getAttribute('data-frame')===key).children[1].children.filter(n=>n.className!=='card-selection').map(n=>[n.className,n.textContent])}
-const first=state.frame,expected=[['card-name','Canopia alba'],['card-evidence','Recorded label'],['card-name','Canopia lutea'],['card-evidence','Pl@ntNet first guess']];
+const first=state.frame,expected=[['card-evidence','Recorded label'],['card-name','Canopia alba'],['card-evidence','Pl@ntNet first guess'],['card-name','Canopia lutea']];
 assert.deepEqual(copy(first).slice(0,4),expected);
 for(const patch of [{status:'compare'},{source:'recorded'},{status:'all'}]){setState(patch);assert.deepEqual(copy(first).slice(0,4),expected)}
 const unlabelled=photos.find(p=>!hasRecordedLabel(p)&&matchingPhotoKeys(catalogue,state).includes(p.key));
-assert.deepEqual(copy(unlabelled.key)[0],['card-name card-missing','No recorded label']);
+assert.deepEqual(copy(unlabelled.key)[1],['card-name card-missing','No recorded label']);
 """)
 
 
