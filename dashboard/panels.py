@@ -603,9 +603,8 @@ def p_ceiling(c):
                  f'{pctf(c.gg1 / gn) if gn else "n/a"}.</p>' if c.fam_n else ""))
     return panel(f"What labelling cannot fix: {len(c.never)} species, {c.never_frames} frames "
                  f"the model never named",
-                 "<b>Most of these are not proof the model cannot return the species.</b> "
-                 "Some are proven absent from the project's own list. The rest we never "
-                 "asked for enough names to find.",
+                 "Some of these species are proven absent from the project's own list. "
+                 "For the rest, we may not have asked for enough names to find them.",
                  body)
 
 
@@ -773,13 +772,15 @@ def p_counts(c):
     are rendered rather than named here, since they move with the corpus.
     """
     return panel(
-        f"Why three different frame counts: {c.n:,}, {c.n_pred:,} and {c.n_gt:,}",
+        (f"Why two frame counts: {c.n:,} and {c.n_gt:,}" if c.n == c.n_pred
+         else f"Why three different frame counts: {c.n:,}, {c.n_pred:,} and {c.n_gt:,}"),
         "<b>They do not contradict each other.</b> Each counts a different thing.",
         f'<p class="note"><b>{c.n:,}</b> frames carry a label naming a species. Every '
-        f'accuracy rate on this page is measured on those.</p>'
-        f'<p class="note"><b>{c.n_pred:,}</b> frames have a cached Pl@ntNet answer: the '
-        f'{c.n:,} above, plus {c.gn:,} labelled only to a genus and {c.fam_n:,} labelled '
-        f'only to a family.</p>'
+        f'accuracy rate on this page is measured on those.'
+        + (' All of them have a cached Pl@ntNet answer.</p>' if c.n == c.n_pred else
+           f'</p><p class="note"><b>{c.n_pred:,}</b> frames have a cached Pl@ntNet answer: the '
+           f'{c.n:,} above, plus {c.gn:,} labelled only to a genus and {c.fam_n:,} labelled '
+           f'only to a family.</p>') +
         f'<p class="note"><b>{c.n_gt:,}</b> frames a botanist has labelled at all, the '
         f'{c.n_gt - c.n_pred} with no cached answer included.</p>'
         + ap.richness_note(c.richness)

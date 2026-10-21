@@ -57,7 +57,8 @@ def status_precedence_note():
     Built from ``hc.STATUS_PRECEDENCE``, so a reorder in ``diagnose`` cannot
     leave the page describing the old order.
     """
-    names = [uncap(STATUS[k][0]) for k in hc.STATUS_PRECEDENCE]
+    # STATUS_PRECEDENCE stops where the order stops mattering; the last two go by accuracy.
+    names = [uncap(STATUS[k][0]) for k in (*hc.STATUS_PRECEDENCE, "hard", "adequate")]
     quoted = [f"&ldquo;{n}&rdquo;" for n in names]
     # Split the order into two sentences at the midpoint, not one long list:
     # a status added to STATUS_PRECEDENCE grows this list, and one sentence
@@ -67,8 +68,8 @@ def status_precedence_note():
     order = ("In order: " + ", ".join(quoted[:mid]) + ". Then " + ", ".join(quoted[mid:])
              + ".")
     return ("Each species gets the first status that fits. " + order +
-            f" A few-frame species can still show as &ldquo;{names[2]}&rdquo;, since "
-            "the candidate-list pattern can appear at any count.")
+            f" A species with few frames can still show as &ldquo;{names[2]}&rdquo;, "
+            "because that status has no minimum frame count.")
 
 
 def legend_entries():

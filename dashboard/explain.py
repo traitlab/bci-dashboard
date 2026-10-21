@@ -102,16 +102,16 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
         # the argument turns on are 2% and 6%, too thin to carry a printed label
         # in a bar, so the bars had to be read back out in a sentence underneath.
         # Side by side in two columns they are read off directly.
-        + f'<p class="note"><b>Each species casts one vote per species, each frame one '
-          f'vote per frame</b>: {n_sp} votes against {n:,}.</p>'
+        + f'<p class="note"><b>Per species, each of the {n_sp} species counts once. '
+          f'Per frame, each of the {n:,} frames counts once.</b></p>'
         + table([("Labelled frames per species", False), ("Species", True),
-                 ("Frames", True), ("Share of the per-species vote", True),
-                 ("Share of the per-frame vote", True), ("First guess right", True)],
+                 ("Frames", True), ("Share of species", True),
+                 ("Share of frames", True), ("First guess right", True)],
                 rows, source="support_buckets.csv")
         + f'<p class="note"><b>Read the two share columns against each other.</b> The '
-          f'{singles} single-frame species carry '
-          f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the per-species vote and '
-          f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the per-frame one. They are '
+          f'{singles} single-frame species are '
+          f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the species but '
+          f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the frames. They are '
           f'also the row Pl@ntNet gets right least often, '
           f'{pctf(buckets[thin]["c1"] / buckets[thin]["n_crowns"])} against '
           f'{pctf(buckets[fat]["c1"] / buckets[fat]["n_crowns"])} at {BAND_WORD[fat]}. '
@@ -127,7 +127,7 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           f'the scores become {pctf(well_micro)} per frame and {pctf(well_macro)} per '
           f'species</b>. That is {100 * (well_micro - well_macro):.0f} points apart, not '
           f'the {gap:.0f} between {pctf(now["micro_top1"])} and {pctf(now["macro_top1"])}. A '
-          f'one-frame species scores only 0% or 100%, so those {singles} votes are coin '
+          f'one-frame species scores only 0% or 100%, so those {singles} species-level scores are coin '
           f'flips.</p>'
           f'<div class="warn"><strong>Read those rows as how common a species is, not as '
           f'something labelling changed.</strong> The model dates from '

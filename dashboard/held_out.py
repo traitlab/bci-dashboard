@@ -316,19 +316,19 @@ def note(result: dict, flight: dict | None = None) -> str:
     t, u = result["test"], result["unseen"]
     unplaced = result["unplaced"]
     if u["n"]:
-        verdict = (f'No: {u["n"]:,} test frames come from a flight with no train frame, '
+        verdict = (f'No: {u["n"]:,} test frames come from a flight with no labelled frame, '
                    f'so not every test frame shares its flight with the rest.')
     else:
-        verdict = ('Yes: every test frame shares its flight, one date over one site, with '
-                   'a train frame, so no test frame comes from a flight the labels never '
+        verdict = ('Every held-back test frame shares its flight, one date over one site, with '
+                   'at least one labelled frame, so no test frame comes from a flight the labels never '
                    'saw.')
     line = (f'<p class="note"><b>{verdict}</b> The rate to quote is the page\'s headline '
             f'number, not either rate this note prints: both are read over a subset of '
             f'the frames it covers. The first guess is right on '
             f'{_pct(t["top1"])} of the {t["n"]:,} test frames, mostly on flights that '
-            f'also carried a train frame, so this leans on the same-flight subset. ')
+            f'also carried a labelled frame, so this leans on the same-flight subset. ')
     if u["n"]:
-        line += (f'On the {u["n"]:,} test frames from flights with no train frame it is '
+        line += (f'On the {u["n"]:,} test frames from flights with no labelled frame it is '
                  f'right on {_pct(u["top1"])}, the new-flight subset within the test '
                  f'split. Those frames hold different species in different shares from '
                  f'the rest, so the gap between the two rates is not the size of a '
@@ -337,14 +337,14 @@ def note(result: dict, flight: dict | None = None) -> str:
         line += ('The second score below is on other frames, held back whole by flight, '
                  'a further new-flight subset. ' if flight else
                  'A set held back by whole flights would grade frames that share a '
-                 'flight with no train frame. ')
+                 'flight with no labelled frame. ')
     if unplaced:
         line += (f'{unplaced:,} test frame{"s" if unplaced != 1 else ""} could not be '
                  f'placed on a flight and {"are" if unplaced != 1 else "is"} left out. ')
     else:
         line += 'Every test frame could be placed on a flight. '
     if result["unplaced_train"]:
-        line += (f'{result["unplaced_train"]:,} train frames could not be placed either, '
+        line += (f'{result["unplaced_train"]:,} labelled frames could not be placed either, '
                  f'so their flights read as unseen. ')
     line = line.rstrip() + '</p>'
     if flight is not None:
