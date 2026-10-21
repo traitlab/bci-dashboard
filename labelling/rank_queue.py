@@ -18,10 +18,14 @@ The output is a plain CSV. ``dashboard/`` reads it with the standard library and
 never sees a vector: with the file absent every frame ties and the queue keeps
 the confidence order it has today.
 
-Runs against the crownfirst virtualenv, which carries labelfirst. Point
+``bin/refresh_snapshot.py`` runs the ranking after each weekly label merge with
+``--species-csv data/gt_dominant_taxon.csv``, so a pool photo named since the
+two embedding files were drawn anchors the next order instead of sitting in it.
+By hand, against the crownfirst virtualenv, which carries labelfirst. Point
 ``CROWNFIRST`` at that checkout:
 
-  "$CROWNFIRST/.venv/bin/python" labelling/rank_queue.py
+  "$CROWNFIRST/.venv/bin/python" labelling/rank_queue.py \
+      --species-csv data/gt_dominant_taxon.csv
   "$CROWNFIRST/.venv/bin/python" labelling/rank_queue.py --backtest \
       --species-csv data/gt_dominant_taxon.csv
   "$CROWNFIRST/.venv/bin/python" labelling/rank_queue.py --audit \
@@ -137,6 +141,24 @@ def camera_mix(keys: list[str]) -> dict[str, float]:
     counts = Counter(camera_of(k) for k in keys)
     total = sum(counts.values()) or 1
     return {c: n / total for c, n in sorted(counts.items())}
+
+
+def anchor_named(anchor_keys: list[str], anchor_emb: np.ndarray, pool_keys: list[str],
+                 pool_emb: np.ndarray, species: dict[str, str]):
+    """Move every pool photo that now carries a name over to the anchors.
+
+    The two embedding files were split when the pool was drawn, and labels
+    arrive weekly after that. A photo named since then is no longer a candidate
+    to send, and it is one more labelled frame for the rest to be measured
+    against. Returns the two sets re-partitioned and how many photos moved.
+    """
+    moved = [i for i, k in enumerate(pool_keys) if k in species]
+    if not moved:
+        return anchor_keys, anchor_emb, pool_keys, pool_emb, 0
+    kept = [i for i, k in enumerate(pool_keys) if k not in species]
+    return (anchor_keys + [pool_keys[i] for i in moved],
+            np.vstack([anchor_emb, pool_emb[moved]]),
+            [pool_keys[i] for i in kept], pool_emb[kept], len(moved))
 
 
 def rank_pool(anchor_emb: np.ndarray, pool_emb: np.ndarray) -> tuple[list[int], np.ndarray]:
@@ -287,7 +309,8 @@ def parse_args(argv=None):
     p.add_argument("--anchor-cache-dir", type=Path, default=DEFAULT_ANCHOR_CACHE)
     p.add_argument("--out", type=Path, default=DEFAULT_OUT)
     p.add_argument("--species-csv", type=Path, default=None,
-                   help="named photos, for --backtest only")
+                   help="named photos: a pool photo named here anchors the ranking "
+                        "instead of being ranked; --backtest scores against it")
     p.add_argument("--species-key-col", default="global_key")
     p.add_argument("--species-col", default="wcvp_canonical_name")
     p.add_argument("--backtest", action="store_true",
@@ -523,6 +546,16 @@ def main(argv=None) -> int:
 
     anchor_keys, anchor_emb = load_embeddings(args.anchor_npz, args.anchor_cache_dir)
     pool_keys, pool_emb = load_embeddings(args.pool_npz, args.pool_cache_dir)
+    if anchor_emb.shape[1] != pool_emb.shape[1]:
+        raise SystemExit(f"{anchor_emb.shape[1]} numbers a photo on one side and "
+                         f"{pool_emb.shape[1]} on the other; not comparable")
+    n_named = 0
+    if args.species_csv:
+        species = load_species(args.species_csv, args.species_key_col, args.species_col)
+        anchor_keys, anchor_emb, pool_keys, pool_emb, n_named = anchor_named(
+            anchor_keys, anchor_emb, pool_keys, pool_emb, species)
+        print(f"{n_named} photos named in {args.species_csv.name} since the pool was "
+              f"drawn: moved from the pool to the anchors")
     pool_keys, pool_emb, n_dropped = drop_split_frames(pool_keys, pool_emb,
                                                        load_splits(args.splits_csv))
     print(f"{n_dropped} photos dropped from the pool for carrying a split in "
@@ -531,9 +564,6 @@ def main(argv=None) -> int:
                                                       load_holdout(args.holdout_csv))
     print(f"{n_held} photos dropped from the pool for being held by "
           f"{args.holdout_csv.name}: their flight has no train frame on it")
-    if anchor_emb.shape[1] != pool_emb.shape[1]:
-        raise SystemExit(f"{anchor_emb.shape[1]} numbers a photo on one side and "
-                         f"{pool_emb.shape[1]} on the other; not comparable")
     overlap = set(anchor_keys) & set(pool_keys)
     if overlap:
         raise SystemExit(f"{len(overlap)} photos are in both sets, so they would be "
@@ -553,7 +583,8 @@ def main(argv=None) -> int:
     write_novelty_curve(args.novelty_curve_out, order, distance)
 
     record = run_record(args.pool_npz, len(pool_keys), args.anchor_npz, len(anchor_keys),
-                        dropped_for_split=n_dropped, dropped_for_holdout=n_held)
+                        dropped_for_split=n_dropped, dropped_for_holdout=n_held,
+                        named_since_pool_drawn=n_named)
     print(f"wrote {write_run_record(args.out, record)}")
 
     # The named photos are all one camera and the queue is not, so a photo can

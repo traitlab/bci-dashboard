@@ -35,8 +35,8 @@ REQUIRED_FILES = (
     "dataset_rows_combined.jsonl",
     "wcvp_cache.json",
     "checklist_k-central-america.json",
-    "next_batch/queue_novelty.csv",
     "embeddings_labelled/embeddings.npz",
+    "embeddings_queue/embeddings.npz",
 )
 # Beyond REQUIRED_FILES: globs under data/ that the offline build also reads.
 BUNDLE_EXTRA_GLOBS = ("predictions/cache/*.json",)
@@ -262,6 +262,16 @@ def refresh(
         )
     run(repo, "labelling/gt_from_publication.py", env=env)
     run(repo, "labelling/assess_species.py", research=True, env=env)
+    # Re-anchor the send order on every labelled frame, including the pool
+    # photos named since the embedding files were drawn.
+    run(
+        repo,
+        "labelling/rank_queue.py",
+        "--species-csv",
+        str(data / "gt_dominant_taxon.csv"),
+        research=True,
+        env=env,
+    )
     with tempfile.TemporaryDirectory(
         prefix="snapshot-refresh-", dir=build
     ) as temporary:

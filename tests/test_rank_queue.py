@@ -251,3 +251,17 @@ def test_the_other_flight_rate_takes_away_near_copies_from_the_same_flight(rank_
     # One flight holding every frame leaves nothing to compare with: a stop.
     with pytest.raises(SystemExit):
         separability_other_flight(X, labels, ["f1"] * 4)
+
+
+def test_a_pool_photo_named_since_the_pool_was_drawn_anchors_the_next_order(rank_queue):
+    """The embedding files were split once; labels keep arriving. A pool photo
+    that now carries a name is one more anchor and one fewer candidate."""
+    import numpy as np
+    anchors, pool = np.eye(2), np.arange(6, dtype=float).reshape(3, 2)
+    a_keys, a_emb, p_keys, p_emb, moved = rank_queue.anchor_named(
+        ["a"], anchors[:1], ["p1", "p2", "p3"], pool, {"p2": "Hura crepitans", "x": "y"})
+    assert (a_keys, p_keys, moved) == (["a", "p2"], ["p1", "p3"], 1)
+    assert a_emb.tolist() == [[1.0, 0.0], [2.0, 3.0]]
+    assert p_emb.tolist() == [[0.0, 1.0], [4.0, 5.0]]
+    untouched = rank_queue.anchor_named(["a"], anchors[:1], ["p1"], pool[:1], {})
+    assert untouched[4] == 0 and untouched[2] == ["p1"]

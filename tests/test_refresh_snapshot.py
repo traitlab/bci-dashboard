@@ -192,6 +192,12 @@ def fixture_repo(root, *, fail_builder=False):
     (root / "labelling/assess_species.py").write_text(
         "from pathlib import Path\nPath('assessment_ran').write_text('recomputed')\n"
     )
+    (root / "labelling/rank_queue.py").write_text(
+        "from pathlib import Path\nimport sys\n"
+        "labels=Path(sys.argv[sys.argv.index('--species-csv')+1]).read_text()\n"
+        "Path('data/next_batch').mkdir(exist_ok=True)\n"
+        "Path('data/next_batch/queue_novelty.csv').write_text('ranked after '+labels)\n"
+    )
     (root / "dashboard/measure.py").write_text(
         "from pathlib import Path\nimport sys\n"
         "out=Path(sys.argv[sys.argv.index('--out-dir')+1]);out.mkdir()\n"
@@ -233,6 +239,9 @@ def test_success_rebuilds_and_keeps_source_dates_and_standalone_catalogues(tmp_p
     result = invoke(tmp_path)
     assert result.returncode == 0, result.stderr + result.stdout
     assert (tmp_path / "assessment_ran").read_text() == "recomputed"
+    assert (tmp_path / "data/next_batch/queue_novelty.csv").read_text() == (
+        "ranked after global_key,wcvp_canonical_name\ncomb_one.JPG,Hura crepitans\n"
+    )
     assert (
         tmp_path / "docs/index.html"
     ).read_text() == "freshly verified public snapshot"
