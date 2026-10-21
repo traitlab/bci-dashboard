@@ -148,3 +148,14 @@ def test_zero_positioned_photos_retain_the_last_published_site(tmp_path):
     assert "at least one positioned photo" in result.stderr
     assert (output / "index.html").read_text() == "last verified public site"
     assert not (output / "model_health_dashboard.html").exists()
+
+
+def test_recorded_queue_hero_gains_the_figure_the_index_reads():
+    sys.path.insert(0, str(ROOT / "dashboard"))
+    from refresh_site_ui import tag_queue_figure
+    hero = ('<div class="hero wide"><div class="metric"><div class="e">Queued</div><div class="row">'
+            '<div class="v">3,875</div></div><div class="l">unlabelled photos</div></div></div>')
+    tagged = tag_queue_figure(hero)
+    assert tagged.startswith('<div class="hero wide" data-tile="3,875 unlabelled photos">')
+    assert tag_queue_figure(tagged) == tagged
+    assert tag_queue_figure("<p>no hero</p>") == "<p>no hero</p>"

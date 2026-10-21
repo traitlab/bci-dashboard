@@ -75,7 +75,17 @@ def refresh_page(
     )
     if replaced != 1:
         raise ValueError(f"{name}: report stylesheet is missing")
-    return updated
+    return tag_queue_figure(updated) if name == "label_queue_dashboard.html" else updated
+
+
+def tag_queue_figure(text: str) -> str:
+    """Mark a recorded queue hero with the figure the index reads, taken from its own Queued card."""
+    queued = re.search(r'<div class="e">Queued</div><div class="row"><div class="v">([\d,]+)</div>'
+                       r'.*?<div class="l">(unlabelled photos)</div>', text, re.DOTALL)
+    if queued is None or 'data-tile="' in text:
+        return text
+    return re.sub(r'<div class="hero([^"]*)">', rf'<div class="hero\1" data-tile="{queued.group(1)} {queued.group(2)}">',
+                  text, count=1)
 
 
 def refresh_site(source: Path, output: Path) -> None:
