@@ -146,15 +146,15 @@ def wait_record(c) -> str:
     held = c.held_wait
     if held["n"]:
         graded = (f' The same rule was graded on {held["n_frames"]:,} labelled frames held '
-                  f'back by whole flights. It reaches {held["n"]:,} of them, and the first '
+                  f'back by whole flights. It applies to {held["n"]:,} of them, and the first '
                   f'guess is wrong on {pctf(held["err"])} of those.')
     else:
         graded = (' On the labelled frames held back for grading, the rule is wrong on '
-                  f'{pctf(c.best["err"])} of the frames it reaches.')
+                  f'{pctf(c.best["err"])} of the frames it applies to.')
     return (f'<h3 class="sub">{esc(cap(QL[queues.WAIT_QUEUE][0]))}</h3>'
             f'<p class="qrule">{esc(QL[queues.WAIT_QUEUE][1])}</p>'
             f'<p class="note"><b>{n:,} photos wait here.</b> Nobody labels them this '
-            f'round, and the next model change undoes the push.{graded}</p>'
+            f'round, and the next model change resets this ordering.{graded}</p>'
             f'<p class="note">The rule and its grade are under '
             f'<a href="#which-frames-can-wait">which frames can wait</a>. '
             f'The rows are the ones marked {esc(queues.WAIT_QUEUE)} in '
@@ -197,10 +197,10 @@ def _near_copy_note(c) -> str:
     held = c.held_wait
     if held["n"]:
         return ('<p class="note"><strong>The same rule on flights held back whole:'
-                f'</strong> it reaches {held["n"]:,} of the {held["n_frames"]:,} frames '
+                f'</strong> it applies to {held["n"]:,} of the {held["n_frames"]:,} frames '
                 f'there, and the first guess is wrong on {pctf(held["err"])} of those. '
                 'Those frames hold different species in different shares, so how many the '
-                'rule reaches differs for that reason alone.</p>'
+                'rule applies to differs for that reason alone.</p>'
                 + more("Why grade it on those flights too",
                        '<p class="note">The frames above were held back one by one, so each '
                        'shares a flight with a frame the rule was picked on. Frames from one '
@@ -225,7 +225,7 @@ def _wait_rule(c) -> str:
     return (f'<div class="rec"><strong>Suggested rule: leave a frame for later when '
             f'Pl@ntNet is at least {RECOMMENDED_CONF} confident and its species already has '
             f'{WAIT_SUPPORT_MIN} or more labelled frames.</strong> On the '
-            f'{len(c.test_recs):,} frames held back for grading, that rule reaches '
+            f'{len(c.test_recs):,} frames held back for grading, that rule applies to '
             f'{best["n"]:,} of them ({pctf(best["share"])}), and the first guess is wrong '
             f'on {pctf(best["err"])} of those.</div>'
             # Every share in the comparison table below is out of this count.
