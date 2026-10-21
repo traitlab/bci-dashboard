@@ -98,9 +98,12 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     # other half, the order inside a queue, and it is anchored on the labelled
     # frames that have an embedding, a smaller and differently-selected set.
     # Both are load-bearing here, so both are named, each against its own work.
-    anchors = queues.novelty_provenance(hc.QUEUE_NOVELTY_CSV)["anchors"]
+    prov = queues.novelty_provenance(hc.QUEUE_NOVELTY_CSV)
+    anchors, unembedded = prov["anchors"], prov["unembedded"]
     anchor_clause = (f"&middot; {anchors:,} labelled frames anchor the ranking "
                      if anchors else "")
+    if anchors and unembedded:
+        anchor_clause += f"({unembedded:,} more named frames have no embedding yet) "
     P = ['<h1>What to label next</h1>',
          f'<div class="subtitle">refreshed {esc(generated)} &middot; Labelbox labels merged {esc(c.snap_date)} &middot; '
          f'Pl@ntNet model {esc(c.tag)} '

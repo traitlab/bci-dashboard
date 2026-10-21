@@ -211,7 +211,7 @@ def novelty_provenance(path: str) -> dict:
     for a checkout ranked before the record existed, and carries no hash.
     """
     out: dict = {"written": None, "anchors": None, "pool": None,
-                 "sha": None, "anchor_sha": None, "library": None}
+                 "sha": None, "anchor_sha": None, "library": None, "unembedded": None}
     record = path + NOVELTY_RUN_SUFFIX
     if os.path.exists(record):
         with open(record, encoding="utf-8") as f:
@@ -226,6 +226,7 @@ def novelty_provenance(path: str) -> dict:
             out["pool"] = _whole(rec.get("n_pool"))
             out["sha"] = rec.get("embedding_sha256") or None
             out["anchor_sha"] = extra.get("anchor_sha256") or None
+            out["unembedded"] = _whole(extra.get("named_without_embedding"))
             out["library"] = rec.get("library_version") or None
         return out
     sidecar = os.path.splitext(path)[0] + NOVELTY_PROVENANCE_SUFFIX
