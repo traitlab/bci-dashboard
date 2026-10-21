@@ -61,12 +61,11 @@ def floor_note(cf):
     """
     gap = 100 * cf["crown_minus_photo"]
     return (
-        f'<p class="note"><strong>Read these rates as a floor.</strong> They score the '
+        f'<p class="note"><strong>These rates are a lower bound.</strong> They score the '
         f'centre crop, {CENTRE_CROP_IS.split(", ")[-1]}, against a label for the whole '
-        f'frame. On {int(cf["n_frames"])} frames set aside in advance, asking about the '
-        f'outlined crowns instead moved the rate by {gap:+.1f} points. That needs a botanist&rsquo;s outlines, so it is a '
-        f'<a href="#where-the-headline-comes-from">correction</a>, not a gain waiting to '
-        f'be collected.</p>')
+        f'frame. On {int(cf["n_frames"])} frames set aside in advance, scoring the '
+        f'outlined crowns instead moved the rate by {gap:+.1f} points. That only works where a botanist has drawn crown outlines, so the true rate is '
+        f'<a href="#where-the-headline-comes-from">higher than shown here</a>, and nothing on this page can raise it.</p>')
 
 
 def p_floor(c):

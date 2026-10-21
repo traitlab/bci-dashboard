@@ -22,8 +22,8 @@ MECHANISM_WORDS = {
 }
 
 LIMIT_HINT = ("Whether more labels or a better model would move this row. "
-              "Judged by hiding half the labels and asking how the photos look "
-              "to the model, eight times over.")
+              "Judged by hiding half the labels and naming each hidden frame "
+              "from its nearest labelled neighbours, eight times over.")
 
 
 def limit_cell(limit: str, agreement: str) -> str:
@@ -48,10 +48,9 @@ def limit_note(transductive: dict, limits: dict) -> str:
     blank = len(limits) - len(shown)
     count = {k: sum(1 for v in shown if v == k) for k in LIMIT_WORDS}
     return (f'<p class="note"><b>What would help</b> is judged on the '
-            f'{pop["n_frames"]:,} labelled frames the model has a view of, '
+            f'{pop["n_frames"]:,} labelled frames that have a stored record of how the photo looks to the model, '
             f'{pop["n_species"]} species. That is fewer than the labelled frames counted '
-            f'elsewhere on this page. Only frames with a record of how the photo looks to '
-            f'the model are used here. Half the '
+            f'elsewhere on this page. Half the '
             f'labels are hidden. Each hidden '
             f'frame is then named from its {transductive["method"]["k"]} nearest '
             f'labelled ones, {pop["n_seeds"]} times over with a different half. '
@@ -63,8 +62,8 @@ def limit_note(transductive: dict, limits: dict) -> str:
             f'{len(shown)} species with that many: {count["resolved"]} no gap found, '
             f'{count["classifier_limited"]} better model, '
             f'{count["sampling_limited"]} more labels. This verdict only covers species '
-            f'with at least {LIMIT_MIN_FRAMES} viewed frames; the {blank} blank rows are '
-            f'where labels are thin, which is the ask.</p>')
+            f'with at least {LIMIT_MIN_FRAMES} viewed frames; the {blank} blank rows have '
+            f'too few labels to judge, and more labels is exactly what they need.</p>')
 
 
 def mechanism_note(disagreement: dict, counts) -> str:
@@ -116,8 +115,8 @@ def reject_table(sweep: dict) -> str:
              f'{100 * r["accepted_accuracy"]:.1f}%', f'{100 * g["accepted_accuracy"]:.1f}%']
             for r, g in zip(sweep["rows"], sweep["grouped_rows"], strict=True)]
     return (f'<p class="note"><b>Trusting a frame only when few names are plausible.</b> '
-            f'A separate check over the {pop["n_frames"]:,} labelled frames the model has '
-            f'a view of, {pop["n_species"]} species.</p>'
+            f'A separate check over the {pop["n_frames"]:,} labelled frames that have '
+            f'a stored record of how the photo looks to the model, {pop["n_species"]} species.</p>'
             # The rows are a queue order, and a reader taking the order does not
             # need the method under it. A reader asking whether the order is
             # worth taking needs all four sentences, so they stay, one click in.

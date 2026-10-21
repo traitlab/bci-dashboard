@@ -317,7 +317,7 @@ def test_the_legend_counts_the_words_the_column_shows_and_not_the_file(assess_pa
     limits = {"a b": ("resolved", "8/8"), "c d": ("", ""), "e f": ("", "")}
     html = assess_panels.limit_note(t, limits)
     assert "Over the 1 species with that many: 1 no gap found, 0 better model, 0 more labels" in html
-    assert "the 2 blank rows are where labels are thin, which is the ask" in html
+    assert "the 2 blank rows have too few labels to judge, and more labels is exactly what they need" in html
 
 
 def test_the_legend_says_why_its_population_is_smaller_than_the_rest_of_the_page(
@@ -330,6 +330,7 @@ def test_the_legend_says_why_its_population_is_smaller_than_the_rest_of_the_page
     html = assess_panels.limit_note(t, {})
     assert "fewer than the labelled frames counted elsewhere on this page" in html
     assert "embedding" not in html.lower()
+    assert "a stored record of how the photo looks to the model" in html
 
 
 def test_the_review_csv_stamps_each_row_with_its_mechanism(assessments, tmp_path):

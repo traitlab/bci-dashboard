@@ -116,7 +116,7 @@ def test_a_build_date_that_is_not_a_date_compares_against_nothing(snapshot_delta
 def test_the_page_prints_the_line_in_the_frame_counts_panel(external_page):
     """Beside the three frame counts, where the Chao1 line already sits."""
     html, _ = external_page
-    assert html.index("Why three different frame counts") < html.index("Since the last snapshot")
+    assert html.index(" frame counts: ") < html.index("Since the last snapshot")
 
 
 def test_a_snapshot_scored_against_other_labels_is_not_compared(snapshot_delta, tmp_path):
