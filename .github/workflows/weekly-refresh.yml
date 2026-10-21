@@ -142,10 +142,10 @@ jobs:
                   if not isinstance(row.get('projects'), dict) or not set(row['projects']) <= projects:
                       raise SystemExit(f'{path.name} has a row outside BCI_LABELBOX_PROJECTS; refusing to publish.')
           PY
-      - name: Keep the per-photo vectors of the labelled frames between runs
+      - name: Restore the per-photo vectors of the labelled frames
         # The bundle carries the stacked npz, not the cache it came from. Restoring
         # the newest cache means a weekly run embeds only the frames named since.
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: data/embeddings_labelled/cache
           key: embeddings-labelled-${{ github.run_id }}
@@ -170,6 +170,14 @@ jobs:
               command += ['--export-date', (exports_dir / 'export_date.txt').read_text().strip()]
           subprocess.run(command, check=True)
           PY
+      - name: Save the per-photo vectors even when the build fails
+        # A fetch costs seconds per photo. Keeping it when a later step fails
+        # means the next run resumes instead of fetching the same photos again.
+        if: always()
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: data/embeddings_labelled/cache
+          key: embeddings-labelled-${{ github.run_id }}
       - name: Add photo thumbnails from the thumbs-480 release
         # Read-only. A missing release is not an error: the pages fall back to the original photo.
         env:
