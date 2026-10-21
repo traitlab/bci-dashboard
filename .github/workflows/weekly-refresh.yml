@@ -135,10 +135,12 @@ jobs:
               rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
               if not rows:
                   raise SystemExit(f'{path.name} is empty; refusing to publish.')
-              if any(not {'data_row', 'projects'} <= row.keys() for row in rows):
-                  raise SystemExit(f'{path.name} has rows without data_row and projects; refusing to publish.')
-              if not any(projects & set(row['projects']) for row in rows):
-                  raise SystemExit(f'{path.name} carries none of BCI_LABELBOX_PROJECTS; refusing to publish.')
+              for row in rows:
+                  data_row = row.get('data_row') or {}
+                  if not data_row.get('id') or not data_row.get('global_key'):
+                      raise SystemExit(f'{path.name} has a row without data_row id and global_key; refusing to publish.')
+                  if not isinstance(row.get('projects'), dict) or not set(row['projects']) <= projects:
+                      raise SystemExit(f'{path.name} has a row outside BCI_LABELBOX_PROJECTS; refusing to publish.')
           PY
       - name: Recompute, verify, and stage the public snapshot offline
         env:
