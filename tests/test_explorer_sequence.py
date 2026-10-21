@@ -18,7 +18,7 @@ def test_consecutive_matches_cross_pages_in_both_directions_and_keep_exact_evide
 const before=JSON.stringify(photos),scope={source:state.source,taxon:state.taxon,search:state.search,status:state.status};
 function exact(index){
 assert.equal(state.frame,'photo-'+index);assert.equal($('selectedKey').textContent,state.frame);
-assert.equal($('selectedImage').src,'https://example.org/'+index+'.jpg');
+assert.equal($('selectedImage').src,'thumbs/480/'+encodeURIComponent(photos[index].key)+'.webp');
 assert.equal($('recordedLabel').children[0].textContent,'Recorded '+index);
 assert.equal($('predictionLabel').children[0].textContent,'Guess '+index);
 assert.equal($('annotation').href,'https://example.org/annotation/'+index);
@@ -114,7 +114,7 @@ $('nextPhoto').onclick();assert.equal(state.frame,'b');assert.equal($('annotatio
 assert.equal($('selectedImage').src,undefined);assert.equal($('enlarge').disabled,true);
 assert.equal($('selectedImageStatus').textContent,'Photo URL unavailable.');
 $('nextPhoto').onclick();assert.equal(state.frame,'c');assert.equal($('annotation').hidden,true);assert.equal($('annotation').href,undefined);
-assert.equal($('selectedImage').src,'https://example.org/c.jpg');
+assert.equal($('selectedImage').src,'thumbs/480/c.webp');
 setState({frame:''});assert.equal($('selectedUnavailable').textContent,'Choose a photo from the gallery.');
 assert.equal($('selectedImageFrame').hidden,true);assert.equal($('nextPhoto').disabled,true);
 """, payload=data)

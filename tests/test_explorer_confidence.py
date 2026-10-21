@@ -29,7 +29,7 @@ assert.equal(state.frame,'p0');assert.deepEqual($('gallery').children.map(card=>
 assert.match($('resultCount').textContent,/Highest confidence first$/);
 assert.equal($('photoPosition').textContent,'Photo 4 of 8 matching photos');
 $('nextPhoto').focus();$('nextPhoto').onclick();assert.equal(state.frame,'p3');assert.equal(document.activeElement,$('nextPhoto'));
-assert.equal($('selectedImage').src,'https://example.org/3.jpg');assert.equal($('annotation').href,'https://example.org/annotation/3');
+assert.equal($('selectedImage').src,'thumbs/480/p3.webp');assert.equal($('annotation').href,'https://example.org/annotation/3');
 $('previousPhoto').onclick();assert.equal(state.frame,'p0');
 setState({order:'confidence-asc'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['p3','p0','p1','p2','p4','p5','p6','p7']);
 assert.equal($('photoPosition').textContent,'Photo 2 of 8 matching photos');

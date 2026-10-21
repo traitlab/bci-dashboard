@@ -27,6 +27,7 @@ def test_main_pair_loads_first_and_strip_thumbnails_wait_for_it():
 const thumbs=()=>$('neighbors').children.map(li=>li.children[0].children[0]);
 assert.equal(thumbs().length,3);assert.equal(thumbs().every(t=>t.src===undefined&&/^thumbs\/480\//.test(t.getAttribute('data-src'))),true);
 $('photo').onload();assert.equal(thumbs().every(t=>t.src===undefined),true);
+$('workspaceCandidateImage').onerror();assert.equal(thumbs().every(t=>t.src===undefined),true);
 $('workspaceCandidateImage').onerror();assert.deepEqual(thumbs().map(t=>t.src),['thumbs/480/one.webp','thumbs/480/two.webp','thumbs/480/three.webp']);
 """)
 
