@@ -236,7 +236,7 @@ def p_review(c):
     wide = hc.labelbox_link_coverage([r["global_key"] for r in c.h.gt_rows], urls)
     body = (f'<p class="note">On each frame here the model is at least '
             f'{hc.REVIEW_CONF:.1f} confident in a <em>different</em> species from the '
-            f'label. In bulk, a first guess this confident is right '
+            f'label. Over all labelled frames, a first guess this confident is right '
             f'{pctf(c.confident_ok)} of the time ({c.confident_hits:,} of '
             f'{len(c.confident):,}).</p>'
             f'<p class="note">All {n} frames, under {len(groups)} label-and-guess '
@@ -503,7 +503,7 @@ def p_calibration(c):
             for band, nn, k in c.bins_all]
     graded = sum(nn for _, nn, _ in c.bins_all)
     return panel(
-        "Is the confidence score worth anything: in bulk yes, on rare species no",
+        "Is the confidence score worth anything: over all frames yes, on rare species no",
         "<b>How often the first guess is right at each confidence score.</b>",
         svg_hbar(rows, title="how often the first guess is right, "
                              "by the model's own confidence")
@@ -517,7 +517,7 @@ def p_calibration(c):
           f'confidence works.</p>'
         f'<p class="note"><b>It is not a probability.</b> A band right '
         f'{pctf(c.bins_all[-1][2] / c.bins_all[-1][1]) if c.bins_all[-1][1] else "n/a"} '
-        f'of the time is not a score of {c.bins_all[-1][0][1:4]}. And it holds in bulk '
+        f'of the time is not a score of {c.bins_all[-1][0][1:4]}. And it holds over all labelled frames '
         f'only: on species with few labelled frames a high score means much less, as the '
         f'label queue page shows.</p>'
         + ap.reject_table(c.reject_sweep))

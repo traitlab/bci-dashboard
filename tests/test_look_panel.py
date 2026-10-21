@@ -70,10 +70,10 @@ def test_a_curve_file_missing_a_column_stops_the_build(look):
 
 
 def test_the_panel_says_so_when_there_is_nothing_to_draw(queue_why_panels):
-    """A panel that renders nothing reads as a bug. This one says which script
-    writes the files it is missing."""
+    """A panel that renders nothing reads as a bug. This one says the ordering
+    was not scored, and names no script."""
     out = queue_why_panels.NO_CURVES
-    assert "rank_queue.py" in out and "not been scored" in out
+    assert "not been scored" in out and "rank_queue" not in out
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +189,7 @@ def test_summary_does_not_assert_the_finding_when_nothing_was_scored(look, queue
     figures, _ = look
     html = queue_why_panels.p_look(SimpleNamespace(**figures._look([], {}, 0)))
     assert "finds species faster" not in html
-    assert "has not been scored on this checkout" in html
+    assert "has not been scored for this build" in html
 
 
 def test_the_wait_queue_gets_no_pictures(look):

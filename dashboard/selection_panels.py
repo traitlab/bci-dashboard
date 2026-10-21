@@ -175,14 +175,12 @@ def _p(x) -> str:
 
 
 NOT_AUDITED = (
-    '<p class="note"><b>Not yet measured against a random order on this checkout.</b> '
-    '<code>labelling/rank_queue.py --audit</code> writes that comparison, and this '
-    'panel prints it when the file is there.</p>')
+    '<p class="note"><b>Not yet measured against a random order.</b> '
+    'That comparison was not produced for this build.</p>')
 
 NOT_CONFOUNDED = (
-    '<p class="note"><b>Not yet tested against the site, the flight and the export batch '
-    'on this checkout.</b> <code>labelling/rank_queue.py --confound</code> writes that test, '
-    'and this panel prints it when the file is there.</p>')
+    '<p class="note"><b>Not yet tested against the site, the flight and the export batch.</b> '
+    'That test was not produced for this build.</p>')
 
 
 def audit_note(c) -> str:

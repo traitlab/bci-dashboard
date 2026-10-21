@@ -23,10 +23,8 @@ from selection_panels import audit_note, confound_note
 LOOK_BLUE, LOOK_GREY, LOOK_AMBER = "#0072B2", "#9e9e9e", "#b5670a"
 
 NO_CURVES = (
-    '<p class="note"><b>The ordering has not been scored on this checkout.</b> '
-    'The two files behind these charts are written by hand, by '
-    '<code>labelling/rank_queue.py</code>, and are not in the repository. Run it '
-    'to draw them.</p>')
+    '<p class="note"><b>The ordering has not been scored.</b> '
+    'The scoring files were not produced for this build, so these charts are empty.</p>')
 
 
 def discovery_chart(c) -> str:
@@ -168,7 +166,7 @@ SCORED = ("<b>Ordering by look finds species faster than working down a random "
           "the ordering stops separating photos. The head of every queue a botanist "
           "works is on screen.")
 UNSCORED = ("<b>The queue is ordered by look: the photo least like everything already "
-            "named comes first.</b> That ordering has not been scored on this checkout, "
+            "named comes first.</b> That ordering has not been scored for this build, "
             "so this panel makes no claim about what it buys.")
 
 
@@ -287,7 +285,7 @@ def _confidence_evidence(c) -> str:
     # Same blue as the chart on the model-health page: same measure, so a colour
     # change would read as meaning something. Green is spoken for by the tags.
     flat = c.flat
-    return ('<h3 class="sub">Can we trust the confidence? In bulk yes, on rare species no</h3>'
+    return ('<h3 class="sub">Can we trust the confidence? Over all frames yes, on rare species no</h3>'
             + svg_hbar([(CONF_BAND_WORDS[band], k / nn if nn else 0.0,
                          f'{pctf(k / nn) if nn else "n/a"} of {nn:,} frames', "#1565c0")
                         for band, nn, k in c.bins_all],
