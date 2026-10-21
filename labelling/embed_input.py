@@ -17,12 +17,22 @@ Stdlib only, and no network call. The fetch is the next step, by hand:
   python3 labelling/embed_input.py
   python3 predict/embed.py --input data/next_batch/queue_for_embed.csv \
       --out-dir data/embeddings_queue
+
+``--named`` lists the other side: every frame that carries a botanist label,
+with its photo URL read off the Labelbox inventory. ``bin/refresh_snapshot.py``
+runs it after each label merge so a frame named since the labelled embeddings
+were drawn gets a vector and anchors the next ranking:
+
+  python3 labelling/embed_input.py --named
+  python3 predict/embed.py --input data/next_batch/labelled_for_embed.csv \
+      --out-dir data/embeddings_labelled
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import json
 import sys
 from pathlib import Path
 
@@ -30,6 +40,8 @@ REPO = Path(__file__).resolve().parents[1]
 DEFAULT_FRAMES = REPO / "input" / "boxes" / "bci_images_for_plantnet_w_split.csv"
 DEFAULT_LABELS = REPO / "data" / "gt_dominant_taxon.csv"
 DEFAULT_OUT = REPO / "data" / "next_batch" / "queue_for_embed.csv"
+DEFAULT_INVENTORY = REPO / "data" / "dataset_rows_combined.jsonl"
+DEFAULT_NAMED_OUT = REPO / "data" / "next_batch" / "labelled_for_embed.csv"
 KEY_PREFIX = "comb_"
 
 
@@ -65,6 +77,26 @@ def unlabelled_rows(frames: Path, labels: Path) -> list[tuple[str, str]]:
         return out
 
 
+def named_rows(labels: Path, inventory: Path) -> list[tuple[str, str]]:
+    """``(global_key, image_url)`` for each named frame the inventory can place.
+
+    The label file is keyed the way every other file is, so no prefix work.
+    A named frame missing from the inventory has no photo URL to fetch, so it
+    is left out, and the caller is told how many were.
+    """
+    url = {}
+    with open(inventory, encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                row = json.loads(line)
+                if row.get("global_key") and row.get("row_data"):
+                    url[row["global_key"]] = row["row_data"]
+    named = dict.fromkeys(read_column(labels, "global_key"))
+    out = [(k, url[k]) for k in named if k in url]
+    print(f"{len(named) - len(out)} named frames have no photo URL in {inventory.name}")
+    return out
+
+
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -72,15 +104,28 @@ def parse_args(argv=None):
                    help="the tracked frame list, which defines the population")
     p.add_argument("--labels", type=Path, default=DEFAULT_LABELS,
                    help="one row per frame a botanist has already named")
-    p.add_argument("--out", type=Path, default=DEFAULT_OUT)
-    return p.parse_args(argv)
+    p.add_argument("--out", type=Path, default=None,
+                   help="default: queue_for_embed.csv, or labelled_for_embed.csv with --named")
+    p.add_argument("--named", action="store_true",
+                   help="list the named frames instead, with URLs from --inventory")
+    p.add_argument("--inventory", type=Path, default=DEFAULT_INVENTORY,
+                   help="Labelbox inventory, one JSON row per frame with its photo URL")
+    args = p.parse_args(argv)
+    if args.out is None:
+        args.out = DEFAULT_NAMED_OUT if args.named else DEFAULT_OUT
+    return args
 
 
 def main(argv=None) -> int:
     args = parse_args(argv)
-    rows = unlabelled_rows(args.frames, args.labels)
-    if not rows:
-        raise SystemExit("every tracked frame carries a label; nothing to embed")
+    if args.named:
+        rows = named_rows(args.labels, args.inventory)
+        if not rows:
+            raise SystemExit("no named frame has a photo URL; nothing to embed")
+    else:
+        rows = unlabelled_rows(args.frames, args.labels)
+        if not rows:
+            raise SystemExit("every tracked frame carries a label; nothing to embed")
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)

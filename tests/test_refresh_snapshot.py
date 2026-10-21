@@ -177,7 +177,7 @@ def fixture_repo(root, *, fail_builder=False):
     cache = root / "data/predictions/cache"
     cache.mkdir(parents=True)
     (cache / "one.json").write_text("{}")
-    for folder in ("bin", "dashboard", "labelling", "docs"):
+    for folder in ("bin", "dashboard", "labelling", "predict", "docs"):
         (root / folder).mkdir()
     (root / "docs/index.html").write_text("last verified public snapshot")
     (root / "docs/crownfirst-atlas.html").write_text(
@@ -191,6 +191,17 @@ def fixture_repo(root, *, fail_builder=False):
     )
     (root / "labelling/assess_species.py").write_text(
         "from pathlib import Path\nPath('assessment_ran').write_text('recomputed')\n"
+    )
+    (root / "labelling/embed_input.py").write_text(
+        "from pathlib import Path\n"
+        "Path('data/next_batch').mkdir(exist_ok=True)\n"
+        "Path('data/next_batch/labelled_for_embed.csv').write_text('global_key,image_url\\n')\n"
+    )
+    (root / "predict/embed.py").write_text(
+        "from pathlib import Path\nimport sys\n"
+        "assert Path(sys.argv[sys.argv.index('--input')+1]).is_file()\n"
+        "out=Path(sys.argv[sys.argv.index('--out-dir')+1]);out.mkdir(exist_ok=True)\n"
+        "(out/'embeddings.npz').write_text('vectors for every named frame')\n"
     )
     (root / "labelling/rank_queue.py").write_text(
         "from pathlib import Path\nimport sys\n"
