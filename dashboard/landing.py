@@ -46,7 +46,7 @@ def intro(c) -> str:
             f'{esc(reference.WORDS[c.reference])}. The model dates from '
             f'{esc(hc.plantnet_version_words())}, before any BCI label was sent to '
             f'Pl@ntNet. What to label next is on the '
-            f'<a href="label_queue_dashboard.html">label queue page</a>.</p>')
+            f'<a href="label_queue_dashboard.html">Labelling queue</a>.</p>')
 
 
 def cards(c) -> str:
