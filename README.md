@@ -32,6 +32,8 @@ bin/refresh.sh path/to/export.ndjson                  # a named export instead o
 `bin/refresh.sh` takes the newest export in `data/exports` or `~/Downloads` when
 given no path.
 
+The weekly CI refresh downloads the Sunday export from the Arbutus bucket instead (variables `ARBUTUS_S3_ENDPOINT`, `BCI_LABELBOX_EXPORTS`, `BCI_LABELBOX_PROJECTS`; secrets `ARBUTUS_S3_ACCESS_KEY`, `ARBUTUS_S3_SECRET_KEY`).
+
 `dashboard/build_external.py` refuses to build when `data/model_health/` is missing or older than the labels. Regenerate it with `labelling/assess_species.py` in the crownfirst virtualenv, or set `CROWNFIRST_PYTHON` so `bin/refresh.sh` does it.
 
 ## What to label next
