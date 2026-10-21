@@ -549,13 +549,19 @@ def main(argv=None) -> int:
     if anchor_emb.shape[1] != pool_emb.shape[1]:
         raise SystemExit(f"{anchor_emb.shape[1]} numbers a photo on one side and "
                          f"{pool_emb.shape[1]} on the other; not comparable")
-    n_named = 0
+    n_named = n_unembedded = 0
     if args.species_csv:
         species = load_species(args.species_csv, args.species_key_col, args.species_col)
         anchor_keys, anchor_emb, pool_keys, pool_emb, n_named = anchor_named(
             anchor_keys, anchor_emb, pool_keys, pool_emb, species)
         print(f"{n_named} photos named in {args.species_csv.name} since the pool was "
               f"drawn: moved from the pool to the anchors")
+        # A named frame in neither embedding file cannot anchor anything. Counted
+        # and recorded so the page can say how much of the labelled set the
+        # ranking is blind to, instead of letting the anchor count stand for it.
+        n_unembedded = len(set(species) - set(anchor_keys) - set(pool_keys))
+        print(f"{n_unembedded} photos named in {args.species_csv.name} have no "
+              f"embedding in either file: they do not anchor the ranking")
     pool_keys, pool_emb, n_dropped = drop_split_frames(pool_keys, pool_emb,
                                                        load_splits(args.splits_csv))
     print(f"{n_dropped} photos dropped from the pool for carrying a split in "
@@ -584,7 +590,8 @@ def main(argv=None) -> int:
 
     record = run_record(args.pool_npz, len(pool_keys), args.anchor_npz, len(anchor_keys),
                         dropped_for_split=n_dropped, dropped_for_holdout=n_held,
-                        named_since_pool_drawn=n_named)
+                        named_since_pool_drawn=n_named,
+                        named_without_embedding=n_unembedded)
     print(f"wrote {write_run_record(args.out, record)}")
 
     # The named photos are all one camera and the queue is not, so a photo can

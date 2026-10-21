@@ -289,7 +289,7 @@ def test_novelty_provenance_reads_the_date_and_the_two_row_counts(queues, tmp_pa
                     "mtime=2026-08-20T03:18:39+00:00\n")
     assert queues.novelty_provenance(path) == {
         "written": "2026-09-03", "anchors": 1719, "pool": 3934,
-        "sha": None, "anchor_sha": None, "library": None}
+        "sha": None, "anchor_sha": None, "library": None, "unembedded": None}
 
 
 def test_novelty_provenance_reports_a_missing_number_as_missing(queues, tmp_path):
@@ -297,11 +297,11 @@ def test_novelty_provenance_reports_a_missing_number_as_missing(queues, tmp_path
     was given, which is not the same population as the rows it wrote."""
     assert queues.novelty_provenance(str(tmp_path / "queue_novelty.csv")) == {
         "written": None, "anchors": None, "pool": None, "sha": None,
-        "anchor_sha": None, "library": None}
+        "anchor_sha": None, "library": None, "unembedded": None}
     path = _sidecar(tmp_path, "written: 2026-09-03\nby: rank_queue.py\n")
     assert queues.novelty_provenance(path) == {
         "written": "2026-09-03", "anchors": None, "pool": None,
-        "sha": None, "anchor_sha": None, "library": None}
+        "sha": None, "anchor_sha": None, "library": None, "unembedded": None}
 
 
 def test_novelty_provenance_prefers_the_run_record(queues, tmp_path):
@@ -315,16 +315,17 @@ def test_novelty_provenance_prefers_the_run_record(queues, tmp_path):
         "strategy": "coreset", "seed": 0, "k": 3934, "n_pool": 3934,
         "n_labeled": 1719, "embedding_sha256": "abc123", "library_version": "0.9.0",
         "timestamp_utc": "2026-09-10T12:00:00+00:00",
-        "extra": {"written": "2026-09-10", "anchor_sha256": "def456"}}),
+        "extra": {"written": "2026-09-10", "anchor_sha256": "def456",
+                  "named_without_embedding": 2062}}),
         encoding="utf-8")
     assert queues.novelty_provenance(path) == {
         "written": "2026-09-10", "anchors": 1719, "pool": 3934,
-        "sha": "abc123", "anchor_sha": "def456", "library": "0.9.0"}
+        "sha": "abc123", "anchor_sha": "def456", "library": "0.9.0", "unembedded": 2062}
     (tmp_path / "queue_novelty.csv.run.json").write_text(json.dumps({
         "n_pool": "3934", "timestamp_utc": "2026-09-10T12:00:00+00:00"}))
     assert queues.novelty_provenance(path) == {
         "written": "2026-09-10", "anchors": None, "pool": None,
-        "sha": None, "anchor_sha": None, "library": None}
+        "sha": None, "anchor_sha": None, "library": None, "unembedded": None}
 
 
 def test_load_novelty_distance_reads_the_column_and_skips_what_it_cannot(queues,
