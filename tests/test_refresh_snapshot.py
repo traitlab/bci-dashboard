@@ -190,7 +190,10 @@ def fixture_repo(root, *, fail_builder=False):
         "if '--check' not in sys.argv: Path('data/gt_publication_reviewed.csv').write_text('reviewed input')\n"
     )
     (root / "labelling/assess_species.py").write_text(
-        "from pathlib import Path\nPath('assessment_ran').write_text('recomputed')\n"
+        # The assessment records the npz it read, so it must see the final one.
+        "from pathlib import Path\n"
+        "assert Path('data/embeddings_labelled/embeddings.npz').read_text() == 'vectors for every named frame'\n"
+        "Path('assessment_ran').write_text('recomputed')\n"
     )
     (root / "labelling/embed_input.py").write_text(
         "from pathlib import Path\n"

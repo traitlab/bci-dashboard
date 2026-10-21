@@ -261,10 +261,10 @@ def refresh(
             env=env,
         )
     run(repo, "labelling/gt_from_publication.py", env=env)
-    run(repo, "labelling/assess_species.py", research=True, env=env)
     # Give every named frame a vector first, so the frames labelled since the
-    # bundled embeddings were drawn can anchor. The fetch skips what the npz
-    # and the per-photo cache already hold.
+    # bundled embeddings were drawn can anchor. It runs before the assessment,
+    # which records the npz it read and fails verification if the npz changes
+    # after. The fetch skips what the npz and the per-photo cache already hold.
     run(repo, "labelling/embed_input.py", "--named", env=env)
     run(
         repo,
@@ -280,6 +280,7 @@ def refresh(
         research=True,
         env=env,
     )
+    run(repo, "labelling/assess_species.py", research=True, env=env)
     # Re-anchor the send order on every labelled frame, including the pool
     # photos named since the embedding files were drawn.
     run(
