@@ -38,5 +38,5 @@ def test_publication_keeps_explorers_discoverable_without_raw_exports(tmp_path, 
     assert not (docs / "embeddings.npz").exists()
     index = (docs / "index.html").read_text()
     assert index.index('href="explorer.html"') < index.index('href="model_health_dashboard.html"')
-    assert 'href="embedding-atlas.html"' in index
+    assert 'href="embedding-atlas.html#view=photos"' in index
     assert 'href="embedding-atlas.html#view=models"' in index

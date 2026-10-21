@@ -66,11 +66,12 @@ def test_task_links_keep_distinct_destinations_and_respect_built_pages(available
     for link in parser.links:
         view = link["data-atlas-view"]
         assert link["data-site-task"] == view
-        assert link["href"] == "embedding-atlas.html" + ("#view=locations" if view == "locations" else "")
+        assert link["href"] == "embedding-atlas.html#view=" + view
 
 
 @pytest.mark.parametrize("current, active", [
-    ("embedding-atlas.html", "photos"),
+    ("embedding-atlas.html", "locations"),
+    ("embedding-atlas.html#view=photos", "photos"),
     ("crownfirst-atlas.html", None),
     ("crownfirst-atlas.html#view=locations", None),
     ("embedding-atlas.html#view=locations", "locations"),

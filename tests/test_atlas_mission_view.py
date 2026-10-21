@@ -11,7 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run_atlas(points, checks, initial_hash="#frame=query", comparison=None, page=None, encoder="Crownfirst test encoder"):
+def run_atlas(points, checks, initial_hash="#frame=query&view=photos", comparison=None, page=None, encoder="Crownfirst test encoder"):
     if not shutil.which("node"):
         pytest.skip("Node is needed to execute mission view behavior")
     html = runpy.run_path(ROOT / "dashboard/embedding_atlas_assets.py")["HTML"]
@@ -94,7 +94,7 @@ assert.match($('neighborSupport').textContent,/2 of 2 stored matches.*2 photos w
 const otherButton=$('neighbors').children[0].children[0];assert.match(otherButton['aria-label'],/other-one.*0.880.*Other recorded mission/);otherButton.onclick();$('workspaceEnlarge').onclick();
 assert.equal(photoComparison.mode,'other');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[3,.88],[4,.77]]);assert.match($('photoComparisonContext').textContent,/Exclude selected flight.*do not prove different trees/);assert.match($('photoComparisonScore').textContent,/0.880/);
 $('nextComparison').onclick();assert.match($('photoComparisonScore').textContent,/0.770/);assert.equal($('nextComparison').disabled,true);$('nextComparison').onclick();assert.equal(photoComparison.rank,1);assert.equal(selected,0);assert.equal(location.hash,initial.hash+'&missions=other&atlasPage=3');
-$('previousComparison').onclick();$('chooseComparison').onclick();assert.equal(selected,3);assert.equal(neighborMode,'other');assert.equal($('similarMissionMode').value,'other');assert.equal(location.hash,'#frame=other-one&missions=other');assert.match($('neighbors').children[0].children[0]['aria-label'],/query.*Other recorded mission/);
+$('previousComparison').onclick();$('chooseComparison').onclick();assert.equal(selected,3);assert.equal(neighborMode,'other');assert.equal($('similarMissionMode').value,'other');assert.equal(location.hash,'#frame=other-one&view=photos&missions=other');assert.match($('neighbors').children[0].children[0]['aria-label'],/query.*Other recorded mission/);
 assert.equal(missionRelation({mission:null},{mission:null}),'Mission unknown');assert.equal(missionRelation({mission:' '},{mission:' '}),'Mission unknown');
 """)
 
@@ -129,3 +129,10 @@ assert.equal(selected,0);assert.equal(location.hash,hash+'&missions=other');asse
 assert.deepEqual(missionViewSupport(P,0,'other'),{available:true,eligible:0,reason:'0 eligible photos with another recorded mission ID.'});
 $('similarMissionMode').value='all';$('similarMissionMode').onchange();assert.equal($('neighbors').children.length,1);assert.equal(selected,0);
 """)
+
+
+def test_empty_hash_opens_the_drone_map_and_photos_link_is_explicit():
+    run_atlas([photo("query", "flight-a")], r"""
+assert.equal(atlasView,'locations');assert.equal($('locationsView').hidden,false);assert.equal($('photosView').hidden,true);
+assert.equal(frameHash('k','photos'),'#frame=k&view=photos');assert.equal(frameHash('k'),'#frame=k');
+""", initial_hash="")

@@ -6,7 +6,7 @@ LINKS = (
     ("index.html", "Panama canopy"),
     ("explorer.html", "Browse photos"),
     ("embedding-atlas.html#view=locations", "Drone map"),
-    ("embedding-atlas.html", "Similar photos"),
+    ("embedding-atlas.html#view=photos", "Similar photos"),
     ("model_health_dashboard.html", "Model health"),
     ("label_queue_dashboard.html", "Labelling queue"),
 )
@@ -52,6 +52,8 @@ body[data-workspace=reports] main{padding:0;max-width:none}}
 
 def navigation(current, *, available=None):
     """Keep the same task labels and expose the current page to assistive tools."""
+    if current == "embedding-atlas.html":  # a bare page opens on the map
+        current += "#view=locations"
     photo_pages = ('' if available is None else ' data-photo-pages="'
                    + ' '.join(page for page in ('embedding-atlas.html', 'crownfirst-atlas.html')
                               if page in available) + '"')
@@ -60,7 +62,7 @@ def navigation(current, *, available=None):
         page, _, fragment = destination.partition("#")
         if available is not None and page not in available:
             continue
-        view = fragment.removeprefix("view=") if fragment else "photos"
+        view = fragment.removeprefix("view=") if fragment else "locations"
         active = current == destination
         attributes = ' aria-current="page"' if active else ""
         if page in ("embedding-atlas.html", "crownfirst-atlas.html"):

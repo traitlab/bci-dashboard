@@ -108,7 +108,7 @@ def test_optional_atlas_cards_only_when_built(build_index, tmp_path):
     assert 'href="embedding-atlas.html"' not in out
     (tmp_path / 'embedding-atlas.html').write_text('<html>Atlas</html>')
     out = build_index.build(str(tmp_path))
-    assert 'href="embedding-atlas.html"' in out
+    assert 'href="embedding-atlas.html#view=photos"' in out
     assert 'href="crownfirst-atlas.html#view=models"' not in out
     (tmp_path / 'crownfirst-atlas.html').write_text('<html>Canopy</html>')
     assert 'href="embedding-atlas.html#view=models"' in build_index.build(str(tmp_path))
@@ -120,7 +120,7 @@ def test_taxonomy_explorer_is_first_when_built(build_index, tmp_path):
     (tmp_path / "embedding-atlas.html").write_text("<html>Research</html>")
     out = build_index.build(str(tmp_path))
     assert out.index('class="card" href="explorer.html"') < out.index('class="card" href="model_health_dashboard.html"')
-    assert out.index('class="card" href="embedding-atlas.html"') < out.index('class="card" href="model_health_dashboard.html"')
+    assert out.index('class="card" href="embedding-atlas.html#view=photos"') < out.index('class="card" href="model_health_dashboard.html"')
     assert "<details>" not in out, "primary tasks must be visible without opening a disclosure"
 
 
@@ -195,7 +195,7 @@ def test_plantnet_map_is_primary_and_plantclef_comparison_is_closed(build_index,
     page = HomeLinks()
     page.feed(build_index.build(str(tmp_path)))
     assert "embedding-atlas.html#view=locations" in page.primary
-    assert "embedding-atlas.html" in page.primary
+    assert "embedding-atlas.html#view=photos" in page.primary
     assert not any("crownfirst" in href for href in page.primary)
     assert page.experimental == ["embedding-atlas.html#view=models"]
     assert page.experimental_open is False

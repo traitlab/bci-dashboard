@@ -71,7 +71,7 @@ function activeTask(){return navLinks.filter(link=>link.getAttribute('data-site-
 assert.deepEqual(activeTask(),['locations']);assert.equal($('workspaceTitle').textContent,'Drone map');assert.match($('workspaceDescription').textContent,/drone photo location.*not tree locations/);
 for(const [index,view] of [[3,'photos'],[4,'locations'],[5,'models']]){
  const params=new URLSearchParams(navLinks[index].getAttribute('href').split('#')[1]);
- assert.equal(params.get('frame'),'next & ä.JPG');assert.equal(params.get('view')||'photos',view);
+ assert.equal(params.get('frame'),'next & ä.JPG');assert.equal(params.get('view')||'locations',view);
  assert.equal(new URLSearchParams(params.get('browse')).get('status'),'compare');
 }
 let prevented=false;

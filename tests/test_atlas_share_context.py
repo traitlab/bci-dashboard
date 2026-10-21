@@ -7,13 +7,13 @@ def test_view_tabs_selection_and_model_links_keep_the_active_task():
     run_atlas([photo("query", "flight-a"), photo("next", "flight-b")], r"""
 assert.equal(atlasView,'photos');
 $('showLocationsView').onclick();
-assert.equal(new URLSearchParams(location.hash.slice(1)).get('view'),'locations');
+assert.equal(new URLSearchParams(location.hash.slice(1)).get('view'),null);
 select(1);
-assert.equal(location.hash,'#frame=next&view=locations');
-assert.equal(navLinks[0].getAttribute('href'),'embedding-atlas.html#frame=next&view=locations');
-assert.equal(navLinks[1].getAttribute('href'),'crownfirst-atlas.html#frame=next&view=locations');
+assert.equal(location.hash,'#frame=next');
+assert.equal(navLinks[0].getAttribute('href'),'embedding-atlas.html#frame=next');
+assert.equal(navLinks[1].getAttribute('href'),'crownfirst-atlas.html#frame=next');
 assert.equal(navLinks[2].getAttribute('href'),'explorer.html#frame=next');
-assert.equal(navLinks[3].getAttribute('href'),'embedding-atlas.html#frame=next');
+assert.equal(navLinks[3].getAttribute('href'),'embedding-atlas.html#frame=next&view=photos');
 assert.equal(navLinks[3].getAttribute('aria-current'),null);
 assert.equal(navLinks[4].getAttribute('aria-current'),null);
 assert.equal(navLinks[0].getAttribute('aria-current'),null);
@@ -21,7 +21,7 @@ assert.equal(navLinks[1].getAttribute('aria-current'),'page');
 showAtlasView('models');
 assert.equal(location.hash,'#frame=next&view=models');
 assert.equal(navLinks[0].getAttribute('href'),'embedding-atlas.html#frame=next&view=models');
-$('showPhotosView').onclick();assert.equal(location.hash,'#frame=next');
+$('showPhotosView').onclick();assert.equal(location.hash,'#frame=next&view=photos');
 """)
 
 
@@ -32,11 +32,11 @@ assert.equal($('modelComparisonView').hidden,false);
 location.hash='#frame=query&view=locations';listeners.hashchange();
 assert.equal(selected,0);assert.equal(atlasView,'locations');
 assert.equal($('locationsView').hidden,false);assert.equal($('photosView').hidden,true);
-location.hash='#frame=next';listeners.hashchange();
+location.hash='#frame=next&view=photos';listeners.hashchange();
 assert.equal(selected,1);assert.equal(atlasView,'photos');
 assert.equal($('photosView').hidden,false);assert.equal($('locationsView').hidden,true);
 location.hash='#frame=query&view=unavailable';listeners.hashchange();
-assert.equal(atlasView,'photos');assert.equal(selected,0);
+assert.equal(atlasView,'locations');assert.equal(selected,0);
 """, initial_hash="#frame=next&view=models")
 
 
