@@ -93,10 +93,12 @@ def parse_args(argv=None):
     p.add_argument("--out-dir", default=DEFAULT_OUT)
     p.add_argument("--delay", type=float, default=DEFAULT_DELAY)
     p.add_argument("--test", action="store_true", help="one image, verbose")
+    p.add_argument("--budget-minutes", type=float, default=None,
+                   help="stop fetching after this long and stack what landed; a re-run resumes")
     return p.parse_args(argv)
 
 
-def fetch_all(todo, api_key, api_url, cache_dir, *, delay, test):
+def fetch_all(todo, api_key, api_url, cache_dir, *, delay, test, deadline=None):
     """One embedding call per photo, each answer cached as it lands.
 
     The narrow except is deliberate. One unreachable URL or undecodable JPEG
@@ -105,6 +107,9 @@ def fetch_all(todo, api_key, api_url, cache_dir, *, delay, test):
     """
     ok = errors = 0
     for i, row in enumerate(todo):
+        if deadline is not None and time.monotonic() > deadline:
+            print(f"time budget spent after {i} of {len(todo)}. Re-run to resume.")
+            break
         gk = row["global_key"]
         try:
             jpeg, w, h, crop_s = center_crop_jpeg(download_image(row["image_url"]))
@@ -137,14 +142,33 @@ def fetch_all(todo, api_key, api_url, cache_dir, *, delay, test):
     return ok, errors
 
 
-def write_matrix(cache_dir, out_dir):
+def existing_matrix(out_dir) -> dict[str, list[float]]:
+    """The vectors already in ``out_dir/embeddings.npz``, by key, or nothing.
+
+    A checkout restored from the input bundle carries the npz and not the
+    per-photo cache it was stacked from. Those rows are as good as cached: a
+    rewrite keeps them, and a fetch skips them.
+    """
+    npz_path = Path(out_dir) / "embeddings.npz"
+    if not npz_path.exists():
+        return {}
+    with np.load(npz_path) as z:
+        return dict(zip(z["keys"].tolist(), z["embeddings"].tolist()))
+
+
+def write_matrix(cache_dir, out_dir, existing=None):
     """Stack the cache into one array, dropping any vector of the wrong length.
 
     A short vector is a truncated answer, not a photo with less to say. Loading
     it would put a row of the wrong width into a matrix nothing downstream
-    re-checks, so it is named on stderr and left out.
+    re-checks, so it is named on stderr and left out. ``existing`` rows are
+    kept for every key the cache does not hold; a cache file wins over them.
     """
     keys, vectors = [], []
+    for key, vec in (existing or {}).items():
+        if not (cache_dir / f"{cache_name(key)}.json").exists():
+            keys.append(key)
+            vectors.append(vec)
     for p in sorted(cache_dir.glob("*.json")):
         entry = json.loads(p.read_text(encoding="utf-8"))
         vec = entry.get("embedding")
@@ -178,13 +202,16 @@ def main(argv=None) -> int:
     rows = load_image_list(Path(args.input))
     if args.test:
         rows = rows[:1]
-    cached = {p.stem for p in cache_dir.glob("*.json")}
+    existing = existing_matrix(out_dir)
+    cached = {p.stem for p in cache_dir.glob("*.json")} | {cache_name(k) for k in existing}
     todo = [r for r in rows if cache_name(r["global_key"]) not in cached]
     print(f"{len(rows)} images, {len(cached)} cached, {len(todo)} to fetch")
 
+    deadline = (None if args.budget_minutes is None
+                else time.monotonic() + 60 * args.budget_minutes)
     ok, errors = fetch_all(todo, api_key, api_url, cache_dir,
-                           delay=args.delay, test=args.test)
-    npz_path, n = write_matrix(cache_dir, out_dir)
+                           delay=args.delay, test=args.test, deadline=deadline)
+    npz_path, n = write_matrix(cache_dir, out_dir, existing)
     print(f"fetched {ok}, errors {errors}, wrote {n} vectors to {npz_path}")
     return 0
 

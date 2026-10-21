@@ -142,9 +142,18 @@ jobs:
                   if not isinstance(row.get('projects'), dict) or not set(row['projects']) <= projects:
                       raise SystemExit(f'{path.name} has a row outside BCI_LABELBOX_PROJECTS; refusing to publish.')
           PY
+      - name: Keep the per-photo vectors of the labelled frames between runs
+        # The bundle carries the stacked npz, not the cache it came from. Restoring
+        # the newest cache means a weekly run embeds only the frames named since.
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: data/embeddings_labelled/cache
+          key: embeddings-labelled-${{ github.run_id }}
+          restore-keys: embeddings-labelled-
       - name: Recompute, verify, and stage the public snapshot offline
         env:
           FETCH_LABELS: ${{ github.event_name == 'schedule' || inputs.refresh_labels }}
+          PLANTNET_API_KEY: ${{ secrets.PLANTNET_API_KEY }}
         run: |
           python - <<'PY'
           from datetime import date
