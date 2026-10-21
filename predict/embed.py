@@ -93,10 +93,12 @@ def parse_args(argv=None):
     p.add_argument("--out-dir", default=DEFAULT_OUT)
     p.add_argument("--delay", type=float, default=DEFAULT_DELAY)
     p.add_argument("--test", action="store_true", help="one image, verbose")
+    p.add_argument("--budget-minutes", type=float, default=None,
+                   help="stop fetching after this long and stack what landed; a re-run resumes")
     return p.parse_args(argv)
 
 
-def fetch_all(todo, api_key, api_url, cache_dir, *, delay, test):
+def fetch_all(todo, api_key, api_url, cache_dir, *, delay, test, deadline=None):
     """One embedding call per photo, each answer cached as it lands.
 
     The narrow except is deliberate. One unreachable URL or undecodable JPEG
@@ -105,6 +107,9 @@ def fetch_all(todo, api_key, api_url, cache_dir, *, delay, test):
     """
     ok = errors = 0
     for i, row in enumerate(todo):
+        if deadline is not None and time.monotonic() > deadline:
+            print(f"time budget spent after {i} of {len(todo)}. Re-run to resume.")
+            break
         gk = row["global_key"]
         try:
             jpeg, w, h, crop_s = center_crop_jpeg(download_image(row["image_url"]))
@@ -202,8 +207,10 @@ def main(argv=None) -> int:
     todo = [r for r in rows if cache_name(r["global_key"]) not in cached]
     print(f"{len(rows)} images, {len(cached)} cached, {len(todo)} to fetch")
 
+    deadline = (None if args.budget_minutes is None
+                else time.monotonic() + 60 * args.budget_minutes)
     ok, errors = fetch_all(todo, api_key, api_url, cache_dir,
-                           delay=args.delay, test=args.test)
+                           delay=args.delay, test=args.test, deadline=deadline)
     npz_path, n = write_matrix(cache_dir, out_dir, existing)
     print(f"fetched {ok}, errors {errors}, wrote {n} vectors to {npz_path}")
     return 0

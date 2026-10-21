@@ -56,3 +56,9 @@ def test_write_matrix_keeps_bundled_rows_and_lets_the_cache_win(tmp_path):
 
 def test_existing_matrix_is_empty_without_an_npz(tmp_path):
     assert embed.existing_matrix(tmp_path) == {}
+
+
+def test_fetch_all_stops_once_the_time_budget_is_spent(tmp_path):
+    rows = [{"global_key": "k", "image_url": "https://x/1.jpg"}]
+    assert embed.fetch_all(rows, "key", "url", tmp_path, delay=0, test=False,
+                           deadline=0) == (0, 0)

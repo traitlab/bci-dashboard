@@ -273,6 +273,10 @@ def refresh(
         str(data / "next_batch" / "labelled_for_embed.csv"),
         "--out-dir",
         str(data / "embeddings_labelled"),
+        # One photo takes seconds, so a backlog spans several runs. Each run
+        # stops in time to finish, and the restored cache carries the rest.
+        "--budget-minutes",
+        "60",
         research=True,
         env=env,
     )
