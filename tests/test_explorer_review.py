@@ -9,14 +9,14 @@ from test_explorer_browser import SELECTED, catalogue, run_browser
 def test_compare_filter_counts_compose_and_restore_from_history():
     run_browser(r"""
 const first=state.frame;
-assert.equal($('labelStatus').options.at(-1).textContent,'Label and guess differ (1)');
+assert.equal($('labelStatus').options.at(-1).textContent,'Label and guess name different taxa (1)');
 $('labelStatus').value='compare';$('labelStatus').onchange();
 assert.equal(state.status,'compare');assert.match(location.hash,/status=compare/);
-assert.equal($('browseTitle').textContent,'Label and guess differ');
+assert.equal($('browseTitle').textContent,'Label and guess name different taxa');
 assert.deepEqual(matchingPhotoKeys(catalogue,state),[first]);
 assert.equal($('stateNotice').textContent,'');assert.match($('resultCount').textContent,/1 of 6/);
 setState({source:'recorded',taxon:'s',search:'flight-a'});
-assert.equal($('browseTitle').textContent,'Canopia alba: Label and guess differ');
+assert.equal($('browseTitle').textContent,'Canopia alba: Label and guess name different taxa');
 assert.deepEqual(labelStatusCounts(catalogue,state),{all:1,with:1,without:0,compare:1});
 assert.equal(taxonCounts(catalogue,state).get('s'),1);
 const saved=location.hash;setState({status:'without',source:'prediction',taxon:'',search:''});

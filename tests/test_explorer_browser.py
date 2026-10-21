@@ -58,7 +58,10 @@ def helpers():
     return template().split("// EXPLORER_HELPERS_START")[1].split("// EXPLORER_HELPERS_END")[0]
 
 
-def run_browser(checks, payload=None, initial_hash="", prelude=""):
+def run_browser(checks, payload=None, initial_hash="", prelude="", default_source=False):
+    # Most tests were written against the Pl@ntNet-guess view; pin it unless a test exercises the default.
+    if not default_source and "source=" not in initial_hash:
+        initial_hash += ("&" if initial_hash else "#") + "source=prediction"
     setup = r"""
 const assert=require('node:assert/strict'),elements=new Map(),listeners={},historyEntries=[];
 function make(tag='div') {return {tagName:tag,children:[],attributes:{},dataset:{},style:{setProperty(name,value){this[name]=value},removeProperty(name){delete this[name]}},value:'',isConnected:true,clientWidth:600,clientHeight:450,scrollLeft:0,scrollTop:0,naturalWidth:0,naturalHeight:0,
@@ -75,7 +78,7 @@ for(const [id,values] of [['source',['prediction','recorded']],['labelStatus',['
 def test_taxon_membership_counts_compose_without_promoting_guesses_to_labels():
     script = helpers() + "\nconst c=" + json.dumps(catalogue()) + r""";
 const assert=require('node:assert/strict');
-const s=readExplorerState('',c.photos);assert.equal(s.source,'prediction');
+assert.equal(readExplorerState('',c.photos).source,'recorded');assert.equal(readExplorerState('#source=prediction',c.photos).source,'prediction');const s={...readExplorerState('',c.photos),source:'prediction'};
 assert.deepEqual(matchingPhotoKeys(c,{...s,taxon:'s'}),['b','d']);
 assert.deepEqual(matchingPhotoKeys(c,{...s,source:'recorded',taxon:'f'}),['a & ä /?.JPG','b','c']);
 assert.equal(taxonCounts(c,{...s,source:'recorded'}).get('f'),3);assert.equal(taxonCounts(c,s).get('f'),3);
@@ -89,7 +92,7 @@ c.provenance.predictions.available=false;assert.deepEqual(matchingPhotoKeys(c,s)
 
 def test_label_option_counts_are_prospective_and_compose_with_source_taxon_and_search():
     run_browser(r"""
-function root(source){return $('taxonomy').children.find(n=>n.getAttribute?.('data-root')===source)}
+function root(source){return $('taxonomy').querySelector('[data-root="'+source+'"]')}
 function counts(){return Object.fromEntries($('labelStatus').options.map(o=>[o.value,Number(o.textContent.match(/\((\d+)\)$/)[1])]))}
 assert.deepEqual(counts(),{all:6,with:5,without:1,compare:1});
 setState({taxon:'s',search:'flight-a'});
@@ -101,7 +104,7 @@ assert.equal(document.activeElement,$('labelStatus'));assert.deepEqual($('labelS
 assert.match($('resultCount').textContent,/1 of 6/);assert.match($('outsideNotice').textContent,/outside these filters/);
 assert.equal($('gallery').children.length,1);assert.equal(state.frame,'a & ä /?.JPG');
 root('recorded').focus();root('recorded').onclick();assert.equal(state.source,'recorded');assert.equal(state.taxon,'any');
-assert.deepEqual(counts(),{all:4,with:4,without:0,compare:1});assert.equal(root('recorded').getAttribute('aria-current'),'true');
+assert.deepEqual(counts(),{all:4,with:4,without:0,compare:1});assert.equal(root('recorded').getAttribute('aria-pressed'),'true');
 assert.equal(document.activeElement,root('recorded'));
 assert.equal($('labelStatus').value,'without');assert.match($('resultCount').textContent,/0 of 6/);
 assert.equal($('gallery').children.length,0);
@@ -116,9 +119,9 @@ def test_taxon_roots_filter_by_source_and_split_the_filtered_population():
     data['photos'][4]['prediction'].update(status='unresolved', name='Unresolved first name')
     data['photos'].append({**data['photos'][3], 'key': 'whitespace', 'label': ' \t ', 'prediction': {'status': 'missing', 'name': None}})
     run_browser(r"""
-function root(source){return $('taxonomy').children.find(n=>n.getAttribute?.('data-root')===source)}
+function root(source){return $('taxonomy').querySelector('[data-root="'+source+'"]')}
 assert.deepEqual(labelStatusCounts(catalogue,state),{all:7,with:5,without:2,compare:1});
-assert.equal(root('recorded').children[1].textContent,'4');assert.equal(root('prediction').children[1].textContent,'4');assert.equal(root('recorded').getAttribute('aria-current'),'false');
+assert.equal(root('recorded').children[1].textContent.trim(),'4');assert.equal(root('prediction').children[1].textContent.trim(),'4');assert.equal(root('recorded').getAttribute('aria-pressed'),'false');assert.equal(root('prediction').getAttribute('aria-pressed'),'true');
 setState({source:'recorded',status:'with'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['a & ä /?.JPG','b','c','e','z']);
 setState({taxon:'f',search:'no matches',status:'without'});assert.equal(root('recorded').children[1].textContent,'0');
 setState({taxon:'',search:'',status:'all'});assert.equal(matchingPhotoKeys(catalogue,state).length,7);
@@ -137,7 +140,7 @@ def test_count_helpers_preserve_explicit_unavailable_sources_and_empty_populatio
     data['provenance']['predictions']['available'] = False
     run_browser(r"""
 assert.deepEqual(labelStatusCounts(catalogue,state),{all:0,with:0,without:0,compare:0});
-function root(source){return $('taxonomy').children.find(n=>n.getAttribute?.('data-root')===source)}
+function root(source){return $('taxonomy').querySelector('[data-root="'+source+'"]')}
 assert.equal(root('prediction').disabled,true);assert.equal(root('prediction').children[0].textContent,'Pl@ntNet guesses unavailable');
 assert.equal(state.source,'prediction');
 setState({source:'recorded'});assert.deepEqual(labelStatusCounts(catalogue,state),{all:6,with:5,without:1,compare:0});
@@ -339,7 +342,7 @@ setState({taxon:'g'});location.hash=saved;listeners.popstate();assert.equal(rend
 def test_root_taxon_focus_survives_rerender_without_array_children():
     run_browser(r"""
 const host=$('taxonomy'),replace=host.replaceChildren;host.replaceChildren=function(...nodes){replace.apply(this,nodes);this.children.find=undefined};render();
-const root=source=>Array.prototype.find.call(host.children,n=>n.getAttribute?.('data-root')===source);
+const root=source=>host.querySelector('[data-root="'+source+'"]');
 root('recorded').focus();root('recorded').onclick();assert.equal(state.taxon,'any');assert.equal(document.activeElement,root('recorded'));
 """)
 
@@ -347,15 +350,15 @@ root('recorded').focus();root('recorded').onclick();assert.equal(state.taxon,'an
 @pytest.mark.parametrize('initial_hash,patch,expected', [
     ('', "{search:'Elseaceae'}", 'z'),
     ('#status=compare', '{}', 'a & ä /?.JPG'),
-    ('#source=recorded&taxon=unassigned', '{}', 'd'),
+    ('#source=recorded&taxon=unassigned', '{}', 'e'),
 ])
 def test_fresh_load_selects_the_first_match_until_a_photo_is_chosen(initial_hash, patch, expected):
     run_browser(r"""
 setState(__PATCH__);assert.equal(state.frame,__EXPECTED__);assert.equal($('outsideNotice').textContent,'');assert.equal(new URLSearchParams(location.hash.slice(1)).has('frame'),false);
-assert.equal($('gallery').children[0].getAttribute('aria-pressed'),'true');assert.match($('photoPosition').textContent,/^Photo 1 of/);
+assert.equal($('gallery').children.find(c=>c.getAttribute('data-frame')===state.frame).getAttribute('aria-pressed'),'true');assert.match($('photoPosition').textContent,/^Photo \d+ of/);
 setState({search:'',status:'all',taxon:'',source:'prediction'});assert.equal(state.frame,'a & ä /?.JPG');
 setState({frame:'c'});setState({search:'Elseaceae'});assert.equal(state.frame,'c');assert.match($('outsideNotice').textContent,/outside these filters/);assert.equal(new URLSearchParams(location.hash.slice(1)).get('frame'),'c');
-""".replace('__PATCH__', patch).replace('__EXPECTED__', json.dumps(expected)), initial_hash=initial_hash)
+""".replace('__PATCH__', patch).replace('__EXPECTED__', json.dumps(expected)), initial_hash=initial_hash, default_source=True)
 
 
 def test_out_of_range_page_is_clamped_in_the_url_without_a_new_entry():
@@ -374,3 +377,15 @@ e=ev('ArrowDown');$('detailViewport').onkeydown(e);assert.equal($('detailViewpor
 e=ev('ArrowRight',{shiftKey:true});$('detailViewport').onkeydown(e);assert.equal($('detailViewport').scrollLeft,100);assert.equal(e.prevented,false);
 $('detailViewport').scrollWidth=$('detailViewport').clientWidth;e=ev('ArrowRight');$('detailViewport').onkeydown(e);assert.equal($('detailViewport').scrollLeft,100);assert.equal(e.prevented,false);
 """)
+
+
+def test_fresh_load_defaults_to_recorded_labels_and_a_labelled_photo():
+    payload = catalogue()
+    payload["photos"][0]["label"] = ""
+    run_browser(r"""
+assert.equal(state.source,'recorded');assert.equal(photos[0].label,'');
+assert.equal(state.frame,'b');assert.equal(new URLSearchParams(location.hash.slice(1)).has('frame'),false);
+const group=$('taxonomy').children[0];assert.equal(group.getAttribute('aria-label'),'Group by');
+assert.deepEqual(group.children.slice(1).map(n=>[n.getAttribute('data-root'),n.getAttribute('aria-pressed')]),[['recorded','true'],['prediction','false']]);
+setState({status:'without'});assert.equal(state.frame,photos[0].key);
+""", payload=payload, default_source=True)

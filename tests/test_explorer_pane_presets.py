@@ -44,7 +44,7 @@ const s=readExplorerState('#source=recorded&taxon=f&status=compare&order=confide
 assert.equal(s.panes,undefined);assert.equal(s.source,'recorded');assert.equal(s.status,'compare');assert.equal(s.order,'confidence-asc');assert.equal(s.minConfidence,'0.5');assert.equal(s.layout,'photos');
 assert.equal(readExplorerState('#panes=constructor',[]).panes,undefined);assert.equal(readExplorerState('',[]).panes,undefined);
 assert.equal(readExplorerState('#panes=review&layout=photos',[]).layout,'photos');
-assert.equal(explorerHash(readExplorerState('#status=compare&panes=review',[])),'#source=prediction&status=compare&layout=table&panes=review');
+assert.equal(explorerHash(readExplorerState('#status=compare&panes=review',[])),'#source=recorded&status=compare&layout=table&panes=review');
 """
     )
 
