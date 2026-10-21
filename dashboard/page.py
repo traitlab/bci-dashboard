@@ -30,7 +30,7 @@ from queue_why_panels import p_evidence, p_look
 from selection_panels import audit_footer
 
 OPERATIONAL_PAGES = frozenset({
-    "index.html", "model_health_dashboard.html", "label_queue_dashboard.html",
+    "index.html", "about.html", "model_health_dashboard.html", "label_queue_dashboard.html",
 })
 
 

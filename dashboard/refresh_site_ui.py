@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from assets import css_for, strip_comments
 from atlas_inventory import join_photo_inventory
-from build_index import build as build_index
+from build_index import build as build_index, build_about
 from embedding_atlas_assets import HTML as ATLAS_HTML
 from explorer_assets import HTML as EXPLORER_HTML
 from site_navigation import CSS as SITE_CSS
@@ -84,7 +84,7 @@ def refresh_site(source: Path, output: Path) -> None:
     if missing:
         raise ValueError("Missing recorded reports: " + ", ".join(missing))
     names = [*REPORT_PAGES, *(name for name in PHOTO_PAGES if (source / name).is_file())]
-    available = set(names) | {"index.html"}
+    available = set(names) | {"index.html", "about.html"}
     catalogue = None
     catalogue_source = None
     if "explorer.html" in names:
@@ -102,6 +102,7 @@ def refresh_site(source: Path, output: Path) -> None:
         for name, text in pages.items():
             (stage / name).write_text(text, encoding="utf-8")
         pages["index.html"] = build_index(folder)
+    pages["about.html"] = build_about(available)
     output.mkdir(parents=True, exist_ok=True)
     for name, text in pages.items():
         (output / name).write_text(text, encoding="utf-8")

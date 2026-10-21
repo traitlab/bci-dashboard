@@ -54,6 +54,9 @@ def test_offline_ui_refresh_preserves_evidence_and_optional_page_boundaries(tmp_
     assert "labels as of 2026-08-27" in home
     assert 'href="explorer.html"' in home
     assert 'href="crownfirst-atlas.html' not in home
+    about = (output / "about.html").read_text()
+    assert 'href="explorer.html' in about and "crownfirst" not in about
+    assert re.findall(r'<a href="([^"]+)"', updated[:updated.index("<main")])[-1] == "about.html"
     assert (output / "evidence.csv").read_bytes() == (source / "evidence.csv").read_bytes()
     assert (source / "model_health_dashboard.html").read_text() == report
     # Updating already refreshed pages does not duplicate the masthead.

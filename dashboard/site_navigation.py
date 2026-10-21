@@ -9,6 +9,7 @@ LINKS = (
     ("embedding-atlas.html#view=photos", "Similar photos"),
     ("model_health_dashboard.html", "Model health"),
     ("label_queue_dashboard.html", "Labelling queue"),
+    ("about.html", "About"),
 )
 
 CSS = """

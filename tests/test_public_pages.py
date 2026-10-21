@@ -206,9 +206,11 @@ def test_assembled_pages_link_only_to_available_html(tmp_path, optional_pages):
         str(output),
         "--out",
         str(output / "index.html"),
+        "--about-out",
+        str(output / "about.html"),
     )
     assert index.returncode == 0, index.stdout + index.stderr
-    for name in (*operational, "index.html"):
+    for name in (*operational, "index.html", "about.html"):
         page = (output / name).read_text(encoding="utf-8")
         local = {
             url.path
