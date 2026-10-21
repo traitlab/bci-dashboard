@@ -33,6 +33,7 @@ const target=plotHits.find(h=>h[2]===7),[tx,ty]=target;
 plot.onwheel({deltaY:-1,offsetX:tx,offsetY:ty,preventDefault(){}});assert.equal(plotView.k,1.25);const after=plotHits.find(h=>h[2]===7);assert.ok(Math.abs(after[0]-tx)<1e-9&&Math.abs(after[1]-ty)<1e-9);
 $('plotZoomIn').onclick();assert.equal(plotView.k,2);$('plotZoomOut').onclick();$('plotZoomOut').onclick();$('plotZoomOut').onclick();assert.equal(plotView.k,1);
 $('plotReset').onclick();assert.deepEqual(plotView,{k:1,x:0,y:0});
+$('showPlotView').onclick();assert.equal(atlasView,'plot');$('showPlotView').onclick();assert.equal(atlasView,'photos');assert.equal($('photosView').hidden,false);
 plot.onpointermove({offsetX:tx+3,offsetY:ty});assert.equal($('plotTip').hidden,false);assert.equal($('plotTip').textContent,'E · p7');
 const blank=plotHits.find(h=>h[2]===13);plot.onpointermove({offsetX:blank[0],offsetY:blank[1]});assert.equal($('plotTip').textContent,'No recorded label · p13');
 plot.onpointerleave();assert.equal($('plotTip').hidden,true);

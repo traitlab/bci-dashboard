@@ -81,6 +81,8 @@ def test_mission_toggle_updates_cards_rings_and_modal_without_changing_query():
     run_atlas(points, r"""
 assert.equal(neighborMode,'all');assert.equal($('similarMissionMode').value,'all');assert.match($('similarModel').textContent,/Crownfirst test encoder/);
 assert.match($('neighborSupport').textContent,/2 of 2 stored matches.*5 other photos/);
+assert.equal($('similarMissionMode').hidden,false);assert.equal($('similarMissionLabel').hidden,false);
+select(3);assert.match($('similarMissionHelp').textContent,/same stored matches/);assert.deepEqual(['similarMissionMode','similarMissionLabel','similarMissionHelp'].map(id=>$(id).hidden),[true,true,true]);select(0);assert.equal($('similarMissionMode').hidden,false);
 const allButton=$('neighbors').children[0].children[0];assert.match(allButton['aria-label'],/same-one.*0.990.*Same recorded mission/);
 context('map').arcs=[];context('plot').arcs=[];draw();assert.deepEqual(context('map').arcs,[3,3,3,10,10,14,9]);assert.deepEqual(context('plot').arcs,[3,3,3,10,10,14,9]);
 allButton.onclick();$('workspaceEnlarge').onclick();assert.equal(photoComparison.mode,'all');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[1,.99],[2,.98]]);assert.match($('photoComparisonScore').textContent,/0.990/);$('closePhotoComparison').onclick();
