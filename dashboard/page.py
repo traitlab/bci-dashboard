@@ -20,7 +20,7 @@ import core as hc
 import health as hl
 from assets import css_for, esc, section, strip_comments
 from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
-from site_navigation import navigation
+from site_navigation import FAVICON, navigation
 from confirmatory_panels import p_floor
 from panels import (
     p_calibration, p_ceiling, p_counts, p_coverage, p_method, p_review, p_species,
@@ -200,7 +200,7 @@ def document(title: str, body: str, *, current: str = "", available=None) -> str
     return ("<!DOCTYPE html>\n"
             '<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
-            f"<title>{title}</title>"
+            f"<title>{title}</title>{FAVICON}"
             f'<style>{css_for(strip_comments(CSS), body + JS)}</style></head><body data-workspace="reports">' + body
             + f"<script>{strip_comments(script_for(body))}</script></body></html>")
 

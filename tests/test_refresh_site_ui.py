@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def recorded_site(folder):
     folder.mkdir()
-    report = ('<!doctype html><html><head><style>body{color:red}</style></head><body>'
+    report = ('<!doctype html><html><head><title>Recorded</title><style>body{color:red}</style></head><body>'
               '<nav>Old navigation</nav><main id="main-content" tabindex="-1">'
               '<h1>Recorded report</h1><div class="subtitle">labels as of 2026-08-27</div>'
               '<p>17 of 33 reviewed frames</p><a href="evidence.csv">Evidence</a>'
@@ -148,6 +148,13 @@ def test_zero_positioned_photos_retain_the_last_published_site(tmp_path):
     assert "at least one positioned photo" in result.stderr
     assert (output / "index.html").read_text() == "last verified public site"
     assert not (output / "model_health_dashboard.html").exists()
+
+
+def test_recorded_report_pages_gain_the_site_icon_once(tmp_path):
+    recorded_site(tmp_path / "site")
+    refresh(tmp_path / "site", tmp_path / "out")
+    for name in ("model_health_dashboard.html", "label_queue_dashboard.html"):
+        assert (tmp_path / "out" / name).read_text().count('rel="icon"') == 1
 
 
 def test_recorded_queue_hero_gains_the_figure_the_index_reads():

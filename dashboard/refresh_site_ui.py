@@ -18,7 +18,7 @@ from atlas_inventory import join_photo_inventory
 from build_index import build as build_index, build_about
 from embedding_atlas_assets import HTML as ATLAS_HTML
 from explorer_assets import HTML as EXPLORER_HTML
-from site_navigation import CSS as SITE_CSS
+from site_navigation import CSS as SITE_CSS, FAVICON
 from site_navigation import navigation
 from style import CSS as REPORT_CSS
 
@@ -75,6 +75,8 @@ def refresh_page(
     )
     if replaced != 1:
         raise ValueError(f"{name}: report stylesheet is missing")
+    if 'rel="icon"' not in updated:
+        updated = updated.replace("</title>", "</title>" + FAVICON, 1)
     return tag_queue_figure(updated) if name == "label_queue_dashboard.html" else updated
 
 
