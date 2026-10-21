@@ -101,8 +101,7 @@ def test_it_claims_nothing_the_pages_have_to_back_up(build_index, tmp_path):
     assert "measurement pass" not in out
     assert "latest state" not in out
     assert 'class="intro"' in out
-    assert "photo counts do not measure tree abundance" in out
-    assert "model guesses need expert confirmation" in out
+    assert "tree abundance" not in out, "caveats live on the About page"
 
 
 def test_optional_atlas_links_only_when_built(build_index, tmp_path):
@@ -126,6 +125,13 @@ def test_taxonomy_explorer_is_first_when_built(build_index, tmp_path):
     assert out.index('class="card" href="label_queue_dashboard.html"') < out.index('class="card" href="model_health_dashboard.html"')
     assert out.index('class="card" href="model_health_dashboard.html"') < out.index('<a href="embedding-atlas.html#view=photos">')
     assert "<details" not in out, "tasks must be visible without opening a disclosure"
+
+
+def test_one_shared_stamp_is_shown_once_under_the_grid(build_index, tmp_path):
+    out = build_index.build(fake_build(tmp_path))
+    assert out.count("built 2026-09-04") == 1
+    assert '<p class="scope">built 2026-09-04. snapshot 2026-08-27</p>' in out
+    assert "<small>" not in out
 
 
 def test_dates_stay_with_the_page_they_describe(build_index, tmp_path):

@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from site_navigation import CSS as NAVIGATION_CSS, navigation
+from site_navigation import CSS as NAVIGATION_CSS, FAVICON, navigation
 
 # A tile is (file, title, purpose, fragment, figure). The registry holds the
 # first four; the figure is read off the linked page when the index is built.
@@ -93,8 +93,12 @@ def build(build_dir: str) -> str:
             text = fh.read()
         tiles.append((name, title, purpose, fragment, build_figure(text), build_stamp(text)))
 
+    # Pages refreshed together carry one stamp, shown once under the grid.
+    stamps = {tile[5] for tile in tiles if tile[5]}
+    shared = stamps.pop() if len(stamps) == 1 else ""
+
     def card(name, title, purpose, fragment, figure, stamp):
-        line = ". ".join(part for part in (figure, stamp) if part)
+        line = ". ".join(part for part in (figure, "" if stamp == shared else stamp) if part)
         small = f'<small>{html.escape(line)}</small>' if line else ""
         return (f'<a class="card" href="{name}{fragment}">'
                 f'<b>{html.escape(title)}</b><span>{html.escape(purpose)}</span>{small}</a>')
@@ -102,14 +106,14 @@ def build(build_dir: str) -> str:
     more = "".join(f'<a href="{name}{fragment}">{html.escape(title)}</a>'
                    for name, title, _, fragment in OPTIONAL_PAGES
                    if name == "embedding-atlas.html" and name in present)
-    return (_head("Panama canopy photos and labelling", "index.html", present)
+    return (_head("Panama canopy photos and labelling",
+                  "Drone photos of the Panama canopy with Pl@ntNet guesses and recorded labels: browse photos, choose the next labelling batch, check model health.", "index.html", present)
             + '<main id="main-content" tabindex="-1"><h1>Panama canopy</h1>'
             + '<p class="intro">Drone photos of the canopy on Barro Colorado Island and other Panama field sites. '
               'Pl@ntNet suggests a name for each photo and botanists confirm it. <a href="about.html">About</a></p>'
             + '<div class="tasks">' + "".join(card(*tile) for tile in tiles) + '</div>'
             + (f'<p class="more">{more}</p>' if more else "")
-            + '<p class="scope">Model health and labelling queues describe their own recorded snapshots. '
-              'Photo counts do not measure tree abundance. Model guesses need expert confirmation.</p>'
+            + (f'<p class="scope">{html.escape(shared)}</p>' if shared else "")
             + "</main></body></html>\n")
 
 
@@ -121,7 +125,7 @@ def build_about(available) -> str:
     experiment = (f'<h2>Experimental matching</h2><p>Compare Pl@ntNet with the recorded PlantCLEF experiment '
                   f'for the same photos: <a href="{EXPERIMENT}#view=models">Compare models (experimental)</a>.</p>'
                   if EXPERIMENT in available else "")
-    return (_head("About Panama canopy", "about.html", available)
+    return (_head("About Panama canopy", "What each page of the Panama canopy site is for, how to read its numbers, and a glossary.", "about.html", available)
             + '<main id="main-content" tabindex="-1" class="about"><h1>About</h1>'
             + '<h2>What each page is for</h2><ul>' + pages + '</ul>'
             + '<h2>Read the numbers with care</h2>' + "".join(f"<p>{c}</p>" for c in CAVEATS)
@@ -133,10 +137,11 @@ def build_about(available) -> str:
             + "</main></body></html>\n")
 
 
-def _head(title: str, current: str, available) -> str:
+def _head(title: str, description: str, current: str, available) -> str:
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<title>{title}</title><style>{STYLE}{NAVIGATION_CSS}</style></head>'
+            f'<meta name="description" content="{description}">'
+            f'<title>{title}</title>{FAVICON}<style>{STYLE}{NAVIGATION_CSS}</style></head>'
             f'<body data-workspace="home">' + navigation(current, available=available))
 
 
