@@ -29,7 +29,8 @@ OPTIONAL_PAGES = [
     ("explorer.html", "Browse photos",
      "Explore families, genera and species using Pl@ntNet first guesses or recorded labels, then inspect the photos."),
     ("embedding-atlas.html", "Similar photos",
-     "Compare a selected photo with Pl@ntNet’s stored visual matches. Looking alike does not confirm the same species."),
+     "Compare a selected photo with Pl@ntNet’s stored visual matches. Looking alike does not confirm the same species.",
+     "#view=photos"),
     ("crownfirst-atlas.html", "Compare models (experimental)",
      "Inspect Pl@ntNet and PlantCLEF visual matches for the same photos."),
 ]
@@ -68,7 +69,7 @@ def build(build_dir: str) -> str:
     research = [page for page in optional if page[0] != "explorer.html"]
     available = explorer + PAGES + research
     stamps = {}
-    for name, _, _ in available:
+    for name, *_ in available:
         with open(os.path.join(build_dir, name), encoding="utf-8") as fh:
             stamps[name] = build_stamp(fh.read())
 
@@ -92,7 +93,7 @@ def build(build_dir: str) -> str:
         if "crownfirst-atlas.html" in stamps else ""
     )
     cards.extend(card(*page) for page in PAGES)
-    available_names = {name for name, _, _ in available} | {"index.html"}
+    available_names = {name for name, *_ in available} | {"index.html"}
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
             "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
             "<title>Panama canopy photos and labelling</title>"

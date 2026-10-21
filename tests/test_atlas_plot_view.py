@@ -15,7 +15,7 @@ def test_view_plot_round_trips_through_reload_links_and_history():
 assert.equal(atlasView,'plot');assert.equal($('plotView').hidden,false);assert.equal($('locationsView').hidden,false);assert.equal(document.activeElement,$('plotView'));assert.equal(location.hash,'#frame=query&view=plot');
 assert.equal($('showPlotView').getAttribute('aria-pressed'),'true');assert.equal(frameHash('query','plot'),'#frame=query&view=plot');
 for(const link of navLinks.filter(link=>link.getAttribute('data-site-task')))assert.equal(link.getAttribute('aria-current'),null);
-const back=location.hash;navLinks[4].onclick({button:0,preventDefault(){}});assert.equal(atlasView,'locations');assert.equal($('plotView').hidden,true);assert.equal(historyEntries.at(-1),'#frame=query&view=locations');
+const back=location.hash;navLinks[4].onclick({button:0,preventDefault(){}});assert.equal(atlasView,'locations');assert.equal($('plotView').hidden,true);assert.equal(historyEntries.at(-1),'#frame=query');
 location.hash=back;listeners.popstate();assert.equal(atlasView,'plot');assert.equal($('plotView').hidden,false);
 select(3);assert.equal(location.hash,'#frame=p3&view=plot');
 select(0);$('inspectPhoto').focus();assert.equal(openPhotoComparison(0,$('inspectPhoto')),true);$('chooseComparison').onclick();assert.equal(atlasView,'plot');assert.equal(selected,1);assert.equal(document.activeElement,$('plotView'));
@@ -29,10 +29,10 @@ const link=$('ordinaryMatchingLink');assert.equal(link.getAttribute('data-atlas-
 
 
 def test_old_view_links_still_open_their_views():
-    for view, panel in [("photos", "photosView"), ("locations", "locationsView"), ("models", "modelComparisonView"), ("unknown", "photosView")]:
+    for view, panel in [("photos", "photosView"), ("locations", "locationsView"), ("models", "modelComparisonView"), ("unknown", "locationsView")]:
         run_atlas(plot_photos(), r"""
 assert.equal(atlasView,__VIEW__);assert.equal($(__PANEL__).hidden,false);assert.equal($('plotView').hidden,true);assert.equal($('showPlotView').getAttribute('aria-pressed'),'false');
-""".replace("__VIEW__", repr("photos" if view == "unknown" else view)).replace("__PANEL__", repr(panel)), initial_hash="#frame=query&view=" + view)
+""".replace("__VIEW__", repr("locations" if view == "unknown" else view)).replace("__PANEL__", repr(panel)), initial_hash="#frame=query&view=" + view)
 
 
 def test_label_colours_are_fixed_from_full_data_across_filter_and_selection():
