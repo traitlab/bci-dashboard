@@ -204,7 +204,7 @@ def test_document_embeds_css_and_js_inline_with_no_external_reference(assets, pa
     # Stripping is comments only: no rule and no statement may go with them.
     assert "box-sizing:border-box" in html and "addEventListener" in html
     assert "/*" not in html.split("</style>")[0]
-    assert "<link" not in html
+    assert "<link" not in html.replace('<link rel="icon" href="data:', "")
     assert "script src" not in html
 
 

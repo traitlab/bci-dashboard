@@ -2,6 +2,8 @@
 
 from html import escape
 
+FAVICON = '''<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='8' fill='%23245743'/></svg>">'''
+
 LINKS = (
     ("index.html", "Panama canopy"),
     ("explorer.html", "Browse photos"),
@@ -9,6 +11,7 @@ LINKS = (
     ("embedding-atlas.html#view=photos", "Similar photos"),
     ("model_health_dashboard.html", "Model health"),
     ("label_queue_dashboard.html", "Labelling queue"),
+    ("about.html", "About"),
 )
 
 CSS = """

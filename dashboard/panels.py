@@ -519,7 +519,7 @@ def p_calibration(c):
         f'{pctf(c.bins_all[-1][2] / c.bins_all[-1][1]) if c.bins_all[-1][1] else "n/a"} '
         f'of the time is not a score of {c.bins_all[-1][0][1:4]}. And it holds over all labelled frames '
         f'only: on species with few labelled frames a high score means much less, as the '
-        f'label queue page shows.</p>'
+        f'Labelling queue shows.</p>'
         + ap.reject_table(c.reject_sweep))
 
 
@@ -594,7 +594,7 @@ def p_ceiling(c):
                  f'<p class="note">Of them, {c.gen_any:,} have a candidate in the right '
                  f'genus among the {c.n_cand}. <strong>{c.gen_one:,} have exactly '
                  f'one</strong>, which makes the species a yes-or-no question. Whether '
-                 f'that is worth expert time is for the label queue page.</p>' if gn else "")
+                 f'that is worth expert time is for the Labelling queue.</p>' if gn else "")
               + (f'<p class="note">A further {c.fam_n} frames are labelled to {c.fam_names} '
                  f'<em>families</em>, not genera, and are left out of the genus rate. A '
                  f'family never matches a predicted species, and rolling up to family needs '

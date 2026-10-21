@@ -117,7 +117,7 @@ def test_page_has_no_external_asset_references(page):
     that would make the page stop rendering correctly offline.
     """
     html, _, _ = page
-    assert "<link" not in html
+    assert not re.search(r'<link(?![^>]*href="data:)', html), "a link that fetches"
     assert "script src" not in html
     fetched = re.findall(r'(?:src|srcset|@import\s+url\()\s*=?\s*["\'(]?(https?://[^"\'\s)]+)', html)
     assert not fetched, f"page fetches off-machine assets: {fetched[:3]}"

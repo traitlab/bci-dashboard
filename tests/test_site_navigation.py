@@ -1,6 +1,7 @@
 """Keyboard skip navigation must not replace hash-based photo state."""
 
 import json
+import re
 import subprocess
 from html.parser import HTMLParser
 
@@ -97,3 +98,12 @@ def test_site_name_is_the_first_nav_link_home():
     nav = markup[markup.index('<nav class="site-nav"'):]
     assert nav.index('<a href="index.html">Panama canopy</a>') < nav.index('href="explorer.html"')
     assert "site-brand" not in markup
+
+
+@pytest.mark.parametrize("available", [None, {"index.html", "about.html", "explorer.html"}])
+@pytest.mark.parametrize("current", ["index.html", "explorer.html", "about.html"])
+def test_about_is_the_last_nav_link(available, current):
+    site = load("_site_navigation_about", DASHBOARD / "site_navigation.py")
+    nav = site.navigation(current, available=available)
+    links = re.findall(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', nav[nav.index('<nav class="site-nav"'):])
+    assert links[-1] == ("about.html", "About")

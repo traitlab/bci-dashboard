@@ -15,10 +15,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from assets import css_for, strip_comments
 from atlas_inventory import join_photo_inventory
-from build_index import build as build_index
+from build_index import build as build_index, build_about
 from embedding_atlas_assets import HTML as ATLAS_HTML
 from explorer_assets import HTML as EXPLORER_HTML
-from site_navigation import CSS as SITE_CSS
+from site_navigation import CSS as SITE_CSS, FAVICON
 from site_navigation import navigation
 from style import CSS as REPORT_CSS
 
@@ -75,7 +75,19 @@ def refresh_page(
     )
     if replaced != 1:
         raise ValueError(f"{name}: report stylesheet is missing")
-    return updated
+    if 'rel="icon"' not in updated:
+        updated = updated.replace("</title>", "</title>" + FAVICON, 1)
+    return tag_queue_figure(updated) if name == "label_queue_dashboard.html" else updated
+
+
+def tag_queue_figure(text: str) -> str:
+    """Mark a recorded queue hero with the figure the index reads, taken from its own Queued card."""
+    queued = re.search(r'<div class="e">Queued</div><div class="row"><div class="v">([\d,]+)</div>'
+                       r'.*?<div class="l">(unlabelled photos)</div>', text, re.DOTALL)
+    if queued is None or 'data-tile="' in text:
+        return text
+    return re.sub(r'<div class="hero([^"]*)">', rf'<div class="hero\1" data-tile="{queued.group(1)} {queued.group(2)}">',
+                  text, count=1)
 
 
 def refresh_site(source: Path, output: Path) -> None:
@@ -84,7 +96,7 @@ def refresh_site(source: Path, output: Path) -> None:
     if missing:
         raise ValueError("Missing recorded reports: " + ", ".join(missing))
     names = [*REPORT_PAGES, *(name for name in PHOTO_PAGES if (source / name).is_file())]
-    available = set(names) | {"index.html"}
+    available = set(names) | {"index.html", "about.html"}
     catalogue = None
     catalogue_source = None
     if "explorer.html" in names:
@@ -102,6 +114,7 @@ def refresh_site(source: Path, output: Path) -> None:
         for name, text in pages.items():
             (stage / name).write_text(text, encoding="utf-8")
         pages["index.html"] = build_index(folder)
+    pages["about.html"] = build_about(available)
     output.mkdir(parents=True, exist_ok=True)
     for name, text in pages.items():
         (output / name).write_text(text, encoding="utf-8")

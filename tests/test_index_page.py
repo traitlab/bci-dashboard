@@ -4,6 +4,8 @@ The reviewer asked for one bookmarkable address rather than a file someone has t
 sent each time. A bookmark that lands on a directory listing is not that, and a
 bookmark whose dates were typed by hand goes stale without anyone noticing.
 """
+import re
+
 import pytest
 
 
@@ -30,12 +32,13 @@ def test_it_links_every_dashboard(build_index, tmp_path):
         assert f'href="{name}"' in out
 
 
-def test_two_cards_and_no_team_card(build_index, tmp_path):
-    """Two cards, one audience. The labelling team's commands are a closed
+def test_two_tiles_and_no_team_card(build_index, tmp_path):
+    """Two tiles, one audience. The labelling team's commands are a closed
     block on the queue page, so the old team copy gets no card of its own: its
     address only redirects to that block."""
     out = build_index.build(fake_build(tmp_path))
     assert out.count('class="card"') == 2
+    assert out.index('class="card" href="label_queue_dashboard.html"') < out.index('class="card" href="model_health_dashboard.html"')
     assert "label_queue_team.html" not in out
     assert "<em>" not in out
 
@@ -98,20 +101,19 @@ def test_it_claims_nothing_the_pages_have_to_back_up(build_index, tmp_path):
     assert "measurement pass" not in out
     assert "latest state" not in out
     assert 'class="intro"' in out
-    assert "photo counts do not measure tree abundance" in out
-    assert "model guesses need expert confirmation" in out
+    assert "tree abundance" not in out, "caveats live on the About page"
 
 
-def test_optional_atlas_cards_only_when_built(build_index, tmp_path):
+def test_optional_atlas_links_only_when_built(build_index, tmp_path):
     fake_build(tmp_path)
     out = build_index.build(str(tmp_path))
-    assert 'href="embedding-atlas.html"' not in out
+    assert 'href="embedding-atlas.html' not in out
     (tmp_path / 'embedding-atlas.html').write_text('<html>Atlas</html>')
     out = build_index.build(str(tmp_path))
     assert 'href="embedding-atlas.html#view=photos"' in out
-    assert 'href="crownfirst-atlas.html#view=models"' not in out
+    assert 'href="embedding-atlas.html#view=locations"' in out
     (tmp_path / 'crownfirst-atlas.html').write_text('<html>Canopy</html>')
-    assert 'href="embedding-atlas.html#view=models"' in build_index.build(str(tmp_path))
+    assert 'href="crownfirst' not in build_index.build(str(tmp_path)), "the experiment is linked from About only"
 
 
 def test_taxonomy_explorer_is_first_when_built(build_index, tmp_path):
@@ -119,9 +121,17 @@ def test_taxonomy_explorer_is_first_when_built(build_index, tmp_path):
     (tmp_path / "explorer.html").write_text("<html>Photos</html>")
     (tmp_path / "embedding-atlas.html").write_text("<html>Research</html>")
     out = build_index.build(str(tmp_path))
-    assert out.index('class="card" href="explorer.html"') < out.index('class="card" href="model_health_dashboard.html"')
-    assert out.index('class="card" href="embedding-atlas.html#view=photos"') < out.index('class="card" href="model_health_dashboard.html"')
-    assert "<details>" not in out, "primary tasks must be visible without opening a disclosure"
+    assert out.index('class="card" href="explorer.html"') < out.index('class="card" href="label_queue_dashboard.html"')
+    assert out.index('class="card" href="label_queue_dashboard.html"') < out.index('class="card" href="model_health_dashboard.html"')
+    assert out.index('class="card" href="model_health_dashboard.html"') < out.index('<a href="embedding-atlas.html#view=photos">')
+    assert "<details" not in out, "tasks must be visible without opening a disclosure"
+
+
+def test_one_shared_stamp_is_shown_once_under_the_grid(build_index, tmp_path):
+    out = build_index.build(fake_build(tmp_path))
+    assert out.count("built 2026-09-04") == 1
+    assert '<p class="scope">built 2026-09-04. snapshot 2026-08-27</p>' in out
+    assert "<small>" not in out
 
 
 def test_dates_stay_with_the_page_they_describe(build_index, tmp_path):
@@ -143,16 +153,19 @@ def test_home_exposes_camera_locations_and_landmarks(build_index, tmp_path):
     assert 'href="#main-content">Skip to content</a>' in out
     assert '<main id="main-content" tabindex="-1">' in out
     assert 'href="explorer.html"' not in out
+    assert 'class="card" href="embedding-atlas.html' not in out, "the map is a plain link, not a tile"
 
 
-def test_experiment_only_build_keeps_research_access_without_ordinary_map(build_index, tmp_path):
+def test_experiment_only_build_keeps_research_access_on_about_without_ordinary_map(build_index, tmp_path):
     fake_build(tmp_path)
     (tmp_path / "crownfirst-atlas.html").write_text("<html>Experiment</html>")
     out = build_index.build(str(tmp_path))
-    assert 'href="crownfirst-atlas.html#view=models"' in out
-    assert 'class="card" href="crownfirst-atlas.html' not in out
+    assert 'href="crownfirst-atlas.html' not in out
     assert "embedding-atlas.html" not in out
     assert 'id="cameraMapTask"' not in out
+    about = build_index.build_about(build_index.available_names(str(tmp_path)))
+    assert 'href="crownfirst-atlas.html#view=models"' in about
+    assert "embedding-atlas.html" not in about
 
 
 def test_refreshed_measurement_keeps_the_older_label_date(build_index, tmp_path):
@@ -163,39 +176,54 @@ def test_refreshed_measurement_keeps_the_older_label_date(build_index, tmp_path)
     assert "2,554 frames" not in out
 
 
-def test_plantnet_map_is_primary_and_plantclef_comparison_is_closed(build_index, tmp_path):
-    from html.parser import HTMLParser
-
-    class HomeLinks(HTMLParser):
-        def __init__(self):
-            super().__init__()
-            self.in_experiment = False
-            self.experimental_open = None
-            self.primary = []
-            self.experimental = []
-
-        def handle_starttag(self, tag, attrs):
-            attrs = dict(attrs)
-            if tag == "details" and attrs.get("class") == "experiments":
-                self.in_experiment = True
-                self.experimental_open = "open" in attrs
-            if tag == "a":
-                if self.in_experiment:
-                    self.experimental.append(attrs["href"])
-                elif attrs.get("class") == "card":
-                    self.primary.append(attrs["href"])
-
-        def handle_endtag(self, tag):
-            if tag == "details":
-                self.in_experiment = False
-
+def test_plantnet_map_and_similar_photos_are_plain_links_after_the_tiles(build_index, tmp_path):
     fake_build(tmp_path)
     for name in ("embedding-atlas.html", "crownfirst-atlas.html"):
         (tmp_path / name).write_text("<html>Recorded atlas</html>")
-    page = HomeLinks()
-    page.feed(build_index.build(str(tmp_path)))
-    assert "embedding-atlas.html#view=locations" in page.primary
-    assert "embedding-atlas.html#view=photos" in page.primary
-    assert not any("crownfirst" in href for href in page.primary)
-    assert page.experimental == ["embedding-atlas.html#view=models"]
-    assert page.experimental_open is False
+    out = build_index.build(str(tmp_path))
+    row = out[out.index('<p class="more">'):out.index('<p class="scope">')]
+    assert 'href="embedding-atlas.html#view=locations">Drone map' in row
+    assert 'href="embedding-atlas.html#view=photos">Similar photos' in row
+    assert out.index('class="tasks"') < out.index('<p class="more">')
+
+
+def queue_build(tmp_path, tile='3,875 unlabelled photos'):
+    fake_build(tmp_path)
+    (tmp_path / "label_queue_dashboard.html").write_text(
+        f'<div class="subtitle">Labelbox labels merged 2026-10-15 &middot; x</div>'
+        f'<div class="hero wide" data-tile="{tile}"><div>Queued 9</div></div>')
+
+
+def test_queue_figure_is_read_off_the_page_and_sits_with_its_dates(build_index, tmp_path):
+    queue_build(tmp_path)
+    out = build_index.build(str(tmp_path))
+    queue_tile = out[out.index('<a class="card" href="label_queue_dashboard.html"'):].split("</a>")[0]
+    assert "3,875 unlabelled photos" in queue_tile
+    assert "Labelbox labels merged 2026-10-15" in queue_tile
+    assert out.count("unlabelled photos") == 1, "only the queue tile carries a figure"
+
+
+def test_queue_hero_names_its_figure_for_the_index():
+    from conftest import load, REPO
+    assets = load("_assets_tile", REPO / "dashboard" / "assets.py")
+    card = ("Queued", "3,875", "unlabelled photos", "note")
+    assert 'class="hero wide" data-tile="3,875 unlabelled photos"' in assets.hero([card], cls="wide", tile="3,875 unlabelled photos")
+    assert "data-tile" not in assets.hero([card])
+
+
+def test_about_carries_caveats_glossary_and_no_data(build_index, tmp_path):
+    fake_build(tmp_path)
+    (tmp_path / "explorer.html").write_text("<html>Photos</html>")
+    about = build_index.build_about(build_index.available_names(str(tmp_path)))
+    low = about.lower()
+    assert "photo counts do not measure tree abundance" in low
+    assert "model guesses need expert confirmation" in low
+    assert "each page describes its own snapshot" in low
+    for term in ("Recorded label", "Pl@ntNet first guess", "Labelled frame"):
+        assert f"<dt>{term}</dt>" in about
+    assert "crownfirst" not in about
+    assert 'href="explorer.html"' in about
+    assert not re.search(r"\d{4}-\d{2}-\d{2}|labelbox|\d,\d{3}", low)
+    (tmp_path / "crownfirst-atlas.html").write_text("<html>x</html>")
+    assert 'href="crownfirst-atlas.html#view=models"' in build_index.build_about(
+        build_index.available_names(str(tmp_path)))

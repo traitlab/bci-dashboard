@@ -126,7 +126,8 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
                 "send_first_queue.csv"),
                ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
                 "The whole pool this page puts in an order.",
-                "send_first_queue.csv")], cls="wide"),
+                "send_first_queue.csv")], cls="wide",
+              tile=f"{c.n_unlab:,} unlabelled photos"),
          batches_note(c),
          ('<p class="note"><strong>This is a saved queue.</strong> It changes after '
           'labels, predictions or ranking data are refreshed. Work from the published '
@@ -153,7 +154,7 @@ def batches_note(c):
             f'{BATCH_SIZE} photos, each species group kept together. This page '
             f'shows the order and the reason behind each photo\u2019s place in it. '
             f'How Pl@ntNet scores against the labels is a separate page, '
-            f'<a href="model_health_dashboard.html">model_health_dashboard.html</a>.</p>')
+            f'<a href="model_health_dashboard.html">Model health</a>.</p>')
 
 
 def main() -> None:
