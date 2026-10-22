@@ -1,6 +1,7 @@
 -r requirements-predict.txt
 # Not on PyPI: install both from the traitlab repo, or run labelling/rank_queue.py
-# on a checkout that has them (its docstring says how). Only labelling/ imports
-# them; dashboard/ reads the JSON and CSV they leave behind.
+# on a checkout that has them (its docstring says how). Only labelling/ and
+# predict/aggregate_survey.py import them; dashboard/ reads the JSON and CSV
+# they leave behind.
 labelfirst
 crownfirst

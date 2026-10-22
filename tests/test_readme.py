@@ -13,6 +13,7 @@ file moved rather than only that the README is wrong.
 
 from __future__ import annotations
 
+import ast
 import csv
 import os
 import re
@@ -336,3 +337,25 @@ def test_readme_names_the_csvs_no_build_reads_back(readme, measure):
     assert readme.count(f"{words[len(named)]} of the {totals[total]} CSVs") == 1, (
         f"{len(named)} of {total} CSVs go unread and the README counts "
         f"different numbers.")
+
+
+def test_dashboard_imports_neither_research_library(readme, core):
+    """The README says the pages build without labelfirst or crownfirst. That
+    holds only while no module under dashboard/ imports one, so read the
+    imports rather than trust the sentence."""
+    assert "`dashboard/` only reads those files" in readme
+    root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
+    folder = os.path.join(root, "dashboard")
+    for name in sorted(os.listdir(folder)):
+        if not name.endswith(".py"):
+            continue
+        with open(os.path.join(folder, name), encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        imported = {alias.name.split(".")[0] for node in ast.walk(tree)
+                    if isinstance(node, ast.Import) for alias in node.names}
+        imported |= {(node.module or "").split(".")[0] for node in ast.walk(tree)
+                     if isinstance(node, ast.ImportFrom)}
+        found = imported & {"labelfirst", "crownfirst"}
+        assert not found, (
+            f"dashboard/{name} imports {sorted(found)}, and the README says "
+            f"the pages build without them.")
