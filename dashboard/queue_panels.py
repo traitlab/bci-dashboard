@@ -218,10 +218,12 @@ def send_preview_table(c):
     # in front of them reads what the order is not measured against and how to
     # read the confidence column.
     body += ('<h3 class="sub">First ' + f'{len(head)}' + ' photos in the ranked pool</h3>'
-             + '<p class="note"><b>Photos least similar to labelled examples come first '
-               'inside each queue.</b> "How new it looks" is the saved visual distance '
-               'to labelled photos, not evidence of a new species. Unranked photos '
-               'keep their confidence order.</p>'
+             + '<p class="note"><b>Inside each queue, the photo least like anything labelled '
+               'comes first.</b> Each next photo is the one least like the labelled '
+               'photos and the photos above it. "How new it looks" is the distance to '
+               'labelled photos only, so it falls down the table overall but not row '
+               'by row. It is not evidence of a new species. Unranked photos keep '
+               'their confidence order.</p>'
              + ('<p class="note">Photo links open the catalogue, which carries its own '
                 'saved labels and guesses. Queue scores remain from the snapshot above.</p>'
                 if explorer_available else '')
@@ -300,8 +302,9 @@ def p_send(c):
                  f"less than {pctf(hc.HARD_MAX_TOP1, 0)} of the time; "
                  f"{c.queue_counts.get('low_conf_known', 0):,} show a usually-right species "
                  f"the model is unsure of here. These queues come first to target gaps "
-                 f"in labelled evidence. Inside each queue the photo least like everything already "
-                 f"labelled comes first, which applies to {c.n_ranked:,} of the "
+                 f"in labelled evidence. Inside each queue the photo least like anything labelled "
+                 f"comes first, then the one least like the labelled photos and those above it. "
+                 f"This applies to {c.n_ranked:,} of the "
                  f"{c.n_unlab:,}; the rest keep their place by confidence. "
                  f'<a href="send_first_queue.csv">send_first_queue.csv</a> holds this same '
                  f"order, one row per frame.",

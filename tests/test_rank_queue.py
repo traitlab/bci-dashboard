@@ -265,3 +265,14 @@ def test_a_pool_photo_named_since_the_pool_was_drawn_anchors_the_next_order(rank
     assert p_emb.tolist() == [[0.0, 1.0], [4.0, 5.0]]
     untouched = rank_queue.anchor_named(["a"], anchors[:1], ["p1"], pool[:1], {})
     assert untouched[4] == 0 and untouched[2] == ["p1"]
+
+
+def test_the_order_is_not_the_distance_column_sorted(rank_queue):
+    """A near-copy of the first pick waits behind a closer photo, so the page must not say the column sets the order."""
+    import numpy as np
+
+    anchors = np.array([[1.0, 0.0]])
+    pool = np.array([[-1.0, 0.0], [-1.0, 0.001], [0.0, 1.0]])
+    order, distance = rank_queue.rank_pool(anchors, pool)
+    assert order == [0, 2, 1]
+    assert distance[order[1]] < distance[order[2]]
