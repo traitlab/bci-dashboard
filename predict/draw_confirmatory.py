@@ -170,13 +170,13 @@ def draw(pool, n=N, seed=SEED, cap=CAP):
     return sorted(picked, key=lambda r: r["base_image"]), quota
 
 
-def to_csv_text(rows):
+def to_csv_text(rows, fields=FIELDS):
     import io
     buf = io.StringIO(newline="")
-    w = csv.DictWriter(buf, fieldnames=FIELDS, lineterminator="\n")
+    w = csv.DictWriter(buf, fieldnames=fields, lineterminator="\n")
     w.writeheader()
     for r in rows:
-        w.writerow({k: r[k] for k in FIELDS})
+        w.writerow({k: r[k] for k in fields})
     return buf.getvalue()
 
 

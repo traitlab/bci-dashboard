@@ -45,7 +45,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 import core as hc
 from draw_field_sample import flight_of, site_of
 from embeddings_io import l2_normalise, load_embeddings
-from polygon_identity import gps_of
+from polygon_identity import METRES_PER_DEGREE, gps_of
 
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_NPZ = REPO / "data" / "embeddings_labelled" / "embeddings.npz"
@@ -71,7 +71,6 @@ PLATEAU_TOL = 0.01
 MIN_PLATEAU_PAIRS = 100
 # The sanity check: a frame with another frame this close is one hover.
 NEAR_M = 5.0
-METRES_PER_DEGREE = 111320.0
 TELE_SUFFIX = "tele"
 
 

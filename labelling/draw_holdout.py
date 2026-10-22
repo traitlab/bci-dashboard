@@ -57,7 +57,6 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
-import io
 import json
 import math
 import os
@@ -70,8 +69,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 import core as hc
 from crownfirst.grouped_holdout import build_fold
-from draw_field_sample import flight_of
-from polygon_identity import gps_of
+from draw_field_sample import flight_of, to_csv_text
+from measure_similarity_range import load_species
+from polygon_identity import METRES_PER_DEGREE, gps_of
 
 REPO = Path(__file__).resolve().parents[1]
 VERSION = "v1"
@@ -88,8 +88,6 @@ HELD_FRAC = 0.2
 MIN_TRAIN_GROUPS = 1
 # Metres. Same-hover lift was measured under 30 m; see the module docstring.
 BUFFER_M = 30.0
-# Equirectangular metres, the rule polygon_identity.gps_clusters uses.
-METRES_PER_DEGREE = 111320.0
 
 POOL_FIELDS = ["global_key", "species", "flight", "x", "y"]
 FIELDS = ["global_key", "species", "flight", "role"]
@@ -102,12 +100,6 @@ def local_xy(lat: float, lon: float) -> tuple[float, float]:
     scaled by the cosine of the latitude. Only differences are ever used."""
     return (lon * METRES_PER_DEGREE * math.cos(math.radians(lat)),
             lat * METRES_PER_DEGREE)
-
-
-def load_species(path: Path = Path(hc.GT_CSV), col: str = SPECIES_COL) -> dict[str, str]:
-    """global_key -> accepted name, frames without a name left out."""
-    return {r["global_key"]: r[col] for r in hc.read_csv_rows(str(path))
-            if r.get("global_key") and r.get(col)}
 
 
 def load_flights(path: Path = INVENTORY) -> dict[str, dict]:
@@ -170,15 +162,6 @@ def draw(pool: list[dict], *, seed: int = SEED, held_frac: float = HELD_FRAC,
              "flight": r["flight"], "role": role_of[r["global_key"]]}
             for r in sorted(pool, key=lambda r: r["global_key"])]
     return rows, fold
-
-
-def to_csv_text(rows: list[dict], fields: list[str]) -> str:
-    buf = io.StringIO(newline="")
-    writer = csv.DictWriter(buf, fieldnames=fields, lineterminator="\n")
-    writer.writeheader()
-    for row in rows:
-        writer.writerow({k: row[k] for k in fields})
-    return buf.getvalue()
 
 
 def read_pool(path: Path = POOL) -> list[dict]:
@@ -274,7 +257,7 @@ def main(argv=None) -> int:
     """Draw the set, or prove the committed one still redraws byte for byte."""
     args = parse_args(argv)
     if args.rebuild_pool:
-        species = load_species(args.gt)
+        species = load_species(args.gt, SPECIES_COL)
         pool, excluded = eligible(species, load_flights(args.inventory))
         n_labelled = len(species)
     else:

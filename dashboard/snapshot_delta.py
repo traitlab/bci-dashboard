@@ -22,6 +22,7 @@ import re
 
 import core as hc
 import reference
+from assets import pctf
 from history import SNAPSHOT_DIR, SNAPSHOT_GLOB
 
 # The build date is free text on the command line ("2026-08-25-test" in the
@@ -90,10 +91,6 @@ def compute(now: dict, snapshots_dir: str, generated: str, *, floor: int) -> dic
     return out
 
 
-def _pct(x) -> str:
-    return "n/a" if x is None else f"{100 * x:.1f}%"
-
-
 def note(d: dict, *, floor: int) -> str:
     """One paragraph for the frame-counts panel."""
     now = d["now"]
@@ -103,14 +100,14 @@ def note(d: dict, *, floor: int) -> str:
         return (head + f'not compared with {d["previous"]}, the date the counts were '
                 f'last saved. Today {now["n_species_floor"]} species carry at least '
                 f'{floor} labelled frames, and the first guess is right on '
-                f'{_pct(now["test_top1"])} of the {now["test_n"]:,} test frames.</p>'
+                f'{pctf(now["test_top1"])} of the {now["test_n"]:,} test frames.</p>'
                 f'<p class="note">{reference.break_sentence(then_ref, now_ref)}</p>')
     if d["then"] is None:
         why = ("the build date is not a date, so no earlier snapshot was looked for"
                if not d["date_readable"] else "no earlier snapshot is available for this build")
         return (head + f'{why}. Today {now["n_species_floor"]} species carry at least '
                 f'{floor} labelled frames, and the first guess is right on '
-                f'{_pct(now["test_top1"])} of the {now["test_n"]:,} test frames.</p>')
+                f'{pctf(now["test_top1"])} of the {now["test_n"]:,} test frames.</p>')
     then = d["then"]
     if then["n_species_floor"] == now["n_species_floor"] and then["test_top1"] is None:
         return (head + f'nothing has moved since {d["previous"]}, the date the '
@@ -119,9 +116,9 @@ def note(d: dict, *, floor: int) -> str:
             f'{floor} labelled frames, now {now["n_species_floor"]} species do. ')
     if then["test_top1"] is None:
         line += (f'The overall test top-1 was not recorded then. Now the first guess is '
-                 f'right on {_pct(now["test_top1"])} of the {now["test_n"]:,} test frames.')
+                 f'right on {pctf(now["test_top1"])} of the {now["test_n"]:,} test frames.')
     else:
-        line += (f'The first guess was right on {_pct(then["test_top1"])} of the test '
+        line += (f'The first guess was right on {pctf(then["test_top1"])} of the test '
                  f'frames then (n = {then["test_n"]:,}). Now it is right on '
-                 f'{_pct(now["test_top1"])} (n = {now["test_n"]:,}).')
+                 f'{pctf(now["test_top1"])} (n = {now["test_n"]:,}).')
     return line + "</p>"

@@ -23,6 +23,8 @@ import core as hc
 
 # Radii tried when testing whether drone position identifies a crown.
 GPS_CLUSTER_RADII_M = (5, 10, 20)
+# Equirectangular metres per degree of latitude.
+METRES_PER_DEGREE = 111320.0
 
 
 def gps_of(row: dict):
@@ -43,8 +45,8 @@ def gps_clusters(rows: list[dict], radius_m: float) -> dict:
     cells = defaultdict(list)
     for row in rows:
         lat, lon = gps_of(row)
-        cells[(int(lat * 111320.0 // radius_m),
-               int(lon * 111320.0 * math.cos(math.radians(lat)) // radius_m)
+        cells[(int(lat * METRES_PER_DEGREE // radius_m),
+               int(lon * METRES_PER_DEGREE * math.cos(math.radians(lat)) // radius_m)
                )].append(row)
 
     parent = {key: key for key in cells}
@@ -93,8 +95,8 @@ def report_polygon_identity(dataset_rows: list[dict], log, basename) -> None:
     # If `polygon` named a tree, two photos sharing one would sit on top of each
     # other. Compare their separation against random pairs from the same site.
     def metres(a, b):
-        return math.hypot((a[0] - b[0]) * 111320.0,
-                          (a[1] - b[1]) * 111320.0 * math.cos(math.radians(a[0])))
+        return math.hypot((a[0] - b[0]) * METRES_PER_DEGREE,
+                          (a[1] - b[1]) * METRES_PER_DEGREE * math.cos(math.radians(a[0])))
 
     same, rnd = [], []
     for rows in shared:

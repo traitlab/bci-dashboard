@@ -164,7 +164,7 @@ def selection_complaint(audit: dict | None, confound: dict | None,
     return ""
 
 
-def _pct(x, nd=0) -> str:
+def _fmt_pct(x, nd=0) -> str:
     return "n/a" if x is None else f"{x:.{nd}f}%"
 
 
@@ -190,12 +190,12 @@ def audit_note(c) -> str:
     if not a:
         return NOT_AUDITED
     n = a.get("n_frames") or 0
-    claim = (f'this order found {_pct(a["gain"])} more rare species over the run than a '
-             f'random order did, range {_pct(a["ci_low"])} to {_pct(a["ci_high"])}, '
+    claim = (f'this order found {_fmt_pct(a["gain"])} more rare species over the run than a '
+             f'random order did, range {_fmt_pct(a["ci_low"])} to {_fmt_pct(a["ci_high"])}, '
              f'p {_p(a["p"])}.'
              if a["passed"] else
-             f'the difference from a random order ({_pct(a["gain"])}, range '
-             f'{_pct(a["ci_low"])} to {_pct(a["ci_high"])}, p {_p(a["p"])}) is not more '
+             f'the difference from a random order ({_fmt_pct(a["gain"])}, range '
+             f'{_fmt_pct(a["ci_low"])} to {_fmt_pct(a["ci_high"])}, p {_p(a["p"])}) is not more '
              f'than chance gives at {a["n_seeds"]} starts, so the page claims nothing '
              f'from it.')
     agree = ""
@@ -205,11 +205,11 @@ def audit_note(c) -> str:
     saved = ""
     if a["passed"] and a["rounds_to_match"] is not None and a["baseline_rounds"]:
         saved = (f' It reached in {a["rounds_to_match"]:.0f} rounds what the random order '
-                 f'reached in {a["baseline_rounds"]}: {_pct(a["labels_saved_pct"])} '
+                 f'reached in {a["baseline_rounds"]}: {_fmt_pct(a["labels_saved_pct"])} '
                  f'fewer labels for the same rare species.')
     ladder = ""
     if a["separability_pct"] is not None:
-        ladder = (f' A separate check: {_pct(a["separability_pct"])} of these photos '
+        ladder = (f' A separate check: {_fmt_pct(a["separability_pct"])} of these photos '
                   f'have a same-species nearest photo as the model sees them.')
         # Photos from one flight overlap, so that nearest photo can be a
         # near-copy. The rate with it drawn from another flight is measured,
@@ -217,7 +217,7 @@ def audit_note(c) -> str:
         if a["separability_other_flight_pct"] is not None:
             ladder += (f' When that photo must come from another flight, meaning '
                        f'another date or another site, it is '
-                       f'{_pct(a["separability_other_flight_pct"])}.')
+                       f'{_fmt_pct(a["separability_other_flight_pct"])}.')
             if a["separability_unplaced"]:
                 ladder += (f' {a["separability_unplaced"]:,} photos with no readable '
                            f'flight are left out of that second rate.')
@@ -279,9 +279,9 @@ def confound_note(c) -> str:
     f = getattr(c, "selection_confound", None)
     head = ""
     if getattr(c, "head_n", 0):
-        head = (f'Of the {c.head_n:,} photos it puts first, {_pct(100 * c.head_tele_share)} '
+        head = (f'Of the {c.head_n:,} photos it puts first, {_fmt_pct(100 * c.head_tele_share)} '
                 f'carry the newer file naming, against '
-                f'{_pct(100 * c.queue_tele_share)} across the queue: a later batch, not '
+                f'{_fmt_pct(100 * c.queue_tele_share)} across the queue: a later batch, not '
                 f'another camera. ')
     if not f:
         return (f'<p class="note"><b>What this ordering costs.</b> {head}'
@@ -302,7 +302,7 @@ def confound_note(c) -> str:
             f'<li>On the {esc(t["population"])} ({t["n"] or 0:,}, {t["n_groups"] or 0} '
             f'{many}): the link {words}. Rank correlation {_corr(t["raw"])} before, '
             f'{_corr(t["partial"])} after, p {_p(t["p"])}; the {cov} explains '
-            f'{_pct(100 * (t["eta2"] or 0))} of how new a photo looks.{left_out}</li>')
+            f'{_fmt_pct(100 * (t["eta2"] or 0))} of how new a photo looks.{left_out}</li>')
     # The headline, when the file carries the audit that can move it. Every
     # figure in it comes off the record, so a re-run moves the sentence with it.
     equalised = next((t for t in f["tests"] if t["covariate"] == ANCHOR_COVARIATE), None)
