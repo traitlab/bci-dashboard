@@ -129,8 +129,8 @@ def _crop_share():
     return f"{100 * size * size / frame:.1f}%"
 
 
-# The README draws the chain as a diagram and counts the files at one step in
-# words. measure.OUTPUTS is the list, and it is read here rather than imported
+# The README's diagram (diagrams/pipeline.mmd) and its prose count the files at
+# one step in words. measure.OUTPUTS is the list, and it is read here rather than imported
 # so this file keeps needing nothing installed.
 WORDS = "zero one two three four five six seven eight nine ten eleven twelve".split()
 
@@ -149,6 +149,8 @@ DOC_NUMBERS = [
     ("the frozen sample", "README.md",
      lambda: f"{value_of('N', 'predict/draw_confirmatory.py')} frames"),
     ("how many CSVs a run writes", "README.md",
+     lambda: f"{_measure_csv_count()} CSVs"),
+    ("how many CSVs a run writes", "diagrams/pipeline.mmd",
      lambda: f"{_measure_csv_count()} CSVs"),
 ]
 

@@ -1,0 +1,8 @@
+flowchart LR
+    ex["Sunday export"] --> merge["Merge labels<br/>gt_from_export.py"]
+    merge --> embed["Embed every<br/>named frame"]
+    embed --> assess["Assess species<br/>assess_species.py"]
+    assess --> rank["Rank the queue<br/>rank_queue.py"]
+    rank --> measure["measure.py"]
+    measure --> build["Build and<br/>cross-check pages"]
+    build --> publish["Publish docs/<br/>and save a snapshot"]
