@@ -47,7 +47,7 @@ global.document={getElementById:element,querySelector:()=>element('inspector'),q
 """.replace("__PAYLOAD__", json.dumps(payload)).replace("'#frame=query'", json.dumps(initial_hash))
     if page is not None:
         setup += "location.pathname=" + json.dumps("/" + page) + ";"
-    result = subprocess.run(["node", "-e", setup + script + checks], capture_output=True, text=True, check=False)
+    result = subprocess.run(["node", "-e", "'use strict';" + setup + script + checks], capture_output=True, text=True, check=False)
     if result.returncode:
         pytest.fail(result.stderr + result.stdout, pytrace=False)
 
