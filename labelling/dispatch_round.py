@@ -5,14 +5,25 @@ Reads a selection CSV (from the send-first queue (dashboard/measure.py)), upsert
 a labelling batch in Project B.
 
 Safety: only CREATES new batches and upserts metadata. Never deletes,
-modifies, or moves existing resources. Follows the three-stage protocol
-(--test for 5 rows, then full).
+modifies, or moves existing resources. Follows the three-stage protocol:
+--dry-run (writes nothing, calls no API), then --test (5 rows, WRITES LIVE),
+then full.
+
+Keys sent before are skipped, not re-sent. "Before" is two local records: the
+closed rounds' ground truth (data/gt_dominant_taxon.csv) and the per-round
+ledger this script writes after each batch it creates (input/rounds/round_N.csv,
+tracked: commit it, it is the only record of which frames were the control).
+A round sent without committing its ledger is not seen; Labelbox is not asked.
 
 `send_batches.csv` holds every batch in one file, so --batch picks the one to
 send. One batch there is one Labelbox batch.
 
 Usage:
-    # Stage 1, test with 5 rows:
+    # Stage 0, always first: nothing is written, no API call is made.
+    python labelling/dispatch_round.py \\
+        --round 1 --csv build/tables/send_batches.csv --batch 1 --dry-run
+
+    # Stage 1, test with 5 rows. This writes to Labelbox like a full run:
     python labelling/dispatch_round.py \\
         --round 1 --csv build/tables/send_batches.csv --batch 1 --test
 
@@ -25,6 +36,7 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import labelbox as lb
@@ -32,6 +44,13 @@ import rounds
 import settings
 from lbox.exceptions import (
     AuthorizationError, LabelboxError, MalformedQueryException)
+
+REPO = Path(__file__).resolve().parents[1]
+GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
+# Tracked, one file per round. No expert labels belong in it.
+LEDGER_DIR = REPO / "input" / "rounds"
+LEDGER_FIELDS = ["round", "batch_id", "global_key", "data_row_id", "picked_by", "queue",
+                 "predicted_species", "confidence", "mission", "site", "dispatched_at"]
 
 # How many metadata rows go up in one bulk_upsert call. Not the botanist-session
 # batch size: `queues.BATCH_SIZE` is that one, and it is a different number for a
@@ -74,6 +93,65 @@ def load_selection_csv(csv_path: Path, batch_id: str | None = None) -> list[str]
         print(f"  {n_control} of these were drawn at random from the whole pool, not "
               f"from the head of the queue. They are the comparison; keep the CSV.")
     return global_keys
+
+
+def _keys_in(path: Path) -> set[str]:
+    """Every global_key in a CSV; an absent file is an empty record."""
+    if not path.exists():
+        return set()
+    with open(path, newline="", encoding="utf-8") as f:
+        return {(r.get("global_key") or "").strip() for r in csv.DictReader(f)} - {""}
+
+
+def already_sent(gt_path: Path = GT_CSV, ledger_dir: Path = LEDGER_DIR) -> set[str]:
+    """Keys that went out in an earlier round: closed-round GT plus every ledger."""
+    sent = _keys_in(gt_path)
+    for path in sorted(ledger_dir.glob("round_*.csv")):
+        sent |= _keys_in(path)
+    return sent
+
+
+def skip_sent(global_keys: list[str], sent: set[str]) -> tuple[list[str], list[str]]:
+    """(keys still to send, keys skipped), both in file order."""
+    return ([k for k in global_keys if k not in sent],
+            [k for k in global_keys if k in sent])
+
+
+def _by_key(path: Path, batch_id: str | None = None) -> dict[str, dict]:
+    if not path.exists():
+        return {}
+    with open(path, newline="", encoding="utf-8") as f:
+        return {r["global_key"].strip(): r for r in csv.DictReader(f)
+                if batch_id is None or (r.get("batch_id") or "").strip() == batch_id}
+
+
+def record_sent(keys, round_no, csv_path: Path, batch_id: str | None,
+                key_to_id: dict, ledger_dir: Path = LEDGER_DIR) -> Path:
+    """Write what was just dispatched to input/rounds/round_<N>.csv.
+
+    A later measure.py run rewrites send_batches.csv and drops dispatched rows
+    from the queue, which would destroy the record of which frames were the
+    random control. This file is that record, so it is tracked, and it is also
+    what the already-sent check reads. Fields come from the selection CSV, then
+    from the send_first_queue.csv beside it; a field neither has is blank.
+    """
+    sent_rows = _by_key(csv_path, batch_id)
+    queue_rows = _by_key(csv_path.with_name("send_first_queue.csv"))
+    now = datetime.now().isoformat(timespec="seconds")
+    ledger_dir.mkdir(parents=True, exist_ok=True)
+    path = ledger_dir / f"round_{round_no}.csv"
+    fresh = not path.exists()
+    with open(path, "a", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        if fresh:
+            w.writerow(LEDGER_FIELDS)
+        for k in keys:
+            row = {**queue_rows.get(k, {}), **{c: v for c, v in sent_rows.get(k, {}).items() if v}}
+            row.update(round=round_no, global_key=k, dispatched_at=now,
+                       data_row_id=key_to_id.get(k) or row.get("data_row_id", ""),
+                       batch_id=row.get("batch_id") or batch_id or "")
+            w.writerow([row.get(c, "") for c in LEDGER_FIELDS])
+    return path
 
 
 def get_or_create_round_schema(mdo) -> str:
@@ -179,7 +257,12 @@ def parse_args():
     ap.add_argument("--csv", type=Path, required=True, help="selection CSV from the send-first queue (dashboard/measure.py)")
     ap.add_argument("--batch", help="send one batch_id out of the CSV (send_batches.csv "
                     "holds all of them; one batch is one Labelbox batch)")
-    ap.add_argument("--test", action="store_true", help="process first 5 rows only (Stage 1)")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="read the CSV, skip keys sent before, print the plan, then "
+                         "stop: no Labelbox client, no write. Run this first")
+    ap.add_argument("--test", action="store_true",
+                    help="process first 5 rows only (Stage 1). Still WRITES to "
+                         "Labelbox: it is a smaller send, not a rehearsal")
     ap.add_argument("--priority", type=int, default=None, choices=[1, 2, 3, 4, 5],
                     help="labelling priority (1=highest). Default: derived from "
                          "--batch, so the queue order survives into Labelbox")
@@ -293,11 +376,21 @@ def main() -> None:
     global_keys = load_selection_csv(args.csv, args.batch)
     if not global_keys:
         sys.exit(f"ERROR: no global keys to send from {args.csv}.")
+    global_keys, skipped = skip_sent(global_keys, already_sent(GT_CSV, LEDGER_DIR))
+    print(f"Skipped {len(skipped)} keys already sent in an earlier round "
+          f"(first 5: {skipped[:5]})" if skipped else "Skipped 0 keys already sent")
+    if not global_keys:
+        sys.exit("ERROR: every key in the selection was sent in an earlier round.")
     if args.test:
         global_keys = global_keys[:5]
         print(f"TEST MODE: processing {len(global_keys)} rows only")
     where = f"{args.csv}" + (f" batch {args.batch}" if args.batch else "")
     print(f"Step 1 - Loaded {len(global_keys)} global keys from {where}")
+
+    if args.dry_run:
+        print(f"\nDRY RUN: would tag and batch {len(global_keys)} keys as round "
+              f"{args.round}. Nothing written, no API call made.")
+        return
 
     client = lb.Client(api_key=settings.api_key())
 
@@ -313,6 +406,7 @@ def main() -> None:
     print(f"\nStep 4 - Creating labelling batch in Project B at priority {priority}...")
     batch_name = create_batch(client, project_b_name, matched_keys,
                               args.round, priority)
+    ledger = record_sent(matched_keys, args.round, args.csv, args.batch, key_to_id, LEDGER_DIR)
 
     rule = "=" * 50
     print(f"\n{rule}\nDISPATCH COMPLETE\n{rule}")
@@ -322,6 +416,7 @@ def main() -> None:
     print(f"  Missing keys:   {len(missing)}")
     print(f"  Project:        {project_b_name}")
     print(f"  Metadata field: {METADATA_SCHEMA_NAME} = {args.round}")
+    print(f"  Ledger:         {ledger} (commit it: it is the record of the control arm)")
     print(f"  Priority:       {priority}"
           + ("" if args.priority is not None else f" (from batch {args.batch})"
              if args.batch else " (no batch given)"))

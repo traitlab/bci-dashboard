@@ -100,12 +100,13 @@ DISPATCH = more(
     "For the labelling team: send a batch",
     f'<p class="note"><a href="send_batches.csv">send_batches.csv</a> is this same queue '
     f'packed into batches of {queues.BATCH_SIZE}, each species kept whole. To send a '
-    'batch, after checking its status in Labelbox, use this command with the chosen '
+    'batch, after checking its status in Labelbox, run this first with the chosen '
     'round and batch numbers. This example selects batch 1 of round 1:</p>'
-    '<pre class="cmd">python3 labelling/dispatch_round.py --round 1 --csv build/tables/send_batches.csv --batch 1 --test</pre>'
-    '<p class="note"><strong>This creates a live five-photo batch and updates metadata '
-    'in Labelbox.</strong> <code>--test</code> limits the send to five photos; it is not '
-    'an offline preview. Omit it to send the full selected batch.</p>'
+    '<pre class="cmd">python3 labelling/dispatch_round.py --round 1 --csv build/tables/send_batches.csv --batch 1 --dry-run</pre>'
+    '<p class="note"><code>--dry-run</code> writes nothing and calls no API: it reports '
+    'how many photos it would send and skips any sent in an earlier round. Drop it to send the full batch. '
+    '<strong>Adding <code>--test</code> instead creates a live five-photo batch and '
+    'updates metadata in Labelbox</strong>; it is not an offline preview.</p>'
     '<p class="note">One batch there is one Labelbox '
     'batch, and <code>global_key</code> is the column Labelbox is given.</p>',
     anchor=TEAM_BLOCK_ID)
