@@ -166,6 +166,11 @@ LABEL_CONFIRMED = "label_confirmed_prediction_wrong"
 # Dated model-health-<date>/ folders: the trend history. Gitignored.
 SNAPSHOT_DIR = os.environ.get("BCI_DASHBOARD_SNAPSHOTS") or os.path.join(REPO, "snapshots")
 
+# One JSON line per Labelbox export the weekly refresh saw (manifest.py). Gitignored;
+# CI carries it between runs as a workflow artifact.
+MANIFEST = os.environ.get("BCI_DASHBOARD_MANIFEST") or os.path.join(
+    REPO, "history", "manifest.jsonl")
+
 # Where measure.py writes the tables, and what a page cross-checks against. A
 # snapshot is dated by the botanist's labels, so it goes stale the moment the
 # code that writes a table changes; cross-checking it compares today's page

@@ -215,7 +215,8 @@ def fixture_repo(root, *, fail_builder=False, fail_atlas=False):
     (root / "dashboard/measure.py").write_text(
         "from pathlib import Path\nimport sys\n"
         "out=Path(sys.argv[sys.argv.index('--out-dir')+1]);out.mkdir()\n"
-        "(out/'reference.json').write_text('{}')\n(out/'per_species_health.csv').write_text('species,n\\nHura,1\\n')\n"
+        "(out/'reference.json').write_text('{\"reference\": \"labelbox\"}')\n(out/'per_species_health.csv').write_text('species,n_labelled_frames\\nHura,1\\n')\n"
+        "(out/'held_out.csv').write_text('population,n_frames,n_correct_top1,top1_accuracy\\ntest,1,1,1.0\\n')\n"
         "(out/'run_log.txt').write_text('Recorded source provenance\\nOutput: '+str(out/'reference.json')+'\\n')\n"
     )
     builder = (
@@ -303,6 +304,9 @@ def test_success_rebuilds_and_keeps_source_dates_and_standalone_catalogues(tmp_p
     (tmp_path / "docs/index.html").write_text("corrupted copy")
     repeated = invoke(tmp_path)
     assert repeated.returncode == 0, repeated.stderr
+    # The rerun saw the same export, so the history still holds one line.
+    lines = (tmp_path / "history/manifest.jsonl").read_text().splitlines()
+    assert len(lines) == 1 and json.loads(lines[0])["frames"] == 1
     assert (
         tmp_path / "docs/index.html"
     ).read_text() == "freshly verified public snapshot"

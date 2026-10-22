@@ -394,6 +394,34 @@ def refresh(
                 ),
                 encoding="utf-8",
             )
+        # The change log is staged beside the pages and promoted last, so a failed
+        # build leaves the recorded history as it was. The pages read this copy.
+        source_note = (data / "gt_dominant_taxon.provenance.txt").read_text(
+            encoding="utf-8"
+        )
+        export_source_date, merged_on = label_dates(source_note)
+        with (data / "gt_dominant_taxon.csv").open(
+            encoding="utf-8", newline=""
+        ) as source:
+            label_count = sum(1 for _ in csv.DictReader(source))
+        recorded_manifest = repo / "history" / "manifest.jsonl"
+        staged_manifest = stage / "history" / "manifest.jsonl"
+        staged_manifest.parent.mkdir()
+        if recorded_manifest.is_file():
+            shutil.copy2(recorded_manifest, staged_manifest)
+        env["BCI_DASHBOARD_MANIFEST"] = str(staged_manifest)
+        sys.path.insert(0, str(REPO / "dashboard"))
+        import manifest
+
+        manifest.append(
+            str(staged_manifest),
+            manifest.entry(
+                str(tables),
+                run_date=generated,
+                export=export_date or export_source_date or generated,
+                frames=label_count,
+            ),
+        )
         published = stage / "docs"
         shutil.copytree(repo / "docs", published)
         # The explorer and embedding atlas are rebuilt from this run's vectors.
@@ -436,14 +464,6 @@ def refresh(
             env=env,
             check=True,
         )
-        source_note = (data / "gt_dominant_taxon.provenance.txt").read_text(
-            encoding="utf-8"
-        )
-        export_source_date, merged_on = label_dates(source_note)
-        with (data / "gt_dominant_taxon.csv").open(
-            encoding="utf-8", newline=""
-        ) as source:
-            label_count = sum(1 for _ in csv.DictReader(source))
         status = {
             "snapshot_refreshed": generated,
             "labelbox_export_date": export_source_date,
@@ -507,6 +527,8 @@ def refresh(
             dirs_exist_ok=True,
             ignore=shutil.ignore_patterns("snapshot-refresh-*"),
         )
+        recorded_manifest.parent.mkdir(exist_ok=True)
+        shutil.copy2(staged_manifest, recorded_manifest)
         shutil.copytree(published, repo / "docs", dirs_exist_ok=True)
     print("Snapshot rebuilt from real cached inputs; public output is in docs/.")
 

@@ -29,6 +29,9 @@ jobs:
     if: github.repository == 'traitlab/bci-dashboard' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -160,6 +163,17 @@ jobs:
           path: data/embeddings_labelled/cache
           key: embeddings-labelled-${{ github.run_id }}
           restore-keys: embeddings-labelled-
+      - name: Fetch the previous run's refresh manifest
+        # The change log needs the earlier runs' lines and CI keeps no snapshots.
+        # A missing artifact (first run, or older than its retention) starts the
+        # history again, which the page states.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p history
+          if ! gh run download --repo "$GITHUB_REPOSITORY" --name refresh-manifest --dir history; then
+            echo "::warning::no earlier refresh-manifest artifact; the change log starts here"
+          fi
       - name: Recompute, verify, and stage the public snapshot offline
         env:
           FETCH_LABELS: ${{ github.event_name == 'schedule' || inputs.refresh_labels }}
@@ -180,6 +194,12 @@ jobs:
               command += ['--export-date', (exports_dir / 'export_date.txt').read_text().strip()]
           subprocess.run(command, check=True)
           PY
+      - name: Keep the refresh manifest for the next run
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: refresh-manifest
+          path: history/manifest.jsonl
+          retention-days: 90
       - name: Save the per-photo vectors even when the build fails
         # A fetch costs seconds per photo. Keeping it when a later step fails
         # means the next run resumes instead of fetching the same photos again.
