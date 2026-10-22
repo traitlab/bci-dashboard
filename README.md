@@ -127,7 +127,7 @@ bin/refresh.sh path/to/export.ndjson                  # a named export instead o
 
 ## The weekly refresh
 
-`.github/workflows/weekly-refresh.yml` runs `bin/refresh_snapshot.py`. It downloads the Sunday export from the Arbutus bucket (variables `ARBUTUS_S3_ENDPOINT`, `BCI_LABELBOX_EXPORTS`, `BCI_LABELBOX_PROJECTS`; secrets `ARBUTUS_S3_ACCESS_KEY`, `ARBUTUS_S3_SECRET_KEY`) and runs these steps:
+`.github/workflows/weekly-refresh.yml` runs `bin/refresh_snapshot.py` every Tuesday and Friday, on the newest Sunday export. It downloads the Sunday export from the Arbutus bucket (variables `ARBUTUS_S3_ENDPOINT`, `BCI_LABELBOX_EXPORTS`, `BCI_LABELBOX_PROJECTS`; secrets `ARBUTUS_S3_ACCESS_KEY`, `ARBUTUS_S3_SECRET_KEY`) and runs these steps:
 
 ```mermaid
 %%{init: {"flowchart": {"htmlLabels": false}}}%%
@@ -155,6 +155,137 @@ Three of the twelve CSVs in `build/tables` are evidence a person opens rather th
 
 `input/boxes/` is tracked, unlike the other data folders, because the frame list in it defines the population every number is counted over. Each module's docstring says why it is shaped the way it is.
 
+## Research libraries
+
+Two private Python packages do the research work behind the queue page and the model-health page:
+
+- **labelfirst** works on any items a model turns into numbers. It puts the unlabelled photos in order, least like everything already labelled first. It then tests that order against a random order.
+- **crownfirst** is built on labelfirst and knows about crowns, flights and sites. It grades Pl@ntNet for each species, and it keeps that grading fair.
+
+In short, labelfirst says which photo a botanist names next. crownfirst says how far to trust Pl@ntNet for each species.
+
+Only the scripts in `labelling/` and `predict/` import them. Those scripts write files, and `dashboard/` only reads those files. So the pages build without either package.
+
+### Which script uses which package
+
+```mermaid
+%%{init: {"flowchart": {"htmlLabels": false}}}%%
+flowchart LR
+    subgraph libs["Private packages"]
+        lf["labelfirst<br/>what to label next"]
+        cf["crownfirst<br/>trust per species"]
+    end
+    subgraph auto["Refresh, Tuesday and Friday"]
+        sp["Assess each species<br/>assess_species.py"]
+        rq["Order the queue<br/>rank_queue.py"]
+    end
+    subgraph hand["Run by hand"]
+        ck["Check the order<br/>rank_queue.py --audit,<br/>--confound, --backtest"]
+        dh["Hold back flights<br/>draw_holdout.py"]
+    end
+    subgraph files["Files they write"]
+        mh["data/model_health/"]
+        nb["data/next_batch/"]
+        ho["input/holdout_v1.csv"]
+    end
+    ms["Count everything<br/>measure.py"]
+    subgraph pages["Pages, no package needed"]
+        queue["Queue page"]
+        health["Model-health page"]
+    end
+    lf -- "built on" --> cf
+    lf --> sp
+    lf --> rq
+    lf --> ck
+    cf --> sp
+    cf --> ck
+    cf --> dh
+    sp --> mh --> health
+    rq --> nb
+    ck --> nb
+    nb --> queue
+    dh --> ho
+    ho --> rq
+    ho --> ms
+    ms --> queue
+    ms --> health
+```
+
+The refresh runs `assess_species.py` and `rank_queue.py` every Tuesday and Friday (see [The weekly refresh](#the-weekly-refresh)). A person runs the other checks when the labels or the inventory change a lot.
+
+| What you see | Package | When | File |
+|---|---|---|---|
+| **Queue page** | | | |
+| Order inside each queue | labelfirst | Refresh | `data/next_batch/queue_novelty.csv` |
+| Against a random order | labelfirst | By hand | `data/next_batch/selection_audit.json` |
+| The site or the export batch held fixed | crownfirst | By hand | `data/next_batch/selection_confound.json` |
+| Species found per photo | crownfirst | By hand | `data/next_batch/discovery_curve.csv` |
+| **Model-health page** | | | |
+| What would help | crownfirst | Refresh | `data/model_health/transductive.json` |
+| Why the two names differ | crownfirst | Refresh | `data/model_health/disagreement.json` |
+| Plausible names | crownfirst | Refresh | `data/model_health/reject_sweep.json` |
+| Species the labels have reached | labelfirst | Refresh | `data/model_health/` |
+| Grades on flights held back whole | crownfirst | By hand | `input/holdout_v1.csv` |
+
+### How each check works
+
+Every check starts from how a photo looks: the 768 numbers Pl@ntNet makes from a centre crop. Close numbers mean two photos look alike to the model.
+
+#### On the queue page
+
+**Which photo goes next?** See [Inside a queue, the least familiar photo goes first](#inside-a-queue-the-least-familiar-photo-goes-first). The picking is labelfirst's `greedy_kcenter`.
+
+**Does the order beat a random order?** `rank_queue.py --audit` replays labelling on the labelled frames. Each replay starts from 200 random labelled frames and adds 20 rounds of 20 photos. It counts the rare species found, meaning those with 5 labelled frames or fewer.
+
+The order and a random order each run from 8 random starts. labelfirst compares the two curves and gives a range and a p-value. First, `predict_al_benefit` asks if any order can help: how often does a labelled frame's nearest neighbour have the same species?
+
+**Is it finding plants, or places?** A photo can look new because it comes from a new site or export batch, not a new species. `rank_queue.py --confound` holds the site or the export batch fixed. It then asks if "looks new" still goes with "rare species".
+
+It shuffles the frames inside each group 5,000 times to see how often chance does as well. The page says the link holds, is partly the batch, or is mostly the batch.
+
+**Species found per photo.** `rank_queue.py --backtest` puts the labelled frames in order without reading their labels. It compares the species found against 16 random orders, and the queue page draws the curve.
+
+#### On the model-health page
+
+`assess_species.py` writes four assessments into `data/model_health/`. The page does not build when one is missing or stale, and it names the command that fixes it.
+
+**What would help each species?** Hide the labels on half of the labelled frames. The 5 closest labelled frames vote on the name of each hidden frame. Do this 8 times, with a different half each time. Then, per species:
+
+- Right 90% of the time or more: "no gap found".
+- Less than 10% of its frames kept a label: "more labels".
+- Else: "better model".
+
+The page shows how many of the 8 draws agree, and stays blank under 10 frames.
+
+**Why do the two names differ?** crownfirst lists the frames where Pl@ntNet's first guess is not the label. It sorts each one as two different species, one species under two names, or a label that stops at genus or family.
+
+**How many plausible names?** A plain classifier learns from how the photos look, in 5 folds. For each frame it lists the names it cannot rule out, built to hold the right name 90% of the time.
+
+For lists of 1, 2, 3, 5 and 10 names, it reports how many frames get one and how often the first name is right. A second run keeps each flight whole in one fold. This classifier is not Pl@ntNet.
+
+**How many species are still unlabelled?** labelfirst's `estimate_richness` counts the species seen once and seen twice. From those counts it estimates how many species no label names yet (Chao1).
+
+#### Behind every grade
+
+**Flights held back whole.** Frames from one flight are near-copies of each other. `draw_holdout.py` holds back 1 flight in 5, and every species with two or more flights keeps one for training.
+
+Training frames from another flight within 30 m of a held frame are dropped too. The queue never sends a held frame, and the model-health page grades Pl@ntNet again on them.
+
+### Other uses
+
+- `labelling/rank_arms.py` tests two more orders against a random order, with labelfirst's ordering rules.
+- `labelling/measure_similarity_range.py` measures how far apart two photos must be before they stop looking alike.
+- `predict/ingest_photos.py` and `predict/aggregate_survey.py` use labelfirst to pool the results per tile into one vector and one species score per photo.
+- When `data/crownfirst/plantclef2024_tile2x2_max.json` exists, the refresh adds a second view to the atlas page. It shows how the photos look to a crownfirst test model.
+
+### Install
+
+Both are private `traitlab` repos, not on PyPI, and crownfirst needs Python 3.13. `rank_queue.py` imports both, so even the plain ordering needs crownfirst. Install crownfirst into its own virtualenv and labelfirst comes with it, pinned to the commit crownfirst names:
+
+```bash
+pip install "crownfirst @ git+https://github.com/traitlab/crownfirst.git"
+```
+
 ## Configure
 
 Copy `.env.example`. `.env` is gitignored and is the only place a key belongs: `PLANTNET_API_KEY` for `predict/`, plus `LABELBOX_API_KEY` for `labelling/`.
@@ -168,4 +299,4 @@ uv pip install -r requirements-dev.txt          # once, into .venv
 .venv/bin/pytest
 ```
 
-Name the interpreter. Tests covering `predict/` skip themselves when `PIL`, `yaml` or `dotenv` is missing, so a system interpreter runs two thirds of the suite and still reports a pass. `-ra` is on, so every skip prints why.
+Name the interpreter. Tests covering `predict/` skip themselves when `PIL`, `yaml` or `dotenv` is missing, so a system interpreter runs two thirds of the suite and still reports a pass. The tests for `rank_queue.py`, `rank_confound.py` and `draw_holdout.py` skip the same way without crownfirst and labelfirst; CI runs them in the `private-libs` job. `-ra` is on, so every skip prints why.
