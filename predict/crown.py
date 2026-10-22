@@ -213,12 +213,7 @@ def _load_core():
 
 def frame_gt_map(core):
     """base frame -> canonical GT species, for species-level GT only."""
-    crosswalk, _ = core.load_wcvp_crosswalk(REPO / "data" / "wcvp_cache.json")
-
-    def canon(name):
-        n = core.normalize(name or "")
-        return crosswalk.get(n, n)
-
+    canon = core.canonicaliser(core.load_wcvp_crosswalk(core.WCVP_CACHE_JSON)[0])
     out = {}
     with open(REPO / "data" / "gt_dominant_taxon.csv", newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):

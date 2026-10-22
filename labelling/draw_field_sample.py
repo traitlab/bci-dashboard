@@ -85,11 +85,8 @@ def _load(name: str, path: Path):
 _confirmatory = _load("_draw_confirmatory_for_field_sample",
                       REPO / "predict" / "draw_confirmatory.py")
 allocate = _confirmatory.allocate
-
-
-def site_of(url: str) -> str:
-    m = MISSION_RE.search(url or "")
-    return m.group(2) if m else ""
+to_csv_text = _confirmatory.to_csv_text
+site_of = _confirmatory.site_of
 
 
 def flight_of(url: str) -> str:
@@ -170,16 +167,6 @@ def draw(pool: list[dict], n: int = N, seed: int = SEED, cap: float = CAP):
     return [{k: row[k] for k in FIELDS} for row in picked], quota
 
 
-def to_csv_text(rows: list[dict]) -> str:
-    import io
-    buf = io.StringIO(newline="")
-    writer = csv.DictWriter(buf, fieldnames=FIELDS, lineterminator="\n")
-    writer.writeheader()
-    for row in rows:
-        writer.writerow({k: row[k] for k in FIELDS})
-    return buf.getvalue()
-
-
 def read_pool(path: Path = POOL) -> list[dict]:
     with open(path, newline="", encoding="utf-8") as fh:
         return sorted(csv.DictReader(fh), key=lambda r: r["global_key"])
@@ -195,7 +182,7 @@ def report(pool: list[dict], rows: list[dict], quota: dict) -> None:
           f"{len({r['site'] for r in pool})} sites")
     print(f"field sample    : {len(rows)} frames, {len(quota)} sites, "
           f"seed {SEED}, cap {CAP:.0%}")
-    print(f"sha256          : {sha256(to_csv_text(rows))}")
+    print(f"sha256          : {sha256(to_csv_text(rows, FIELDS))}")
     biggest = max(quota.items(), key=lambda kv: (kv[1], kv[0]))
     print(f"largest stratum : {biggest[0]} {biggest[1]} "
           f"({biggest[1] / len(rows):.1%} of the set)")
@@ -223,7 +210,7 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     pool = eligible() if args.rebuild_pool else read_pool()
     rows, quota = draw(pool, n=args.n, seed=args.seed)
-    text = to_csv_text(rows)
+    text = to_csv_text(rows, FIELDS)
 
     if args.verify:
         if not OUT.exists():
@@ -239,7 +226,7 @@ def main(argv=None) -> int:
 
     report(pool, rows, quota)
     if args.write:
-        POOL.write_text(to_csv_text(pool), encoding="utf-8")
+        POOL.write_text(to_csv_text(pool, FIELDS), encoding="utf-8")
         OUT.write_text(text, encoding="utf-8")
         print(f"wrote {POOL} and {OUT}")
     else:

@@ -11,7 +11,7 @@ import core as hc
 import queues
 from assets import cap, esc, explorer_link, more, panel, pctf, table
 from panels import NAMING_IS, NAMING_NOTE
-from selection_panels import _pct as sel_pct
+from selection_panels import _fmt_pct as sel_pct
 from status_words import STATUS
 
 # Enough to answer "what do I send next" without a CSV reader. A batch is 100

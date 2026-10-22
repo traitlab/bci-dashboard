@@ -22,7 +22,7 @@ import re
 
 import core as hc
 import species_mix
-from assets import more
+from assets import more, pctf
 
 MISSION_RE = re.compile(r"/(\d{8})_([a-z0-9]+)_")
 
@@ -178,10 +178,6 @@ def rows(result: dict) -> list[dict]:
     return out
 
 
-def _pct(x) -> str:
-    return "n/a" if x is None else f"{100 * x:.1f}%"
-
-
 def _flight_sentences(flight: dict) -> str:
     """What the drawn flight holdout adds to the note.
 
@@ -200,7 +196,7 @@ def _flight_sentences(flight: dict) -> str:
     # the holdout was drawn, and which species it cannot grade at all, are read
     # once by someone checking us, so they wait behind a summary line.
     line = (f'<p class="note"><b>A second score, on flights held back whole.</b> '
-            f'The first guess is right on {_pct(held["top1"])} of the {held["n"]:,} '
+            f'The first guess is right on {pctf(held["top1"])} of the {held["n"]:,} '
             f'frames on the {n_f:,} held-back flights that carry an answer. These are '
             f'not the test frames, so do not subtract one rate from the other.</p>')
     rest = (f'<p class="note">The {ver} flight holdout holds {n_f:,} of the '
@@ -259,9 +255,9 @@ def _mix_sentences(mix: dict | None) -> str:
                "the held-back flights score lower")
     line = (f'<p class="note"><b>Read on the same species, {verdict}.</b> On the '
             f'{mix["n_shared_species"]:,} species both sets hold, the first guess is '
-            f'right on {_pct(raw["a"])} of {mix["frames"]["a"]:,} test frames and '
-            f'{_pct(raw["b"])} of {mix["frames"]["b"]:,} held-back frames. Given the '
-            f'same mix of those species, it is {_pct(std["a"])} and {_pct(std["b"])}, '
+            f'right on {pctf(raw["a"])} of {mix["frames"]["a"]:,} test frames and '
+            f'{pctf(raw["b"])} of {mix["frames"]["b"]:,} held-back frames. Given the '
+            f'same mix of those species, it is {pctf(std["a"])} and {pctf(std["b"])}, '
             f'held-back minus test {_pts(head["difference"])} points.')
     if ci is not None:
         line += f' We are 95% sure the true gap is {_range_words(head)}.'
@@ -325,11 +321,11 @@ def note(result: dict, flight: dict | None = None) -> str:
     line = (f'<p class="note"><b>{verdict}</b> The rate to quote is the page\'s headline '
             f'number, not either rate this note prints: both are read over a subset of '
             f'the frames it covers. The first guess is right on '
-            f'{_pct(t["top1"])} of the {t["n"]:,} test frames, mostly on flights that '
+            f'{pctf(t["top1"])} of the {t["n"]:,} test frames, mostly on flights that '
             f'also carried a labelled frame, so this leans on the same-flight subset. ')
     if u["n"]:
         line += (f'On the {u["n"]:,} test frames from flights with no labelled frame it is '
-                 f'right on {_pct(u["top1"])}, the new-flight subset within the test '
+                 f'right on {pctf(u["top1"])}, the new-flight subset within the test '
                  f'split. Those frames hold different species in different shares from '
                  f'the rest, so the gap between the two rates is not the size of a '
                  f'leak. ')

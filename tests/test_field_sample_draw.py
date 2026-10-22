@@ -112,7 +112,7 @@ class TestTheCommittedListIsTheOneThatWasDrawn:
         if not (FIELD.exists() and POOL.exists()):
             pytest.skip("the pool and the drawn list are not both present")
         rows, _ = draw_field_sample.draw(draw_field_sample.read_pool(POOL))
-        assert draw_field_sample.to_csv_text(rows) == FIELD.read_text(encoding="utf-8")
+        assert draw_field_sample.to_csv_text(rows, draw_field_sample.FIELDS) == FIELD.read_text(encoding="utf-8")
 
     def test_every_drawn_frame_came_out_of_the_committed_pool(self, draw_field_sample):
         if not (FIELD.exists() and POOL.exists()):
