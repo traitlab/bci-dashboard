@@ -64,10 +64,10 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     c.available_pages = pg.OPERATIONAL_PAGES | frozenset(available_pages or ())
 
     # Before anything is rendered. This page's leading claim is that inside each
-    # queue the photo least like everything already labelled comes first, and
-    # that ordering is read from a file bin/refresh.sh does not write. Missing,
-    # the loader falls back to confidence order without a word and the sentence
-    # above becomes false. Refuse the build instead: nobody reads a page for the
+    # queue the photo least like anything labelled, or already ranked, comes
+    # first, and that ordering is read from a file bin/refresh.sh does not
+    # write. Missing, the loader falls back to confidence order without a word
+    # and the sentence above becomes false. Refuse the build instead: nobody reads a page for the
     # ordering it quietly stopped using.
     complaint = queues.novelty_complaint(hc.QUEUE_NOVELTY_CSV, c.n_ranked, c.n_unlab)
     if complaint:
