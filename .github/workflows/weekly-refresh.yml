@@ -3,7 +3,9 @@ name: Weekly real-data snapshot
 on:
   schedule:
     # Tuesday: the Labelbox export lands on Arbutus on Monday evening UTC.
-    - cron: '17 4 * * 2'
+    # Friday as well, so the embedding cache is read well inside GitHub's
+    # seven-day eviction window and a late upload is picked up within the week.
+    - cron: '17 4 * * 2,5'
   workflow_dispatch:
     inputs:
       refresh_labels:
@@ -123,6 +125,13 @@ jobs:
             if [[ "$modified" > "$newest" ]]; then newest="$modified"; fi
           done
           printf '%s\n' "$newest" > "$exports/export_date.txt"
+          # A scheduled run on an old export means the weekly upload stopped.
+          # Failing sends the repo's failure email; the live site is retained.
+          age=$(( ($(date -u +%s) - $(date -u -d "$newest" +%s)) / 86400 ))
+          if [ "$GITHUB_EVENT_NAME" = schedule ] && [ "$age" -gt 6 ]; then
+            echo "::error::The newest Labelbox export on Arbutus is from $newest, $age days old. The weekly upload has not arrived. The live snapshot is retained."
+            exit 1
+          fi
           python - <<'PY'
           import json, os, re
           from pathlib import Path
