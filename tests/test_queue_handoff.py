@@ -136,7 +136,7 @@ def test_shared_status_reasons_preserve_biodiversity_review(status_words):
     assert "more labels will not fix" not in " ".join(status_words.STATUS_REASON.values()).lower()
 
 
-READOUT_HEAD = ("scope,status,arm,n_sent,n_labelled,corrections,corrections_lo,corrections_hi,"
+READOUT_HEAD = ("scope,status,arm,n_sent,n_labelled,n_with_guess,corrections,corrections_lo,corrections_hi,"
                 "new_rows,long_tail_rows\n")
 
 
@@ -150,7 +150,7 @@ def _readout(queue_panels, tmp_path, body=None):
 def test_readout_is_pending_without_a_closed_round(queue_panels, tmp_path):
     c = _readout(queue_panels, tmp_path)
     assert "pending, no round closed yet" in queue_panels.readout_block(c)
-    c = _readout(queue_panels, tmp_path, "all,pending,prioritised,100,0,0,0,0,0,0\n")
+    c = _readout(queue_panels, tmp_path, "all,pending,prioritised,100,0,0,,,,0,0\n")
     assert "pending, no round closed yet" in queue_panels.readout_block(c)
     assert "has not been measured yet" in queue_panels.ungraded_note(c)
     assert "15 of its 95 photos" in queue_panels.ungraded_note(c)
@@ -158,12 +158,14 @@ def test_readout_is_pending_without_a_closed_round(queue_panels, tmp_path):
 
 def test_readout_prints_counts_with_the_rate_once_closed(queue_panels, tmp_path):
     c = _readout(queue_panels, tmp_path,
-                 "all,closed,prioritised,100,80,20,0.16,0.36,12,30\n"
-                 "all,closed,control,15,10,1,0.01,0.40,2,3\n")
+                 "all,closed,prioritised,100,80,80,20,0.16,0.36,12,30\n"
+                 "all,closed,control,15,10,10,1,0.01,0.40,2,3\n"
+                 "all,closed,extra,5,4,0,0,,,0,0\n")
     html = queue_panels.readout_block(c)
     assert "pending" not in html
     assert ">80<" in html and ">20<" in html and ">10<" in html
     assert "25.0% (16.0% to 36.0%)" in html
+    assert ">n/a<" in html
     note = queue_panels.ungraded_note(c)
     assert "has not been measured yet" not in note
     assert "Prioritised vs random control." in note
@@ -171,6 +173,6 @@ def test_readout_prints_counts_with_the_rate_once_closed(queue_panels, tmp_path)
 
 def test_readout_refuses_an_interval_that_is_not_a_rate(queue_panels, tmp_path):
     import pytest
-    c = _readout(queue_panels, tmp_path, "all,closed,prioritised,100,80,20,12,30,0,0\n")
+    c = _readout(queue_panels, tmp_path, "all,closed,prioritised,100,80,80,20,12,30,0,0\n")
     with pytest.raises(SystemExit, match="VERIFY FAIL"):
         queue_panels.readout_block(c)

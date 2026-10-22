@@ -75,8 +75,10 @@ def readout_rows(c) -> list:
         return []
     closed = [r for r in hc.read_csv_rows(path) if r["status"] == "closed"]
     for r in closed:
+        if not r["corrections_lo"]:  # no labelled row had a first guess, so no interval
+            continue
         lo, hi = float(r["corrections_lo"]), float(r["corrections_hi"])
-        if not 0 <= lo <= hi <= 1 or int(r["corrections"]) > int(r["n_labelled"]):
+        if not 0 <= lo <= hi <= 1 or int(r["corrections"]) > int(r["n_with_guess"]):
             raise SystemExit(f"VERIFY FAIL: {READOUT_FILE} row {r['scope']}/{r['arm']} has an "
                              f"interval or count that is not a rate: {lo}, {hi}")
     return closed
@@ -92,12 +94,12 @@ def readout_block(c) -> str:
                 'closed yet.</p>')
     rows = []
     for r in closed:
-        n = int(r["n_labelled"])
-        rate = int(r["corrections"]) / n if n else 0.0
-        rows.append([esc(r["scope"]), esc(r["arm"]), f'{int(r["n_sent"]):,}', f'{n:,}',
-                     f'{int(r["corrections"]):,}',
-                     f'{pctf(rate)} ({pctf(float(r["corrections_lo"]))} to '
-                     f'{pctf(float(r["corrections_hi"]))})',
+        # read_round scores corrections over labelled rows that had a first guess
+        g = int(r["n_with_guess"])
+        rate = (f'{pctf(int(r["corrections"]) / g)} ({pctf(float(r["corrections_lo"]))} to '
+                f'{pctf(float(r["corrections_hi"]))})') if g else "n/a"
+        rows.append([esc(r["scope"]), esc(r["arm"]), f'{int(r["n_sent"]):,}',
+                     f'{int(r["n_labelled"]):,}', f'{int(r["corrections"]):,}', rate,
                      f'{int(r["new_rows"]):,}', f'{int(r["long_tail_rows"]):,}'])
     return ('<p class="note"><b>Prioritised vs random control.</b> For each closed round, the '
             'share of labelled photos where the botanist corrected the model, with its '
