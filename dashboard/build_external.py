@@ -27,6 +27,7 @@ import landing
 import page as pg
 import snapshot_delta
 from assets import esc
+from build_index import scope_sentence
 from history import fail, verify_snapshot
 
 OUT_NAME = "model_health_dashboard.html"
@@ -75,6 +76,7 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     P = [f'<h1>{esc(TITLE)}</h1>',
          (f'<div class="subtitle">refreshed {esc(generated)} &middot; Labelbox labels merged {esc(c.snap_date)} &middot; '
           f'Pl@ntNet model {esc(c.tag)}</div>'),
+         f'<div class="subtitle">{esc(scope_sentence(verify_dir))}</div>',
          landing.landing(c)]
     P.append(pg.render(c, pg.EXTERNAL_PANELS))
     P.append(pg.footer(c))

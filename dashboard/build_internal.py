@@ -31,6 +31,7 @@ import page as pg
 import queues
 import reference
 from assets import esc, hero, pctf
+from build_index import scope_sentence
 from queue_filters import next_batch_block, send_filters
 from queue_panels import TEAM_BLOCK_ID
 from queues import BATCH_SIZE
@@ -106,6 +107,8 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
          f'{anchor_clause}&middot; {c.n:,} frames scored against '
          f'{reference.WORDS[c.reference]} behind the species statuses that sort the '
          f'queues</div>',
+         # Second, never first: build_index.build_stamp reads the first subtitle.
+         f'<div class="subtitle">{esc(scope_sentence(verify_dir))}</div>',
          # The answer to "what do I send next" is the first thing on the page,
          # then the filters; the numbers behind it follow.
          next_batch_block(c),

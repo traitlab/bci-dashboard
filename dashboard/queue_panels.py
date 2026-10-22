@@ -62,6 +62,52 @@ _UNMEASURED_NOTE = (
     'measured.</p>')
 
 
+READOUT_FILE = "round_readout.csv"
+
+
+def readout_rows(c) -> list:
+    """Closed rows of the round read-out, or [] when the file or any closed row
+    is absent. Intervals must be rates in [0, 1]; anything else aborts the build
+    rather than printing a number that cannot be one."""
+    verify_dir = getattr(c, "verify_dir", None)
+    path = os.path.join(verify_dir or "", READOUT_FILE)
+    if not verify_dir or not os.path.exists(path):
+        return []
+    closed = [r for r in hc.read_csv_rows(path) if r["status"] == "closed"]
+    for r in closed:
+        lo, hi = float(r["corrections_lo"]), float(r["corrections_hi"])
+        if not 0 <= lo <= hi <= 1 or int(r["corrections"]) > int(r["n_labelled"]):
+            raise SystemExit(f"VERIFY FAIL: {READOUT_FILE} row {r['scope']}/{r['arm']} has an "
+                             f"interval or count that is not a rate: {lo}, {hi}")
+    return closed
+
+
+def readout_block(c) -> str:
+    """Prioritised photos against the random control, once a round has closed.
+    Until then it says pending. Each row carries how many photos were sent and
+    labelled, so a rate is never read without its support."""
+    closed = readout_rows(c)
+    if not closed:
+        return ('<p class="note"><b>Prioritised vs random control:</b> pending, no round '
+                'closed yet.</p>')
+    rows = []
+    for r in closed:
+        n = int(r["n_labelled"])
+        rate = int(r["corrections"]) / n if n else 0.0
+        rows.append([esc(r["scope"]), esc(r["arm"]), f'{int(r["n_sent"]):,}', f'{n:,}',
+                     f'{int(r["corrections"]):,}',
+                     f'{pctf(rate)} ({pctf(float(r["corrections_lo"]))} to '
+                     f'{pctf(float(r["corrections_hi"]))})',
+                     f'{int(r["new_rows"]):,}', f'{int(r["long_tail_rows"]):,}'])
+    return ('<p class="note"><b>Prioritised vs random control.</b> For each closed round, the '
+            'share of labelled photos where the botanist corrected the model, with its '
+            'interval. A small number of labelled photos gives a wide interval; read the '
+            'counts first.</p>'
+            + table([("scope", False), ("arm", False), ("sent", True), ("labelled", True),
+                     ("corrections", True), ("correction rate (interval)", True),
+                     ("new rows", True), ("long-tail rows", True)], rows))
+
+
 # Above the 25 filenames, not below them: a reader who meets the list first has
 # already accepted it as instructions by the time the caveat arrives.
 def ungraded_note(c) -> str:
@@ -77,17 +123,19 @@ def ungraded_note(c) -> str:
     """
     a = getattr(c, "selection_audit", None)
     if not a:
-        return _UNMEASURED_NOTE + _batch1_note(c)
+        # A closed round is a measurement, so the "not measured" line goes.
+        return ("" if readout_rows(c) else _UNMEASURED_NOTE) + readout_block(c) + _batch1_note(c)
     saved = ""
     if a["passed"] and a["labels_saved_pct"] is not None:
         saved = (f' It needs {sel_pct(a["labels_saved_pct"])} fewer labels for the same '
                  'rare species.')
     return (f'<p class="note"><b>What this order is measured against.</b> On the '
             f'{a["n_frames"] or 0:,} labelled frames that already carry a name, this '
-            f'ordering finds rare species faster than a random order.{saved} This pool is '
-            'not: it carries no label yet, so nothing here checks whether this order '
-            'fills gaps faster than a random one on it.</p>'
-            + _batch1_note(c))
+            f'ordering finds rare species faster than a random order.{saved} '
+            + ('This pool is measured by the closed rounds below.</p>' if readout_rows(c) else
+               'This pool is not: it carries no label yet, so nothing here checks whether this '
+               'order fills gaps faster than a random one on it.</p>')
+            + readout_block(c) + _batch1_note(c))
 
 
 # The page's own hand-off: the queue is only worth building if a batch reaches
