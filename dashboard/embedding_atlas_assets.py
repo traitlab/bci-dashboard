@@ -35,7 +35,7 @@ function updateLinks(key){
   const page=link.getAttribute('href').split('#')[0];
   if(page==='embedding-atlas.html'||page==='crownfirst-atlas.html'||page==='explorer.html'){
    const task=link.getAttribute('data-site-task'),targetView=link.getAttribute('data-atlas-view')||atlasView,explicitModel=link.getAttribute('data-matching-model'),targetPage=explicitModel?matchingModelPage(explicitModel):task?'embedding-atlas.html':link.id==='compareModelsLink'?active:page;
-   link.setAttribute('href',targetPage+(page==='explorer.html'?catalogueHash(key,browseContext,neighborMode,atlasBrowseState()):frameHash(key,targetView,browseContext,neighborMode,atlasBrowseState())));
+   link.setAttribute('href',targetPage+(page==='explorer.html'?catalogueHash(key,browseContext||(link.id==='collectionExplorerLink'?'layout=tree':''),neighborMode,atlasBrowseState()):frameHash(key,targetView,browseContext,neighborMode,atlasBrowseState())));
    if(task?targetView===atlasView&&targetPage===active:targetPage===active&&page!=='explorer.html'&&(!link.getAttribute('data-atlas-view')||targetView===atlasView))link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
    if(task||link.id==='compareModelsLink'||explicitModel)link.onclick=event=>{
     if(targetPage!==active||event.button>0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
