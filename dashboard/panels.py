@@ -250,8 +250,8 @@ def p_review(c):
                    _link_note(here, wide))
             + (_review_table(c, groups, urls) if groups
                else '<p class="note">None at this confidence.</p>')
-            + '<p class="note">Work this list after the label queue. A pair that keeps '
-              'recurring says something about the species, not just the photo.</p>')
+            + '<p class="note">Work this list after the label queue. A recurring pair '
+              'says something about the species, not just the photo.</p>')
     if c.n_adjudicated:
         body += (f'<p class="note">{c.n_adjudicated} further frame'
                  f'{"" if c.n_adjudicated == 1 else "s"} disagree at this confidence but '
@@ -512,7 +512,7 @@ def p_calibration(c):
           f'confidence works.</p>'
         f'<p class="note"><b>It is not a probability.</b> A band right '
         f'{pctf(c.bins_all[-1][2] / c.bins_all[-1][1]) if c.bins_all[-1][1] else "n/a"} '
-        f'of the time is not a score of {c.bins_all[-1][0][1:4]}. And it holds over all labelled frames '
+        f'of the time is not a score of {c.bins_all[-1][0][1:4]}. It holds over all labelled frames '
         f'only: on species with few labelled frames a high score means much less, as the '
         f'Labelling queue shows.</p>'
         + ap.reject_table(c.reject_sweep))
@@ -668,8 +668,7 @@ def _prf_block(c):
                'species only.</p>'
                '<p class="note"><b>A species the model never guesses scores 0% precision, '
                'not a blank</b>, so an empty list does not flatter the average. Rows on '
-               f'few frames are noisy too, which is why a row under {THIN_MIN_FRAMES} '
-               'labelled frames starts hidden in the species table.</p>'))
+               'few frames are noisy too.</p>'))
 
 
 def p_weighting(c):
@@ -718,13 +717,9 @@ def p_coverage(c):
               [[_coverage_words(r["min_coverage"]), f'{r["n_admitted"]:,}',
                 pctf(r["micro_top1"]), pctf(r["macro_top1"]), f'{r["n_species"]:,}']
                for r in rows], source="coverage_gate.csv")
-        + f'<p class="note"><strong>Requiring the crop to show the labelled species '
-          f'raises the per-frame rate by '
-          f'{100 * (hi["micro_top1"] - lo["micro_top1"]):.1f} points and costs '
-          f'{lo["n_admitted"] - hi["n_admitted"]:,} of the '
-          f'{lo["n_admitted"]:,} labelled frames.</strong> Each row asks two things of a '
-          f'frame. The labelled species covers at least that much of the centre crop, '
-          f'and it is the largest thing outlined there.</p>'
+        + '<p class="note">Each row asks two things of a frame. The labelled species '
+          'covers at least that much of the centre crop, and it is the largest thing '
+          'outlined there.</p>'
         + f'<div class="caveat"><p><strong>The per-species column climbs fastest for a '
           f'reason that is not the model.</strong> The bottom row keeps '
           f'{hi["n_species"]:,} of the top row&rsquo;s {lo["n_species"]:,} species. All '
@@ -769,7 +764,7 @@ def p_counts(c):
     return panel(
         (f"Why two frame counts: {c.n:,} and {c.n_gt:,}" if c.n == c.n_pred
          else f"Why three different frame counts: {c.n:,}, {c.n_pred:,} and {c.n_gt:,}"),
-        "<b>They do not contradict each other.</b> Each counts a different thing.",
+        "<b>Each counts a different thing.</b>",
         f'<p class="note"><b>{c.n:,}</b> frames carry a label naming a species. Every '
         f'accuracy rate on this page is measured on those.'
         + (' All of them have a cached Pl@ntNet answer.</p>' if c.n == c.n_pred else

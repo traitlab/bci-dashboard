@@ -43,7 +43,7 @@ SECTIONS = {
     # the thing a reader acts on first, the reasoning after it, closed.
     "queue-why": (
         "Why this order, and how far to trust it",
-        "The reasoning behind the order above. Open a line to check it."),
+        "The reasoning behind the order above."),
     # A third item names the id: this heading runs past the eight words slug()
     # keeps and would otherwise ship as "...and-where-it".
     "model-health": (
