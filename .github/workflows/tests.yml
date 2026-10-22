@@ -70,11 +70,11 @@ jobs:
           python-version: '3.13'
       - name: Install public deps and the private libs
         if: env.TRAITLAB_READ_TOKEN != ''
+        # crownfirst pins its own labelfirst commit, so labelfirst comes in as its dependency.
         run: |
+          git config --global url."https://x-access-token:${TRAITLAB_READ_TOKEN}@github.com/".insteadOf "https://github.com/"
           python -m pip install -r requirements-dev.txt -r requirements-predict.txt
-          python -m pip install \
-            "crownfirst @ git+https://x-access-token:${TRAITLAB_READ_TOKEN}@github.com/traitlab/crownfirst.git" \
-            "labelfirst @ git+https://x-access-token:${TRAITLAB_READ_TOKEN}@github.com/traitlab/labelfirst.git"
+          python -m pip install "crownfirst @ git+https://github.com/traitlab/crownfirst.git"
       - name: Tests that need crownfirst and labelfirst
         if: env.TRAITLAB_READ_TOKEN != ''
         run: python -m pytest -q -rs
