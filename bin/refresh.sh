@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Daily model-health refresh: fold the newest Labelbox export into the ground
-# truth, snapshot, rebuild both cumulative pages. Safe to re-run:
+# Local model-health refresh: fold the newest Labelbox export into the ground
+# truth, snapshot, rebuild both cumulative pages. The weekly CI run uses
+# bin/refresh_snapshot.py instead, which adds embedding, re-ranking and
+# publishing. Safe to re-run:
 #
 # Every run re-measures into build/tables and rebuilds both pages from it. A
 # snapshot folder is a record of a day the labels moved, and nothing reads it
@@ -13,11 +15,8 @@
 # - otherwise                                   -> pages rebuilt, and today's
 #   tables and pages kept in model-health-<date>/
 #
-# Exports come from the Labelbox UI (the account here has no API export
-# permission): download the project NDJSON, it lands in ~/Downloads, and this
-# script finds it. An explicit path also works: refresh.sh path/to/export.ndjson
-# Run by hand. Nothing in the repo schedules it; a daily run is a launchd agent
-# or a cron line somebody writes on the machine that holds the Labelbox export.
+# With no argument it takes the newest NDJSON in data/exports or ~/Downloads.
+# An explicit path also works: refresh.sh path/to/export.ndjson
 set -euo pipefail
 
 REPO="${BCI_DASHBOARD_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"

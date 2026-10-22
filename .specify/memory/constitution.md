@@ -1,7 +1,7 @@
 <!--
 Sync Impact Report
-- Version change: none → 1.0.0 (initial ratification)
-- Modified principles: none (first version)
+- Version change: 1.0.1 → 1.0.2 (PATCH: wording matches the code)
+- Modified principles: III (cites functions, not line numbers)
 - Added sections: Core Principles I-V, Technology Constraints, Development Workflow & Quality Gates, Governance
 - Removed sections: none
 - Derived from: README.md objectives (2026-08-12 call), bci-dashboard-docs/metrics.md, tests/, requirements.txt
@@ -49,9 +49,9 @@ that breaks the constant invisible. Recording it makes per-crown and, later, per
 scoring the same code path rather than a rewrite.
 
 **Known deviation, recorded 2026-08-20.** This principle states the target, not
-the current state. `ingest_photos.py:239` writes a `crop` block, but zero of the
+the current state. `stamp_geometry` in `ingest_photos.py` writes a `crop` block, but zero of the
 7,699 cached predictions carry one: the stamp postdates the corpus. Meanwhile
-`crop_overlap.py:38-41` still reconstructs the rectangle from `FRAME_W=4000`,
+`crop_rect` in `crop_overlap.py` reconstructs the rectangle from `FRAME_W=4000`,
 `FRAME_H=3000`, `CROP_SIZE=1280`. Closing the gap means re-ingesting, so plans
 may cite this deviation instead of resolving it. Plans MUST NOT widen it.
 
@@ -82,8 +82,8 @@ this reason: what matters is the state of the model and labels in hand.
 - `dashboard/` is **stdlib only**. No pandas, no numpy, no template engine, no web
   framework. Third-party imports there are a breaking change to this constitution.
 - `predict/` and `labelling/` MAY use the packages in `requirements.txt`
-  (`labelbox`, `requests`, `python-dotenv`, `pyyaml`, `Pillow`; `numpy`/`pandas` only on
-  the `aggregate_survey.py` path).
+  (`labelbox`, `requests`, `python-dotenv`, `pyyaml`, `Pillow`, `numpy`); `pandas` only in
+  `aggregate_survey.py`.
 - Secrets live in `.env` and MUST NOT be committed. `PLANTNET_API_KEY` is required only by
   the fetch scripts.
 - `data/`, `snapshots/`, and `build/` are generated and gitignored. `input/boxes/` is
@@ -91,8 +91,9 @@ this reason: what matters is the state of the model and labels in hand.
 - Every path MUST be overridable by environment variable (`BCI_DASHBOARD_REPO`,
   `BCI_DASHBOARD_DATA`, `BCI_DASHBOARD_SNAPSHOTS`, `BCI_WCVP_CACHE`) and MUST default to
   the checkout.
-- The end-to-end path stays a single entry point: `bin/refresh.sh` runs
-  export → GT merge → measure → rebuild → snapshot.
+- The end-to-end path has two entry points: `bin/refresh.sh` locally runs
+  export → GT merge → measure → rebuild → snapshot, and the weekly CI run uses
+  `bin/refresh_snapshot.py`, which adds embedding, re-ranking and publishing.
 
 ## Development Workflow & Quality Gates
 
@@ -105,8 +106,8 @@ this reason: what matters is the state of the model and labels in hand.
 - Feature work follows the Spec Kit loop: `/speckit-specify` → `/speckit-clarify` →
   `/speckit-plan` → `/speckit-tasks` → `/speckit-implement`, with artifacts in
   `specs/NNN-slug/`. Small fixes and debugging do not require it.
-- Spec artifacts are versioned with the code. When intended behaviour changes, the spec
-  changes in the same branch as the implementation.
+- Spec artifacts are local and gitignored. When intended behaviour changes, update the
+  local spec alongside the implementation.
 
 ## Governance
 
@@ -122,4 +123,4 @@ or review conflicts with it, this document wins.
   population MUST be justified in writing or dropped.
 - Runtime development guidance for agents lives in `README.md` and `bci-dashboard-docs/metrics.md`.
 
-**Version**: 1.0.1 | **Ratified**: 2026-08-20 | **Last Amended**: 2026-08-20
+**Version**: 1.0.2 | **Ratified**: 2026-08-20 | **Last Amended**: 2026-10-21

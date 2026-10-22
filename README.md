@@ -1,8 +1,17 @@
 # BCI dashboard
 
-Two self-contained HTML pages, built offline from files already on disk: a
+Self-contained HTML pages, built offline from files already on disk: a
 Labelbox export of botanist labels, plus cached Pl@ntNet responses. Each page is
-one file you can open, email, or drop on a share.
+one file you can open, email, or drop on a share. The site publishes:
+
+- the model-health report, by `dashboard/build_external.py`
+- the labelling queue, by `dashboard/build_internal.py`
+- the photo explorer, by `dashboard/build_explorer.py` from `labelling/export_explorer.py`
+- the photo atlas (drone map and similar photos), by `dashboard/build_embedding_atlas.py` from `labelling/project_atlas_tsne.py`
+- the crown-first atlas, by `dashboard/build_embedding_atlas.py`
+- the index and about pages, by `dashboard/build_index.py`
+
+The two report pages:
 
 **How well does Pl@ntNet name BCI trees?** For anyone outside the lab. Per
 species, how often the first guess is right, on how many labelled frames, and why
@@ -21,18 +30,18 @@ python3 dashboard/build_internal.py   # writes build/label_queue_dashboard.html,
 ```
 
 Both read the same measurement pass, so the two pages cannot disagree. Run it
-first, or run everything at once:
+first, or use the local refresh:
 
 ```bash
 python3 dashboard/measure.py --out-dir build/tables   # then either builder above
-bin/refresh.sh                                        # export, measure, both pages, snapshot
+bin/refresh.sh                                        # local: export, measure, both pages, snapshot
 bin/refresh.sh path/to/export.ndjson                  # a named export instead of the newest
 ```
 
 `bin/refresh.sh` takes the newest export in `data/exports` or `~/Downloads` when
 given no path.
 
-The weekly CI refresh downloads the Sunday export from the Arbutus bucket instead (variables `ARBUTUS_S3_ENDPOINT`, `BCI_LABELBOX_EXPORTS`, `BCI_LABELBOX_PROJECTS`; secrets `ARBUTUS_S3_ACCESS_KEY`, `ARBUTUS_S3_SECRET_KEY`).
+The weekly CI refresh is `.github/workflows/weekly-refresh.yml` running `bin/refresh_snapshot.py`, which also embeds every named frame, re-ranks the queue, cross-checks both builders and publishes the site. It downloads the Sunday export from the Arbutus bucket instead (variables `ARBUTUS_S3_ENDPOINT`, `BCI_LABELBOX_EXPORTS`, `BCI_LABELBOX_PROJECTS`; secrets `ARBUTUS_S3_ACCESS_KEY`, `ARBUTUS_S3_SECRET_KEY`).
 
 `dashboard/build_external.py` refuses to build when `data/model_health/` is missing or older than the labels. Regenerate it with `labelling/assess_species.py` in the crownfirst virtualenv, or set `CROWNFIRST_PYTHON` so `bin/refresh.sh` does it.
 
@@ -57,10 +66,10 @@ confidence only breaks a tie. `send_batches.csv` packs that order into batches o
 100 with each species kept whole, and `labelling/dispatch_round.py` sends one
 batch to Labelbox.
 
-That order is measured. On the 1,719 frames a botanist has already named, it
-covers half of their 155 species in 129 photos. A random order needs 329, and
-the measured order won on every seed. `labelling/rank_queue.py --backtest` is the
-check, and the queue page draws its curve. The two-part wait rule behind
+That order is measured. On the frames a botanist has already named, it covers
+half of their species in far fewer photos than a random order, on every seed.
+`labelling/rank_queue.py --backtest` is the check, and the queue page prints the
+current figures and draws its curve. The two-part wait rule behind
 queue 4 *is* measured, on frames held back for grading, and the queue page shows
 every confidence line it was compared against.
 
@@ -83,7 +92,9 @@ numbers wrong:
 - **A miss counts only inside a known population.** A species missing from a
   cached list of five names is unproven either way.
 
-Crop and box geometry comes from what the fetch recorded, never a constant.
+Box geometry comes from the labels. The fetch records the crop it sent
+(`ingest_photos.stamp_geometry()`), but the cached predictions carry none, so
+`crop_overlap.crop_rect()` reconstructs it from the frame constants.
 
 ## How a page gets made
 
@@ -97,6 +108,9 @@ Crop and box geometry comes from what the fetch recorded, never a constant.
     Labelbox)                    every       tables)        cross-check)
                                  photo)
 ```
+
+`bin/publish_thumbs.sh` builds the 480px thumbnail release the atlases and the
+explorer load.
 
 The same files always give the same page. Each builder recomputes every number
 it prints and aborts if `build/tables` disagrees, batch assignment included: a
