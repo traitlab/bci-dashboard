@@ -1,0 +1,4 @@
+flowchart LR
+    covered["Every labelled photo<br/>counts as covered"] --> pick["Pick the queued photo<br/>least like everything covered"]
+    pick --> add["Add the pick<br/>to the covered set"]
+    add --> pick

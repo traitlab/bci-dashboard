@@ -1,0 +1,11 @@
+flowchart LR
+    frames["Drone frames<br/>4000x3000 photos"]
+    frames --> lb["Labelbox<br/>botanists outline crowns<br/>and name them"]
+    frames --> pn["Pl@ntNet<br/>five candidates<br/>per centre crop"]
+    lb -- "weekly export" --> disk[("Files on disk<br/>labels and<br/>cached answers")]
+    pn -- "cached answers" --> disk
+    disk --> measure["dashboard/measure.py<br/>scores every photo"]
+    measure --> tables[("build/tables<br/>twelve CSVs")]
+    tables --> ext["build_external.py"] --> health["Model-health page"]
+    tables --> int["build_internal.py"] --> queue["Queue page<br/>and send_batches.csv"]
+    queue -- "dispatch_round.py<br/>sends one batch" --> lb

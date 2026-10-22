@@ -1,0 +1,8 @@
+flowchart LR
+    q["send_first_queue.csv<br/>queue, then rank"] --> g["Group photos by species,<br/>placed at its<br/>highest-ranked photo"]
+    g --> p["Pack the groups<br/>into batches of 100"]
+    p --> b1["Batch 1<br/>plus the random<br/>comparison photos"]
+    p --> bn["Batches 2, 3, and on"]
+    b1 --> d["dispatch_round.py<br/>--batch N"]
+    bn --> d
+    d --> lb["Labelbox"]

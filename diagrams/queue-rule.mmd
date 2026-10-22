@@ -1,0 +1,9 @@
+flowchart LR
+    photo["Unlabelled photo<br/>first guess: species S<br/>confidence: c"]
+    photo --> t1{"S has fewer than 10 labelled frames,<br/>or is right less than 70% of the time?"}
+    t1 -- yes --> q1["Queue 1: long_tail<br/>Species we barely have,<br/>or barely get right"]
+    t1 -- no --> t2{"S is right at least 90% of the time,<br/>but c is under 0.50?"}
+    t2 -- yes --> q2["Queue 2: low_conf_known<br/>A usually-right species,<br/>guessed weakly"]
+    t2 -- no --> t3{"c is 0.80 or more?"}
+    t3 -- yes --> q4["Queue 4: can_wait<br/>Confident on a<br/>well-covered species"]
+    t3 -- no --> q3["Queue 3: normal<br/>Worth a look"]

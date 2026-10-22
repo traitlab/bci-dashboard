@@ -1,0 +1,39 @@
+flowchart LR
+    subgraph libs["Private packages"]
+        lf["labelfirst<br/>what to label next"]
+        cf["crownfirst<br/>trust per species"]
+    end
+    subgraph auto["Refresh, Tuesday and Friday"]
+        sp["Assess each species<br/>assess_species.py"]
+        rq["Order the queue<br/>rank_queue.py"]
+    end
+    subgraph hand["Run by hand"]
+        ck["Check the order<br/>rank_queue.py --audit,<br/>--confound, --backtest"]
+        dh["Hold back flights<br/>draw_holdout.py"]
+    end
+    subgraph files["Files they write"]
+        mh["data/model_health/"]
+        nb["data/next_batch/"]
+        ho["input/holdout_v1.csv"]
+    end
+    ms["Count everything<br/>measure.py"]
+    subgraph pages["Pages, no package needed"]
+        queue["Queue page"]
+        health["Model-health page"]
+    end
+    lf -- "built on" --> cf
+    lf --> sp
+    lf --> rq
+    lf --> ck
+    cf --> sp
+    cf --> ck
+    cf --> dh
+    sp --> mh --> health
+    rq --> nb
+    ck --> nb
+    nb --> queue
+    dh --> ho
+    ho --> rq
+    ho --> ms
+    ms --> queue
+    ms --> health
