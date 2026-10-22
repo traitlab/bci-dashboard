@@ -200,6 +200,9 @@ function renderImageDetail(prefix){
 // Compare photos zooms to the recorded crop; the shared-cohort panels have no crop footprint, so they zoom to actual pixels.
 function zoomButtons(prefix){return [[$(prefix+'ModelCrop'),'crop'],[$(prefix+'Actual'),'actual']].filter(([button])=>button)}
 function centreImageDetail(prefix){const state=imageDetails.get(prefix),viewport=$(prefix+'Viewport'),width=zoomedWidth(state,viewport),height=width?width*state.height/state.width:0,c=state.crop;viewport.scrollLeft=Math.max(0,(c?(c.x+c.side/2)*width/c.width:width/2)-viewport.clientWidth/2);viewport.scrollTop=Math.max(0,(c?(c.y+c.side/2)*height/c.height:height/2)-viewport.clientHeight/2)}
+// Model crop scales to the pane, whose size follows the window, so a resize refits and recentres it.
+function refitModelCrops(){for(const [prefix,state] of imageDetails)if(state.mode==='crop'){renderImageDetail(prefix);centreImageDetail(prefix)}}
+window.addEventListener('resize',refitModelCrops);
 function beginImageDetail(prefix,key){if(!enlargedImagePanels.has(prefix))return;imageDetails.set(prefix,{key,mode:'fit',phase:'loading',width:0,height:0});$(prefix+'Viewport').scrollLeft=0;$(prefix+'Viewport').scrollTop=0;renderImageDetail(prefix)}
 function finishImageDetail(prefix,phase='loaded',crop=null){
  const state=imageDetails.get(prefix);if(!state)return;const image=$(prefix+'Image'),width=image.naturalWidth,height=image.naturalHeight;state.crop=phase==='loaded'?crop:null;
@@ -211,7 +214,7 @@ function setImageDetailMode(prefix,mode){
  const image=$(prefix+'Image'),original=P.find(p=>p.key===state.key)?.image;
  // Panels open on the 480px thumbnail; the first zoom swaps in the original and finishImageDetail applies the mode once it loads.
  if(mode!=='fit'&&original&&(state.pending||image.src!==original)){if(image.src!==original)image.src=original;state.pending=mode;renderImageDetail(prefix);return true}
- const changed=state.mode!==mode;state.pending=null;state.mode=mode;renderImageDetail(prefix);if(changed)centreImageDetail(prefix);return true;
+ state.pending=null;state.mode=mode;renderImageDetail(prefix);centreImageDetail(prefix);return true;
 }
 function scrollArrows(e){const v=e.currentTarget||this;if(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey||!['ArrowLeft','ArrowRight'].includes(e.key)||v.scrollWidth<=v.clientWidth)return;e.preventDefault();v.scrollLeft+=e.key==='ArrowRight'?40:-40}for(const prefix of enlargedImagePanels){$(prefix+'Viewport').onkeydown=scrollArrows;$(prefix+'Fit').onclick=()=>setImageDetailMode(prefix,'fit');for(const [button,mode] of zoomButtons(prefix))button.onclick=()=>setImageDetailMode(prefix,mode)}
 // IMAGE_DETAIL_HELPERS_END

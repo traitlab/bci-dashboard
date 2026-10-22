@@ -44,6 +44,18 @@ assert.match($('sharedQueryDetailStatus').textContent,/^Actual pixels, one image
 """)
 
 
+def test_model_crop_refits_after_a_resize_and_recentres_when_clicked_again():
+    points = [cropped("query", "flight-a", [[1, .9]]), photo("candidate", "flight-b", [[0, .9]])]
+    run_atlas(points, r"""
+$('workspaceEnlarge').onclick();const image=$('comparisonQueryImage'),viewport=$('comparisonQueryViewport'),stage=$('comparisonQueryStage'),crop=recordedCrop(P[0]);
+const centred=()=>{const scale=parseFloat(stage.style.width)/4000;assert.ok(Math.abs(crop.side*scale-Math.min(viewport.clientWidth,viewport.clientHeight))<1);assert.ok(Math.abs(viewport.scrollLeft+viewport.clientWidth/2-(crop.x+crop.side/2)*scale)<1e-6);assert.ok(Math.abs(viewport.scrollTop+viewport.clientHeight/2-(crop.y+crop.side/2)*scale)<1e-6)};
+image.naturalWidth=480;image.naturalHeight=360;image.onload();$('comparisonQueryModelCrop').onclick();image.naturalWidth=4000;image.naturalHeight=3000;image.onload();centred();
+// The pane height follows the window (48dvh), so a resize must refill and recentre the crop.
+viewport.clientWidth=500;viewport.clientHeight=380;refitModelCrops();centred();
+viewport.scrollLeft=0;viewport.scrollTop=0;$('comparisonQueryModelCrop').onclick();centred();
+""")
+
+
 def test_choosing_photos_pushes_history_and_back_restores_once():
     points = [photo("query", "flight-a", [[1, .9]]), photo("first", "flight-a", [[2, .9]]), photo("second", "flight-b", [[0, .9]])]
     run_atlas(points, r"""
