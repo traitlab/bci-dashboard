@@ -76,6 +76,21 @@ assert.equal($('collectionExplorerLink').textContent,'Back to filtered photos');
 """, initial_hash="#" + urlencode({"frame": "query", "browse": context}))
 
 
+def test_browse_by_taxonomy_opens_the_explorer_tree_and_a_return_link_keeps_its_layout():
+    points = [photo("query", "query-flight"), photo("canopy-000", "flight-b")]
+    script = r"""
+const taxonomy=element('collectionExplorerLink');taxonomy.setAttribute('href','explorer.html');navLinks.push(taxonomy);updateLinks(P[selected].key);
+const params=new URLSearchParams(taxonomy.getAttribute('href').split('#')[1]),site=new URLSearchParams(navLinks[2].getAttribute('href').split('#')[1]);
+assert.equal(taxonomy.getAttribute('href').split('#')[0],'explorer.html');assert.equal(params.get('frame'),'query');
+"""
+    run_atlas(points, script + r"""
+assert.equal(params.get('layout'),'tree');assert.equal(site.has('layout'),false);assert.equal(taxonomy.textContent,'Browse by taxonomy');
+""")
+    run_atlas(points, script + r"""
+assert.equal(params.get('layout'),'table');assert.equal(params.get('search'),'canopy');assert.equal(taxonomy.textContent,'Back to filtered photos');
+""", initial_hash="#" + urlencode({"frame": "query", "browse": urlencode({"search": "canopy", "layout": "table"})}))
+
+
 def test_selected_photo_keeps_its_place_in_the_chooser():
     points = [photo(f"canopy-{index}", "flight-b") for index in range(3)] + [photo("query", "flight-a")]
     run_atlas(points, r"""
