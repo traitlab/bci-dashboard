@@ -8,7 +8,7 @@ from test_explorer_browser import ROOT, catalogue, helpers, node, run_browser
 TREE = r"""
 const host=$('taxonomy'),tree=()=>host.children.at(-1),row=id=>host.querySelector('[data-taxon="'+id+'"]');
 function rows(){const out=[];(function visit(n){if(n.getAttribute?.('role')==='treeitem')out.push(n);for(const child of n.children||[])visit(child)})(host);return out}
-const tabbable=()=>rows().filter(r=>r.getAttribute('tabindex')==='0').map(r=>r.getAttribute('data-taxon')),chevron=id=>row(id).children[0].children[0],share=id=>row(id).children[0].children.at(-1).style;
+const tabbable=()=>rows().filter(r=>r.getAttribute('tabindex')==='0').map(r=>r.getAttribute('data-taxon')),chevron=id=>row(id).children[0].children[0],share=id=>row(id).children[0].style;
 function press(key,extra={}){let prevented=false;tree().onkeydown({key,target:document.activeElement,...extra,preventDefault(){prevented=true}});return prevented}
 """
 
