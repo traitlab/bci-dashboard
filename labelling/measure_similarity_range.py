@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, "dashboard"))
 
 import core as hc
-from draw_field_sample import flight_of, site_of
+from draw_field_sample import flight_of, from_inventory, site_of
 from embeddings_io import l2_normalise, load_embeddings
 from polygon_identity import METRES_PER_DEGREE, gps_of
 
@@ -84,16 +84,11 @@ def load_flights(path: Path) -> dict[str, dict]:
     """global_key -> {flight, site, gps} for every inventory row with a
     readable position. A row without one is left out, and counted by the
     caller."""
-    out = {}
-    with open(path, encoding="utf-8") as fh:
-        for line in fh:
-            row = json.loads(line)
-            key = row.get("global_key")
-            if not key:
-                continue
-            url = row.get("row_data") or ""
-            out[key] = {"flight": flight_of(url), "site": site_of(url), "gps": gps_of(row)}
-    return out
+    def read(row):
+        url = row.get("row_data") or ""
+        return {"flight": flight_of(url), "site": site_of(url), "gps": gps_of(row)}
+
+    return from_inventory(path, read)
 
 
 def local_xy(gps: np.ndarray) -> np.ndarray:
