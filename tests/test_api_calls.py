@@ -1,12 +1,9 @@
 """One way to post an image, one way to retry it, one way to read a 429.
 
 Three scripts call Pl@ntNet: predict/photo.py, predict/embed.py and
-predict/ingest_photos.py. Each used to carry its own request, its own retry
-loop and its own reading of HTTP 429, and the copies did not agree. One read
-the quota answer as an ordinary failure and retried it twice before giving up,
-which turns a run that could have been resumed into a run that lost its place.
-
-They now share `post_image` and `with_retry` in photo.py. What is checked here
+predict/ingest_photos.py. They share `post_image` and `with_retry` in photo.py,
+so a quota answer (HTTP 429) is read one way: as a spent key, not as an
+ordinary failure to retry. What is checked here
 is the behaviour that decides whether a long run survives: a spent key stops
 immediately, and a dropped connection does not.
 

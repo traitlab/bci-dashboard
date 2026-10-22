@@ -122,10 +122,7 @@ records a day the labels moved; no build reads one back.
 
 `input/boxes/` is tracked, unlike the other data folders, because the frame list
 in it defines the population every number is counted over. Why a module is
-shaped the way it is lives in that module's own docstring, so
-`dashboard/queues.py`, `dashboard/assets.py`, `dashboard/style.py` and
-`dashboard/explain.py` each open with the argument for their own existence.
-Read one before splitting it.
+shaped the way it is lives in that module's own docstring.
 
 ## Configure
 

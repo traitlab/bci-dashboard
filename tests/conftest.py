@@ -545,9 +545,7 @@ GENERATED = "2026-08-25-test"
 #
 # Each flag names exactly one page. They stay because they say what a page is
 # expected to carry, which is the claim the assertions need.
-# A species row is a row carrying a status tag. The rows used to be found by a
-# `data-status` attribute that repeated on every row what the tag already says;
-# the page dropped it, so the tests look for the tag itself.
+# A species row is a row carrying a status tag.
 _ANY_ROW = re.compile(r"<tr\b[^>]*>.*?</tr>", re.DOTALL)
 
 
@@ -558,8 +556,7 @@ def species_rows(html: str) -> list[str]:
 
 # fixture name -> (builder, filename, panels it verifies, extra builder flags).
 # One queue page: the labelling team's commands are a closed block on it, and
-# the address their own copy used to have is a redirect the builder writes
-# beside it, not a page.
+# the retired team address is a redirect the builder writes beside it, not a page.
 PAGES = {
     "external_page": ("build_external.py", "model_health_dashboard.html",
                       {"species", "species_status", "species_thin",

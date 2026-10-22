@@ -179,8 +179,7 @@ def p_look(c):
     charts = discovery_chart(c) + novelty_chart(c)
     # The discovery curve is one run from nothing. The audit under it is the
     # same question asked properly: several random starts, against a random
-    # order, with a range and a p-value. The confound test is the cost side,
-    # and replaces the two hand-counted shares that used to stand alone.
+    # order, with a range and a p-value. The confound test is the cost side.
     body = ((charts or NO_CURVES) + audit_note(c) + confound_note(c)
             + contact_sheet(c))
     return panel("Why the queue is in this order",

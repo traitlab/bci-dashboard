@@ -79,8 +79,8 @@ def test_no_bar_label_smuggles_an_unrendered_entity(panels, bins):
 def test_the_panel_is_a_balanced_details_block(panels, bins):
     """Every block opened is closed, and the panel is the outermost one.
 
-    The count used to be one apiece. The panel now carries a `more()` block, so
-    the gate is balance and nesting rather than a single pair: an unclosed inner
+    The panel carries a `more()` block, so the gate is balance and nesting
+    rather than a single pair: an unclosed inner
     block swallows the rest of the page, which is the defect this catches.
     """
     out = panels.p_calibration(_ctx(panels, bins))

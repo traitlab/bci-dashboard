@@ -1,10 +1,8 @@
 """One photo, ingested: the step both fetch modes now run.
 
 A local directory and a CSV of URLs differ in one thing, where the pixels come
-from. They used to differ in two functions of forty lines each, and the copies
-drifted: the URL path recorded the crop rectangle for months after the file
-path had stopped. `process_image` takes the pixels as a callable so there is
-one cache key, one crop, one pair of API calls and one atomic write.
+from. `process_image` takes the pixels as a callable so there is one cache key,
+one crop, one pair of API calls and one atomic write.
 
 The API is never called here. What is checked is the shape of the step around
 it: the cache short-circuit, the geometry stamp, and the write that cannot

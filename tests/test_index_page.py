@@ -93,9 +93,8 @@ def test_a_missing_page_stops_the_publish(build_index, tmp_path):
 
 
 def test_it_claims_nothing_the_pages_have_to_back_up(build_index, tmp_path):
-    """A signpost carries two links and a date. It used to carry a paragraph
-    about the rebuild as well, which said nothing a reader could act on and
-    described the pages instead of pointing at them."""
+    """A signpost carries two links and a date, and no prose describing the
+    pages instead of pointing at them."""
     out = build_index.build(fake_build(tmp_path)).lower()
     assert "over time" not in out
     assert "measurement pass" not in out

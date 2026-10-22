@@ -133,7 +133,7 @@ LEGACY_INVENTORIES = (DATASET_ROWS_JSONL, DATASET_ROWS_COMBINED_JSONL)
 # only one of them shows the botanist's boxes, and that is a question about
 # Labelbox's state rather than about this code. So it is a setting, not a
 # constant: ``labelbox.link_project`` in config.yaml, ``legacy`` by default
-# because that is the destination the PI asked for.
+# because that is the required destination.
 #
 # ``dashboard/`` is stdlib only and cannot import yaml, so the one key is read
 # back with a regex rather than by parsing the document. That keeps the flip a
@@ -210,10 +210,9 @@ N_CANDIDATES = 5
 
 # The model version Pl@ntNet's identify endpoint reports, and the day we last
 # asked it. Typed here rather than measured, because `dashboard/` makes no
-# network call and the 7,702 cached answers behind every published number carry
+# network call and the cached answers behind every published number carry
 # no version field at all: `predict/ingest_photos.py` only started lifting one in
-# 2026-08. What is on disk agrees, though. All 18,105 cached answers that do name
-# a version name this one, across seven cache directories and three fetch paths.
+# 2026-08. Every cached answer that does name a version names this one.
 #
 # It is here because a claim about what the model has seen is only as good as its
 # date. BCI labels reached Pl@ntNet in 2026-07, after 2026-03-20, so they are not
@@ -272,13 +271,10 @@ def plantnet_version_words() -> str:
 # and is the one source that can prove a species absent rather than merely never
 # ranked in an N_CANDIDATES-name sample.
 #
-# Read from config.yaml rather than typed, because the slug used to be typed in
-# four places and one of them was load-bearing: run_log.py printed the endpoint
-# as a literal and history.model_tag_of regexes the flora back out of that line.
-# Editing config.yaml alone left the page reporting one flora while predicting
-# through another, which is a mislabelled published number rather than a stale
-# comment. Everything downstream now derives from this one value, so the flora
-# on the page cannot disagree with the flora that was called.
+# Read from config.yaml rather than typed: run_log.py prints the endpoint and
+# history.model_tag_of regexes the flora back out of that line, so every
+# downstream use derives from this one value and the flora on the page cannot
+# disagree with the flora that was called.
 _IDENTIFY_URL_RE = re.compile(r"^\s+identify_url:\s*(\S+)", re.MULTILINE)
 IDENTIFY_URL_FALLBACK = "https://my-api.plantnet.org/v2/identify/k-central-america"
 
@@ -328,7 +324,7 @@ PROJECT_ASSUMED = "assumed"
 
 # What to call a flora in prose. A slug nobody has named reads as itself, which
 # is worse English and better than a wrong name: the page would otherwise still
-# say "Central America" after the switch to BCNM that the reviewer asked for.
+# say "Central America" after a switch to BCNM.
 FLORA_NAMES = {
     "k-central-america": "Central America regional",
     "k-world-flora": "worldwide",
@@ -607,9 +603,9 @@ def labelbox_urls(path: str = DATA_ROW_IDS_CSV,
     opens the project the botanist's boxes were drawn in, ``current`` the
     dispatch project. Where one source answers alone, its answer is the link
     under either mode, so switching the setting never changes how many frames
-    are linked. It used to be the id table alone that decided coverage, which
-    left 2,062 labelled frames unlinked whose whole legacy URL was sitting in
-    the inventory, waiting on a project export that no key here can run.
+    are linked. Coverage is the union of the id table and the inventory, so a
+    frame whose legacy URL is in the inventory is linked without a project
+    export.
 
     Per-row, not per-run: the legacy URLs point into four projects, and a frame
     has to open in the project it belongs to. Mixed-project output from a single

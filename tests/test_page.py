@@ -222,10 +222,8 @@ def test_document_is_one_self_contained_html_document(pagemod):
 def test_a_linked_csv_is_copied_next_to_the_page(pagemod, tmp_path):
     """The link resolves wherever the page lands, build/ or a snapshot.
 
-    bin/refresh.sh used to be the only thing putting a page beside its CSVs,
-    and the two newest snapshots on the machine this was written on hold CSVs
-    and no page, because those builds bypassed the script. Doing the copy in
-    the build is what makes the two arrive together every time.
+    The build does the copy, not bin/refresh.sh, so a page and its CSVs arrive
+    together even when a build bypasses the script.
     """
     snap, out = tmp_path / "snap", tmp_path / "build" / "page.html"
     snap.mkdir()

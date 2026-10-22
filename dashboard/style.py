@@ -9,12 +9,9 @@ manual reapply. The JS is this page's own: client-side sort/filter, not charts.
 The element ids live here because the script looks them up and
 ``assets.filterable_table`` writes them, so the two cannot drift.
 
-Splitting a stylesheet from the renderers that write its classes is usually a
-mistake, since nothing then fails when the two drift. It is safe here only
-because ``tests/test_style.py`` holds both ends: every class a builder writes
-has a rule, and every rule matches something. The boundary also falls where the
-maintenance differs, ``_BASE_CSS`` being vendored text reapplied by hand while
-none of the renderers are.
+``tests/test_style.py`` holds both ends of the class coupling with
+``assets.py``: every class a builder writes has a rule, and every rule matches
+something.
 """
 
 from __future__ import annotations
@@ -135,7 +132,7 @@ th.sortable{cursor:pointer;user-select:none}
 th.sortable abbr{display:inline-block}
 th.sortable:focus-visible{outline:2px solid #1565c0;outline-offset:-2px}
 /* The arrow is the only thing telling the reader these headings sort, so it has
-   to survive the #f5f5f5 header fill: 4.75:1 here against 1.72:1 before. */
+   to survive the #f5f5f5 header fill (4.75:1). */
 th.sortable:after{content:" \\2195";color:#6d6d6d;font-size:0.75rem}
 th.sortable.asc:after{content:" \\2191";color:#1565c0}
 th.sortable.desc:after{content:" \\2193";color:#1565c0}
@@ -187,8 +184,7 @@ h3.sub{font-size:0.95rem;font-weight:700;color:#37474f;margin:22px 0 8px}
    panel has, so a phone gets three and a desktop gets more, and the image fills
    its cell rather than overflowing it. */
 /* The rule a queue selects on, under its heading. Everywhere else the two
-   travel together; the sheet used to show the name alone, which made the name
-   carry a distinction the rule already draws. */
+   travel together. */
 .qrule{font-size:0.85rem;color:#616161;margin:-4px 0 8px}
 .sheet{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
   gap:6px;margin:0 0 14px}

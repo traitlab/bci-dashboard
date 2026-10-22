@@ -1,36 +1,15 @@
 """What a reader meets on the page, measured rather than asserted by hand.
 
-`tests/test_pages.py` checks that the right figures, panels and warnings are
-present. Nothing checked that they are readable. This file does: it pulls the
-prose out of a built page and holds two lines that a later edit can only cross
-deliberately.
+Pulls the prose out of a built page and holds two lines:
 
-  * no sentence longer than `MAX_SENTENCE_WORDS`, because a sentence a reader
-    has to hold in their head is one they stop reading;
-  * none of the words `CONTEXT.md` retired, because a glossary that is not
-    enforced is a glossary that drifts.
+  * no sentence longer than `MAX_SENTENCE_WORDS`;
+  * none of the words `CONTEXT.md` retired.
 
-`README.md` is held to the same two lines. It is the first thing anyone
-reads, so a page that says "the right name in the list" while the front page
-says "top-5" has retired the word in the one place it is measured and kept it
-in the one place it is met.
-
-Both checks run on the page's own prose, not on the source: what matters is
-what a reader sees, and the same sentence can be assembled from three
-f-strings. Tables, the species list and the inline script are excluded -- a
-186-row table is data, not prose, and scoring it as prose swamps every real
-sentence. So is anything in a `<code>` span: `nb-results=5` and
-`identify/k-central-america` are identifiers a reader looks at rather than
-reads, and counting them as words makes a short sentence look long.
-
-Two kinds of quoted text are excluded, and deliberately.
-`bci-dashboard-docs/hypothesis.md` requires those paragraphs in their own
-words, so they are the one place on the page where the study's vocabulary is
-load-bearing and a paraphrase would be a defect. Every one of them carries a
-plain-English gloss immediately above it; the gloss is prose and is checked.
-The other is the provenance line, which `labelling/gt_from_export.py` writes
-to a sidecar at merge time and the page reproduces: it is a record of which
-export the labels came from, not a sentence anyone on the page wrote.
+`README.md` is held to the same two lines. Both checks run on the page's own
+prose, not the source. Tables, the species list, the inline script and `<code>`
+spans are excluded, as are the paragraphs quoted from
+`bci-dashboard-docs/hypothesis.md` and the provenance line
+`labelling/gt_from_export.py` writes to a sidecar.
 """
 
 from __future__ import annotations
@@ -42,11 +21,9 @@ from pathlib import Path
 import pytest
 
 # The longest sentence any page carries today, so the ceiling is where the
-# prose actually is rather than somewhere comfortable above it. A sentence
-# that trips this is not necessarily wrong -- it is a sentence someone has to
-# read again -- so the fix is to split it, and moving the number up is a
-# decision to make out loud. It has come down from 31: the one sentence that
-# needed 31 was a clause, and it reads as two.
+# prose actually is. A sentence that trips this is not necessarily wrong, but
+# someone has to read it again, so split it; raising the number is a decision
+# to make out loud.
 MAX_SENTENCE_WORDS = 30
 
 # The share of sentences allowed to run long. A hard per-sentence cap alone
