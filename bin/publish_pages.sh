@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
 # Copy the built dashboards into docs/, which GitHub Pages serves.
 #
-# The build reads data/ and snapshots/, both gitignored, so CI cannot rebuild
-# the pages. What gets published is therefore whatever was built locally and
-# committed here, and that is the reason this is a copy step rather than a
-# workflow: the page and the commit that carries it are the same act.
-#
-# Run after bin/refresh.sh, then commit docs/.
+# Copies the built pages and the CSVs they link into docs/, then runs
+# dashboard/build_index.py for index.html and about.html. Both the local
+# refresh and the CI refresh (bin/refresh_snapshot.py) call it.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
