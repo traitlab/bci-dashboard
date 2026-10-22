@@ -239,9 +239,15 @@ function recordedFrameLabel(photo,available){return photo.label?'Recorded frame 
 // PHOTO_COMPARISON_HELPERS_END
 // MISSION_VIEW_HELPERS_START
 function missionModeLabel(mode){return mode==='other'?'Exclude selected flight':'All flights'}
+function unavailableMatchesReason(points,photo){
+ const name=matchingModelName();
+ if(photo?.inventory_available===false)return 'This frame is not in the recorded photo inventory, so no '+name+' matches exist for it.';
+ const pool=points.filter(p=>p.model_available!==false).length,inventory=points.filter(p=>p.inventory_available!==false).length;
+ return name+' matches unavailable for this photo: it has no '+name+' vector in this atlas, which was drawn from '+pool.toLocaleString()+' of '+inventory.toLocaleString()+' inventory photos. Either it was recorded after those vectors were computed or '+name+' returned none for it. Its photo, location and Labelbox item stay available. Matches appear once the atlas is rebuilt with its vector.';
+}
 function missionViewSupport(points,query,mode){
  const photo=points[query],mission=missionId(photo);
- if(photo?.model_available===false)return {available:false,eligible:null,reason:matchingModelName()+' matches unavailable for this photo.'};
+ if(photo?.model_available===false)return {available:false,eligible:null,reason:unavailableMatchesReason(points,photo)};
  if(mode!=='other')return {available:true,eligible:points.filter((p,i)=>i!==query&&p.model_available!==false).length,reason:''};
  if(!mission)return {available:false,eligible:null,reason:'Other missions unavailable: the selected photo has no recorded mission ID.'};
  if(!Array.isArray(photo.other_mission_neighbours))return {available:false,eligible:null,reason:'Other missions unavailable: this atlas has no stored other-mission ranking for the selected photo.'};
