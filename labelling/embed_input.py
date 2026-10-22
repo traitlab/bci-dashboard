@@ -19,7 +19,8 @@ Stdlib only, and no network call. The fetch is the next step, by hand:
       --out-dir data/embeddings_queue
 
 ``--named`` lists the other side: every frame that carries a botanist label,
-with its photo URL read off the Labelbox inventory. ``bin/refresh_snapshot.py``
+with its photo URL read off the Labelbox inventory, or off ``--export`` for a
+frame uploaded since the inventory was drawn. ``bin/refresh_snapshot.py``
 runs it after each label merge so a frame named since the labelled embeddings
 were drawn gets a vector and anchors the next ranking:
 
@@ -77,14 +78,28 @@ def unlabelled_rows(frames: Path, labels: Path) -> list[tuple[str, str]]:
         return out
 
 
-def named_rows(labels: Path, inventory: Path) -> list[tuple[str, str]]:
+def export_urls(paths) -> dict[str, str]:
+    """``global_key`` -> photo URL from Labelbox export NDJSON, keyed like the GT."""
+    url = {}
+    for path in paths:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                row = json.loads(line)["data_row"]
+                if row.get("row_data"):
+                    url[KEY_PREFIX + row["global_key"].rsplit("/", 1)[-1]] = row["row_data"]
+    return url
+
+
+def named_rows(labels: Path, inventory: Path, exports=()) -> list[tuple[str, str]]:
     """``(global_key, image_url)`` for each named frame the inventory can place.
 
     The label file is keyed the way every other file is, so no prefix work.
     A named frame missing from the inventory has no photo URL to fetch, so it
-    is left out, and the caller is told how many were.
+    is left out, and the caller is told how many were. The inventory wins
+    where both have a URL, so a frame keeps the photo its cached vector came
+    from; the exports only fill frames the inventory predates.
     """
-    url = {}
+    url = export_urls(exports)
     with open(inventory, encoding="utf-8") as f:
         for line in f:
             if line.strip():
@@ -110,6 +125,8 @@ def parse_args(argv=None):
                    help="list the named frames instead, with URLs from --inventory")
     p.add_argument("--inventory", type=Path, default=DEFAULT_INVENTORY,
                    help="Labelbox inventory, one JSON row per frame with its photo URL")
+    p.add_argument("--export", type=Path, action="append", default=[],
+                   help="Labelbox export NDJSON, repeatable; fills URLs the inventory lacks")
     args = p.parse_args(argv)
     if args.out is None:
         args.out = DEFAULT_NAMED_OUT if args.named else DEFAULT_OUT
@@ -119,7 +136,7 @@ def parse_args(argv=None):
 def main(argv=None) -> int:
     args = parse_args(argv)
     if args.named:
-        rows = named_rows(args.labels, args.inventory)
+        rows = named_rows(args.labels, args.inventory, args.export)
         if not rows:
             raise SystemExit("no named frame has a photo URL; nothing to embed")
     else:

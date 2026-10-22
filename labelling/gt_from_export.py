@@ -169,6 +169,24 @@ def union_exports(paths):
     return dominants, boxes, row_ids, dates
 
 
+def rework_frames(paths) -> set[str]:
+    """Basenames a reviewer sent back, by each frame's latest export.
+
+    A rejected label keeps its species while the frame sits in rework, so the
+    export alone would keep counting it. Later files win, as in
+    ``union_exports``, so a frame relabelled and accepted since comes back.
+    """
+    status: dict[str, str] = {}
+    for path in paths:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                row = json.loads(line)
+                stem = row["data_row"]["global_key"].rsplit("/", 1)[-1]
+                for proj in row.get("projects", {}).values():
+                    status[stem] = (proj.get("project_details") or {}).get("workflow_status", "")
+    return {stem for stem, s in status.items() if s == "IN_REWORK"}
+
+
 def parse_args():
     """The exports to merge, the three files they merge into, and an optional note.
 
@@ -202,19 +220,22 @@ def write_boxes(boxes, path):
           f"{len({b['base_image'] for b in boxes})} frames -> {path}")
 
 
-def merge_gt(base_gt, july, path):
+def merge_gt(base_gt, july, path, drop=frozenset()):
     """Fold this export's labels into the accumulated ground truth.
 
     The export wins where the two disagree: it is the more recent read of the
     same photo by the same botanists. Which rows it revised is returned rather
     than swallowed, because a batch that revises hundreds of rows is worth
-    someone looking at before it is trusted.
+    someone looking at before it is trusted. ``drop`` is the frames in rework:
+    they leave the GT, bundled label included, until they are relabelled.
     """
     merged = dict(base_gt)
     revised = {k: (base_gt[k], sp) for k, sp in july.items()
                if k in base_gt and base_gt[k] != sp}
     new = {k: sp for k, sp in july.items() if k not in base_gt}
     merged.update(july)
+    for k in drop:
+        merged.pop(k, None)
 
     out = sorted(merged.items())
     with open(path, "w", newline="", encoding="utf-8") as f:
@@ -329,8 +350,11 @@ def main() -> None:
     # another project, and a GT row for a frame no page can score is dead weight.
     july = {GT_KEY_PREFIX + stem: sp for stem, sp in july.items()
             if GT_KEY_PREFIX + stem in corpus}
+    rework = {GT_KEY_PREFIX + stem for stem in rework_frames(args.export)}
+    july = {k: sp for k, sp in july.items() if k not in rework}
+    print(f"frames in rework, left out of GT : {len(rework)}")
 
-    out, revised, new = merge_gt(base_gt, july, args.gt)
+    out, revised, new = merge_gt(base_gt, july, args.gt, drop=rework)
     merge_row_ids(row_ids, corpus, len(out),
                   Path(args.gt).with_name("data_row_ids.csv"))
     merge_label_dates(dates, corpus, Path(args.gt).with_name("gt_label_dates.csv"))

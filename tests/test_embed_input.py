@@ -62,3 +62,16 @@ def test_fetch_all_stops_once_the_time_budget_is_spent(tmp_path):
     rows = [{"global_key": "k", "image_url": "https://x/1.jpg"}]
     assert embed.fetch_all(rows, "key", "url", tmp_path, delay=0, test=False,
                            deadline=0) == (0, 0)
+
+
+def test_an_export_fills_urls_the_inventory_predates_and_never_overrides_it(tmp_path):
+    labels = tmp_path / "labels.csv"
+    labels.write_text("global_key,taxon\ncomb_old.JPG,A\ncomb_new.JPG,B\n")
+    inventory = tmp_path / "inv.jsonl"
+    inventory.write_text(json.dumps({"global_key": "comb_old.JPG", "row_data": "https://inv/old.JPG"}) + "\n")
+    export = tmp_path / "export.ndjson"
+    export.write_text("".join(json.dumps({"data_row": {"global_key": f"m/{s}.JPG", "row_data": f"https://ex/{s}.JPG"}}) + "\n"
+                              for s in ("old", "new")))
+    assert embed_input.named_rows(labels, inventory, [export]) == [
+        ("comb_old.JPG", "https://inv/old.JPG"), ("comb_new.JPG", "https://ex/new.JPG")]
+    assert embed_input.parse_args(["--named", "--export", str(export)]).export == [export]
