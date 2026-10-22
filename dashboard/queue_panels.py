@@ -5,6 +5,7 @@ closed half that argues for the order is ``queue_why_panels.py``, and
 
 from __future__ import annotations
 
+import os
 from urllib.parse import quote
 
 import core as hc
@@ -190,6 +191,41 @@ def send_pool_table(c):
     return body
 
 
+CALIBRATION_FILE = "confidence_calibration.csv"
+# The calibration scope this note reads: every frame with a species-level label.
+CALIBRATION_SCOPE = "all_species_level_gt"
+
+
+def threshold_evidence(c) -> str:
+    """How often the first guess was right at each queue cut-off, off the
+    calibration table the build verified. Empty when the table or either row is
+    absent, rather than a number from somewhere else. The cut-offs are not
+    changed here: they are judgement calls and the table says what they separate."""
+    verify_dir = getattr(c, "verify_dir", None)
+    path = os.path.join(verify_dir or "", CALIBRATION_FILE)
+    if not verify_dir or not os.path.exists(path):
+        return ""
+    rows = [r for r in hc.read_csv_rows(path) if r["scope"] == CALIBRATION_SCOPE]
+    pick = lambda kind, band: next(
+        (r for r in rows if r["row_type"] == kind and r["band"] == band), None)
+    high = pick("threshold", f">={hc.WAIT_CONF}")
+    low = pick("bin", f"[0.0,{hc.LOW_CONF})")
+    # An empty band has no accuracy to quote.
+    if not high or not low or not int(high["n_crowns"]) or not int(low["n_crowns"]):
+        return ""
+    total = sum(int(r["n_crowns"]) for r in rows if r["row_type"] == "bin")
+    say = lambda r: (f'right on {int(r["n_correct"]):,} of {int(r["n_crowns"]):,} frames '
+                     f'({pctf(float(r["top1_accuracy"]))})')
+    return (f'<p class="note"><strong>How often the first guess was right.</strong> On the '
+            f'{total:,} labelled frames with a species-level label, at confidence '
+            f'{hc.WAIT_CONF:.2f} or more it was {say(high)}; under {hc.LOW_CONF:.2f} it was '
+            f'{say(low)}. A confident guess can still be wrong: '
+            f'{int(high["n_wrong"]):,} frames at {hc.WAIT_CONF:.2f} or more were. '
+            f'The {hc.LOW_CONF:.2f} and {hc.WAIT_CONF:.2f} cut-offs are judgement calls; '
+            f'this table shows what each one separates. '
+            f'<a href="{CALIBRATION_FILE}">{CALIBRATION_FILE}</a></p>')
+
+
 def send_preview_table(c):
     """The head of the queue itself, not a pointer to the CSV that holds it.
 
@@ -289,7 +325,7 @@ def p_send(c):
     # so they sit closed beneath it.
     body = (send_preview_table(c) + DISPATCH
             + more("Queue sizes, link coverage and caveats",
-                   send_pool_table(c) + links_note(c) + held_out_note(c) + send_notes(c)))
+                   send_pool_table(c) + threshold_evidence(c) + links_note(c) + held_out_note(c) + send_notes(c)))
     # The same two queues the hero counts, added the same way, so both agree.
     send_now = (c.queue_counts.get("long_tail", 0)
                 + c.queue_counts.get("low_conf_known", 0))
