@@ -9,19 +9,50 @@ def cropped(key, mission, neighbours=None, **extra):
     return photo(key, mission, neighbours, source_width=4000, source_height=3000, crop=1281, **extra)
 
 
-def test_actual_pixels_centres_on_the_model_crop_and_keeps_its_outline():
+def test_model_crop_swaps_in_the_original_and_fills_the_viewport_with_the_outlined_square():
     points = [cropped("query", "flight-a", [[1, .9]]), photo("candidate", "flight-b", [[0, .9]])]
     run_atlas(points, r"""
-$('workspaceEnlarge').onclick();
-for(const prefix of ['comparisonQuery','comparisonCandidate']){const image=$(prefix+'Image');image.naturalWidth=4000;image.naturalHeight=3000;image.onload()}
-$('comparisonQueryActual').onclick();
-const crop=recordedCrop(P[0]),viewport=$('comparisonQueryViewport');assert.equal(crop.x,1359);assert.equal(crop.y,859);
-assert.equal(viewport.scrollLeft,crop.x+crop.side/2-viewport.clientWidth/2);assert.equal(viewport.scrollTop,crop.y+crop.side/2-viewport.clientHeight/2);
-assert.equal($('comparisonQueryStage').style.width,'4000px');assert.equal($('comparisonQueryOverlay').getAttribute('hidden'),null);assert.equal($('comparisonQueryOverlay').getAttribute('viewBox'),'0 0 4000 3000');assert.equal($('comparisonQueryOutline').getAttribute('width'),1281);
-assert.match($('comparisonQueryDetailStatus').textContent,/^Actual pixels, centred on the model crop\. One image pixel per CSS pixel\. 4000 × 3000 loaded pixels\. Focus the image area/);
-$('comparisonQueryFit').onclick();assert.equal(viewport.scrollLeft,0);assert.equal(viewport.scrollTop,0);
-$('comparisonCandidateActual').onclick();const other=$('comparisonCandidateViewport');assert.equal(other.scrollLeft,(4000-other.clientWidth)/2);assert.equal(other.scrollTop,(3000-other.clientHeight)/2);
-assert.doesNotMatch($('comparisonCandidateDetailStatus').textContent,/model crop/);assert.match($('comparisonCandidateDetailStatus').textContent,/^Actual pixels, one image pixel per CSS pixel/);
+$('workspaceEnlarge').onclick();const image=$('comparisonQueryImage'),viewport=$('comparisonQueryViewport'),crop=recordedCrop(P[0]),button=$('comparisonQueryModelCrop');
+// The panels open on the 480px thumbnail; zooming must not scale that, it swaps in the original first.
+image.naturalWidth=480;image.naturalHeight=360;image.onload();
+assert.equal(image.src,'thumbs/480/query.webp');assert.match($('comparisonQueryDetailStatus').textContent,/^Fit\. 480 × 360 loaded pixels\.$/);assert.equal(button.disabled,false);
+button.onclick();button.onclick();assert.equal(image.src,P[0].image);assert.equal($('comparisonQueryStage').style.width,'100%');assert.equal(button.getAttribute('aria-pressed'),'false');assert.equal($('comparisonQueryDetailStatus').textContent,'Loading the original image…');
+image.naturalWidth=4000;image.naturalHeight=3000;image.onload();
+assert.equal($('comparisonQueryOverlay').getAttribute('hidden'),null);assert.equal($('comparisonQueryOverlay').getAttribute('viewBox'),'0 0 4000 3000');assert.equal($('comparisonQueryOutline').getAttribute('width'),1281);
+const width=parseFloat($('comparisonQueryStage').style.width),scale=width/4000;
+assert.ok(Math.abs(crop.side*scale-Math.min(viewport.clientWidth,viewport.clientHeight))<1);assert.equal($('comparisonQueryStage').style.height,Math.round(width*3/4)+'px');
+assert.ok(Math.abs(viewport.scrollLeft+viewport.clientWidth/2-(crop.x+crop.side/2)*scale)<1e-6);assert.ok(Math.abs(viewport.scrollTop+viewport.clientHeight/2-(crop.y+crop.side/2)*scale)<1e-6);
+assert.equal(button.getAttribute('aria-pressed'),'true');assert.equal($('comparisonQueryFit').getAttribute('aria-pressed'),'false');
+assert.match($('comparisonQueryDetailStatus').textContent,/^Model crop, the outlined 1281 px square fills the image area\. 4000 × 3000 loaded pixels\. Focus the image area/);
+$('comparisonQueryFit').onclick();assert.equal($('comparisonQueryStage').style.width,'100%');assert.equal(viewport.scrollLeft,0);assert.equal(viewport.scrollTop,0);
+const other=$('comparisonCandidateImage');other.naturalWidth=480;other.naturalHeight=360;other.onload();
+assert.equal($('comparisonCandidateModelCrop').disabled,true);assert.equal(setImageDetailMode('comparisonCandidate','crop'),false);
+""")
+    html = runpy.run_path(ROOT / "dashboard/embedding_atlas_assets.py")["HTML"]
+    assert 'id="comparisonQueryActual"' not in html and 'id="comparisonCandidateActual"' not in html
+    assert 'id="sharedQueryActual"' in html and 'id="sharedQueryModelCrop"' not in html
+
+
+def test_shared_panels_without_a_crop_zoom_to_actual_pixels_of_the_original():
+    run_atlas([photo("query", "flight-a")], r"""
+renderSharedFrame('sharedQuery','query','Fabaceae',{labels_available:true});const image=$('sharedQueryImage'),viewport=$('sharedQueryViewport');
+image.naturalWidth=480;image.naturalHeight=360;image.onload();assert.equal(image.src,'thumbs/480/query.webp');
+$('sharedQueryActual').onclick();assert.equal(image.src,P[0].image);assert.equal($('sharedQueryStage').style.width,'100%');
+image.naturalWidth=4000;image.naturalHeight=3000;image.onload();
+assert.equal($('sharedQueryStage').style.width,'4000px');assert.equal(viewport.scrollLeft,(4000-viewport.clientWidth)/2);assert.equal(viewport.scrollTop,(3000-viewport.clientHeight)/2);
+assert.match($('sharedQueryDetailStatus').textContent,/^Actual pixels, one image pixel per CSS pixel\. 4000 × 3000 loaded pixels\./);
+""")
+
+
+def test_model_crop_refits_after_a_resize_and_recentres_when_clicked_again():
+    points = [cropped("query", "flight-a", [[1, .9]]), photo("candidate", "flight-b", [[0, .9]])]
+    run_atlas(points, r"""
+$('workspaceEnlarge').onclick();const image=$('comparisonQueryImage'),viewport=$('comparisonQueryViewport'),stage=$('comparisonQueryStage'),crop=recordedCrop(P[0]);
+const centred=()=>{const scale=parseFloat(stage.style.width)/4000;assert.ok(Math.abs(crop.side*scale-Math.min(viewport.clientWidth,viewport.clientHeight))<1);assert.ok(Math.abs(viewport.scrollLeft+viewport.clientWidth/2-(crop.x+crop.side/2)*scale)<1e-6);assert.ok(Math.abs(viewport.scrollTop+viewport.clientHeight/2-(crop.y+crop.side/2)*scale)<1e-6)};
+image.naturalWidth=480;image.naturalHeight=360;image.onload();$('comparisonQueryModelCrop').onclick();image.naturalWidth=4000;image.naturalHeight=3000;image.onload();centred();
+// The pane height follows the window (48dvh), so a resize must refill and recentre the crop.
+viewport.clientWidth=500;viewport.clientHeight=380;refitModelCrops();centred();
+viewport.scrollLeft=0;viewport.scrollTop=0;$('comparisonQueryModelCrop').onclick();centred();
 """)
 
 

@@ -66,7 +66,7 @@ def test_enlarge_dialog_keeps_candidate_nav_in_sticky_top_and_links_pan():
 $('workspaceEnlarge').onclick();const q=$('comparisonQueryViewport'),c=$('comparisonCandidateViewport');
 Object.assign(q,{scrollWidth:4000,scrollHeight:3000,scrollLeft:1000,scrollTop:600});Object.assign(c,{scrollWidth:2000,scrollHeight:1500,scrollLeft:0,scrollTop:0});
 q.onscroll({currentTarget:q});assert.equal(c.scrollLeft,0);
-imageDetails.get('comparisonQuery').mode='actual';imageDetails.get('comparisonCandidate').mode='actual';
+imageDetails.get('comparisonQuery').mode='crop';imageDetails.get('comparisonCandidate').mode='crop';
 q.onscroll({currentTarget:q});assert.equal(c.scrollLeft,500);assert.equal(c.scrollTop,300);
 q.scrollLeft=1200;c.onscroll({currentTarget:c});assert.equal(q.scrollLeft,1200);
 c.scrollLeft=1000;c.onscroll({currentTarget:c});assert.equal(q.scrollLeft,2000);assert.equal(q.scrollTop,600);
