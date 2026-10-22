@@ -27,9 +27,9 @@ def _source(*parts: str) -> str:
 # ---------------------------------------------------------------------------
 
 def test_the_backtest_reads_the_column_the_label_writers_write():
-    """The command in rank_queue.py's own header has to run as printed. The
-    same slip that made rank_unsent.py's documented backtest exit on a missing
-    column."""
+    """The command in rank_queue.py's own header has to run as printed: its
+    `--species-col` default must name a column the labels file has, or the
+    documented backtest exits on a missing column."""
     default = re.search(r'"--species-col", default="(\w+)"',
                         _source("labelling", "rank_queue.py")).group(1)
     written = re.search(r'writerow\(\["global_key", "(\w+)"\]\)',

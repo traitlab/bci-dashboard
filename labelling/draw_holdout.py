@@ -186,11 +186,6 @@ def read_pool(path: Path = POOL) -> list[dict]:
         return sorted(csv.DictReader(fh), key=lambda r: r["global_key"])
 
 
-def read_roles(path: Path = OUT) -> list[dict]:
-    with open(path, newline="", encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
-
-
 def manifest(fold, excluded: dict, n_pool: int, n_labelled: int, *, seed: int,
              held_frac: float, min_train_groups: int, buffer: float) -> dict:
     """The facts a later reader needs to trust the set, every one read off the

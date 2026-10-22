@@ -21,7 +21,7 @@ trustworthy.
     photo, and this script has neither: the cache covers the legacy corpus
     only, and Labelbox holds the embeddings behind an export task a read-only
     key cannot create. ``predict/embed.py`` computes one from the pixels
-    instead and ``labelling/rank_unsent.py`` ranks over those vectors. That is
+    instead and ``labelling/rank_queue.py`` ranks over those vectors. That is
     the order to dispatch in.
 
 Telling a new tree from one photographed before would be better still, and the

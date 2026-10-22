@@ -254,15 +254,6 @@ def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None,
                                row_attrs=row_attrs, source=source))
 
 
-def funnel_list(steps: list[tuple[int, str]]) -> str:
-    """A count-then-label list: ``steps`` is ``[(count, label), ...]``, outermost
-    first. Reuses the to-do-list markup (``.todo``/``.n``), so a photo-to-frame
-    funnel needs no CSS of its own."""
-    rows = "".join(f'<li><span class="n">{count:,}</span> {esc(label)}</li>'
-                   for count, label in steps)
-    return f'<ul class="todo">{rows}</ul>'
-
-
 def sort_key(value) -> str:
     """The number as the sort reads it: full precision, no idle characters.
     A rate is carried to six decimals, finer than any cell shows and enough that

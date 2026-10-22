@@ -221,25 +221,6 @@ def test_filterable_table_escapes_option_value_and_label(assets):
     assert "&lt;script&gt;" in out
 
 
-def test_funnel_list_of_no_steps_is_an_empty_list(assets):
-    assert assets.funnel_list([]) == '<ul class="todo"></ul>'
-
-
-def test_funnel_list_formats_the_count_with_thousands_separators(assets):
-    out = assets.funnel_list([(1234, "frames")])
-    assert '<span class="n">1,234</span> frames' in out
-
-
-def test_funnel_list_of_a_zero_count(assets):
-    out = assets.funnel_list([(0, "frames")])
-    assert '<span class="n">0</span> frames' in out
-
-
-def test_funnel_list_escapes_the_label(assets):
-    out = assets.funnel_list([(1, INJECT)])
-    assert "<script>&" not in out
-
-
 def test_an_identified_table_aligns_its_numbers_by_column_not_by_cell(assets):
     """class="num" on every cell of the 187-row species table was 9KB of the
     same six characters. With an id there is a selector to say it once."""

@@ -324,7 +324,6 @@ PROJECT_KEY = "project"
 # fetch wrote it, "assumed" when it was backfilled from the endpoint in force at
 # the time. The two are not the same evidence and a page may not merge them.
 PROJECT_SOURCE_KEY = "project_source"
-PROJECT_RECORDED = "recorded"
 PROJECT_ASSUMED = "assumed"
 
 # What to call a flora in prose. A slug nobody has named reads as itself, which
