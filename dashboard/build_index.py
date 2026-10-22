@@ -8,6 +8,7 @@ built, so an operational-only build remains a useful, honest landing page.
 from __future__ import annotations
 
 import argparse
+import csv
 import html
 import os
 import re
@@ -78,6 +79,33 @@ def build_figure(text: str) -> str:
     return html.unescape(found.group(1)).strip() if found else ""
 
 
+def scope_sentence(build_dir: str) -> str:
+    """What the data covers, counted off the published tables. A figure whose
+    table is absent is left out, never typed. Other pages' bylines can import this."""
+    def rows(name):
+        try:
+            with open(os.path.join(build_dir, name), encoding="utf-8", newline="") as fh:
+                return list(csv.DictReader(fh))
+        except OSError:
+            return []
+
+    parts = ["Drone-photographed crowns only, not every tree"]
+    health = rows("per_species_health.csv")
+    if health:
+        n = sum(int(r["n_labelled_frames"]) for r in health)
+        parts.append(f"{n:,} labelled close-ups across {len(health)} species are scored on Model health")
+    queue = rows("send_batches.csv")
+    if queue:
+        # mission is blank where the inventory does not name it; key is DJI_<capture date><time>_...
+        missions = {r["mission"] for r in queue if r.get("mission")}
+        dates = sorted(m.group(1) for r in queue if (m := re.search(r"DJI_(\d{8})\d{6}_", r["global_key"])))
+        first, last = (f"{d[:4]}-{d[4:6]}-{d[6:]}" for d in (dates[0], dates[-1])) if dates else ("", "")
+        span = f", photographed {first} to {last}" if dates else ""
+        source = f" from {len(missions)} missions" if missions else ""
+        parts.append(f"{len(queue):,} close-ups{source} are queued for labelling{span}")
+    return ". ".join(parts) + "."
+
+
 def available_names(build_dir: str) -> set:
     """Pages the index may link: registry files present, plus index and About."""
     names = {page[0] for page in [*PAGES, *OPTIONAL_PAGES]} | {EXPERIMENT}
@@ -114,10 +142,17 @@ def build(build_dir: str) -> str:
             + '<div class="tasks">' + "".join(card(*tile) for tile in tiles) + '</div>'
             + (f'<p class="more">{more}</p>' if more else "")
             + (f'<p class="scope">{html.escape(shared)}</p>' if shared else "")
+            + _scope_html(scope_sentence(build_dir), present)
             + "</main></body></html>\n")
 
 
-def build_about(available) -> str:
+def _scope_html(sentence: str, present) -> str:
+    link = (' <a href="embedding-atlas.html#view=locations">See the map</a>.'
+            if "embedding-atlas.html" in present else "")
+    return f'<p class="scope">{html.escape(sentence)}{link}</p>'
+
+
+def build_about(available, scope: str = "") -> str:
     """What each page is for, the caveats, and a glossary. Carries no data."""
     pages = "".join(
         f'<li><a href="{name}{fragment}">{html.escape(title)}</a>. {html.escape(purpose)}</li>'
@@ -128,6 +163,7 @@ def build_about(available) -> str:
     return (_head("About Panama canopy", "What each page of the Panama canopy site is for, how to read its numbers, and a glossary.", "about.html", available)
             + '<main id="main-content" tabindex="-1" class="about"><h1>About</h1>'
             + '<h2>What each page is for</h2><ul>' + pages + '</ul>'
+            + ('<h2>Data scope</h2>' + _scope_html(scope, available) if scope else "")
             + '<h2>Read the numbers with care</h2>' + "".join(f"<p>{c}</p>" for c in CAVEATS)
             + experiment
             + '<h2>Glossary</h2><dl>'
@@ -152,7 +188,7 @@ def main() -> None:
     ap.add_argument("--about-out", default=os.path.join("docs", "about.html"))
     args = ap.parse_args()
     for path, out in ((args.out, build(args.build)),
-                      (args.about_out, build_about(available_names(args.build)))):
+                      (args.about_out, build_about(available_names(args.build), scope_sentence(args.build)))):
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(out)
