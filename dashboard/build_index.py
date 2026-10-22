@@ -62,6 +62,15 @@ CAVEATS = ("Photo counts do not measure tree abundance.",
            "Each page describes its own snapshot, so the dates differ from page to page.")
 
 
+GLOSSARY = (
+    ("Close-up", "One close-up drone photo of a tree crown. A frame is the same thing."),
+    ("Crown", "The top of one tree, as seen from the drone."),
+    ("Centre crown", "The crown in the middle of a close-up. Each close-up is assigned to its centre crown."),
+    ("Segmentation version", "A run of the tool that outlines crowns in the mission map. The version can differ from mission to mission."),
+    ("Mission", "One drone flight session over a site. Each close-up belongs to one mission."),
+)
+
+
 def build_stamp(text: str) -> str:
     """Keep label and page dates distinct, without copying evaluation figures."""
     found = re.search(r'<div class="subtitle">(.*?)</div>', text, re.S)
@@ -172,7 +181,9 @@ def build_about(available, scope: str = "") -> str:
             + '<h2>Glossary</h2><dl>'
               '<dt>Recorded label</dt><dd>The species name a botanist has recorded for a photo.</dd>'
               '<dt>Pl@ntNet first guess</dt><dd>The species Pl@ntNet ranks first for a photo.</dd>'
-              '<dt>Labelled frame</dt><dd>A drone photo that carries a recorded label.</dd></dl>'
+              '<dt>Labelled frame</dt><dd>A drone photo that carries a recorded label.</dd>'
+              + "".join(f"<dt>{term}</dt><dd>{html.escape(meaning)}</dd>" for term, meaning in GLOSSARY)
+              + '</dl>'
             + "</main></body></html>\n")
 
 

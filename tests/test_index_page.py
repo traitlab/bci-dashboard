@@ -265,3 +265,12 @@ def test_intro_names_the_audience_and_the_limits(build_index, tmp_path):
     assert "project leads and the labelling coordinator" in intro
     assert "Annotators work in Labelbox" in intro and "hidden on purpose" in intro
     assert "does not yet suggest where to fly the drone" in intro
+
+
+def test_about_glossary_defines_the_data_terms(build_index):
+    about = build_index.build_about({"about.html"})
+    assert [t for t, _ in build_index.GLOSSARY] == [
+        "Close-up", "Crown", "Centre crown", "Segmentation version", "Mission"]
+    for term, meaning in build_index.GLOSSARY:
+        assert f"<dt>{term}</dt><dd>{meaning}</dd>" in about
+    assert "A frame is the same thing" in about
