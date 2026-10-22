@@ -448,8 +448,8 @@ def send_first_rows(predictions, joined_stems, canon, support, top1,
     Returns ``([(queue, stem, species, confidence, novelty_rank), ...],
     n_no_answer, held_out)``. Order is queue first, then least like the frames
     already labelled, then least confident, then the stem. Confidence says
-    nothing about a species with almost no labels, and on the long-lens camera
-    it is not trustworthy at all, so what a photo looks like leads and
+    nothing about a species with almost no labels, and on the later "tele"
+    naming batch it is not trustworthy at all, so what a photo looks like leads and
     confidence breaks the tie. A frame the model answered nothing for is
     counted, not queued.
 
