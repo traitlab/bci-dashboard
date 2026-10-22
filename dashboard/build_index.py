@@ -138,7 +138,10 @@ def build(build_dir: str) -> str:
                   "Drone photos of the Panama canopy with Pl@ntNet guesses and recorded labels: browse photos, choose the next labelling batch, check model health.", "index.html", present)
             + '<main id="main-content" tabindex="-1"><h1>Panama canopy</h1>'
             + '<p class="intro">Drone photos of the canopy on Barro Colorado Island and other Panama field sites. '
-              'Pl@ntNet suggests a name for each photo and botanists confirm it. <a href="about.html">About</a></p>'
+              'Pl@ntNet suggests a name for each photo and botanists confirm it. '
+              'This site is a window into the current data for the project leads and the labelling coordinator. '
+              'Annotators work in Labelbox, where model guesses are hidden on purpose so they do not bias identifications. '
+              'It does not yet suggest where to fly the drone. <a href="about.html">About</a></p>'
             + '<div class="tasks">' + "".join(card(*tile) for tile in tiles) + '</div>'
             + (f'<p class="more">{more}</p>' if more else "")
             + (f'<p class="scope">{html.escape(shared)}</p>' if shared else "")

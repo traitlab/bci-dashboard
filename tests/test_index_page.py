@@ -257,3 +257,11 @@ def test_scope_sentence_numbers_equal_the_table_counts(build_index, tmp_path):
 def test_scope_sentence_omits_what_the_tables_cannot_give(build_index, tmp_path):
     assert build_index.scope_sentence(str(tmp_path)) == "Drone-photographed crowns only, not every tree."
     assert "Data scope" not in build_index.build_about({"about.html"})
+
+
+def test_intro_names_the_audience_and_the_limits(build_index, tmp_path):
+    out = build_index.build(fake_build(tmp_path))
+    intro = out[out.index('<p class="intro">'):out.index("</p>", out.index('<p class="intro">'))]
+    assert "project leads and the labelling coordinator" in intro
+    assert "Annotators work in Labelbox" in intro and "hidden on purpose" in intro
+    assert "does not yet suggest where to fly the drone" in intro
