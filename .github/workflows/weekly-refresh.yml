@@ -2,7 +2,8 @@ name: Weekly real-data snapshot
 
 on:
   schedule:
-    - cron: '17 4 * * 1'
+    # Tuesday: the Labelbox export lands on Arbutus on Monday evening UTC.
+    - cron: '17 4 * * 2'
   workflow_dispatch:
     inputs:
       refresh_labels:
