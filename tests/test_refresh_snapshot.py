@@ -356,3 +356,125 @@ def test_export_date_is_not_the_later_merge_date():
         None,
         "2026-08-27",
     )
+
+
+def fixture_export(
+    repo, *, stem="one.JPG", labelled=True, rework=False, name="e.ndjson"
+):
+    """Use the real export parser and merger with synthetic annotation data."""
+    shutil.copy2(
+        REPO / "labelling/gt_from_export.py", repo / "labelling/gt_from_export.py"
+    )
+    (repo / "data/splits.csv").write_text("global_key,split\ncomb_one.JPG,test\n")
+    box = {"bounding_box": {"left": 0, "top": 0, "width": 10, "height": 10}}
+    answer = {"radio_answer": {"name": "Hura crepitans-HURACR"}}
+    project = {"labels": []}
+    if labelled:
+        project["labels"] = [
+            {"annotations": {"objects": [{**box, "classifications": [answer]}]}}
+        ]
+    if rework:
+        project["project_details"] = {"workflow_status": "IN_REWORK"}
+    row = {
+        "data_row": {"id": "fixture-row", "global_key": stem},
+        "projects": {"fixture-project": project},
+    }
+    export = repo / name
+    export.write_text(json.dumps(row) + "\n")
+    return export
+
+
+def snapshot_of(root):
+    return {p: p.read_bytes() for p in (root / "data").rglob("*") if p.is_file()}
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"labelled": False},
+        {"stem": "outside.JPG"},
+        {"rework": True},
+    ],
+)
+def test_exports_without_usable_corpus_labels_fail_before_any_merge(tmp_path, options):
+    fixture_repo(tmp_path)
+    export = fixture_export(tmp_path, **options)
+    original = snapshot_of(tmp_path)
+    result = invoke(tmp_path, "--export", str(export), "--export-date", "2026-10-15")
+    assert result.returncode != 0
+    assert "no usable in-corpus labels" in result.stderr
+    assert snapshot_of(tmp_path) == original
+    assert not (tmp_path / "assessment_ran").exists()
+    assert not (tmp_path / "build").exists()
+    assert not (tmp_path / "snapshots").exists()
+    assert (tmp_path / "docs/index.html").read_text() == "last verified public snapshot"
+
+
+def test_one_usable_export_among_empty_ones_still_merges(tmp_path):
+    fixture_repo(tmp_path)
+    empty = fixture_export(tmp_path, labelled=False, name="empty.ndjson")
+    valid = fixture_export(tmp_path)
+    result = invoke(
+        tmp_path,
+        *(
+            "--export",
+            str(empty),
+            "--export",
+            str(valid),
+            "--export-date",
+            "2026-10-15",
+        ),
+    )
+    assert result.returncode == 0, result.stderr + result.stdout
+    status = json.loads((tmp_path / "docs/refresh_status.json").read_text())
+    assert status["labelbox_exports_merged"] is True
+    assert status["labelbox_export_date"] == "2026-10-15"
+
+
+@pytest.mark.parametrize(
+    "kind", ["private-file", "symlink", "allowed-symlink", "directory"]
+)
+def test_unexpected_public_members_fail_before_staging_or_build(tmp_path, kind):
+    fixture_repo(tmp_path)
+    docs = tmp_path / "docs"
+    if kind == "private-file":
+        (docs / "gt_dominant_taxon.csv").write_text("private")
+    elif kind == "symlink":
+        (docs / "leak.html").symlink_to(tmp_path / "data")
+    elif kind == "allowed-symlink":
+        (docs / "about.html").symlink_to(docs / "index.html")
+    else:
+        (docs / "thumbs").mkdir()
+    result = invoke(tmp_path)
+    assert result.returncode != 0
+    assert "unexpected files or non-regular entries" in result.stderr
+    assert not (tmp_path / "build").exists()
+    assert not (tmp_path / "snapshots").exists()
+    assert (docs / "index.html").read_text() == "last verified public snapshot"
+
+
+def test_a_symlinked_docs_directory_is_refused(tmp_path):
+    fixture_repo(tmp_path)
+    (tmp_path / "docs").rename(tmp_path / "elsewhere")
+    (tmp_path / "docs").symlink_to(tmp_path / "elsewhere", target_is_directory=True)
+    result = invoke(tmp_path)
+    assert result.returncode != 0
+    assert "must be a regular directory" in result.stderr
+
+
+def test_publisher_adding_a_private_file_blocks_promotion(tmp_path):
+    fixture_repo(tmp_path)
+    builder = tmp_path / "dashboard/build_internal.py"
+    builder.write_text(
+        builder.read_text()
+        + "(out.parent.parent/'docs'/'private.csv').write_text('x')\n"
+    )
+    result = invoke(tmp_path)
+    assert result.returncode != 0
+    assert "unexpected files" in result.stderr
+    assert (tmp_path / "docs/index.html").read_text() == "last verified public snapshot"
+    assert not (tmp_path / "snapshots/model-health-2026-10-16").exists()
+
+
+def test_the_allowlist_accepts_the_published_docs_tree():
+    refresh.validate_public_output(REPO / "docs")
