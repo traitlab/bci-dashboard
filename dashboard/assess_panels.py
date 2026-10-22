@@ -61,8 +61,7 @@ def limit_note(transductive: dict, limits: dict) -> str:
             f'work from. Blank under {LIMIT_MIN_FRAMES} viewed frames. Over the '
             f'{len(shown)} species with that many: {count["resolved"]} no gap found, '
             f'{count["classifier_limited"]} better model, '
-            f'{count["sampling_limited"]} more labels. This verdict only covers species '
-            f'with at least {LIMIT_MIN_FRAMES} viewed frames; the {blank} blank rows have '
+            f'{count["sampling_limited"]} more labels; the {blank} blank rows have '
             f'too few labels to judge, and more labels is exactly what they need.</p>')
 
 
@@ -143,8 +142,7 @@ def reject_table(sweep: dict) -> str:
             + unplaced_note(pop)
             + '<p class="note">Read a row as a queue position: frames with many '
               'plausible names go in front of a botanist first. Nothing here labels a '
-              'frame. The classifier and random seed are recorded, so the sweep '
-              'reproduces exactly.</p>')
+              'frame.</p>')
 
 
 def richness_note(status: dict) -> str:

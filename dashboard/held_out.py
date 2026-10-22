@@ -289,7 +289,7 @@ def _mix_sentences(mix: dict | None) -> str:
     if mix["draws_empty"]:
         rest += (f'In {mix["draws_empty"]:,} no shared species was left and the re-run '
                  f'was not counted. ')
-    rest += (f'The seed is fixed so a rebuild prints the same range. Left out, because '
+    rest += (f'Left out, because '
              f'only one set holds them: {ex["a"]["frames"]:,} test frames on '
              f'{ex["a"]["species"]:,} species and {ex["b"]["frames"]:,} held-back frames '
              f'on {ex["b"]["species"]:,} species.')
@@ -312,8 +312,7 @@ def note(result: dict, flight: dict | None = None) -> str:
     t, u = result["test"], result["unseen"]
     unplaced = result["unplaced"]
     if u["n"]:
-        verdict = (f'No: {u["n"]:,} test frames come from a flight with no labelled frame, '
-                   f'so not every test frame shares its flight with the rest.')
+        verdict = f'{u["n"]:,} test frames come from a flight with no labelled frame.'
     else:
         verdict = ('Every held-back test frame shares its flight, one date over one site, with '
                    'at least one labelled frame, so no test frame comes from a flight the labels never '
@@ -329,10 +328,8 @@ def note(result: dict, flight: dict | None = None) -> str:
                  f'split. Those frames hold different species in different shares from '
                  f'the rest, so the gap between the two rates is not the size of a '
                  f'leak. ')
-    else:
-        line += ('The second score below is on other frames, held back whole by flight, '
-                 'a further new-flight subset. ' if flight else
-                 'A set held back by whole flights would grade frames that share a '
+    elif not flight:
+        line += ('A set held back by whole flights would grade frames that share a '
                  'flight with no labelled frame. ')
     if unplaced:
         line += (f'{unplaced:,} test frame{"s" if unplaced != 1 else ""} could not be '

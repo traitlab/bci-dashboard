@@ -91,14 +91,11 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
         f"<b>{pctf(now['macro_top1'])} per species and {pctf(now['micro_top1'])} per "
         f"frame, on the same frames.</b>",
         corpus_block
-        + f'<p class="note"><b>Per species, each of the {n_sp} species counts once. '
-          f'Per frame, each of the {n:,} frames counts once.</b></p>'
         + table([("Labelled frames per species", False), ("Species", True),
                  ("Frames", True), ("Share of species", True),
                  ("Share of frames", True), ("First guess right", True)],
                 rows, source="support_buckets.csv")
-        + f'<p class="note"><b>Read the two share columns against each other.</b> The '
-          f'{singles} single-frame species are '
+        + f'<p class="note">The {singles} single-frame species are '
           f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the species but '
           f'{100 * buckets[thin]["n_crowns"] / n:.0f}% of the frames. They are '
           f'also the row Pl@ntNet gets right least often, '
@@ -107,7 +104,7 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           f'That is the gap between the two headline rates.</p>'
           # No cause asserted here: the warning block below gives that claim
           # with its reason attached, where a reader can weigh it.
-          f'<p class="note">Misses differ at each end. On species with {THIN_MAX} frames '
+          f'<p class="note">On species with {THIN_MAX} frames '
           f'or fewer, the right name is still in the {hc.N_CANDIDATES} for {pctf(thin_in5)} '
           f'of {thin_n} misses. At {FAT_MIN}+ it is {pctf(fat_in5)} of {fat_n}. Misses on '
           f'common species are near misses; on rare ones the model does not know the '
@@ -119,7 +116,7 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
           f'one-frame species scores only 0% or 100%, so those {singles} species-level scores are coin '
           f'flips.</p>'
           f'<div class="warn"><strong>Those rows show how common a species is.</strong> Our labelling did not '
-          f'change them: the model dates from {hc.PLANTNET_MODEL_VERSION} and has never seen our labels. Common species '
+          f'change them: the model dates from {hc.PLANTNET_MODEL_VERSION}, before our labels reached Pl@ntNet. Common species '
           f'have more reference photos inside Pl@ntNet. What extra labels buy is a rate '
           f'steady enough to act on, which takes about {hc.WELL_SAMPLED_MIN_N} '
           f'frames.</div>',

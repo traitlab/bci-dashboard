@@ -99,8 +99,7 @@ def populations(c) -> str:
     if not rows:
         return f'<p class="note"><b>Scored against {ref}.</b></p>' + crossing
     return (f'<p class="note"><b>Scored against {ref}.</b> The cards count only those '
-            f'frames. The other labelled frames are scored on their own row below, '
-            f'never pooled into the cards.</p>' + crossing
+            f'frames. The other labelled frames are scored on their own row below.</p>' + crossing
             + table([("Labels", False), ("Frames", True), ("Species", True),
                      ("Top-1, per species", True), ("Top-1, per frame", True),
                      (f"Top-{k}, per species", True), (f"Top-{k}, per frame", True),
