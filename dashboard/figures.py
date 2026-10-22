@@ -63,9 +63,8 @@ def conf(r):
 
 
 def camera_of(key):
-    """Which drone camera shot a frame, read off its key: ``zoom`` (wide-angle)
-    or ``tele`` (long-lens) in the file name. Counted, not assumed: the two
-    populations are not the same one."""
+    """Which file-naming batch a frame is in, read off its key: ``zoom`` (earlier)
+    or ``tele`` (later). One camera shot both; the batches are counted apart."""
     low = key.lower()
     for c in ("zoom", "tele"):
         if c in low:
@@ -416,7 +415,7 @@ def _look(rows, queue_cams, n_ranked):
                           ("novelty_rank", "mean_distance_to_nearest_labelled"))
 
     # The frames the ordering puts first, and their cameras. The labelled frames
-    # are all one camera, so a photo can read as new because of the lens. The
+    # are all one naming batch, so a photo can read as new because of its batch. The
     # same decile the ranker prints, so the page and the run agree.
     ranked = sorted((r for r in rows if r[4] != queues.NO_NOVELTY), key=lambda r: r[4])
     head = ranked[:max(1, int(n_ranked * hc.QUEUE_HEAD_SHARE))] if ranked else []

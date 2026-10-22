@@ -149,18 +149,18 @@ def selection_complaint(audit: dict | None, confound: dict | None,
     they are missing. A hash the ordering file does not carry (the older text
     sidecar) cannot be checked, and is let through with the panel's own caveat.
     """
-    def stale(name, got, want, what):
+    def stale(name, got, want, what, flag):
         return (f"{name} was run on {what} {got[:12]}, but the ordering file was "
                 f"built against {want[:12]}. Re-run labelling/rank_queue.py "
-                f"{'--audit' if 'audit' in name else '--confound'}, or remove the file.")
+                f"{flag}, or remove the file.")
     if audit and audit.get("sha") and provenance.get("anchor_sha") \
             and audit["sha"] != provenance["anchor_sha"]:
         return stale(hc.SELECTION_AUDIT_JSON, audit["sha"], provenance["anchor_sha"],
-                     "labelled photos")
+                     "labelled photos", "--audit")
     if confound and confound.get("sha") and provenance.get("sha") \
             and confound["sha"] != provenance["sha"]:
         return stale(hc.SELECTION_CONFOUND_JSON, confound["sha"], provenance["sha"],
-                     "a pool")
+                     "a pool", "--confound")
     return ""
 
 

@@ -34,7 +34,6 @@ from crownfirst._confound_audit import confound_audit
 # fifth audit is classified by the same rule as the four beside it; a copy here
 # would drift the day crownfirst moves a threshold.
 from crownfirst._confound_audit import eta_squared as _eta_squared
-from crownfirst._confound_audit import pearson as _pearson
 from crownfirst._confound_audit import verdict as _verdict
 from scipy import stats
 

@@ -594,8 +594,8 @@ def main(argv=None) -> int:
                         named_without_embedding=n_unembedded)
     print(f"wrote {write_run_record(args.out, record)}")
 
-    # The named photos are all one camera and the queue is not, so a photo can
-    # read as new because of the lens rather than the species. Print the mix at
+    # The named photos are all one naming batch and the queue is not, so a photo
+    # can read as new because of its batch rather than the species. Print the mix at
     # the head against the mix of the whole pool, and let a reader judge it.
     head = max(1, int(len(order) * TOP_DECILE))
     print(f"camera mix, whole queue: {camera_mix(pool_keys)}")

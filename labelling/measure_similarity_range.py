@@ -76,8 +76,8 @@ TELE_SUFFIX = "tele"
 
 
 def is_tele(key: str) -> bool:
-    """The telephoto camera, off the filename stem. Never labelled and a
-    different lens, so it is out even if a label appears one day."""
+    """The later "tele" file-naming batch, off the filename stem. Never labelled
+    and a different batch, so it is out even if a label appears one day."""
     return hc.frame_key(key).endswith(TELE_SUFFIX)
 
 
