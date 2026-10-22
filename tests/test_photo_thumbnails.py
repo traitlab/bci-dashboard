@@ -42,7 +42,7 @@ t.onerror();assert.match(t.src,/^https:/);t.onerror();assert.equal(t.hidden,true
 
 def test_explorer_only_the_enlarge_dialog_loads_the_original():
     html = runpy.run_path(ROOT / "dashboard/explorer_assets.py")["HTML"]
-    assert html.count("src=thumbSrc(p)") == 3
+    assert html.count("src=thumbSrc(p)") == 4
     assert "image.src=p.image}" not in html and "image.src=p.image;$('detailViewport')" in html
 
 
