@@ -103,8 +103,8 @@ def p_floor(c):
         f'{int(cf["n_species"])} species are {pctf(cf["top2_species_share"])} of the '
         f'{int(cf["n_frames"])} frames, so the gap leans towards what the model knows '
         f'best.</li></ul></div>'
-        f'<p class="note">Which frames, what counts as right and when we could look were '
-        f'all fixed before the data. The full read and the warnings the design requires '
+        f'<p class="note">What counts as right and when we could look were also fixed '
+        f'before the data. The full read and the warnings the design requires '
         f'are in its writeup, sent on request.</p>')
     return panel(
         'What the centre crop costs, and how far that number reaches',
