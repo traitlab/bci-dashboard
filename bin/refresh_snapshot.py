@@ -16,6 +16,7 @@ import io
 import json
 import os
 import re
+import runpy
 import shutil
 import subprocess
 import sys
@@ -44,6 +45,30 @@ BUNDLE_EXTRA_GLOBS = ("predictions/cache/*.json", "embeddings_labelled/cache/*.j
                       "embeddings_queue/cache/*.json", "crownfirst/*.json")
 CROWNFIRST_EMBEDDINGS = "crownfirst/plantclef2024_tile2x2_max.json"
 PAGES = ("model_health_dashboard.html", "label_queue_dashboard.html")
+# Explicit public artifact membership. Adding a public file requires review here.
+PUBLIC_FILES = frozenset(
+    (
+        ".nojekyll",
+        "about.html",
+        "confidence_calibration.csv",
+        "coverage_gate.csv",
+        "crownfirst-atlas.html",
+        "embedding-atlas.html",
+        "explorer.html",
+        "index.html",
+        "label_queue_dashboard.html",
+        "label_queue_team.html",
+        "label_review_queue.csv",
+        "model_health_dashboard.html",
+        "name_reconciliation.csv",
+        "per_species_health.csv",
+        "refresh_status.json",
+        "reject_sweep.csv",
+        "send_batches.csv",
+        "send_first_queue.csv",
+        "support_buckets.csv",
+    )
+)
 MAX_BUNDLE_BYTES = 2 * 1024**3
 MAX_BUNDLE_MEMBERS = 100_000
 
@@ -200,6 +225,33 @@ def validate_inputs(repo: Path, exports: list[Path]) -> None:
         raise ValueError("cached Labelbox ground truth has no recorded source date")
 
 
+def validate_export_labels(repo: Path, exports: list[Path]) -> None:
+    """Run the real merger's parser and corpus filter before it writes any GT."""
+    if not exports:
+        return
+    merger = runpy.run_path(str(repo / "labelling/gt_from_export.py"))
+    with (repo / "data/splits.csv").open(encoding="utf-8", newline="") as source:
+        corpus = {row["global_key"] for row in csv.DictReader(source)}
+    labelled, *_ = merger["union_exports"](exports)
+    rework = merger["rework_frames"](exports)
+    prefix = merger["GT_KEY_PREFIX"]
+    if not any(prefix + stem in corpus and stem not in rework for stem in labelled):
+        raise ValueError("explicit Labelbox exports contain no usable in-corpus labels")
+
+
+def validate_public_output(directory: Path) -> None:
+    """Fail closed without deleting unrecognized files or following links."""
+    if directory.is_symlink() or not directory.is_dir():
+        raise ValueError("public output must be a regular directory")
+    if any(
+        path.name not in PUBLIC_FILES or path.is_symlink() or not path.is_file()
+        for path in directory.iterdir()
+    ):
+        raise ValueError(
+            "public output contains unexpected files or non-regular entries"
+        )
+
+
 def run(repo: Path, script: str, *args: str, env: dict, research: bool = False) -> None:
     command = (
         [sys.executable] + ([] if research else ["-S"]) + [str(repo / script), *args]
@@ -266,6 +318,8 @@ def refresh(
         if not exports:
             raise ValueError("--export-date requires at least one explicit --export")
     validate_inputs(repo, exports)
+    validate_export_labels(repo, exports)
+    validate_public_output(repo / "docs")
     data = repo / "data"
     build = repo / "build"
     build.mkdir(parents=True, exist_ok=True)
@@ -404,6 +458,10 @@ def refresh(
         (published / "refresh_status.json").write_text(
             json.dumps(status, sort_keys=True, indent=2) + "\n", encoding="utf-8"
         )
+        # Check staging and the destination again before promoting any output:
+        # the publisher or a concurrent process must not add a private artifact.
+        validate_public_output(published)
+        validate_public_output(repo / "docs")
         snapshot = stage / "snapshot"
         shutil.copytree(tables, snapshot)
         for name in PAGES:
