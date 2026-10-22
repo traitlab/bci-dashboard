@@ -401,8 +401,9 @@ def normalize(name: str) -> str:
 def canonical_binomial(name):
     """Bare 'Genus species' from an authored accepted name.
     'Ocotea leptobotra (Ruiz & Pav.) Mez' -> 'Ocotea leptobotra'. None if the
-    first two tokens are not a plain binomial. Same rule as
-    crownfirst.wcvp_export.canonical_binomial."""
+    first two tokens are not a plain binomial. Looser than
+    crownfirst.wcvp_export.canonical_binomial: hybrid epithets ('×hybrid') and
+    stray hyphens ('-bad') pass here but crownfirst rejects them."""
     if not name:
         return None
     tok = name.split()
