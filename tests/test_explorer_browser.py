@@ -72,7 +72,8 @@ get('explorer-data').textContent=__DATA__;
 for(const [id,values] of [['source',['prediction','recorded']],['labelStatus',['all','with','without','compare']]])for(const value of values){const option=make('option');option.value=value;get(id).append(option)}
 """.replace("__HASH__", json.dumps(initial_hash)).replace("__DATA__", json.dumps(json.dumps(payload or catalogue())))
     script = template().split("<script>")[1].split("</script>")[0]
-    node(setup + prelude + script + checks)
+    # Leading directive: the template's own 'use strict' sits after setup here, where it is inert.
+    node("'use strict';" + setup + prelude + script + checks)
 
 
 def test_taxon_membership_counts_compose_without_promoting_guesses_to_labels():
