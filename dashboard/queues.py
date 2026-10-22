@@ -70,7 +70,12 @@ SEND_BATCH_LOOKUP_COLUMNS = ["how_new_it_looks"]
 #
 # `mission` and `site` say where the frame was flown, off the inventory; blank
 # for a frame it does not name.
-SEND_BATCH_LINK_COLUMNS = ["image_url", "labelbox_url", "data_row_id", "mission", "site"]
+#
+# `group_by` is last and the same on every row: how the file was packed
+# ("species" or "rank", see `GROUP_BY`), so a batch's mode can be read off it
+# when Labelbox time per label is compared across batches.
+SEND_BATCH_LINK_COLUMNS = ["image_url", "labelbox_url", "data_row_id", "mission", "site",
+                           "group_by"]
 SEND_BATCH_HEADER = SEND_BATCH_COLUMNS + SEND_BATCH_LOOKUP_COLUMNS + SEND_BATCH_LINK_COLUMNS
 
 # No more than this many crowns per Labelbox batch, one botanist session's worth.
@@ -102,6 +107,26 @@ def _batch_size_from_env(raw: str | None, default: int = 100) -> int:
 
 
 BATCH_SIZE = _batch_size_from_env(os.environ.get("BCI_BATCH_SIZE"))
+
+# How rows are packed into batches. "species" keeps each species together at the
+# rank of its best photo; "rank" is strict queue order in fixed-size chunks.
+# Which one annotators work faster in is untested, so species stays the default.
+GROUP_BYS = ("species", "rank")
+# How each mode reads in a sentence on a page.
+GROUP_PHRASE = {"species": "each species kept together", "rank": "in strict rank order"}
+
+
+def _group_by_from_env(raw: str | None, default: str = "species") -> str:
+    """``BCI_GROUP_BY``, or the default when unset or empty. Rejected loudly,
+    like the batch size: a typo must not silently change how batches are cut."""
+    if raw is None or not raw.strip():
+        return default
+    if raw.strip() not in GROUP_BYS:
+        raise ValueError(f"BCI_GROUP_BY must be one of {GROUP_BYS}, got {raw!r}")
+    return raw.strip()
+
+
+GROUP_BY = _group_by_from_env(os.environ.get("BCI_GROUP_BY"))
 
 # The share of the first batch drawn at random from the whole unlabelled pool
 # instead of from the head of the queue. Nothing here measures whether the queue
@@ -309,11 +334,15 @@ def draw_control_slice(queue_rows: list, batch_size: int = BATCH_SIZE,
 
 
 def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
-                       control_fraction: float = CONTROL_FRACTION) -> list:
+                       control_fraction: float = CONTROL_FRACTION,
+                       group_by: str = GROUP_BY) -> list:
     """Species-grouped, priority-first batches over an already-ordered
     ``queue_rows`` (send_first_queue.csv order). Each species is visited once,
     at its highest-priority row; its rows travel together, packed whole until
     the next would overflow ``batch_size``, then split.
+
+    ``group_by="rank"`` instead cuts the queue in strict rank order into
+    fixed-size chunks, each row labelled with its own species.
 
     The first batch gives up ``control_fraction`` of its room to the control
     slice, which rides at the end of it as one block. Every other batch packs as
@@ -322,6 +351,8 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
     """
     if batch_size < 1:
         raise ValueError(f"batch_size must be at least 1, got {batch_size}")
+    if group_by not in GROUP_BYS:
+        raise ValueError(f"group_by must be one of {GROUP_BYS}, got {group_by!r}")
     queue_at = SEND_FIRST_COLUMNS.index("queue")
     key_at = SEND_FIRST_COLUMNS.index("global_key")
     species_at = SEND_FIRST_COLUMNS.index("predicted_species")
@@ -348,6 +379,10 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
     groups = [(sp, by_species[sp][i:i + batch_size])
               for sp in order
               for i in range(0, len(by_species[sp]), batch_size)]
+    if group_by == "rank":
+        # One-row groups through the same packing loop: rank order, no splitting.
+        groups = [(row[species_at], [row])
+                  for i, row in enumerate(queue_rows) if i not in control_at]
 
     batches = []
     batch_id = 0

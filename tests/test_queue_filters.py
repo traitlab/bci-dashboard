@@ -24,7 +24,7 @@ CONF = {"k1": "0.1200", "k2": "0.5000", "k3": "0.9500"}  # k4 has no confidence
 @pytest.fixture
 def tables(tmp_path):
     for name, header, rows in (
-            ("send_batches.csv", HEADER, ROWS),
+            ("send_batches.csv", HEADER + ["group_by"], [r + ["species"] for r in ROWS]),
             ("send_first_queue.csv", QUEUE_HEADER,
              [["q", k, v, "x"] for k, v in CONF.items()])):
         with open(tmp_path / name, "w", newline="", encoding="utf-8") as f:

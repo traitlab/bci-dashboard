@@ -34,7 +34,7 @@ from core import (
     GT_KEY_PREFIX, N_CANDIDATES, QUEUE_NOVELTY_CSV,
 )
 from queues import (
-    BATCH_SIZE, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_BATCH_HEADER,
+    BATCH_SIZE, GROUP_BY, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_BATCH_HEADER,
     SEND_FIRST_COLUMNS, SEND_FIRST_HEADER,
     chunk_send_batches, how_new, load_novelty, load_novelty_distance,
     novelty_provenance, send_first_rows,
@@ -221,7 +221,7 @@ def write_send_batches(out_dir, batch_rows):
             key = row[key_at]
             w.writerow(list(row) + [how_new(distance, key), images.get(key, ""),
                                     boxes.get(key, ""), data_row_id(boxes.get(key, "")),
-                                    *origins.get(key, ("", ""))])
+                                    *origins.get(key, ("", "")), GROUP_BY])
 
 
 def top1(r, key="ranked"):
@@ -478,7 +478,7 @@ def main() -> None:
     # priority-first globally, one species per batch, never a mixed bag.
     # Batched before the queue is written, because the queue row now carries the
     # batch it landed in and that is only known once the packing has run.
-    batch_rows = chunk_send_batches(queue_rows, batch_size=BATCH_SIZE)
+    batch_rows = chunk_send_batches(queue_rows, batch_size=BATCH_SIZE, group_by=GROUP_BY)
     write_send_first_queue(out_dir, with_batch_ids(queue_rows, batch_rows))
     write_send_batches(out_dir, batch_rows)
     rl.log_send_queue(log, q_counts, batch_rows, n_no_answer, n_ranked,

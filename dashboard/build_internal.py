@@ -153,7 +153,7 @@ def batches_note(c):
     return (f'<p class="note"><strong>The prioritised batches are in '
             f'<a href="send_batches.csv">send_batches.csv</a>.</strong> '
             f'Send from that file: it holds {c.n_batches} batches of at most '
-            f'{BATCH_SIZE} photos, each species group kept together. '
+            f'{BATCH_SIZE} photos, {queues.GROUP_PHRASE[queues.GROUP_BY]}. '
             f'How Pl@ntNet scores against the labels is a separate page, '
             f'<a href="model_health_dashboard.html">Model health</a>.</p>')
 

@@ -186,10 +186,17 @@ def check_send_batches(directory, queue_path, n_unlab):
     by_batch: dict = {}
     for r in brows:
         by_batch.setdefault(r["batch_id"], []).append(r)
+    # A file written before the column existed was packed by species.
+    modes = {r.get("group_by") or "species" for r in brows}
+    if len(modes) > 1 or not modes <= set(queues.GROUP_BYS):
+        fail(f"send_batches.csv: group_by is {sorted(modes)}, want one of {queues.GROUP_BYS}")
+    group_by = modes.pop() if modes else queues.GROUP_BY
     for bid, rows in by_batch.items():
         if len(rows) > queues.BATCH_SIZE:
             fail(f"send_batches.csv batch {bid}: {len(rows)} rows exceeds "
                  f"BATCH_SIZE={queues.BATCH_SIZE}")
+        if group_by == "rank":
+            continue
         runs = [r["species_group"] for i, r in enumerate(rows)
                 if i == 0 or r["species_group"] != rows[i - 1]["species_group"]]
         if len(runs) != len(set(runs)):
@@ -205,7 +212,7 @@ def check_send_batches(directory, queue_path, n_unlab):
     # the packing rule slips through: the old file stays structurally legal and
     # the build stays quiet. Recompute the assignment and require this exact one.
     want = queues.chunk_send_batches(
-        [[r[c] for c in queues.SEND_FIRST_COLUMNS] for r in qrows])
+        [[r[c] for c in queues.SEND_FIRST_COLUMNS] for r in qrows], group_by=group_by)
     got = [[r[c] for c in queues.SEND_BATCH_COLUMNS] for r in brows]
     if [[str(v) for v in row] for row in want] != got:
         fail(f"send_batches.csv is a valid repartition of {queue_path} but not the "

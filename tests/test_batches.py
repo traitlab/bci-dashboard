@@ -292,3 +292,92 @@ def test_a_cap_that_is_not_a_number_stops_the_run(queues, raw):
 def test_a_cap_below_one_stops_the_run(queues, raw):
     with pytest.raises(ValueError, match="at least 1"):
         queues._batch_size_from_env(raw)
+
+
+# --- group_by -----------------------------------------------------------------
+
+def golden_rows(queues):
+    """30 interleaved rows over five species; the golden below came from the
+    packer before `group_by` existed."""
+    cols = queues.SEND_FIRST_COLUMNS
+    out = []
+    for i in range(30):
+        r = [""] * len(cols)
+        r[cols.index("queue")] = "long_tail" if i < 20 else "normal"
+        r[cols.index("global_key")] = f"k{i:02d}"
+        r[cols.index("predicted_species")] = "abcde"[(i * 3 + i // 4) % 5]
+        out.append(r)
+    return out
+
+
+GOLDEN_SPECIES = [
+    (1, "a", "k00", "queue"), (1, "a", "k11", "queue"), (1, "a", "k14", "queue"),
+    (1, "a", "k17", "queue"), (1, "a", "k20", "queue"), (1, "control", "k25", "control"),
+    (2, "d", "k01", "queue"), (2, "d", "k04", "queue"), (2, "d", "k15", "queue"),
+    (2, "d", "k18", "queue"), (2, "d", "k21", "queue"), (2, "d", "k24", "queue"),
+    (3, "b", "k02", "queue"), (3, "b", "k05", "queue"), (3, "b", "k08", "queue"),
+    (3, "b", "k19", "queue"), (3, "b", "k22", "queue"), (3, "b", "k28", "queue"),
+    (4, "e", "k03", "queue"), (4, "e", "k06", "queue"), (4, "e", "k09", "queue"),
+    (4, "e", "k12", "queue"), (4, "e", "k23", "queue"), (4, "e", "k26", "queue"),
+    (4, "e", "k29", "queue"),
+    (5, "c", "k07", "queue"), (5, "c", "k10", "queue"), (5, "c", "k13", "queue"),
+    (5, "c", "k16", "queue"), (5, "c", "k27", "queue")]
+
+
+def test_species_mode_is_unchanged_and_the_default(queues):
+    for kwargs in ({}, {"group_by": "species"}):
+        got = queues.chunk_send_batches(golden_rows(queues), batch_size=7, **kwargs)
+        assert [(b[0], b[1], b[2], b[4]) for b in got] == GOLDEN_SPECIES
+
+
+def test_rank_mode_keeps_global_rank_order_in_fixed_chunks(queues):
+    got = queues.chunk_send_batches(golden_rows(queues), batch_size=7, group_by="rank")
+    queue_part = [b for b in got if b[4] == "queue"]
+    assert [b[2] for b in queue_part] == [f"k{i:02d}" for i in range(30) if i != 25]
+    assert sizes(got) == [7, 7, 7, 7, 2]       # batch 1: 6 queue rows + 1 control
+    assert [(b[0], b[2]) for b in got if b[4] == "control"] == [(1, "k25")]
+    assert {b[1] for b in queue_part} <= set("abcde")
+
+
+def test_rank_mode_with_no_control_fills_every_batch(queues):
+    got = queues.chunk_send_batches(golden_rows(queues), batch_size=7, control_fraction=0,
+                                    group_by="rank")
+    assert sizes(got) == [7, 7, 7, 7, 2]
+    assert [b[2] for b in got] == [f"k{i:02d}" for i in range(30)]
+
+
+@pytest.mark.parametrize("mode", ["species", "rank", None])
+def test_the_build_check_follows_the_group_by_column(queues, history, tmp_path, mode):
+    """None is a file written before the column existed: read as species."""
+    import csv
+    rows = golden_rows(queues)
+    for i, r in enumerate(rows):
+        r[queues.SEND_FIRST_COLUMNS.index("how_new_it_looks")] = "0.5"
+    batches = queues.chunk_send_batches(rows, batch_size=queues.BATCH_SIZE,
+                                        group_by=mode or "species")
+    with open(tmp_path / "q.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(queues.SEND_FIRST_COLUMNS)
+        w.writerows(rows)
+    header = queues.SEND_BATCH_COLUMNS + ["how_new_it_looks"] + (["group_by"] if mode else [])
+    with open(tmp_path / "send_batches.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(header)
+        w.writerows(b + ["0.5"] + ([mode] if mode else []) for b in batches)
+    assert "30 rows" in history.check_send_batches(str(tmp_path), str(tmp_path / "q.csv"), 30)
+    if mode == "rank":
+        # Same file claiming the other mode no longer matches the recomputation.
+        text = (tmp_path / "send_batches.csv").read_text().replace(",rank", ",species")
+        (tmp_path / "send_batches.csv").write_text(text)
+        with pytest.raises(SystemExit):
+            history.check_send_batches(str(tmp_path), str(tmp_path / "q.csv"), 30)
+
+
+def test_group_by_is_validated(queues):
+    with pytest.raises(ValueError, match="group_by"):
+        queues.chunk_send_batches(golden_rows(queues), group_by="confusion")
+    assert queues._group_by_from_env(None) == "species"
+    assert queues._group_by_from_env("  ") == "species"
+    assert queues._group_by_from_env("rank") == "rank"
+    with pytest.raises(ValueError, match="BCI_GROUP_BY"):
+        queues._group_by_from_env("Rank")

@@ -109,11 +109,16 @@ def next_batch_block(c):
     n_control = sum(1 for r in rows if r[at["picked_by"]] == "control")
     n_groups = len({r[at["species_group"]] for r in rows if r[at["picked_by"]] != "control"})
     control = f", {n_control} of them random control photos" if n_control else ""
+    # The file's own column, so the page describes the packing that was run.
+    mode = rows[0][h.index("group_by")] if "group_by" in h else "species"
+    how = "grouped by species" if mode == "species" else "in strict rank order"
+    spread = (f'{n_groups:,} species group{"" if n_groups == 1 else "s"}' if mode == "species"
+              else f"{n_groups:,} species")
     n_batches = max(int(r[at["batch_id"]]) for r in data["rows"])
     return (
         '<div class="rec" id="next-batch">'
-        f'<h2>Next batch: {len(rows):,} photos, grouped by species</h2>'
-        f'<p>Batch {first} holds {len(rows):,} photos in {n_groups:,} species group{"" if n_groups == 1 else "s"}{control}. '
+        f'<h2>Next batch: {len(rows):,} photos, {how}</h2>'
+        f'<p>Batch {first} holds {len(rows):,} photos in {spread}{control}. '
         f'The file has {len(data["rows"]):,} photos in {n_batches:,} batches of at most '
         f'{queues.BATCH_SIZE}. '
         f'<button type="button" class="primary" id="f-next" data-batch="{first}">'
