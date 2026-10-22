@@ -611,7 +611,7 @@ def p_terms(c):
     """
     return panel(
         'What the words mean: frame, label, crown, centre crop',
-        "<b>Four words do all the work on this page.</b>",
+        "<b>The words this page uses.</b>",
         hero_terms(c.n_cand))
 
 

@@ -275,11 +275,9 @@ def held_out_note(c) -> str:
     if not n:
         return ""
     return (f'<p class="note"><strong>{n} frames are kept out of this queue.</strong> '
-            f'They are the test set '
-            f'this page\'s own accuracy is measured on. Sending one back for '
-            f'labelling would put a new answer into the set those numbers are measured '
-            f'on. They are not lost: they are labelled work already accounted for '
-            f'elsewhere.</p>')
+            f'They are held back for grading: this page\'s own accuracy is measured '
+            f'on them. Sending one for labelling would put a new answer into the set '
+            f'those numbers are measured on.</p>')
 
 
 def p_send(c):
