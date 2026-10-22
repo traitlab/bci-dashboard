@@ -28,9 +28,9 @@ PAGES = [
 
 OPTIONAL_PAGES = [
     ("explorer.html", "Browse photos",
-     "Explore families, genera and species using Pl@ntNet first guesses or recorded labels, then inspect the photos.", ""),
+     "Explore families, genera and species using Pl@ntNet first guesses or recorded labels.", ""),
     ("embedding-atlas.html", "Drone map",
-     "Find photos by drone photo location, then inspect their visual matches.", "#view=locations"),
+     "Find photos by drone photo location.", "#view=locations"),
     ("embedding-atlas.html", "Similar photos",
      "Compare a selected photo with Pl@ntNet\u2019s stored visual matches. Looking alike does not confirm the same species.",
      "#view=photos"),
@@ -122,8 +122,8 @@ def build_about(available) -> str:
     pages = "".join(
         f'<li><a href="{name}{fragment}">{html.escape(title)}</a>. {html.escape(purpose)}</li>'
         for name, title, purpose, fragment in [*OPTIONAL_PAGES, *PAGES] if name in available)
-    experiment = (f'<h2>Experimental matching</h2><p>Compare Pl@ntNet with the recorded PlantCLEF experiment '
-                  f'for the same photos: <a href="{EXPERIMENT}#view=models">Compare models (experimental)</a>.</p>'
+    experiment = (f'<h2>Experimental matching</h2><p>Pl@ntNet against the recorded PlantCLEF experiment '
+                  f'on the same photos: <a href="{EXPERIMENT}#view=models">Compare models (experimental)</a>.</p>'
                   if EXPERIMENT in available else "")
     return (_head("About Panama canopy", "What each page of the Panama canopy site is for, how to read its numbers, and a glossary.", "about.html", available)
             + '<main id="main-content" tabindex="-1" class="about"><h1>About</h1>'
@@ -132,7 +132,7 @@ def build_about(available) -> str:
             + experiment
             + '<h2>Glossary</h2><dl>'
               '<dt>Recorded label</dt><dd>The species name a botanist has recorded for a photo.</dd>'
-              '<dt>Pl@ntNet first guess</dt><dd>The species Pl@ntNet ranks first for a photo. It is a suggestion, not a confirmed name.</dd>'
+              '<dt>Pl@ntNet first guess</dt><dd>The species Pl@ntNet ranks first for a photo.</dd>'
               '<dt>Labelled frame</dt><dd>A drone photo that carries a recorded label.</dd></dl>'
             + "</main></body></html>\n")
 
