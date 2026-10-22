@@ -49,3 +49,32 @@ jobs:
           ruff format --isolated --check tests/public_snapshot.py tests/test_public_pages.py tests/test_private_selection.py
       - name: Type-check the modified tests
         run: mypy --follow-imports=skip --ignore-missing-imports tests/public_snapshot.py tests/test_public_pages.py tests/test_private_selection.py tests/conftest.py tests/test_explain.py tests/test_readme.py
+
+  private-libs:
+    runs-on: ubuntu-latest
+    env:
+      TRAITLAB_READ_TOKEN: ${{ secrets.TRAITLAB_READ_TOKEN }}
+    steps:
+      # Forks and Dependabot get no secrets: skip without failing.
+      - name: Skip when the private-repo token is unavailable
+        if: env.TRAITLAB_READ_TOKEN == ''
+        run: echo "::warning::TRAITLAB_READ_TOKEN is empty, private libs (crownfirst, labelfirst) were skipped"
+      - if: env.TRAITLAB_READ_TOKEN != ''
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      # crownfirst and labelfirst both require Python 3.13.
+      - if: env.TRAITLAB_READ_TOKEN != ''
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.13'
+      - name: Install public deps and the private libs
+        if: env.TRAITLAB_READ_TOKEN != ''
+        run: |
+          python -m pip install -r requirements-dev.txt -r requirements-predict.txt
+          python -m pip install \
+            "crownfirst @ git+https://x-access-token:${TRAITLAB_READ_TOKEN}@github.com/traitlab/crownfirst.git" \
+            "labelfirst @ git+https://x-access-token:${TRAITLAB_READ_TOKEN}@github.com/traitlab/labelfirst.git"
+      - name: Tests that need crownfirst and labelfirst
+        if: env.TRAITLAB_READ_TOKEN != ''
+        run: python -m pytest -q -rs
