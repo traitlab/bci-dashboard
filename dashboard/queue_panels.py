@@ -11,6 +11,7 @@ import core as hc
 import queues
 from assets import cap, esc, explorer_link, more, panel, pctf, table
 from panels import NAMING_IS, NAMING_NOTE
+from queue_filters import send_filters
 from selection_panels import _fmt_pct as sel_pct
 from status_words import STATUS
 
@@ -284,7 +285,7 @@ def held_out_note(c) -> str:
 def p_send(c):
     """The page's answer to "what do I label next": queue sizes, the head of
     the queue, then the caveats that qualify both."""
-    body = (send_pool_table(c) + send_preview_table(c) + DISPATCH + links_note(c)
+    body = (send_pool_table(c) + send_filters(c) + send_preview_table(c) + DISPATCH + links_note(c)
             + held_out_note(c) + send_notes(c))
     # The same two queues the hero counts, added the same way, so both agree.
     send_now = (c.queue_counts.get("long_tail", 0)

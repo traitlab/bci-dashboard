@@ -373,6 +373,14 @@ def queue_panels():
 
 
 @pytest.fixture(scope="session")
+def queue_filters():
+    """The queue page's filter-and-download block."""
+    with _on_path(REPO / "dashboard"):
+        import queue_filters
+        yield queue_filters
+
+
+@pytest.fixture(scope="session")
 def queue_why_panels():
     """The queue page's second part, the closed panels that argue for the
     order, split out of `queue_panels` when the page put them last."""

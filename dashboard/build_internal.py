@@ -62,6 +62,7 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     """
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
     c.available_pages = pg.OPERATIONAL_PAGES | frozenset(available_pages or ())
+    c.verify_dir = verify_dir  # the send CSVs the filter block embeds
 
     # Before anything is rendered. This page's leading claim is that inside each
     # queue the photo least like anything labelled, or already ranked, comes
