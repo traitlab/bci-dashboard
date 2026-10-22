@@ -7,12 +7,7 @@ sitting can review. `measure.py` and `figures.py` both go through
 through `load_novelty` for the same reason: two readings of the ordering file
 would put the page and the CSV in a different order, which aborts the build.
 
-Not in `core.py`, which holds "the vocabulary every other module works in",
-because this is a decision procedure rather than vocabulary and has its own
-reason to change: a botanist saying the queue sends the wrong photos first. The
-five thresholds stay in `core` because `run_log.py` and both page builders read
-them too. The two column orders came here to sit beside the batcher that
-indexes them by position, which is how they last drifted apart.
+Thresholds stay in `core` because `run_log.py` and both page builders read them.
 """
 
 from __future__ import annotations
@@ -42,19 +37,12 @@ WAIT_QUEUE = QUEUE_ORDER[-1]
 # send_first_queue.csv's columns, in order. `measure.py` writes the header and
 # `chunk_send_batches` below reads rows by position, so the order is named once.
 #
-# `batch_id` is last, and it is filled in after the batching runs rather than
-# computed with the rest of the row. Without it the two files could only be
-# joined by re-running the batcher, which is exactly the recomputation that
-# `history.check_send_batches` exists to police: anyone wanting to know which
-# batch a queued frame is in had to either trust a second implementation of the
-# packing or open both files and match on global_key by hand. Reading it off
-# the row it belongs to is the whole point.
+# `batch_id` is last and filled in after the batching runs, so a queued frame's
+# batch is read off its own row instead of by re-running the batcher.
 #
 # `how_new_it_looks` sits beside the rank it explains: the distance from the
-# photo to the nearest labelled one, which is what the rank was sorted on. The
-# rank says a photo is 12th; the distance says by how much, and lets a reader
-# see that the 12th and the 400th are far apart while the 2,000th and the
-# 3,000th are not. Three decimals, since the file is read by people.
+# photo to the nearest labelled one, which is what the rank was sorted on.
+# Three decimals, since the file is read by people.
 SEND_FIRST_COLUMNS = ["queue", "global_key", "split", "predicted_species", "confidence",
                       "species_labelled_crowns", "species_top1_accuracy", "novelty_rank",
                       "how_new_it_looks", "batch_id"]
@@ -70,17 +58,13 @@ SEND_BATCH_LOOKUP_COLUMNS = ["how_new_it_looks"]
 # output to the file column by column. The header is the two lists joined.
 #
 # Both links, not one. `image_url` opens for anyone with a browser and covers
-# every row; `labelbox_url` covers about seven rows in eight and is the only one
-# that shows which crown in the frame is the one being asked about. Shipping the
-# first alone would put a 7MB photo of a whole canopy in front of a botanist with
-# no mark on it, and the code for the second already exists.
+# every row; `labelbox_url` is the only one that shows which crown is asked about.
 SEND_BATCH_LINK_COLUMNS = ["image_url", "labelbox_url"]
 SEND_BATCH_HEADER = SEND_BATCH_COLUMNS + SEND_BATCH_LOOKUP_COLUMNS + SEND_BATCH_LINK_COLUMNS
 
 # No more than this many crowns per Labelbox batch, one botanist session's worth.
-# Overridable because the right number is the labelling team's call, not ours:
-# The reviewer asked for many small batches over a few large ones, and the
-# labelling lead suggested 100, but if either wants 50 or 200 that should not be a source edit.
+# Overridable because the right number is the labelling team's call, so
+# changing it should not be a source edit.
 # `measure.py` writes the packing and `history.check_send_batches` verifies it
 # against this same constant, so a value changed between those two steps fails
 # the build rather than shipping a page that describes a packing nobody ran.
@@ -150,7 +134,7 @@ def load_novelty(path: str) -> dict:
     Written by ``labelling/rank_queue.py``, which needs numpy and so cannot run
     here. An absent file is the normal state of a fresh clone and of any
     checkout before the embeddings are fetched: it returns ``{}``, every frame
-    ties, and the order falls back to what it was before this file existed.
+    ties, and the order falls back to the unranked order.
     A row whose rank is not a whole number is dropped rather than guessed at.
     """
     if not os.path.exists(path):

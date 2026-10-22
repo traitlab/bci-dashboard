@@ -58,11 +58,8 @@ class TestStampGeometry:
 
 
 def test_both_fetch_paths_cut_the_same_square(ingest, photo, jpeg):
-    """The two fetchers used to hold a centre crop each, one returning the
-    rectangle it sent and one returning the crop size, at the same quality by
-    coincidence rather than by construction. They are one function now, and a
-    second copy would mean the model sees different pixels depending on which
-    script fetched the photo."""
+    """Both fetchers share one centre crop; a second copy would mean the model
+    sees different pixels depending on which script fetched the photo."""
     # Compared by where the code lives, not by identity: the fixtures load
     # photo.py twice, once by path and once as ingest_photos' sibling.
     took_from = ingest.center_crop_jpeg_from_bytes.__code__.co_filename

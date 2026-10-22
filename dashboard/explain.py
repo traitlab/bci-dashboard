@@ -4,13 +4,6 @@
 counting species or counting frames; ``method_panel`` names the model, settings,
 and the untestable assumption. Every figure is verified from ``core`` or
 recomputed from the same records, so no rate is hardcoded here.
-
-Only ``panels.py`` imports this, which normally reads as a seam nobody needed.
-It stays separate anyway: the panels here answer "how was this number made" and
-the ones in ``panels.py`` report the number, and dissolving three symbols back
-into a module already over the 500-line convention moves the lines without
-concentrating anything. ``BAND_SHORT`` is the one symbol crossing that is not a
-panel, and it is a genuine leak this does not bless.
 """
 
 import core as hc
@@ -98,10 +91,6 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
         f"<b>{pctf(now['macro_top1'])} per species and {pctf(now['micro_top1'])} per "
         f"frame, on the same frames.</b>",
         corpus_block
-        # A table rather than the two stacked bars this used to draw. The shares
-        # the argument turns on are 2% and 6%, too thin to carry a printed label
-        # in a bar, so the bars had to be read back out in a sentence underneath.
-        # Side by side in two columns they are read off directly.
         + f'<p class="note"><b>Per species, each of the {n_sp} species counts once. '
           f'Per frame, each of the {n:,} frames counts once.</b></p>'
         + table([("Labelled frames per species", False), ("Species", True),

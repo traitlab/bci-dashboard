@@ -274,9 +274,7 @@ def p_review(c):
 THIN_MIN_FRAMES = hc.WELL_SAMPLED_MIN_N
 
 
-# The bars the reader can pick between. The reviewer, sorting the table by hand and
-# counting rows out loud: "it would be nice to see how many are above 85 or
-# something". Round numbers around that. The default is RELIABLE_MIN_TOP1
+# The bars the reader can pick between: round numbers around 85. The default is RELIABLE_MIN_TOP1
 # because at that bar, over species carrying THIN_MIN_FRAMES or more labelled
 # frames, the count is the "usually right" row count by construction, which is
 # the one number on this control a test can check against something else.
@@ -414,12 +412,9 @@ def p_species(c):
     # Counted off the marks just made, so the prose below cannot name a
     # different number from the table.
     n_thin = sum(1 for a in attrs if a)
-    # The table is what this panel is for, so what stands above it is the one
-    # caveat that changes how every number reads, the control, and the line
-    # about the hidden rows. The definitions used to stand there too, four
-    # paragraphs of them, and pushed the table off the first screen. They are
-    # now a heading's own tooltip for the reader who stumbles on one column, and
-    # a closed block for the reader who wants all of them.
+    # Only the one caveat that changes how every number reads (the control) and
+    # the line about the hidden rows sit above the table. Definitions are a
+    # heading's tooltip and a closed block.
     body = ('<p class="note"><b>Rates here score the centre crop, not outlined '
             'crowns.</b> Read a low row as a flag for a second look, not as that '
             'species&rsquo; accuracy.</p>'

@@ -238,29 +238,3 @@ def test_the_species_table_names_recall_in_the_column_that_holds_it(external_pag
     assert ('<th class="num sortable"><abbr title="Of the frames a botanist '
             'labelled this species, the share the first guess got right.">'
             'Top-1 accuracy (recall)</abbr></th>') in html
-
-
-def test_context_md_no_longer_bans_the_metric_names():
-    """CONTEXT.md is the source of record for what a page may say.
-
-    It is gitignored, so it lives only in a working checkout and this test
-    skips where it is absent. That is also why the reversal is recorded in
-    `tests/test_plain_english.py` as well: that file is tracked.
-    """
-    from conftest import REPO
-
-    path = REPO / "CONTEXT.md"
-    if not path.exists():
-        pytest.skip("CONTEXT.md not present (it is gitignored)")
-    text = path.read_text(encoding="utf-8")
-    assert 'Never "top-1" on a page' not in text
-    assert 'Never "top-5" on a page' not in text
-    assert "**top-1 accuracy**" in text
-
-
-def test_the_plain_english_check_no_longer_retires_the_metric_names():
-    from conftest import REPO
-
-    text = (REPO / "tests" / "test_plain_english.py").read_text(encoding="utf-8")
-    assert r'r"\btop-?1\b":' not in text
-    assert r'r"\btop-?5\b":' not in text

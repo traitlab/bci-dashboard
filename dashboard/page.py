@@ -34,17 +34,10 @@ OPERATIONAL_PAGES = frozenset({
 })
 
 
-# Order here is reading order. The measurement comes first and the explanation
-# comes after it, which is the reverse of how this page used to be arranged.
-# The reviewer, reading it cold on 2026-09-03: "split it in like a main section
-# that's the actual dashboard at the top ... and then later another section
-# where it's basically finishing the explanations", because "most people, once
-# they get used to it, they will probably not look at [the prose]. They will
-# just go straight for the [numbers]."
+# Order here is reading order: measurement first, explanation after.
 SECTIONS = {
     "label-first": (
         "What to label first",
-        # The wait rule and its evidence moved to the section below.
         "Which frames to send, and in what order."),
     # The queue page's second part. Same arrangement as the model-health page:
     # the thing a reader acts on first, the reasoning after it, closed.
@@ -61,8 +54,7 @@ SECTIONS = {
         "where-the-model-is-right"),
     "explanations": (
         "How to read the numbers above",
-        # Everything here was above the species table until 2026-09-03. It
-        # explains the numbers rather than reporting them, so it now sits after
+        # It explains the numbers rather than reporting them, so it sits after
         # the thing it explains and a reader who does not need it can stop.
         "Read this when a number above surprises you."),
     "limits": (
@@ -84,11 +76,8 @@ PANELS = {
     "evidence": ("queue-why", p_evidence),
     "species": ("model-health", p_species),
     "review": ("model-health", p_review),
-    # The three that moved out of the headline band and out of "model-health".
-    # "weighting" carries the support-vs-accuracy chart, which the reviewer could not
-    # read cold ("I don't understand this graph") but kept once it was explained
-    # ("No, I think it's good ... it's good to have all the information"). It is
-    # an explanation of the two headline rates, so it belongs here.
+    # "weighting" carries the support-vs-accuracy chart. It is an explanation
+    # of the two headline rates, so it belongs here.
     "weighting": ("explanations", p_weighting),
     # The crop-coverage sweep. It qualifies the four rates in "weighting" rather
     # than reporting a new headline, so it follows them, and it is the panel the
@@ -110,11 +99,7 @@ PANELS = {
 # disagreements so they can be worked in Labelbox.
 INTERNAL_PANELS = ("send", "todo", "look", "evidence")
 # Order inside a section is the order these ids are listed in; the sections
-# themselves order the page. The species table now leads, because that is what
-# a reader scrolls to. The glossary and the three-frame-counts panel used to
-# lead and now close: they were put first so that "frame", "crown", "label" and
-# "centre crop" were defined before first use, which is right for a first read
-# and wrong for every read after it.
+# themselves order the page. The species table leads; definitions close.
 EXTERNAL_PANELS = ("species", "review",
                    "floor", "weighting", "coverage", "calibration", "terms", "counts",
                    "ceiling", "method")
@@ -177,12 +162,9 @@ def parse_args(doc: str, default_out: str):
 def footer(c) -> str:
     """What a reader checks a number against after reading it, not before.
 
-    The request settings used to sit twice in the body, written as the flag
-    names we send. A reader outside the lab cannot act on a flag name and does
-    not need to: what changes how a number reads is how many answers we asked
-    for and that nothing was filtered out, which is what this says in words.
-    The run tag sits here for the same reason, as the one string to quote back
-    when asking which build a number came from.
+    States the request settings in words (answers asked for, nothing
+    filtered out) and the run tag, the one string to quote back when asking
+    which build a number came from.
     """
     return (f'<div class="subtitle">Pl@ntNet was asked the same way every time: '
             f'{hc.in_words(c.n_cand)} answers per photo, rejection off, related images '

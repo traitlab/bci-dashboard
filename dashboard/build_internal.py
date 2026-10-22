@@ -9,9 +9,8 @@ order can be argued with first. Accuracy reporting is ``build_external.py``.
 
 One page for every reader. What to send comes first and why comes after it,
 closed. The commands that need the repository checked out sit in one closed
-block for the labelling team, under the photos they send. A small redirect is
-written beside the page under the name the team's copy used to have, so a
-saved link to it opens that block.
+block for the labelling team, under the photos they send. A small redirect from
+the retired label_queue_team.html is written beside the page.
 
 Every number is recomputed from source, then cross-checked against the snapshot
 CSVs; a mismatch aborts the build. It gates on the two send-queue CSVs.
@@ -40,9 +39,7 @@ from history import fail, verify_snapshot
 OUT_NAME = "label_queue_dashboard.html"
 TITLE = "BCI labelling: what to label next"
 
-# The labelling team's copy of this page used to be published under this name.
-# It is now a redirect to the team block on the one page, so old links land on
-# the commands they were saved for.
+# Redirect from the retired team page to the team block on this page.
 MOVED_NAME = "label_queue_team.html"
 
 
@@ -91,13 +88,10 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
 
     # Two counts and one line: the reasoning lives in the panels that state it.
     send_now = c.queue_counts.get("long_tail", 0) + c.queue_counts.get("low_conf_known", 0)
-    # The subtitle used to read "{c.n:,} labelled frames behind the ranking",
-    # which was one number standing for two. `c.n` is the species-level
-    # evaluation set: it is what every per-species status is measured on, and
-    # those statuses are what sorts a frame into a queue. The ranking is the
-    # other half, the order inside a queue, and it is anchored on the labelled
-    # frames that have an embedding, a smaller and differently-selected set.
-    # Both are load-bearing here, so both are named, each against its own work.
+    # `c.n` is the species-level evaluation set the per-species statuses (and so
+    # the queues) are measured on. The order inside a queue is anchored on the
+    # labelled frames that have an embedding, a smaller and differently-selected
+    # set. Both are named, each against its own work.
     prov = queues.novelty_provenance(hc.QUEUE_NOVELTY_CSV)
     anchors, unembedded = prov["anchors"], prov["unembedded"]
     anchor_clause = (f"&middot; {anchors:,} labelled frames anchor the ranking "
@@ -110,9 +104,9 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
          f'{anchor_clause}&middot; {c.n:,} frames scored against '
          f'{reference.WORDS[c.reference]} behind the species statuses that sort the '
          f'queues</div>',
-         # Batch 1 leads, not the pool. The pool is 3,919 and a botanist works
-         # through a few hundred a month, so leading with it prices the whole
-         # queue as the next task and it is many months of them. The number a
+         # Batch 1 leads, not the pool. A botanist works through a few hundred
+         # a month, so leading with the pool prices the whole queue as the
+         # next task and it is many months of them. The number a
          # reader can inspect is the first saved batch, regardless of send status.
          # Each card links the file its own number is counted off, so the reader
          # who wants the photos behind a headline takes them from the card. Batch

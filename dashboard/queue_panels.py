@@ -28,17 +28,8 @@ QL = {"long_tail": ("Species with few labelled frames, or often wrong",
       "low_conf_known": ("A usually-right species, guessed weakly",
                          f"Right at least {pctf(hc.RELIABLE_MIN_TOP1, 0)} of the time "
                          f"overall, but confidence under {hc.LOW_CONF:.2f} here"),
-      # Not "Everything else": a further category follows it. The name says why
-      # a botanist should open the queue rather than what is in it, because the
-      # rule beside it already draws the line against the queue above.
-      #
-      # It used to read "Not sure enough to leave alone" / "Neither of the two
-      # above, and not confident enough to wait", two negations in the label and
-      # one in the rule. A reader stopped at it on 2026-09-03 and could not say
-      # what it meant. The number was there all along, in `can_wait` below: this
-      # queue is everything the wait rule does not catch, so it is the same
-      # WAIT_CONF read from the other side. Naming the threshold says in one
-      # clause what the negations took two to not say.
+      # Named by its WAIT_CONF threshold: this queue is everything the wait
+      # rule (`can_wait` below) does not catch.
       "normal": (f"Worth a look, confidence under {hc.WAIT_CONF:.2f}",
                  "Not in the two queues above, and Pl@ntNet is under "
                  f"{hc.WAIT_CONF:.2f} confident here"),
@@ -102,12 +93,9 @@ def ungraded_note(c) -> str:
 # Labelbox, and the command that does it is one line. Named here rather than in
 # the README because this is where a reader stands when they need it.
 #
-# The command needs the repository checked out and a Labelbox key, so to any
-# other reader it is a path they cannot walk. It sits closed, under a summary
-# that says who it is for, directly under the photos it sends. There used to be
-# a second copy of the whole page for the team, which differed from this one by
-# these lines and nothing else. The id is what that page's old address now
-# redirects to, so a saved link opens this block.
+# The command needs the repository checked out and a Labelbox key, so it sits
+# closed, under a summary that says who it is for, directly under the photos it
+# sends. Redirect target for label_queue_team.html; keep the id stable.
 TEAM_BLOCK_ID = "sending-a-batch"
 DISPATCH = more(
     "For the labelling team: send a batch",
@@ -131,13 +119,8 @@ def links_note(c) -> str:
     empty. The file has nowhere to say so, so the page says it for both columns
     at once, next to the link to the file.
 
-    The paragraph used to open "Every row carries two links" and then report
-    both columns filled on no row at all, which is a panel arguing with itself
-    in three sentences. A reader believes the first sentence, opens the file,
-    finds two empty columns and stops believing the rest of the page. So the
-    explanation is rendered only once there is a link to explain. With none
-    filled there is one sentence, which is the whole truth and is not
-    contradicted two lines later.
+    The explanation renders only when at least one column is filled; with
+    none filled there is a single sentence saying so.
     """
     # Renderer rows carry prediction stems, not the CSV's prefixed global keys.
     keys = [hc.GT_KEY_PREFIX + r[1] for r in c.queue_rows]
@@ -263,16 +246,10 @@ def send_notes(c):
     species fill the first queue, where the full list lives, what to do with the
     photos that got no answer, and which frames none of this covers."""
     body = ""
-    # The five most-named species in the first queue used to open this note. It
-    # was an orientation rather than an instruction, the table above it already
-    # names species row by row, and the caveat under it (some of these carry
-    # more than the support minimum) only existed to correct the list.
     body += (f'<p class="note"><strong>{c.n_no_answer} unlabelled photos got no answer at '
              f'all</strong>: the candidate list came back empty. Inspect these photos '
              f'by eye; an empty answer does not establish that no plant is visible.</p>'
-             # Names an unscored population. It is an export batch, not a camera:
-             # saying "the long-lens camera" here invented a lens difference that
-             # the flight team confirmed does not exist.
+             # Names an unscored population. It is an export batch, not a camera.
              # One sentence, from the side that matters: that every scored frame
              # carries the earlier naming and that no graded frame carries the
              # later one are the same fact, and the queue share is what says how

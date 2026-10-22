@@ -443,8 +443,7 @@ def _contrast(a, b):
 # describing a shade that is no longer there.
 CONTRAST_CLAIMS = [
     ("dashboard/assets.py", "stays faint at {r}:1 on the white panel", "#bdbdbd", "#ffffff"),
-    ("dashboard/style.py", "{r}:1 here against", "#6d6d6d", "#f5f5f5"),
-    ("dashboard/style.py", "against {r}:1 before", "#bdbdbd", "#f5f5f5"),
+    ("dashboard/style.py", "header fill ({r}:1)", "#6d6d6d", "#f5f5f5"),
 ]
 
 

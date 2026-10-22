@@ -1,9 +1,4 @@
-"""The labelling team's copy of the queue page, after it was folded in.
-
-It used to be a second page, label_queue_team.html, built with ``--team``.
-Its commands now sit in one closed block on the queue page, and the old
-address is a redirect to that block, so a link saved to it still works.
-"""
+"""label_queue_team.html redirects to the send-a-batch block."""
 import re
 
 from conftest import REPO
