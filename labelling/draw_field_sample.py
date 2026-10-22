@@ -37,7 +37,6 @@ import csv
 import hashlib
 import importlib.util
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -62,11 +61,6 @@ SEED = 20260904
 # a pool one site dominates cannot put that site behind the headline.
 CAP = 0.25
 
-# Mission folders are named <yyyymmdd>_<site>_<waypoint>_<aircraft>, and the
-# folder is in every frame's Labelbox URL. Same shape as the confirmatory draw
-# reads, and the reason a frame with no site is a stop rather than a guess.
-MISSION_RE = re.compile(r"/(\d{8})_([a-z0-9]+)_")
-
 FIELDS = ["global_key", "site", "queue", "predicted_species", "confidence"]
 
 
@@ -87,6 +81,10 @@ _confirmatory = _load("_draw_confirmatory_for_field_sample",
 allocate = _confirmatory.allocate
 to_csv_text = _confirmatory.to_csv_text
 site_of = _confirmatory.site_of
+# Mission folders are named <yyyymmdd>_<site>_<waypoint>_<aircraft>, and the
+# folder is in every frame's Labelbox URL. A frame with no site is a stop
+# rather than a guess.
+MISSION_RE = _confirmatory.MISSION_RE
 
 
 def flight_of(url: str) -> str:
@@ -98,26 +96,26 @@ def flight_of(url: str) -> str:
     return f"{m.group(1)}/{m.group(2)}" if m else ""
 
 
-def _from_inventory(path: Path, read) -> dict[str, str]:
-    """global_key -> read(frame URL), over the Labelbox inventory."""
+def from_inventory(path: Path, read) -> dict:
+    """global_key -> read(inventory row), over the Labelbox inventory."""
     out = {}
     with open(path, encoding="utf-8") as fh:
         for line in fh:
             row = json.loads(line)
             key = row.get("global_key")
             if key:
-                out[key] = read(row.get("row_data") or "")
+                out[key] = read(row)
     return out
 
 
 def load_sites(path: Path = INVENTORY) -> dict[str, str]:
     """global_key -> site, read from the Labelbox inventory's frame URLs."""
-    return _from_inventory(path, site_of)
+    return from_inventory(path, lambda row: site_of(row.get("row_data") or ""))
 
 
 def load_flights(path: Path = INVENTORY) -> dict[str, str]:
     """global_key -> "yyyymmdd/site", read the same way as `load_sites`."""
-    return _from_inventory(path, flight_of)
+    return from_inventory(path, lambda row: flight_of(row.get("row_data") or ""))
 
 
 def eligible(queue_csv: Path = QUEUE_CSV, inventory: Path = INVENTORY) -> list[dict]:

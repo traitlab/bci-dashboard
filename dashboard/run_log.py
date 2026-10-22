@@ -447,6 +447,14 @@ def log_filter_gain(_log, B, bci_list, n, c1, f1, f_abstain, still_wrong, maxk, 
     _log("")
 
 
+def confidence_bands(rs, top1):
+    """(band label, n, n correct) for each confidence band over `rs`."""
+    for lo, hi in CONF_BINS:
+        sub = [r for r in rs if lo <= r["ranked"][0][1] < hi]
+        yield (f"[{lo:.1f},{min(hi, 1.0):.1f})", len(sub),
+               sum(1 for r in sub if top1(r) == r["gt"]))
+
+
 def log_calibration(_log, scopes, top1, n, good, good_recs):
     """Accuracy by confidence band and threshold, per scope."""
     _log("--- CONFIDENCE CALIBRATION / TRIAGE FEASIBILITY ---")
@@ -460,10 +468,8 @@ def log_calibration(_log, scopes, top1, n, good, good_recs):
     for scope, rs in scopes:
         _log(f"  scope: {scope}   (n={len(rs)})")
         _log(f"    {'conf band':<12} {'n':>7} {'top-1 acc':>11}")
-        for lo, hi in CONF_BINS:
-            sub = [r for r in rs if lo <= r["ranked"][0][1] < hi]
-            k = sum(1 for r in sub if top1(r) == r["gt"])
-            _log(f"    {f'[{lo:.1f},{min(hi, 1.0):.1f})':<12} {len(sub):>7} {pct(k, len(sub)):>11}")
+        for band, n_band, k in confidence_bands(rs, top1):
+            _log(f"    {band:<12} {n_band:>7} {pct(k, n_band):>11}")
         _log(f"    {'threshold':<12} {'n auto':>7} {'% of scope':>11} {'error rate':>11}")
         for t in CONF_THRESHOLDS:
             sub = [r for r in rs if r["ranked"][0][1] >= t]

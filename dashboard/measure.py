@@ -27,7 +27,7 @@ from core import (
     ratio, fmt, genus_of, normalize,
     coverage_gate_stats, diagnose, labelbox_urls, inventory_image_urls,
     adjudicated_keys,
-    CONF_BINS, CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
+    CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
     REVIEW_CONF, MIN_CROP_COVERAGE, CROP_COVERAGE_SWEEP,
     GT_KEY_PREFIX, N_CANDIDATES, QUEUE_NOVELTY_CSV,
@@ -166,12 +166,10 @@ def write_confidence_calibration(out_dir, scopes, top1):
                     "fraction_of_scope", "n_correct", "n_wrong",
                     "error_rate_if_auto_accepted"])
         for scope, rs in scopes:
-            for lo, hi in CONF_BINS:
-                sub = [r for r in rs if lo <= r["ranked"][0][1] < hi]
-                k = sum(1 for r in sub if top1(r) == r["gt"])
-                w.writerow(["bin", scope, f"[{lo:.1f},{min(hi, 1.0):.1f})", len(sub),
-                            fmt(ratio(k, len(sub))), fmt(ratio(len(sub), len(rs))),
-                            k, len(sub) - k, ""])
+            for band, n_band, k in rl.confidence_bands(rs, top1):
+                w.writerow(["bin", scope, band, n_band,
+                            fmt(ratio(k, n_band)), fmt(ratio(n_band, len(rs))),
+                            k, n_band - k, ""])
             for t in CONF_THRESHOLDS:
                 sub = [r for r in rs if r["ranked"][0][1] >= t]
                 k = sum(1 for r in sub if top1(r) == r["gt"])

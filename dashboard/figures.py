@@ -17,6 +17,7 @@ import assessments as am
 import core as hc
 import queues
 import reference
+import run_log as rl
 from checklist import load_checklist
 from selection_panels import selection_audit, selection_confound
 # The three arithmetic helpers behind the confusion-matrix rates. They live in
@@ -230,10 +231,7 @@ def _coverage_sweep(sp_recs, per_species):
 
 def _confidence_bands(sp_recs):
     """How often the first guess is right, by how sure the model was."""
-    return {"bins_all": [(f"[{lo:.1f},{min(hi, 1.0):.1f})", len(sub),
-                          sum(1 for r in sub if top1(r) == r["gt"]))
-                         for lo, hi in hc.CONF_BINS
-                         for sub in ([r for r in sp_recs if lo <= conf(r) < hi],)]}
+    return {"bins_all": list(rl.confidence_bands(sp_recs, top1))}
 
 
 def _out_of_reach(h, sp_recs, per_species):

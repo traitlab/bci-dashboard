@@ -56,7 +56,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import hashlib
 import json
 import math
 import os
@@ -69,7 +68,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 import core as hc
 from crownfirst.grouped_holdout import build_fold
-from draw_field_sample import flight_of, to_csv_text
+from draw_field_sample import flight_of, from_inventory, sha256, to_csv_text
 from measure_similarity_range import load_species
 from polygon_identity import METRES_PER_DEGREE, gps_of
 
@@ -106,15 +105,8 @@ def load_flights(path: Path = INVENTORY) -> dict[str, dict]:
     """global_key -> {flight, gps} over the Labelbox inventory. `flight` is
     "" and `gps` is None where the row carries neither, so the caller can
     count each kind of gap by name."""
-    out = {}
-    with open(path, encoding="utf-8") as fh:
-        for line in fh:
-            row = json.loads(line)
-            key = row.get("global_key")
-            if key:
-                out[key] = {"flight": flight_of(row.get("row_data") or ""),
-                            "gps": gps_of(row)}
-    return out
+    return from_inventory(path, lambda row: {
+        "flight": flight_of(row.get("row_data") or ""), "gps": gps_of(row)})
 
 
 def eligible(species: dict[str, str], inventory: dict[str, dict]):
@@ -185,10 +177,6 @@ def manifest(fold, excluded: dict, n_pool: int, n_labelled: int, *, seed: int,
 
 def to_json_text(doc: dict) -> str:
     return json.dumps(doc, indent=2, sort_keys=True) + "\n"
-
-
-def sha256(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def report(doc: dict, text: str) -> None:
