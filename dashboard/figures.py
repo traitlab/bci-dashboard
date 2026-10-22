@@ -204,6 +204,18 @@ def _support_buckets(per_species, sp_recs, support):
     return {"buckets": buckets}
 
 
+CONFUSED_SHOWN = 15
+
+
+def _confused_pairs(sp_recs, support):
+    """The label-and-first-guess pairs that occur most among wrong first guesses,
+    as (label, guess, frames, labelled frames of the label species). Every scored
+    frame counts, not only the confident ones the review list holds."""
+    pairs = Counter((r["gt"], top1(r)) for r in sp_recs if top1(r) != r["gt"])
+    ordered = sorted(pairs.items(), key=lambda kv: (-kv[1], kv[0]))
+    return [(gt, guess, n, support[gt]) for (gt, guess), n in ordered[:CONFUSED_SHOWN]]
+
+
 def _coverage_sweep(sp_recs, per_species):
     """Accuracy at each crop-coverage bar, the lowest bar included.
 
@@ -572,6 +584,7 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     fig.update(_queue(h, fig["support"], per_species))
     fig.update(_look(fig["queue_rows"], fig["queue_cams"], fig["n_ranked"]))
     fig.update(_review(sp_recs))
+    fig["confused"] = _confused_pairs(sp_recs, fig["support"])
     fig.update(am.prepared(per_species, fig["review"]))
     fig.update(_error_by_support(sp_recs, fig["support"]))
     fig.update(_wait_rules(sp_recs, fig["support"]))

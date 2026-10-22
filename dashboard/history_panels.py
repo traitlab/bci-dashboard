@@ -76,6 +76,22 @@ def _model_note(built: str) -> str:
             + ". A new model would show here as a change in the Model column.</p>")
 
 
+def p_confused(c):
+    """The wrong first guesses that repeat: which two species the model swaps."""
+    rows = [[f"<i>{esc(gt)}</i>", f"<i>{esc(guess)}</i>", f"{n:,}", f"{support:,}"]
+            for gt, guess, n, support in c.confused]
+    body = (f'<p class="note">Counted over the {c.n:,} frames labelled to a species, '
+            f"every wrong first guess. The last column is how many frames carry that "
+            f"label, so a pair is read against the species' own frames.</p>"
+            + table([("Label", False), ("First guess", False), ("Frames", True),
+                     ("Labelled frames of the label species", True)], rows)
+            if rows else '<p class="note">No first guess is wrong.</p>')
+    return panel("Species the model mixes up",
+                 f"<b>The pairs behind most repeated errors.</b> The {len(rows)} most common "
+                 f"wrong first guesses, as a label and the species the model named instead.",
+                 body, anchor="species-the-model-mixes-up")
+
+
 def p_changes(c):
     """What the last export changed, and the last few updates in one table."""
     runs = c.changes["runs"]

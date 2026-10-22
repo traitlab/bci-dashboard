@@ -22,7 +22,7 @@ from assets import css_for, esc, section, strip_comments
 from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
 from site_navigation import FAVICON, navigation
 from confirmatory_panels import p_floor
-from history_panels import p_changes
+from history_panels import p_changes, p_confused
 from panels import (
     p_calibration, p_ceiling, p_counts, p_coverage, p_method, p_review, p_species,
     p_terms, p_weighting)
@@ -79,6 +79,7 @@ PANELS = {
     "review": ("model-health", p_review),
     # What the last Labelbox export changed, off the refresh manifest.
     "changes": ("model-health", p_changes),
+    "confused": ("model-health", p_confused),
     # "weighting" carries the support-vs-accuracy chart. It is an explanation
     # of the two headline rates, so it belongs here.
     "weighting": ("explanations", p_weighting),
@@ -103,7 +104,7 @@ PANELS = {
 INTERNAL_PANELS = ("send", "todo", "look", "evidence")
 # Order inside a section is the order these ids are listed in; the sections
 # themselves order the page. The species table leads; definitions close.
-EXTERNAL_PANELS = ("species", "review", "changes",
+EXTERNAL_PANELS = ("species", "review", "confused", "changes",
                    "floor", "weighting", "coverage", "calibration", "terms", "counts",
                    "ceiling", "method")
 
