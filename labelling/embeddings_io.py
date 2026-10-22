@@ -1,8 +1,7 @@
 """Read what ``predict/embed.py`` wrote.
 
-Split out of ``labelling/rank_unsent.py`` when ``labelling/rank_queue.py`` came
-to need the same two-source read. One copy, so a change to how the fetcher packs
-its output cannot leave one ranker reading the old shape.
+The two-source read every ranker shares. One copy, so a change to how the
+fetcher packs its output cannot leave one ranker reading the old shape.
 """
 
 from __future__ import annotations

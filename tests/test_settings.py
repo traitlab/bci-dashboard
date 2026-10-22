@@ -193,24 +193,6 @@ def test_photo_documents_exactly_the_settings_it_indexes():
         f"here may carry a default, so it has to name the same settings.")
 
 
-def test_rank_unsent_reads_the_column_the_label_writers_write():
-    """The command in rank_unsent.py's own header has to run as printed.
-
-    Its default named `lb_label`, which is an export column, not a column of
-    the labels file the header points it at, so the documented backtest exited
-    on a missing column.
-    """
-    import re
-
-    default = re.search(r'"--species-col", default="(\w+)"',
-                        _source("labelling", "rank_unsent.py")).group(1)
-    written = re.search(r'writerow\(\["global_key", "(\w+)"\]\)',
-                        _source("labelling", "gt_from_export.py")).group(1)
-    assert default == written, (
-        f"rank_unsent.py reads {default!r} and gt_from_export.py writes "
-        f"{written!r}, so --species-csv on the merged labels stops the run.")
-
-
 def test_both_identify_paths_read_the_same_settings():
     """Two scripts call identify, and each builds the request itself.
 

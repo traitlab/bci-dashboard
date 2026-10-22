@@ -1,10 +1,9 @@
 """Every command the docs print, checked against the script it names.
 
-Twice this month a documented command could not have run. `rank_unsent.py`
-printed a backtest whose `--species-col` default named a column the labels
-file does not have, and it had been that way long enough for the default to
-look deliberate. Nobody noticed, because a command in a docstring is read far
-more often than it is typed.
+A documented command can stop being runnable without anyone noticing: a
+backtest whose `--species-col` default names a column the labels file does not
+have looks deliberate, because a command in a docstring is read far more often
+than it is typed.
 
 So the commands are collected from the README, the shell scripts in `bin/`,
 the ADRs and every module docstring, plus the ones a built page prints for the

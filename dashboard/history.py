@@ -8,7 +8,6 @@ on disk is cached-response mtime, months before labelling finished.
 
 from __future__ import annotations
 
-import glob
 import os
 import re
 from collections import Counter
@@ -20,19 +19,6 @@ import reference
 
 SNAPSHOT_DIR = re.compile(r"model-health-(\d{4}-\d{2}-\d{2})$")
 SNAPSHOT_GLOB = "model-health-*"
-
-
-def latest_snapshot_dir() -> str:
-    """Newest model-health-<date>/ folder in the snapshot store.
-
-    A gate on a fixed date would check today's numbers against an old one.
-    """
-    found = sorted(d for d in glob.glob(os.path.join(hc.SNAPSHOT_DIR, SNAPSHOT_GLOB))
-                   if SNAPSHOT_DIR.search(d))
-    if not found:
-        raise SystemExit(
-            f"VERIFY FAIL: no {SNAPSHOT_GLOB} folder under {hc.SNAPSHOT_DIR}")
-    return found[-1]
 
 
 def snapshot_date_of(snap_dir: str) -> str:
