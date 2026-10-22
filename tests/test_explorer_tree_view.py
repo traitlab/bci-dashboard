@@ -18,21 +18,12 @@ class TreeStructure(HTMLParser):
         super().__init__()
         self.targets = {}
         self.order = []
-        self.in_svg = False
-        self.svg_tab_stops = []
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
         if 'id' in attrs:
             self.targets[attrs['id']] = (tag, attrs)
             self.order.append(attrs['id'])
-        if self.in_svg and 'tabindex' in attrs:
-            self.svg_tab_stops.append(tag)
-        self.in_svg = self.in_svg or tag == 'svg'
-
-    def handle_endtag(self, tag):
-        if tag == 'svg':
-            self.in_svg = False
 
 
 def group_catalogue():
@@ -59,10 +50,12 @@ def test_tree_is_a_third_view_with_a_labelled_radial_and_a_phone_toggle():
     assert page.order.index('showTree') == page.order.index('showEvidence') + 1
     radial = page.targets['radial'][1]
     assert radial['role'] == 'img' and 'Keyboard users' in radial['aria-label'] and 'taxon outline' in radial['aria-label']
-    assert page.svg_tab_stops == []
     assert page.targets['showRadial'][1]['aria-pressed'] == 'false' and page.targets['showRadial'][1]['aria-controls'] == 'radialFigure'
     assert '.radial-toggle[aria-pressed=false]+.radial-figure{display:none}' in template()
     run_browser(r"""
+// The static template's svg is empty, so the tab-stop check must run on the drawn radial.
+const drawn=n=>[n,...(n.children||[]).flatMap(drawn)],parts=$('radial').children.flatMap(drawn);
+assert.ok(parts.length>10);assert.deepEqual(parts.filter(n=>n.getAttribute('tabindex')!==null).map(n=>n.tagName),[]);
 $('showRadial').onclick();assert.equal($('showRadial').getAttribute('aria-pressed'),'true');
 $('showRadial').onclick();assert.equal($('showRadial').getAttribute('aria-pressed'),'false');
 """, initial_hash='#layout=tree')
@@ -87,7 +80,7 @@ location.hash='#layout=table&source=prediction';listeners.popstate();assert.equa
 def test_radial_nodes_select_taxa_in_sync_with_the_outline_and_card():
     run_browser(RADIAL + r"""
 assert.deepEqual(shown(),['any','other','f','g','s','t']);
-assert.deepEqual($('treeTitle').children.map(c=>c.textContent),['Any Pl@ntNet taxon']);assert.equal($('treeCount').textContent,'4 photos, 67% of matching photos.');
+chooseTaxon('any');assert.deepEqual($('treeTitle').children.map(c=>c.textContent),['Any Pl@ntNet taxon']);assert.equal($('treeCount').textContent,'4 photos, 67% of matching photos.');assert.equal(crumb('any').getAttribute('aria-current'),'true');chooseTaxon('');
 assert.equal($('treeUp').disabled,true);assert.deepEqual($('treeKids').children.map(b=>b.getAttribute('aria-label')),['Elseaceae, family, 1 photo','Forestaceae, family, 3 photos']);
 dot('g').onclick();
 assert.equal(state.taxon,'g');assert.equal(new URLSearchParams(location.hash.slice(1)).get('taxon'),'g');
@@ -102,6 +95,34 @@ crumb('f').focus();crumb('f').onclick();assert.equal(state.taxon,'f');assert.equ
 kid('Canopia').onclick();assert.equal(state.taxon,'g');assert.equal(document.activeElement,$('treeTitle'));
 kid('Canopia lutea').onclick();assert.equal(state.taxon,'t');assert.equal($('treeKidsHeading').textContent,'No groups below this one');assert.deepEqual($('treeKids').children,[]);
 crumb('any').onclick();assert.equal(state.taxon,'any');assert.equal(row('any'),null);
+""", initial_hash='#layout=tree')
+
+
+CARD = r"""
+const card=()=>({title:$('treeTitle').children.map(c=>c.tagName+':'+c.textContent),count:$('treeCount').textContent,current:$('treeCrumbs').children.filter(c=>c.getAttribute('aria-current')).length});
+// Show photos is the other half of the claim: the card's number is the number it lists.
+function listed(expected){const text=$('treeCount').textContent;$('treeShowPhotos').onclick();const n=$('gallery').children.length;$('showTree').onclick();assert.equal(n,expected);assert.ok(text.startsWith(n+(n===1?' photo, ':' photos, ')),text)}
+"""
+
+
+def test_card_for_no_taxon_counts_every_photo_and_marks_no_crumb():
+    run_browser(RADIAL + CARD + r"""
+assert.equal(state.taxon,'');assert.deepEqual(card(),{title:['span:All photos'],count:'6 photos, 100% of matching photos.',current:0});listed(6);
+chooseTaxon('any');assert.deepEqual(card(),{title:['span:Any Pl@ntNet taxon'],count:'4 photos, 67% of matching photos.',current:1});listed(4);
+""", initial_hash='#layout=tree')
+
+
+def test_card_for_unassigned_counts_the_unassigned_photos_and_marks_no_crumb():
+    run_browser(RADIAL + CARD + r"""
+chooseTaxon('unassigned');assert.deepEqual(card(),{title:['span:No Pl@ntNet guess or unresolved name'],count:'2 photos, 33% of matching photos.',current:0});listed(2);
+""", initial_hash='#layout=tree')
+
+
+def test_card_for_a_filtered_out_taxon_names_it_instead_of_its_ancestor():
+    run_browser(RADIAL + CARD + r"""
+chooseTaxon('s');setState({search:'lutea',page:0});assert.deepEqual(shown(),['any','f','g','t']);assert.deepEqual(faded(),['t']);
+assert.deepEqual(card(),{title:['em:Canopia alba','span:species'],count:'0 photos, 0% of matching photos.',current:0});listed(0);
+chooseTaxon('g');assert.deepEqual(card(),{title:['em:Canopia','span:genus'],count:'1 photo, 100% of Forestaceae.',current:1});assert.equal(crumb('g').getAttribute('aria-current'),'true');listed(1);
 """, initial_hash='#layout=tree')
 
 
