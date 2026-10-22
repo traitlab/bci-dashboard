@@ -108,11 +108,11 @@ Box geometry comes from the labels. The fetch records the crop it sent (`ingest_
 
 ## Before adding a model for rare species
 
-The dashboard grades Pl@ntNet and trains nothing. If a fine-tuned or embedding-based classifier is added for the species with few labelled frames, or for crowns that only carry a genus, a BioCLIP-2.5 fish classifier over 17,393 species already measured a few of the obvious fixes on held-out labels:
+The dashboard grades Pl@ntNet and trains nothing. A classifier might one day be added for species with few labelled frames, or for crowns that only carry a genus. A BioCLIP-2.5 fish classifier over 17,393 species already measured a few of the obvious fixes on held-out labels:
 
-- **Shrinking a thin species' mean embedding toward its genus mean made thin species worse, not better.** On 68 held-out queries whose species had five photos or fewer, top-1 fell from 0.4706 with no shrinkage to 0.3971 at beta=5 and 0.2647 at beta=8, with the same shape on every backbone tried. Over all 579 queries it was flat or down. A plain genus mean did beat a thin species mean for species with no photos at all, so a genus fallback for zero-frame species is a separate question from shrinkage.
+- **Pulling a thin species toward its genus average made thin species worse, not better.** The test used 68 held-out queries whose species had five photos or fewer. Top-1 fell from 0.4706 with no pull to 0.3971 at beta=5 and 0.2647 at beta=8, with the same shape on every backbone tried. Over all 579 queries it was flat or down. For species with no photos at all, a plain genus average did beat a thin species average. A genus fallback for zero-frame species is a separate question.
 - **Hubness correction (CSLS) and pooling scores at genus or family level did not clear their bars:** +0.0022 against +0.005 for CSLS, -0.0017 for genus pooling and -0.0065 for family pooling.
-- **Fine-tuning helped.** A sub-center ArcFace fine-tune of the BioCLIP-2.5 image tower gained +3.8 points on species with photos, and averaging scores from several fine-tuned models, each read by its own head, added +0.032.
+- **Fine-tuning helped.** A sub-center ArcFace fine-tune of the BioCLIP-2.5 image tower gained +3.8 points on species with photos. Averaging scores from several fine-tuned models, each read by its own head, added +0.032.
 
 These are fish photos, not drone crowns, so treat them as priors to check, not results.
 
