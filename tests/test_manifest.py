@@ -5,10 +5,7 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
-
 from conftest import REPO, _on_path
 
 
@@ -48,7 +45,7 @@ def test_two_exports_give_two_lines_and_the_same_export_gives_one(manifest, tmp_
     assert manifest.append(path, first) is False
     assert manifest.append(path, second) is True
     assert manifest.append(path, {**second, "run_date": "2026-10-24"}) is False
-    lines = [json.loads(x) for x in open(path, encoding="utf-8")]
+    lines = manifest.read(path)
     assert [x["export"] for x in lines] == ["2026-10-19", "2026-10-22"]
 
 

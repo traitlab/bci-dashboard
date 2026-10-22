@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import core as hc
 import figures
 import landing
+import manifest
 import page as pg
 import snapshot_delta
 from assets import esc
@@ -61,14 +62,9 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
         flight_holdout=c.flight_holdout,
         scored_against=c.reference, populations=c.populations)
 
-    # Then and now, against the newest snapshot dated before this build. Here
-    # and not in figures.prepare because only the builder knows the build date.
-    c.delta = snapshot_delta.compute(
-        {"n_species_floor": sum(1 for d in c.per_species
-                                if d["n_labelled_frames"] >= figures.WAIT_SUPPORT_MIN),
-         "test_n": c.held_out["test"]["n"], "test_top1": c.held_out["test"]["top1"],
-         "reference": c.reference},
-        hc.SNAPSHOT_DIR, generated, floor=figures.WAIT_SUPPORT_MIN)
+    # What the last export changed, off the refresh manifest. Here and not in
+    # figures.prepare because the manifest is a refresh artifact, not a table.
+    c.changes = snapshot_delta.compute(manifest.read(hc.MANIFEST))
 
     # The first screen is landing.py: the rates, the correction they are read
     # against, the species by status, and the review list. Everything that

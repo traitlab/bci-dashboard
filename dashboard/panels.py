@@ -15,9 +15,8 @@ from assets import (cap, esc, explorer_link, filterable_table, hero, more, num_c
                     svg_hbar, table)
 from crop_overlap import CROP_SIZE, FRAME_H, FRAME_W
 from explain import CONF_BAND_WORDS, method_panel, weighting_panel
-from figures import WAIT_SUPPORT_MIN, conf, top1
+from figures import conf, top1
 from held_out import note as held_out_note
-from snapshot_delta import note as delta_note
 from status_words import (STATUS, filter_options, legend_entries,
                           status_precedence_note)
 
@@ -773,6 +772,4 @@ def p_counts(c):
            f'only to a family.</p>') +
         f'<p class="note"><b>{c.n_gt:,}</b> frames a botanist has labelled at all, the '
         f'{c.n_gt - c.n_pred} with no cached answer included.</p>'
-        + ap.richness_note(c.richness)
-        # Then and now, beside the counts it is a change in.
-        + delta_note(c.delta, floor=WAIT_SUPPORT_MIN))
+        + ap.richness_note(c.richness))
