@@ -73,3 +73,15 @@ def test_unfiltered_serializer_equals_the_file_byte_for_byte(queue_filters, tabl
     out = subprocess.run(["node", str(script), str(tmp_path / "d.json")],
                          capture_output=True, check=True).stdout
     assert out == (tables / "send_batches.csv").read_bytes()
+
+
+def test_next_batch_block_states_size_download_and_dry_run_first(queue_filters, tables):
+    html = queue_filters.next_batch_block(SimpleNamespace(verify_dir=str(tables)))
+    assert "Next batch: 2 photos, grouped by species" in html
+    assert "1 species group, 1 of them random control photos" in html
+    assert 'data-batch="1"' in html and "Download batch 1 as CSV" in html
+    assert "--batch 1 --dry-run</pre>" in html
+
+
+def test_next_batch_block_is_empty_without_the_send_file(queue_filters, tmp_path):
+    assert queue_filters.next_batch_block(SimpleNamespace(verify_dir=str(tmp_path))) == ""

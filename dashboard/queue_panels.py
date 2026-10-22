@@ -11,7 +11,7 @@ import core as hc
 import queues
 from assets import cap, esc, explorer_link, more, panel, pctf, table
 from panels import NAMING_IS, NAMING_NOTE
-from queue_filters import send_filters
+from queue_filters import DISPATCH_CMD
 from selection_panels import _fmt_pct as sel_pct
 from status_words import STATUS
 
@@ -103,7 +103,7 @@ DISPATCH = more(
     f'packed into batches of {queues.BATCH_SIZE}, each species kept whole. To send a '
     'batch, after checking its status in Labelbox, run this first with the chosen '
     'round and batch numbers. This example selects batch 1 of round 1:</p>'
-    '<pre class="cmd">python3 labelling/dispatch_round.py --round 1 --csv build/tables/send_batches.csv --batch 1 --dry-run</pre>'
+    f'<pre class="cmd">{DISPATCH_CMD}</pre>'
     '<p class="note"><code>--dry-run</code> writes nothing and calls no API: it reports '
     'how many photos it would send and skips any sent in an earlier round. Drop it to send the full batch. '
     '<strong>Adding <code>--test</code> instead creates a live five-photo batch and '
@@ -285,8 +285,11 @@ def held_out_note(c) -> str:
 def p_send(c):
     """The page's answer to "what do I label next": queue sizes, the head of
     the queue, then the caveats that qualify both."""
-    body = (send_pool_table(c) + send_filters(c) + send_preview_table(c) + DISPATCH + links_note(c)
-            + held_out_note(c) + send_notes(c))
+    # The queue itself first; sizes, link coverage and caveats are checks on it,
+    # so they sit closed beneath it.
+    body = (send_preview_table(c) + DISPATCH
+            + more("Queue sizes, link coverage and caveats",
+                   send_pool_table(c) + links_note(c) + held_out_note(c) + send_notes(c)))
     # The same two queues the hero counts, added the same way, so both agree.
     send_now = (c.queue_counts.get("long_tail", 0)
                 + c.queue_counts.get("low_conf_known", 0))

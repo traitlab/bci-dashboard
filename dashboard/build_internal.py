@@ -31,6 +31,7 @@ import page as pg
 import queues
 import reference
 from assets import esc, hero, pctf
+from queue_filters import next_batch_block, send_filters
 from queue_panels import TEAM_BLOCK_ID
 from queues import BATCH_SIZE
 from selection_panels import selection_complaint
@@ -105,6 +106,10 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
          f'{anchor_clause}&middot; {c.n:,} frames scored against '
          f'{reference.WORDS[c.reference]} behind the species statuses that sort the '
          f'queues</div>',
+         # The answer to "what do I send next" is the first thing on the page,
+         # then the filters; the numbers behind it follow.
+         next_batch_block(c),
+         send_filters(c),
          # Batch 1 leads, not the pool. A botanist works through a few hundred
          # a month, so leading with the pool prices the whole queue as the
          # next task and it is many months of them. The number a

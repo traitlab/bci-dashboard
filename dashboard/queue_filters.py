@@ -14,6 +14,7 @@ import csv
 import json
 import os
 
+import queues
 from assets import esc
 
 SEND_FILE = "send_batches.csv"
@@ -52,11 +53,22 @@ function show(){var rows=pick(),by={};
     tr.appendChild(a);tr.appendChild(b);tb.appendChild(tr)})}
 ['f-queue','f-species','f-mission','f-site','f-lo','f-hi'].forEach(function(id){
   el(id).addEventListener('input',show)});
+function save(text,name){
+  var u=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'})),
+    a=document.createElement('a');a.href=u;a.download=name;
+  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u)}
 el('f-download').addEventListener('click',function(){
-  var u=URL.createObjectURL(new Blob([toCsv(H,pick())],{type:'text/csv;charset=utf-8'})),
-    a=document.createElement('a');a.href=u;a.download='send_batches_filtered.csv';
-  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u)});
+  save(toCsv(H,pick()),'send_batches_filtered.csv')});
+var nb=el('f-next');
+if(nb)nb.addEventListener('click',function(){var b=nb.getAttribute('data-batch'),
+  at=H.indexOf('batch_id');
+  save(toCsv(H,R.filter(function(r){return r[at]===b})),'send_batch_'+b+'.csv')});
 show()})();"""
+
+# The one-line hand-off, named once: the page shows it first and the labelling
+# team block repeats it. Round 1 and batch 1 are the example, as there.
+DISPATCH_CMD = ("python3 labelling/dispatch_round.py --round 1 "
+                "--csv build/tables/send_batches.csv --batch 1 --dry-run")
 
 
 def _read(path):
@@ -80,6 +92,35 @@ def send_data(verify_dir):
         conf_of = {r[k]: r[v] for r in q_rows}
     key_at = header.index("global_key")
     return {"header": header, "rows": rows, "conf": [conf_of.get(r[key_at], "") for r in rows]}
+
+
+def next_batch_block(c):
+    """The first thing on the page: which batch to send next, its size, a
+    download, and the dry-run command that follows. Batch 1 is the lowest batch
+    in the file; sending status is not recorded, so the page does not claim it."""
+    verify_dir = getattr(c, "verify_dir", None)
+    data = send_data(verify_dir) if verify_dir else None
+    if not data or not data["rows"]:
+        return ""
+    h = data["header"]
+    at = {n: h.index(n) for n in ("batch_id", "species_group", "picked_by")}
+    first = str(min(int(r[at["batch_id"]]) for r in data["rows"]))
+    rows = [r for r in data["rows"] if r[at["batch_id"]] == first]
+    n_control = sum(1 for r in rows if r[at["picked_by"]] == "control")
+    n_groups = len({r[at["species_group"]] for r in rows if r[at["picked_by"]] != "control"})
+    control = f", {n_control} of them random control photos" if n_control else ""
+    n_batches = max(int(r[at["batch_id"]]) for r in data["rows"])
+    return (
+        '<div class="rec" id="next-batch">'
+        f'<h2>Next batch: {len(rows):,} photos, grouped by species</h2>'
+        f'<p>Batch {first} holds {len(rows):,} photos in {n_groups:,} species group{"" if n_groups == 1 else "s"}{control}. '
+        f'The file has {len(data["rows"]):,} photos in {n_batches:,} batches of at most '
+        f'{queues.BATCH_SIZE}. '
+        f'<button type="button" class="primary" id="f-next" data-batch="{first}">'
+        f'Download batch {first} as CSV</button></p>'
+        '<p class="note">Then check the batch in Labelbox and run this first. '
+        '<code>--dry-run</code> writes nothing and calls no API; drop it to send.</p>'
+        f'<pre class="cmd">{esc(DISPATCH_CMD)}</pre></div>')
 
 
 def _select(id_, label, values):

@@ -107,6 +107,9 @@ h1{margin-bottom:2px}
 }
 .rec{background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;
   padding:10px 14px;font-size:0.85rem;color:#1b5e20;margin-top:10px}
+.rec h2{font-size:1.15rem;margin:0 0 6px}
+.rec button.primary,.controls button{font:inherit;font-weight:600;cursor:pointer;
+  padding:8px 14px;border:0;border-radius:6px;background:#1565c0;color:#fff}
 details.panel{
   background:#fff;border:1px solid #e0e0e0;border-radius:8px;
   margin:0 0 14px;padding:4px 20px 4px;box-shadow:0 1px 3px rgba(0,0,0,0.04);
