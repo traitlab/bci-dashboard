@@ -162,7 +162,7 @@ def invoke(repo, *args):
     )
 
 
-def fixture_repo(root, *, fail_builder=False):
+def fixture_repo(root, *, fail_builder=False, fail_atlas=False):
     """Small subprocess stand-ins exercise publication orchestration, not metric formulas."""
     for name in refresh.REQUIRED_FILES:
         path = root / "data" / name
@@ -231,6 +231,27 @@ def fixture_repo(root, *, fail_builder=False):
     (root / "dashboard/build_internal.py").write_text(
         "raise SystemExit('unverified metrics')\n" if fail_builder else builder
     )
+    # Stub the atlas chain: each step appends a marker, the pages record the chain ran.
+    for script in (
+        "export_embedding_atlas",
+        "project_atlas_tsne",
+        "compare_embedding_atlases",
+        "export_explorer",
+    ):
+        (root / f"labelling/{script}.py").write_text(
+            "raise SystemExit('no vectors')\n"
+            if fail_atlas
+            else "from pathlib import Path\nimport sys\n"
+            "Path(sys.argv[sys.argv.index('--output')+1]).write_text('{}')\n"
+        )
+    for script, page in (
+        ("build_explorer", "explorer"),
+        ("build_embedding_atlas", "embedding-atlas"),
+    ):
+        (root / f"dashboard/{script}.py").write_text(
+            "from pathlib import Path\nimport sys\n"
+            f"Path(sys.argv[sys.argv.index('--output')+1]).write_text('rebuilt {page}')\n"
+        )
     (root / "dashboard/build_index.py").write_text(
         "from pathlib import Path\nimport sys\n"
         "Path(sys.argv[sys.argv.index('--out')+1]).write_text('freshly verified public snapshot')\n"
@@ -259,9 +280,10 @@ def test_success_rebuilds_and_keeps_source_dates_and_standalone_catalogues(tmp_p
     assert (
         tmp_path / "docs/index.html"
     ).read_text() == "freshly verified public snapshot"
+    assert (tmp_path / "docs/explorer.html").read_text() == "rebuilt explorer"
     assert (
-        tmp_path / "docs/explorer.html"
-    ).read_text() == "old photo catalogue, do not restamp"
+        tmp_path / "docs/embedding-atlas.html"
+    ).read_text() == "rebuilt embedding-atlas"
     assert (
         tmp_path / "docs/crownfirst-atlas.html"
     ).read_text() == "old model catalogue, do not restamp"
@@ -284,6 +306,18 @@ def test_success_rebuilds_and_keeps_source_dates_and_standalone_catalogues(tmp_p
     assert (
         tmp_path / "docs/index.html"
     ).read_text() == "freshly verified public snapshot"
+
+
+def test_failed_atlas_chain_keeps_docs_pages_and_warns(tmp_path):
+    fixture_repo(tmp_path, fail_atlas=True)
+    (tmp_path / "docs/embedding-atlas.html").write_text("old atlas")
+    result = invoke(tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert "::warning::atlas pages kept from docs" in result.stdout
+    assert (
+        tmp_path / "docs/explorer.html"
+    ).read_text() == "old photo catalogue, do not restamp"
+    assert (tmp_path / "docs/embedding-atlas.html").read_text() == "old atlas"
 
 
 def test_explicit_exports_require_a_source_date(tmp_path):

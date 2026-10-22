@@ -39,7 +39,10 @@ REQUIRED_FILES = (
     "embeddings_queue/embeddings.npz",
 )
 # Beyond REQUIRED_FILES: globs under data/ that the offline build also reads.
-BUNDLE_EXTRA_GLOBS = ("predictions/cache/*.json",)
+# The atlas exporter checks encoder provenance against each per-photo cache.
+BUNDLE_EXTRA_GLOBS = ("predictions/cache/*.json", "embeddings_labelled/cache/*.json",
+                      "embeddings_queue/cache/*.json", "crownfirst/*.json")
+CROWNFIRST_EMBEDDINGS = "crownfirst/plantclef2024_tile2x2_max.json"
 PAGES = ("model_health_dashboard.html", "label_queue_dashboard.html")
 MAX_BUNDLE_BYTES = 2 * 1024**3
 MAX_BUNDLE_MEMBERS = 100_000
@@ -206,6 +209,33 @@ def run(repo: Path, script: str, *args: str, env: dict, research: bool = False) 
     subprocess.run(command, cwd=repo, env=env, check=True)
 
 
+def build_atlas_pages(
+    repo: Path, data: Path, stage: Path, rendered: Path, *, env: dict
+) -> None:
+    """Rebuild the explorer and embedding atlas from the vectors this run holds."""
+    work = stage / "atlas"
+    work.mkdir()
+    pca, atlas, catalogue = work / "atlas-pca.json", work / "atlas.json", work / "catalogue.json"
+    root, out = ("--data-root", str(data)), ("--output",)
+    labelling = {"research": True, "env": env}
+    run(repo, "labelling/export_embedding_atlas.py", *root, *out, str(pca), **labelling)
+    run(repo, "labelling/project_atlas_tsne.py", "--atlas", str(pca), "--data", str(data),
+        *out, str(atlas), **labelling)
+    comparison: list[str] = []
+    if (crownfirst := data / CROWNFIRST_EMBEDDINGS).is_file():
+        comparison = ["--comparison", str(work / "comparison.json")]
+        run(repo, "labelling/compare_embedding_atlases.py", *root,
+            "--crownfirst-embeddings", str(crownfirst),
+            "--encoder-label", "Crownfirst experiment: PlantCLEF 2024 tile2x2 max",
+            *out, comparison[1], **labelling)
+    run(repo, "labelling/export_explorer.py", *root, "--plantnet-atlas", str(atlas),
+        *out, str(catalogue), **labelling)
+    run(repo, "dashboard/build_explorer.py", "--input", str(catalogue),
+        *out, str(rendered / "explorer.html"), env=env)
+    run(repo, "dashboard/build_embedding_atlas.py", "--input", str(atlas), *comparison,
+        "--catalogue", str(catalogue), *out, str(rendered / "embedding-atlas.html"), env=env)
+
+
 def label_dates(provenance: str) -> tuple[str | None, str | None]:
     """Keep the source export date separate from the later local merge."""
     exported = re.search(r"\bexports? of (\d{4}-\d{2}-\d{2})\b", provenance)
@@ -312,9 +342,18 @@ def refresh(
             )
         published = stage / "docs"
         shutil.copytree(repo / "docs", published)
-        # Site navigation sees the existing standalone tools without rebuilding
-        # their recorded model outputs or pretending their catalogues changed.
-        for name in ("explorer.html", "embedding-atlas.html", "crownfirst-atlas.html"):
+        # The explorer and embedding atlas are rebuilt from this run's vectors.
+        # The crownfirst atlas needs an external experiment file, so it is copied.
+        names = ["crownfirst-atlas.html"]
+        try:
+            build_atlas_pages(repo, data, stage, rendered, env=env)
+        except subprocess.CalledProcessError as error:
+            print(
+                f"::warning::atlas pages kept from docs, rebuild failed: {error}",
+                flush=True,
+            )
+            names += ["explorer.html", "embedding-atlas.html"]
+        for name in names:
             if (published / name).is_file():
                 shutil.copy2(published / name, rendered / name)
         for script, name in zip(("build_external.py", "build_internal.py"), PAGES):

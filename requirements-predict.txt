@@ -8,3 +8,7 @@ Pillow
 # numpy: predict/embed.py, aggregate_survey.py and labelling/. pandas: aggregate_survey.py only.
 numpy
 pandas
+
+# labelling/project_atlas_tsne.py, run by the weekly refresh to rebuild the atlas.
+openTSNE
+scikit-learn
