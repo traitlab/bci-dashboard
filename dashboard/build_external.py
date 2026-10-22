@@ -64,6 +64,7 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
 
     # What the last export changed, off the refresh manifest. Here and not in
     # figures.prepare because the manifest is a refresh artifact, not a table.
+    c.generated = generated
     c.changes = snapshot_delta.compute(manifest.read(hc.MANIFEST))
 
     # The first screen is landing.py: the rates, the correction they are read

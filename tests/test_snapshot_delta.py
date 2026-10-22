@@ -70,8 +70,9 @@ def test_zero_and_one_line_have_no_diff(mods):
     assert mods.delta.compute([A])["diff"] is None
 
 
-def render(mods, lines):
-    return mods.panels.p_changes(SimpleNamespace(changes=mods.delta.compute(lines)))
+def render(mods, lines, built="2026-10-22"):
+    return mods.panels.p_changes(
+        SimpleNamespace(changes=mods.delta.compute(lines), generated=built))
 
 
 def test_the_panel_carries_each_rate_with_its_frame_count(mods):
@@ -96,6 +97,37 @@ def test_the_panel_caps_the_moved_table(mods):
     big = line("2026-10-08", {f"sp{i:02d}": 1 for i in range(20)})
     html = render(mods, [line("2026-10-01", {}), big])
     assert "And 5 more species moved." in html
+
+
+@pytest.mark.parametrize("version, built, words", [
+    ("2026-03-20 (7.5)", "2026-10-22", "7 months old"),
+    ("2026-03-20 (7.5)", "2026-10-19", "6 months old"),
+    ("2026-03-20 (7.5)", "2026-04-20", "1 month old"),
+    ("2026-03-20 (7.5)", "2026-04-19", "under a month old"),
+    ("2026-03-20 (7.5)", "2026-03-01", None),
+    ("2026-03-20 (7.5)", "not a date", None),
+    ("2026-03-20 (7.5)", "2026-10-22-test", "7 months old"),
+    ("unknown", "2026-10-22", None),
+])
+def test_the_model_age_is_whole_months_on_the_build_date(mods, version, built, words):
+    assert mods.delta.model_age_words(version, built) == words
+
+
+def test_the_panel_states_the_model_date_and_age(mods):
+    html = render(mods, [A])
+    assert "20 March 2026 (release 7.5), 7 months old on the day this page was built" in html
+
+
+def test_a_model_version_change_is_flagged_in_the_summary_and_the_history(mods):
+    new = {**B, "model_version": "2026-10-01 (8.0)"}
+    d = mods.delta.diff(A, new)
+    assert d["version_changed"] == ("2026-03-20 (7.5)", "2026-10-01 (8.0)")
+    html = render(mods, [A, new])
+    assert ">changed</td>" in html
+    assert html.count("(new model)") == 1
+    assert "2026-10-01 (8.0) (new model)" in html
+    same = render(mods, [A, B])
+    assert ">same</td>" in same and "(new model)" not in same
 
 
 @pytest.fixture(scope="module")

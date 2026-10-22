@@ -6,8 +6,10 @@ arithmetic is in ``snapshot_delta.py``; this only lays it out.
 
 from __future__ import annotations
 
+import core as hc
 import reference
 from assets import esc, panel, pctf, table
+from snapshot_delta import model_age_words
 
 # A long list of moved species is a table nobody reads past the top.
 MOVED_SHOWN = 15
@@ -35,6 +37,8 @@ def _summary_table(d: dict) -> str:
         ["Species", f"{prev['species']:,}", f"{cur['species']:,}",
          _signed(cur["species"] - prev["species"])],
         ["First guess right", _top1(prev), _top1(cur), top1],
+        ["Model", esc(prev["model_version"]), esc(cur["model_version"]),
+         "changed" if d["version_changed"] else "same"],
     ]
     return table([("", False), (esc(f"Export {prev['export']}"), True),
                   (esc(f"Export {cur['export']}"), True), ("Change", True)], rows)
@@ -53,10 +57,23 @@ def _moved_table(d: dict) -> str:
 
 
 def _history_table(runs: list[dict]) -> str:
+    # Newest first, so a line's model is compared with the next line down.
+    older = runs[1:] + [None]
     rows = [[esc(e["run_date"]), esc(e["export"]), f"{e['labelled']:,}", f"{e['species']:,}",
-             _top1(e), esc(e["model_version"])] for e in runs]
+             _top1(e),
+             esc(e["model_version"])
+             + (" (new model)" if o and o["model_version"] != e["model_version"] else "")]
+            for e, o in zip(runs, older)]
     return table([("Refreshed", False), ("Export", False), ("Labelled frames", True),
                   ("Species", True), ("First guess right", False), ("Model", False)], rows)
+
+
+def _model_note(built: str) -> str:
+    """The model the cached answers came from, and how old it was at the build."""
+    age = model_age_words(hc.PLANTNET_MODEL_VERSION, built)
+    return (f'<p class="note">The Pl@ntNet model is {esc(hc.plantnet_version_words())}'
+            + (f", {age} on the day this page was built" if age else "")
+            + ". A new model would show here as a change in the Model column.</p>")
 
 
 def p_changes(c):
@@ -87,6 +104,7 @@ def p_changes(c):
     if runs:
         body += (f'<p class="note">The last {len(runs)} update{"" if len(runs) == 1 else "s"}, '
                  f"newest first.</p>" + _history_table(runs))
+    body = _model_note(c.generated) + body
     return panel("Since the last update",
                  "<b>Read this before comparing today's rates with an earlier visit.</b> "
                  "It compares the last two Labelbox exports.",

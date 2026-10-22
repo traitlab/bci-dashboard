@@ -14,7 +14,33 @@ Read with the standard library only, like everything under dashboard/.
 
 from __future__ import annotations
 
+import re
+from datetime import date
+
 HISTORY_RUNS = 8
+# Build dates are free text on the command line ("2026-08-25-test" in the tests),
+# and a model version starts with its date, so only a leading date is read.
+DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})")
+
+
+def _date(text: str):
+    m = DATE_RE.match(text or "")
+    try:
+        return date(*map(int, m.groups())) if m else None
+    except ValueError:
+        return None
+
+
+def model_age_words(version: str, built: str) -> str | None:
+    """How old the model was on the build date, in whole months, or None when
+    either date cannot be read or the model is dated after the build."""
+    then, now = _date(version), _date(built)
+    if then is None or now is None or then > now:
+        return None
+    months = (now.year - then.year) * 12 + now.month - then.month - (now.day < then.day)
+    if months < 1:
+        return "under a month old"
+    return f"{months} month{'' if months == 1 else 's'} old"
 
 
 def diff(prev: dict, cur: dict) -> dict:
@@ -38,6 +64,8 @@ def diff(prev: dict, cur: dict) -> dict:
         "moved": moved,
         "top1_delta": top1,
         "crossed": crossed,
+        "version_changed": ((prev["model_version"], cur["model_version"])
+                            if prev["model_version"] != cur["model_version"] else None),
     }
 
 
