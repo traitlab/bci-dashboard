@@ -547,6 +547,36 @@ def _inventory_pairs(paths):
                     yield key, str(url).strip()
 
 
+_MISSION_FOLDER_RE = re.compile(r"(?:^|/)(\d{8}_([a-z0-9]+)_[^/]*)")
+
+
+def inventory_origins(path=LEGACY_INVENTORIES) -> dict[str, tuple[str, str]]:
+    """global_key -> (mission, site), off the inventory.
+
+    The mission is ``metadata.mission``, else the mission folder in ``row_data``
+    (``<yyyymmdd>_<site>_<waypoint>_<aircraft>``); the site is that folder's
+    second part, as labelling/draw_field_sample.py reads it. A frame with
+    neither gets no entry, so the cell is blank rather than guessed.
+    """
+    out = {}
+    for path_ in ((path,) if isinstance(path, str) else path):
+        if not os.path.exists(path_):
+            continue
+        with open(path_, encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                key = row.get("global_key")
+                mission = str((row.get("metadata") or {}).get("mission") or "")
+                m = _MISSION_FOLDER_RE.search(mission) or _MISSION_FOLDER_RE.search(
+                    str(row.get("row_data") or ""))
+                if key and m:
+                    out.setdefault(key, (mission or m.group(1), m.group(2)))
+    return out
+
+
 def inventory_image_urls(path=LEGACY_INVENTORIES) -> dict[str, str]:
     """global_key -> the whole frame, straight off the inventory's ``row_data``.
 

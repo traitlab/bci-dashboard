@@ -26,6 +26,7 @@ from core import (
     add_input_flags, add_label_source_flag, summarise,
     ratio, fmt, genus_of, normalize,
     coverage_gate_stats, data_row_id, diagnose, labelbox_urls, inventory_image_urls,
+    inventory_origins,
     adjudicated_keys,
     CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
@@ -191,13 +192,14 @@ def write_coverage_gate(out_dir, sweep):
 
 def write_send_first_queue(out_dir, queue_rows):
     """The unlabelled pool in send order; send_batches must match it."""
-    boxes = labelbox_urls()
+    boxes, origins = labelbox_urls(), inventory_origins()
     key_at = SEND_FIRST_COLUMNS.index("global_key")
     with _csv(out_dir, "send_first_queue.csv") as f:
         w = csv.writer(f)
         w.writerow(SEND_FIRST_HEADER)
         for row in queue_rows:
-            w.writerow(list(row) + [data_row_id(boxes.get(row[key_at], ""))])
+            w.writerow(list(row) + [data_row_id(boxes.get(row[key_at], ""))]
+                       + list(origins.get(row[key_at], ("", ""))))
 
 
 def write_send_batches(out_dir, batch_rows):
@@ -209,7 +211,7 @@ def write_send_batches(out_dir, batch_rows):
     not name leaves an empty cell: a blank is honest, a guessed URL is a 404 in
     front of a botanist.
     """
-    images, boxes = inventory_image_urls(), labelbox_urls()
+    images, boxes, origins = inventory_image_urls(), labelbox_urls(), inventory_origins()
     distance = load_novelty_distance(QUEUE_NOVELTY_CSV)
     key_at = SEND_BATCH_COLUMNS.index("global_key")
     with _csv(out_dir, "send_batches.csv") as f:
@@ -218,7 +220,8 @@ def write_send_batches(out_dir, batch_rows):
         for row in batch_rows:
             key = row[key_at]
             w.writerow(list(row) + [how_new(distance, key), images.get(key, ""),
-                                    boxes.get(key, ""), data_row_id(boxes.get(key, ""))])
+                                    boxes.get(key, ""), data_row_id(boxes.get(key, "")),
+                                    *origins.get(key, ("", ""))])
 
 
 def top1(r, key="ranked"):
