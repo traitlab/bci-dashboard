@@ -56,8 +56,7 @@ def _batch1_note(c) -> str:
 # nothing yet, so the note cannot say more than that.
 _UNMEASURED_NOTE = (
     '<p class="note"><b>This order has not been measured yet.</b> Nothing here measures '
-    'whether it fills gaps faster than sending photos at random. It is a reasonable '
-    'guess about where our labels are thin. The wait rule further down <em>is</em> '
+    'whether it fills gaps faster than sending photos at random. The wait rule further down <em>is</em> '
     'measured.</p>')
 
 
@@ -137,7 +136,7 @@ def links_note(c) -> str:
             f'in, which is the only view that draws the crown being asked about, and it '
             f'is filled on {box["n_linked"]:,}. The {box["n_unlinked"]:,} rows without one '
             f'are frames no Labelbox export names. Those cells are empty rather '
-            f'than guessed: a guessed link is a 404 in front of a botanist.</p>')
+            f'than guessed.</p>')
 
 
 def p_todo(c):
@@ -218,12 +217,9 @@ def send_preview_table(c):
     # in front of them reads what the order is not measured against and how to
     # read the confidence column.
     body += ('<h3 class="sub">First ' + f'{len(head)}' + ' photos in the ranked pool</h3>'
-             + '<p class="note"><b>Inside each queue, the photo least like anything labelled '
-               'comes first.</b> Each next photo is the one least like the labelled '
-               'photos and the photos above it. "How new it looks" is the distance to '
+             + '<p class="note">"How new it looks" is the distance to '
                'labelled photos only, so it falls down the table overall but not row '
-               'by row. It is not evidence of a new species. Unranked photos keep '
-               'their confidence order.</p>'
+               'by row. It is not evidence of a new species.</p>'
              + ('<p class="note">Photo links open the catalogue, which carries its own '
                 'saved labels and guesses. Queue scores remain from the snapshot above.</p>'
                 if explorer_available else '')
@@ -301,8 +297,7 @@ def p_send(c):
                  f"fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, or one the model gets right "
                  f"less than {pctf(hc.HARD_MAX_TOP1, 0)} of the time; "
                  f"{c.queue_counts.get('low_conf_known', 0):,} show a usually-right species "
-                 f"the model is unsure of here. These queues come first to target gaps "
-                 f"in labelled evidence. Inside each queue the photo least like anything labelled "
+                 f"the model is unsure of here. Inside each queue the photo least like anything labelled "
                  f"comes first, then the one least like the labelled photos and those above it. "
                  f"This applies to {c.n_ranked:,} of the "
                  f"{c.n_unlab:,}; the rest keep their place by confidence. "

@@ -113,8 +113,7 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
          # 1 is a batch, so it comes off send_batches.csv; the other two count
          # the pool in queue order, which is send_first_queue.csv.
          hero([("First saved batch", f"{c.n_batch1:,}", "photos in batch 1",
-                "The saved first batch from send_batches.csv. The pool below is "
-                "broader than this batch.",
+                "The pool below is broader than this batch.",
                 "send_batches.csv"),
                ("Worth sending first", f"{send_now:,}", "unlabelled photos",
                 f"They point at a species with fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, "
@@ -127,8 +126,8 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
               tile=f"{c.n_unlab:,} unlabelled photos"),
          batches_note(c),
          ('<p class="note"><strong>This is a saved queue.</strong> It changes after '
-          'labels, predictions or ranking data are refreshed. Work from the published '
-          'batch file; reloading this browser page does not refresh the data. '
+          'labels, predictions or ranking data are refreshed. Reloading this '
+          'browser page does not refresh the data. '
           'Sending status is not recorded here. Check the batch in Labelbox '
           'before sending it.</p>'),
          pg.render(c, pg.INTERNAL_PANELS),
@@ -148,8 +147,7 @@ def batches_note(c):
     return (f'<p class="note"><strong>The prioritised batches are in '
             f'<a href="send_batches.csv">send_batches.csv</a>.</strong> '
             f'Send from that file: it holds {c.n_batches} batches of at most '
-            f'{BATCH_SIZE} photos, each species group kept together. This page '
-            f'shows the order and the reason behind each photo\u2019s place in it. '
+            f'{BATCH_SIZE} photos, each species group kept together. '
             f'How Pl@ntNet scores against the labels is a separate page, '
             f'<a href="model_health_dashboard.html">Model health</a>.</p>')
 

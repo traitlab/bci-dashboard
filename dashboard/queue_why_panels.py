@@ -46,8 +46,7 @@ def discovery_chart(c) -> str:
                       marks=marks)
             + f'<p class="note"><b>What this is measured on.</b> The '
               f'{int(c.discovery_photos):,} photos a botanist has already named, carrying '
-              f'{int(c.discovery_species):,} species between them. Not the queue. It shows '
-              f'the method works where the answer is known.</p>'
+              f'{int(c.discovery_species):,} species between them. Not the queue.</p>'
             + f'<p class="note">Half those species take '
               f'{int(c.discovery_half_directed or 0):,} photos in this order and '
               f'{int(c.discovery_half_random or 0):,} in a random one. Read it as evidence '
@@ -69,8 +68,7 @@ def novelty_chart(c) -> str:
                       title="How unlike the named photos each one looks, by its place",
                       x_title="place in the queue", y_title="distance")
             + '<p class="note"><b>How to read this:</b> each point averages a slice of '
-              'the queue. The line falls, so photos near the top really are less like the '
-              'named ones than photos near the bottom. Most of that fall is in the first '
+              'the queue. Most of the fall is in the first '
               'quarter of the queue, and past it the line keeps dropping, but slowly. The '
               'photos it separates there differ from each other far less than the ones '
               'at the head do.</p>')
@@ -230,8 +228,7 @@ def _wait_rule(c) -> str:
             # Every share in the comparison table below is out of this count.
             f'<p class="note"><strong>What those {len(c.test_recs):,} frames are:</strong> '
             f'the labelled frames held back for grading. The '
-            f'rule was chosen on the other frames, so no frame here helped pick the rule, '
-            f'and every count below is out of those {len(c.test_recs):,}. '
+            f'rule was chosen on the other frames, and every count below is out of those {len(c.test_recs):,}. '
             # Two hold-outs, described in almost the same words on two pages that
             # link to each other. A reader assumes one is a subset of the other.
             f'They are not the model-health page\'s {int(c.cf["n_frames"])} frames fixed '
@@ -291,8 +288,7 @@ def _confidence_evidence(c) -> str:
                        title="how often the first guess is right, "
                              "by the model's own confidence")
             + '<p class="note">Over all frames at once the score is trustworthy: when the '
-              'model is sure it is almost always right. That is what makes ordering the '
-              'queue possible at all. <strong>On rarely-labelled species it is not</strong>, '
+              'model is sure it is almost always right. <strong>On rarely-labelled species it is not</strong>, '
               'so ordering on confidence alone would push exactly the species you care '
               'about to the bottom:</p>'
             + table([("labelled frames for that species", False),
