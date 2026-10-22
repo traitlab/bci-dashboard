@@ -8,6 +8,7 @@ Botanists outline tree crowns in drone photos of BCI and name each species in La
 ## How it fits together
 
 ```mermaid
+%%{init: {"flowchart": {"htmlLabels": false}}}%%
 flowchart LR
     frames["Drone frames<br/>4000x3000 photos"]
     frames --> lb["Labelbox<br/>botanists outline crowns<br/>and name them"]
@@ -41,6 +42,7 @@ The queue page orders every unlabelled photo that has a cached Pl@ntNet answer.
 ### A rule picks the queue
 
 ```mermaid
+%%{init: {"flowchart": {"htmlLabels": false}}}%%
 flowchart LR
     photo["Unlabelled photo<br/>first guess: species S<br/>confidence: c"]
     photo --> t1{"S has fewer than 10 labelled frames,<br/>or is right less than 70% of the time?"}
@@ -63,6 +65,7 @@ A frame held back for grading (it carries a split in `data/splits.csv`) never en
 Pl@ntNet turns each centre crop into 768 numbers that describe how the photo looks to the model. Two photos with close numbers look alike. `labelling/rank_queue.py` uses those numbers to order each queue:
 
 ```mermaid
+%%{init: {"flowchart": {"htmlLabels": false}}}%%
 flowchart LR
     covered["Every labelled photo<br/>counts as covered"] --> pick["Pick the queued photo<br/>least like everything covered"]
     pick --> add["Add the pick<br/>to the covered set"]
@@ -80,6 +83,7 @@ The ranking lands in `data/next_batch/queue_novelty.csv`. The weekly refresh wri
 `send_batches.csv` packs the ordered queue into batches of 100, or `BCI_BATCH_SIZE`. A species ships at the place of its highest-ranked photo, with every other photo of that species beside it. The first batch gives 15% of its places (`CONTROL_FRACTION`) to photos drawn at random from the whole pool, as a comparison for the queue.
 
 ```mermaid
+%%{init: {"flowchart": {"htmlLabels": false}}}%%
 flowchart LR
     q["send_first_queue.csv<br/>queue, then rank"] --> g["Group photos by species,<br/>placed at its<br/>highest-ranked photo"]
     g --> p["Pack the groups<br/>into batches of 100"]
@@ -126,6 +130,7 @@ bin/refresh.sh path/to/export.ndjson                  # a named export instead o
 `.github/workflows/weekly-refresh.yml` runs `bin/refresh_snapshot.py`. It downloads the Sunday export from the Arbutus bucket (variables `ARBUTUS_S3_ENDPOINT`, `BCI_LABELBOX_EXPORTS`, `BCI_LABELBOX_PROJECTS`; secrets `ARBUTUS_S3_ACCESS_KEY`, `ARBUTUS_S3_SECRET_KEY`) and runs these steps:
 
 ```mermaid
+%%{init: {"flowchart": {"htmlLabels": false}}}%%
 flowchart LR
     ex["Sunday export"] --> merge["Merge labels<br/>gt_from_export.py"]
     merge --> embed["Embed every<br/>named frame"]
