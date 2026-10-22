@@ -25,7 +25,7 @@ from health import load_health
 from core import (
     add_input_flags, add_label_source_flag, summarise,
     ratio, fmt, genus_of, normalize,
-    coverage_gate_stats, diagnose, labelbox_urls, inventory_image_urls,
+    coverage_gate_stats, data_row_id, diagnose, labelbox_urls, inventory_image_urls,
     adjudicated_keys,
     CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
@@ -34,7 +34,7 @@ from core import (
 )
 from queues import (
     BATCH_SIZE, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_BATCH_HEADER,
-    SEND_FIRST_COLUMNS,
+    SEND_FIRST_COLUMNS, SEND_FIRST_HEADER,
     chunk_send_batches, how_new, load_novelty, load_novelty_distance,
     novelty_provenance, send_first_rows,
     with_batch_ids,
@@ -191,10 +191,13 @@ def write_coverage_gate(out_dir, sweep):
 
 def write_send_first_queue(out_dir, queue_rows):
     """The unlabelled pool in send order; send_batches must match it."""
+    boxes = labelbox_urls()
+    key_at = SEND_FIRST_COLUMNS.index("global_key")
     with _csv(out_dir, "send_first_queue.csv") as f:
         w = csv.writer(f)
-        w.writerow(SEND_FIRST_COLUMNS)
-        w.writerows(queue_rows)
+        w.writerow(SEND_FIRST_HEADER)
+        for row in queue_rows:
+            w.writerow(list(row) + [data_row_id(boxes.get(row[key_at], ""))])
 
 
 def write_send_batches(out_dir, batch_rows):
@@ -214,8 +217,8 @@ def write_send_batches(out_dir, batch_rows):
         w.writerow(SEND_BATCH_HEADER)
         for row in batch_rows:
             key = row[key_at]
-            w.writerow(list(row) + [how_new(distance, key),
-                                    images.get(key, ""), boxes.get(key, "")])
+            w.writerow(list(row) + [how_new(distance, key), images.get(key, ""),
+                                    boxes.get(key, ""), data_row_id(boxes.get(key, ""))])
 
 
 def top1(r, key="ranked"):

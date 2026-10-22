@@ -107,6 +107,17 @@ LABELBOX_URL = "https://app.labelbox.com/projects/{project_id}/data-rows/{data_r
 _LABELBOX_URL_RE = re.compile(
     r"https://app\.labelbox\.com/projects/([^/]+)/data-rows/([^/?#\s]+)")
 
+
+def data_row_id(url: str) -> str:
+    """The data row id inside a Labelbox deep link, or "" for no link.
+
+    The one place a link is taken apart, beside the one that builds it, so the
+    ``data_row_id`` column in the send CSVs cannot disagree with ``labelbox_url``.
+    """
+    m = _LABELBOX_URL_RE.fullmatch((url or "").strip())
+    return m.group(2) if m else ""
+
+
 # The read-only dataset inventory labelling/fetch_dataset.py pages. Every row
 # migrated into the dispatch dataset kept the URL it had in the project it was
 # labelled in, as ``metadata.original_labelbox_url``, so this file is a second,

@@ -46,6 +46,10 @@ WAIT_QUEUE = QUEUE_ORDER[-1]
 SEND_FIRST_COLUMNS = ["queue", "global_key", "split", "predicted_species", "confidence",
                       "species_labelled_crowns", "species_top1_accuracy", "novelty_rank",
                       "how_new_it_looks", "batch_id"]
+# Written after the columns above, looked up per frame at write time like the
+# batch file's links, so the packing and its identity check do not see it.
+SEND_FIRST_LOOKUP_COLUMNS = ["data_row_id"]
+SEND_FIRST_HEADER = SEND_FIRST_COLUMNS + SEND_FIRST_LOOKUP_COLUMNS
 # send_batches.csv's columns, likewise: returned in this order, written as that header.
 SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue", "picked_by"]
 # The same distance on the batch file, since that is the file the botanist
@@ -59,7 +63,11 @@ SEND_BATCH_LOOKUP_COLUMNS = ["how_new_it_looks"]
 #
 # Both links, not one. `image_url` opens for anyone with a browser and covers
 # every row; `labelbox_url` is the only one that shows which crown is asked about.
-SEND_BATCH_LINK_COLUMNS = ["image_url", "labelbox_url"]
+#
+# `data_row_id` is the id inside `labelbox_url`, parsed by `core.data_row_id`,
+# so it is empty exactly where the link is. It is the link's id, which for a
+# legacy-mode link is the row in the project the frame was labelled in.
+SEND_BATCH_LINK_COLUMNS = ["image_url", "labelbox_url", "data_row_id"]
 SEND_BATCH_HEADER = SEND_BATCH_COLUMNS + SEND_BATCH_LOOKUP_COLUMNS + SEND_BATCH_LINK_COLUMNS
 
 # No more than this many crowns per Labelbox batch, one botanist session's worth.
