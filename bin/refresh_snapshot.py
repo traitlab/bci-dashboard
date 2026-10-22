@@ -250,8 +250,8 @@ def refresh(
     )
     # Validate the reviewed workbook before a merge changes accumulated GT.
     run(repo, "labelling/gt_from_publication.py", "--check", env=env)
+    flags = [value for path in exports for value in ("--export", str(path))]
     if exports:
-        flags = [value for path in exports for value in ("--export", str(path))]
         run(
             repo,
             "labelling/gt_from_export.py",
@@ -265,7 +265,7 @@ def refresh(
     # bundled embeddings were drawn can anchor. It runs before the assessment,
     # which records the npz it read and fails verification if the npz changes
     # after. The fetch skips what the npz and the per-photo cache already hold.
-    run(repo, "labelling/embed_input.py", "--named", env=env)
+    run(repo, "labelling/embed_input.py", "--named", *flags, env=env)
     run(
         repo,
         "predict/embed.py",
