@@ -46,6 +46,8 @@ BUNDLE_EXTRA_GLOBS = ("predictions/cache/*.json", "embeddings_labelled/cache/*.j
 CROWNFIRST_EMBEDDINGS = "crownfirst/plantclef2024_tile2x2_max.json"
 PAGES = ("model_health_dashboard.html", "label_queue_dashboard.html")
 # Explicit public artifact membership. Adding a public file requires review here.
+# Expert labels stay private until publication: the labelling queue, its send
+# CSVs and the label review queue are private-tier only, in build/private/.
 PUBLIC_FILES = frozenset(
     (
         ".nojekyll",
@@ -57,17 +59,12 @@ PUBLIC_FILES = frozenset(
         "embedding-atlas.html",
         "explorer.html",
         "index.html",
-        "label_queue_dashboard.html",
-        "label_queue_team.html",
-        "label_review_queue.csv",
         "model_health_dashboard.html",
         "name_reconciliation.csv",
         "per_species_health.csv",
         "refresh_status.json",
         "reject_sweep.csv",
         "scope.csv",
-        "send_batches.csv",
-        "send_first_queue.csv",
         "support_buckets.csv",
     )
 )
@@ -264,13 +261,17 @@ def run(repo: Path, script: str, *args: str, env: dict, research: bool = False) 
 
 
 def build_atlas_pages(
-    repo: Path, data: Path, stage: Path, rendered: Path, *, env: dict
+    repo: Path, data: Path, stage: Path, rendered: Path, *, env: dict, public: bool
 ) -> None:
-    """Rebuild the explorer and embedding atlas from the vectors this run holds."""
-    work = stage / "atlas"
+    """Rebuild the explorer and embedding atlas from the vectors this run holds.
+
+    ``public`` exports them without recorded labels or Labelbox links.
+    """
+    work = stage / ("atlas-public" if public else "atlas")
     work.mkdir()
     pca, atlas, catalogue = work / "atlas-pca.json", work / "atlas.json", work / "catalogue.json"
-    root, out = ("--data-root", str(data)), ("--output",)
+    tier = ("--public",) if public else ()
+    root, out = ("--data-root", str(data), *tier), ("--output",)
     labelling = {"research": True, "env": env}
     run(repo, "labelling/export_embedding_atlas.py", *root, *out, str(pca), **labelling)
     run(repo, "labelling/project_atlas_tsne.py", "--atlas", str(pca), "--data", str(data),
@@ -429,26 +430,35 @@ def refresh(
         )
         published = stage / "docs"
         shutil.copytree(repo / "docs", published)
+        # build/ holds the private tier, build/public/ the --public builds.
+        public = rendered / "public"
+        public.mkdir()
         # The explorer and embedding atlas are rebuilt from this run's vectors.
         # The crownfirst atlas needs an external experiment file, so it is copied.
         names = ["crownfirst-atlas.html"]
         try:
-            build_atlas_pages(repo, data, stage, rendered, env=env)
+            build_atlas_pages(repo, data, stage, rendered, env=env, public=False)
+            build_atlas_pages(repo, data, stage, public, env=env, public=True)
         except subprocess.CalledProcessError as error:
             print(
                 f"::warning::atlas pages kept from docs, rebuild failed: {error}",
                 flush=True,
             )
             names += ["explorer.html", "embedding-atlas.html"]
+        # docs/ is the public tier, so a page kept from it stays public-only.
         for name in names:
             if (published / name).is_file():
-                shutil.copy2(published / name, rendered / name)
-        for script, name in zip(("build_external.py", "build_internal.py"), PAGES):
+                shutil.copy2(published / name, public / name)
+        builds = [(script, rendered / name, ()) for script, name in
+                  zip(("build_external.py", "build_internal.py"), PAGES)]
+        builds.append(("build_external.py", public / PAGES[0], ("--public",)))
+        for script, out, tier in builds:
             run(
                 repo,
                 "dashboard/" + script,
+                *tier,
                 "--out",
-                str(rendered / name),
+                str(out),
                 "--generated",
                 generated,
                 "--verify-against",

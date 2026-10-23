@@ -98,6 +98,9 @@ python3 dashboard/build_external.py \
   --out "$REPO/build/model_health_dashboard.html" --generated "$TODAY"
 python3 dashboard/build_internal.py \
   --out "$REPO/build/label_queue_dashboard.html" --generated "$TODAY"
+# The public tier's copy: no per-frame label, no Labelbox link, no queue page.
+python3 dashboard/build_external.py --public \
+  --out "$REPO/build/public/model_health_dashboard.html" --generated "$TODAY"
 
 if [ "$BEFORE" = "$AFTER" ]; then
   rm "$BAK"
@@ -113,9 +116,9 @@ else
   cp "$REPO/build/label_queue_dashboard.html" "$SNAP/"
 fi
 
-# The published copies. Staged into docs/ rather than pushed, because what goes
-# on the public site is a commit somebody made and can point at, not a side
-# effect of a local run.
+# The published copies: the public tier staged into docs/ rather than pushed,
+# because what goes on the public site is a commit somebody made and can point
+# at, not a side effect of a local run. The private tier goes to build/private/.
 "$REPO/bin/publish_pages.sh"
 
 echo "refresh: done"

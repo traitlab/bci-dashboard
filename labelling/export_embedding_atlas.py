@@ -53,8 +53,13 @@ def load_labels(path):
 
 
 def export(
-    data_root: Path, neighbours=12, crownfirst_embeddings=None, encoder_label=None
+    data_root: Path,
+    neighbours=12,
+    crownfirst_embeddings=None,
+    encoder_label=None,
+    public=False,
 ):
+    """``public`` drops the recorded labels, for the public site."""
     if neighbours <= 0:
         raise ValueError("Neighbour count must be positive")
     inventory_path = data_root / "dataset_rows_combined.jsonl"
@@ -63,7 +68,9 @@ def export(
         for r in map(json.loads, inventory_path.read_text().splitlines())
     }
     records, vectors, sources, excluded, seen, versions = [], [], [], {}, set(), set()
-    labels, label_source = load_labels(data_root / "gt_dominant_taxon.csv")
+    labels, label_source = (
+        ({}, None) if public else load_labels(data_root / "gt_dominant_taxon.csv")
+    )
     if label_source:
         sources.append(label_source)
     pools = []
@@ -230,11 +237,15 @@ def main():
     )
     parser.add_argument("--crownfirst-embeddings", type=Path)
     parser.add_argument("--encoder-label")
+    parser.add_argument(
+        "--public", action="store_true", help="drop recorded labels (the public site)"
+    )
     args = parser.parse_args()
     result = export(
         args.data_root,
         crownfirst_embeddings=args.crownfirst_embeddings,
         encoder_label=args.encoder_label,
+        public=args.public,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, separators=(",", ":"), allow_nan=False))

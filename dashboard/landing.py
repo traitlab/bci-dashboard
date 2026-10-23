@@ -45,8 +45,10 @@ def intro(c) -> str:
             f'over {c.n:,} drone frames of {c.n_sp} species, scored against '
             f'{esc(reference.WORDS[c.reference])}. The model dates from '
             f'{esc(hc.plantnet_version_words())}, before any BCI label was sent to '
-            f'Pl@ntNet. What to label next is on the '
-            f'<a href="label_queue_dashboard.html">Labelling queue</a>.</p>')
+            f'Pl@ntNet.'
+            + (' What to label next is on the <a href="label_queue_dashboard.html">'
+               'Labelling queue</a>.' if "label_queue_dashboard.html" in c.available_pages
+               else '') + '</p>')
 
 
 def cards(c) -> str:
@@ -168,4 +170,4 @@ def review_line(c) -> str:
 def landing(c) -> str:
     """Everything above the first section heading."""
     return "\n".join([intro(c), cards(c), populations(c), floor_note(require(c.cf)),
-                      status_bar(c), by_frames(c), review_line(c)])
+                      status_bar(c), by_frames(c), "" if c.public else review_line(c)])

@@ -2,12 +2,13 @@
 
 Rebuild docs/explorer.html byte for byte (OUT is any scratch dir, DATA the data root):
 
-    python labelling/export_explorer.py --data-root DATA --plantnet-atlas embedding-atlas.json --output OUT/cat.json
+    python labelling/export_explorer.py --data-root DATA --plantnet-atlas embedding-atlas.json --public --output OUT/cat.json
     mkdir OUT/site && cp docs/* OUT/site/
     python dashboard/build_explorer.py --input OUT/cat.json --output OUT/site/explorer.html
     python -m dashboard.refresh_site_ui --site OUT/site --out OUT/out   # OUT/out/explorer.html
 
 The refresh step adds the full nav (data-photo-pages), so build_explorer output alone differs.
+docs/ is the public tier: without --public the catalogue carries recorded labels and Labelbox links.
 """
 
 from __future__ import annotations
@@ -128,7 +129,8 @@ def position(row):
     return lat, lon
 
 
-def export_catalogue(data_root, plantnet_atlas=None):
+def export_catalogue(data_root, plantnet_atlas=None, public=False):
+    """``public`` drops recorded labels and Labelbox links, for the public site."""
     root = Path(data_root)
     sources = []
     inventory = root / "dataset_rows_combined.jsonl"
@@ -143,7 +145,7 @@ def export_catalogue(data_root, plantnet_atlas=None):
     inventory_keys = unique_frames(
         ((r.get("global_key"), r["global_key"]) for r in rows), "inventory"
     )
-    labels = labels_from(root / "gt_dominant_taxon.csv", sources)
+    labels = {} if public else labels_from(root / "gt_dominant_taxon.csv", sources)
     checklist = source(root / f"checklist_{PROJECT}.json", sources)
     keys = source(root / "gbif_keys.json", sources)
     wcvp = source(root / "wcvp_cache.json", sources)
@@ -189,7 +191,7 @@ def export_catalogue(data_root, plantnet_atlas=None):
         if not isinstance(metadata, dict):
             raise TypeError("Inventory metadata must be an object")
         annotation = text(metadata.get("original_labelbox_url"), "annotation URL")
-        if annotation and not ANNOTATION.fullmatch(annotation):
+        if public or (annotation and not ANNOTATION.fullmatch(annotation)):
             annotation = None
         lat, lon = position(row)
         photos.append(
@@ -251,8 +253,13 @@ def main():
     parser.add_argument(
         "--output", type=Path, default=Path("build/explorer-catalogue.json")
     )
+    parser.add_argument(
+        "--public",
+        action="store_true",
+        help="drop recorded labels and Labelbox links (the public site)",
+    )
     args = parser.parse_args()
-    catalogue = export_catalogue(args.data_root, args.plantnet_atlas)
+    catalogue = export_catalogue(args.data_root, args.plantnet_atlas, args.public)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(

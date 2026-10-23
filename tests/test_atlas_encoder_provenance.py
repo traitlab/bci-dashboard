@@ -124,3 +124,24 @@ def test_external_import_still_requires_explicit_display_name(encoder_pool, disp
     export, root, source, _ = encoder_pool
     with pytest.raises(ValueError, match="explicit encoder label"):
         export(root, crownfirst_embeddings=source, encoder_label=display_name)
+
+
+def test_public_atlas_and_comparison_carry_no_recorded_label(encoder_pool):
+    export, root, source, _ = encoder_pool
+    assert export(root)["provenance"]["labels"]["matched_count"] == 1
+    atlas = export(root, public=True)
+    assert [point["label"] for point in atlas["points"]] == [None, None, None]
+    assert atlas["provenance"]["labels"]["available"] is False
+    spec = importlib.util.spec_from_file_location(
+        "compare_embedding_atlases", ROOT / "labelling/compare_embedding_atlases.py"
+    )
+    compare = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(compare)
+    comparison = compare.export_comparison(root, source, "Imported", public=True)
+    assert [label for _, label in comparison["cohort"]] == [None, None, None]
+    assert comparison["labels_available"] is False
+    for published in (atlas, comparison):
+        text = json.dumps(published)
+        assert "Luehea seemannii" not in text
+        assert "gt_dominant_taxon.csv" not in text
+        assert "recorded_label" not in text

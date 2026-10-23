@@ -36,6 +36,11 @@ from selection_panels import audit_footer
 OPERATIONAL_PAGES = frozenset({
     "index.html", "about.html", "model_health_dashboard.html", "label_queue_dashboard.html",
 })
+# Expert labels stay private until publication. A --public build, the tier
+# bin/publish_pages.sh puts in docs/, leaves out these pages, which carry
+# Labelbox links throughout, and these panels, which pair a frame with its label.
+PRIVATE_PAGES = frozenset({"label_queue_dashboard.html", "label_queue_team.html"})
+PRIVATE_PANELS = frozenset({"review"})
 
 
 # Order here is reading order: measurement first, explanation after.
@@ -54,7 +59,7 @@ SECTIONS = {
         "Where the model is right, and where it is not",
         # No live figure in a lede: SECTIONS is a constant, so a number here
         # would not move with the snapshot and nothing would catch it.
-        "Accuracy species by species, and the labels worth a second look.",
+        "Accuracy species by species, and where it goes wrong.",
         "where-the-model-is-right"),
     "explanations": (
         "How to read the numbers above",
@@ -162,6 +167,9 @@ def parse_args(doc: str, default_out: str):
     ap.add_argument("--generated", default=None,
                     help="build date string; defaults to today (pass a fixed value for "
                          "byte-reproducible output)")
+    ap.add_argument("--public", action="store_true",
+                    help="build the public tier: no per-frame label, no Labelbox link, "
+                         "no link to a private page")
     args = ap.parse_args()
     if args.out is None:
         args.out = os.path.join(hc.REPO, "build", default_out)
@@ -299,7 +307,7 @@ def run(doc: str, out_name: str, build) -> str:
     } if os.path.isdir(destination) else OPERATIONAL_PAGES
     page, checks = build(h, generated=args.generated or _dt.date.today().isoformat(),
                          verify_dir=verify_dir, fallback_tag=args.model_tag,
-                         available_pages=available_pages)
+                         available_pages=available_pages, public=args.public)
     write_page(page, checks, args.out)
     copy_linked_csvs(page, verify_dir, args.out)
     return args.out

@@ -145,7 +145,8 @@ def build(build_dir: str) -> str:
     present = available_names(build_dir)
     browse = [p for p in OPTIONAL_PAGES if p[0] == "explorer.html" and p[0] in present]
     tiles = []
-    for name, title, purpose, fragment in browse + PAGES:
+    # The public tier has no labelling queue, so a registry page can be absent too.
+    for name, title, purpose, fragment in browse + [p for p in PAGES if p[0] in present]:
         with open(os.path.join(build_dir, name), encoding="utf-8") as fh:
             text = fh.read()
         tiles.append((name, title, purpose, fragment, build_figure(text), build_stamp(text)))

@@ -20,11 +20,17 @@ def test_publication_keeps_explorers_discoverable_without_raw_exports(tmp_path, 
     shutil.copy2(ROOT / "bin/publish_pages.sh", tmp_path / "bin/publish_pages.sh")
     for name in ("build_index.py", "site_navigation.py"):
         shutil.copy2(ROOT / "dashboard" / name, tmp_path / "dashboard" / name)
+    public = build / "public"
+    public.mkdir()
     operational = ["model_health_dashboard.html", "label_queue_dashboard.html", "label_queue_team.html"]
     explorers = ["explorer.html", "embedding-atlas.html", "crownfirst-atlas.html"]
-    expected = {name: "<!doctype html><h1>" + name + "</h1>" for name in operational + explorers}
+    # build/ holds the private tier, build/public/ the --public builds.
+    private = {name: "<!doctype html><h1>private " + name + "</h1>" for name in operational + explorers}
+    expected = {name: "<!doctype html><h1>" + name + "</h1>" for name in operational[:1] + explorers}
+    for name, content in private.items():
+        (build / name).write_text(content)
     for name, content in expected.items():
-        destination = docs if already_published and name in explorers else build
+        destination = docs if already_published and name in explorers else public
         (destination / name).write_text(content)
     (build / "explorer.json").write_text('{"raw":true}')
     (build / "embeddings.npz").write_bytes(b"raw matrix fixture")
@@ -34,9 +40,16 @@ def test_publication_keeps_explorers_discoverable_without_raw_exports(tmp_path, 
 
     for name, content in expected.items():
         assert (docs / name).read_text() == content
-    assert not (docs / "explorer.json").exists()
-    assert not (docs / "embeddings.npz").exists()
+    for name, content in private.items():
+        assert (build / "private" / name).read_text() == content
+    for name in operational[1:]:
+        assert not (docs / name).exists(), "the labelling queue is private-tier only"
+    for tier in (docs, build / "private"):
+        assert not (tier / "explorer.json").exists()
+        assert not (tier / "embeddings.npz").exists()
     index = (docs / "index.html").read_text()
     assert index.index('href="explorer.html"') < index.index('href="model_health_dashboard.html"')
+    assert 'href="label_queue_dashboard.html"' not in index
+    assert 'href="label_queue_dashboard.html"' in (build / "private/index.html").read_text()
     assert 'href="embedding-atlas.html#view=photos"' in index
     assert 'href="crownfirst-atlas.html#view=models"' in (docs / "about.html").read_text()

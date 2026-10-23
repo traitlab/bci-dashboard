@@ -35,14 +35,17 @@ OUT_NAME = "model_health_dashboard.html"
 TITLE = "How well does Pl@ntNet name BCI trees?"
 
 
-def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
+def build(h, *, generated, verify_dir, fallback_tag, available_pages=None, public=False):
     """The model-health page: how well Pl@ntNet names the trees, and what that
     number does not cover.
 
     Every figure is checked against the snapshot CSVs before any HTML is written.
+    ``public`` leaves out the label panels and the private pages' links.
     """
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
-    c.available_pages = pg.OPERATIONAL_PAGES | frozenset(available_pages or ())
+    c.public = public
+    c.available_pages = ((pg.OPERATIONAL_PAGES | frozenset(available_pages or ()))
+                         - (pg.PRIVATE_PAGES if public else frozenset()))
 
     # Four claims on this page come off files bin/refresh.sh does not write:
     # what would help each species, why each review pair differs, the
@@ -76,7 +79,8 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
           f'Pl@ntNet model {esc(c.tag)}</div>'),
          scope_byline(verify_dir, c.available_pages),
          landing.landing(c)]
-    P.append(pg.render(c, pg.EXTERNAL_PANELS))
+    P.append(pg.render(c, [p for p in pg.EXTERNAL_PANELS
+                           if not (public and p in pg.PRIVATE_PANELS)]))
     P.append(pg.footer(c))
 
     return pg.document(TITLE, "\n".join(P), current=OUT_NAME,

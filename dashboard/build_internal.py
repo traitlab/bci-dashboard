@@ -57,11 +57,13 @@ def redirect_stub() -> str:
             "</body></html>\n")
 
 
-def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
+def build(h, *, generated, verify_dir, fallback_tag, available_pages=None, public=False):
     """The queue page: which photos to label next, and why that order.
 
     The review queue belongs to the model-health page, so it is not gated here.
     """
+    if public:
+        raise SystemExit(f"{OUT_NAME} is private-tier only: its batches carry Labelbox links")
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
     c.available_pages = pg.OPERATIONAL_PAGES | frozenset(available_pages or ())
     c.verify_dir = verify_dir  # the send CSVs the filter block embeds

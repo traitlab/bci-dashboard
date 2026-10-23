@@ -34,9 +34,9 @@ def test_the_redirect_lands_on_a_block_the_page_carries(internal_page, queue_pan
 
 
 def test_the_redirect_is_still_published():
-    """Taking it off the publish list would turn every saved link into a 404."""
+    """Taking it off the private tier's list would turn every saved link into a 404."""
     src = (REPO / "bin" / "publish_pages.sh").read_text(encoding="utf-8")
-    pages = re.search(r'^PAGES="([^"]*)"', src, re.MULTILINE)
+    pages = re.search(r'^PRIVATE_PAGES="([^"]*)"', src, re.MULTILINE)
     assert pages and STUB in pages.group(1).split()
 
 

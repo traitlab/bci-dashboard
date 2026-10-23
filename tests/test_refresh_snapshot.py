@@ -230,9 +230,12 @@ def fixture_repo(root, *, fail_builder=False, fail_atlas=False):
         "tables=Path(sys.argv[sys.argv.index('--verify-against')+1])\n"
         "assert (tables/'reference.json').is_file()\n"
         "assert (tables/'round_readout.csv').is_file()\n"
-        "out.write_text('<html>verified <a href=\"send_batches.csv\">batches</a></html>')\n"
-        "(out.parent/'send_batches.csv').write_text('batch_id,global_key\\n1,comb_one.JPG\\n')\n"
-        "(out.parent/'label_queue_team.html').write_text('redirect')\n"
+        # A --public page links no send batch, the private one does.
+        "if '--public' in sys.argv: out.write_text('<html>verified public</html>')\n"
+        "else:\n"
+        "    out.write_text('<html>verified <a href=\"send_batches.csv\">batches</a></html>')\n"
+        "    (out.parent/'send_batches.csv').write_text('batch_id,global_key\\n1,comb_one.JPG\\n')\n"
+        "    (out.parent/'label_queue_team.html').write_text('redirect')\n"
     )
     (root / "dashboard/build_external.py").write_text(builder)
     (root / "dashboard/build_internal.py").write_text(
@@ -294,7 +297,11 @@ def test_success_rebuilds_and_keeps_source_dates_and_standalone_catalogues(tmp_p
     assert (
         tmp_path / "docs/crownfirst-atlas.html"
     ).read_text() == "old model catalogue, do not restamp"
-    assert (tmp_path / "docs/send_batches.csv").is_file()
+    # The send batches carry Labelbox links: private tier only.
+    assert not (tmp_path / "docs/send_batches.csv").exists()
+    assert not (tmp_path / "docs/label_queue_dashboard.html").exists()
+    assert (tmp_path / "build/private/send_batches.csv").is_file()
+    assert (tmp_path / "build/private/label_queue_dashboard.html").is_file()
     status = json.loads((tmp_path / "docs/refresh_status.json").read_text())
     assert status["snapshot_refreshed"] == "2026-10-16"
     assert status["labelbox_merged_on"] == "2026-08-27"

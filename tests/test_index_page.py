@@ -85,11 +85,13 @@ def test_a_page_that_carries_no_subtitle_is_not_a_crash(build_index, tmp_path):
     assert 'href="model_health_dashboard.html"' in out
 
 
-def test_a_missing_page_stops_the_publish(build_index, tmp_path):
-    """Better a failed publish than a live site with a dead link on it."""
+def test_an_absent_page_gets_no_tile(build_index, tmp_path):
+    """The public tier has no labelling queue, so the index links none. A page
+    the tier requires is refused by bin/publish_pages.sh, before the index."""
     (tmp_path / "model_health_dashboard.html").write_text("<html></html>", encoding="utf-8")
-    with pytest.raises(OSError):
-        build_index.build(str(tmp_path))
+    out = build_index.build(str(tmp_path))
+    assert 'href="label_queue_dashboard.html"' not in out
+    assert 'class="card" href="model_health_dashboard.html"' in out
 
 
 def test_it_claims_nothing_the_pages_have_to_back_up(build_index, tmp_path):

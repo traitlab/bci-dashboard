@@ -266,12 +266,46 @@ def test_each_glossary_term_is_defined_once_at_its_first_use(synthetic_page):
         assert first is None or first.group(0) == marked[0]
 
 
-def test_every_csv_a_page_links_is_allowed_on_the_public_site(synthetic_page):
+def test_every_csv_the_public_page_links_is_allowed_on_the_public_site(
+    public_snapshot, tmp_path
+):
     # publish_pages.sh copies each linked CSV into docs/, and the refresh then
     # refuses a docs/ holding any name outside PUBLIC_FILES.
-    html, _, _ = synthetic_page
+    out = tmp_path / "model_health_dashboard.html"
+    proc = fixture.command(
+        public_snapshot,
+        "build_external.py",
+        "--public",
+        "--generated",
+        fixture.GENERATED,
+        "--out",
+        str(out),
+        "--verify-against",
+        str(public_snapshot / "tables"),
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    html = out.read_text(encoding="utf-8")
     linked = set(re.findall(r'href="([A-Za-z0-9_]+\.csv)"', html))
-    assert linked - refresh.PUBLIC_FILES == set()
+    assert linked and linked - refresh.PUBLIC_FILES == set()
+    assert "label_queue_dashboard.html" not in html
+    assert "app.labelbox.com" not in html
+
+
+def test_the_labelling_queue_has_no_public_build(public_snapshot, tmp_path):
+    proc = fixture.command(
+        public_snapshot,
+        "build_internal.py",
+        "--public",
+        "--generated",
+        fixture.GENERATED,
+        "--out",
+        str(tmp_path / "queue.html"),
+        "--verify-against",
+        str(public_snapshot / "tables"),
+    )
+    assert proc.returncode != 0
+    assert "private-tier only" in proc.stderr
+    assert not (tmp_path / "queue.html").exists()
 
 
 def test_the_model_health_build_checks_the_mixed_up_pairs(synthetic_page):

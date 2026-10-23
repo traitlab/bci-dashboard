@@ -216,6 +216,24 @@ def test_real_shapes_coarse_taxa_synonyms_and_independent_versions(
     assert result["coverage"]["representation"] == 1
 
 
+def test_public_catalogue_drops_recorded_labels_and_labelbox_links(
+    exporter, catalogue_sources
+):
+    full = exporter.export_catalogue(catalogue_sources)
+    assert full["photos"][0]["annotation_url"] is not None
+    result = exporter.export_catalogue(catalogue_sources, public=True)
+    assert [p["key"] for p in result["photos"]] == [p["key"] for p in full["photos"]]
+    for photo in result["photos"]:
+        assert photo["label"] is None and photo["recorded_taxon"] is None
+        assert photo["recorded_status"] == "missing"
+        assert photo["annotation_url"] is None
+    assert result["photos"][0]["prediction"] == full["photos"][0]["prediction"]
+    assert result["coverage"]["annotation_links"] == 0
+    text = json.dumps(result)
+    assert "app.labelbox.com" not in text
+    assert "gt_dominant_taxon.csv" not in text
+
+
 def test_missing_optional_sources_keep_every_inventory_photo(exporter, tmp_path):
     inventory(tmp_path, ["comb_a.JPG"])
     result = exporter.export_catalogue(tmp_path)

@@ -88,7 +88,10 @@ def compare_matrices(first, second, labels=None, neighbours=12):
     }
 
 
-def export_comparison(data_root, crownfirst_embeddings, encoder_label, neighbours=12):
+def export_comparison(
+    data_root, crownfirst_embeddings, encoder_label, neighbours=12, public=False
+):
+    """``public`` drops the recorded labels, for the public site."""
     first, sources, versions = {}, [], set()
     for directory in ["embeddings_labelled", "embeddings_queue"]:
         path = data_root / directory / "embeddings.npz"
@@ -110,8 +113,16 @@ def export_comparison(data_root, crownfirst_embeddings, encoder_label, neighbour
     if len(versions) != 1:
         raise ValueError("Mixed Pl@ntNet encoder versions")
     second = json.loads(crownfirst_embeddings.read_text())
-    labels, label_source = load_labels(data_root / "gt_dominant_taxon.csv")
+    labels, label_source = (
+        ({}, None) if public else load_labels(data_root / "gt_dominant_taxon.csv")
+    )
     result = compare_matrices(first, second, labels, neighbours)
+    if public:
+        # The label slots stay, empty, so the page reads the same positions.
+        result["schema"] = {
+            part: [field.replace("recorded_label", "withheld_label") for field in fields]
+            for part, fields in result["schema"].items()
+        }
     sources.append(
         {"file": crownfirst_embeddings.name, "sha256": sha(crownfirst_embeddings)}
     )
@@ -135,9 +146,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output", type=Path, default=Path("build/embedding-comparison.json")
     )
+    parser.add_argument(
+        "--public", action="store_true", help="drop recorded labels (the public site)"
+    )
     args = parser.parse_args()
     result = export_comparison(
-        args.data_root, args.crownfirst_embeddings, args.encoder_label, args.neighbours
+        args.data_root,
+        args.crownfirst_embeddings,
+        args.encoder_label,
+        args.neighbours,
+        args.public,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, separators=(",", ":"), allow_nan=False))
