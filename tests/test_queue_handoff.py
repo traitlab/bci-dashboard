@@ -102,8 +102,10 @@ CALIBRATION = (
     "row_type,scope,band,n_crowns,top1_accuracy,fraction_of_scope,n_correct,n_wrong,"
     "error_rate_if_auto_accepted\n"
     "bin,all_species_level_gt,\"[0.0,0.5)\",842,0.3777,0.2569,318,524,\n"
-    "bin,all_species_level_gt,\"[0.5,0.8)\",672,0.8554,0.2051,574,98,\n"
-    "bin,all_species_level_gt,\"[0.8,1.0)\",1763,0.9711,0.5380,1712,51,\n"
+    "bin,all_species_level_gt,\"[0.5,0.7)\",400,0.8500,0.1221,340,60,\n"
+    "bin,all_species_level_gt,\"[0.7,0.8)\",272,0.8603,0.0830,234,38,\n"
+    "bin,all_species_level_gt,\"[0.8,0.9)\",763,0.9659,0.2328,737,26,\n"
+    "bin,all_species_level_gt,\"[0.9,1.0)\",1000,0.9750,0.3052,975,25,\n"
     "threshold,all_species_level_gt,>=0.8,1763,0.9711,0.5380,1712,51,0.0289\n"
     "threshold,species_with_n_ge_10,>=0.8,1681,0.9750,0.5803,1639,42,0.0250\n")
 
@@ -111,17 +113,16 @@ CALIBRATION = (
 def test_threshold_evidence_prints_the_calibration_table_values(queue_panels, tmp_path):
     (tmp_path / "confidence_calibration.csv").write_text(CALIBRATION, encoding="utf-8")
     html = queue_panels.threshold_evidence(SimpleNamespace(verify_dir=str(tmp_path)))
-    assert "right on 1,712 of 1,763 frames (97.1%)" in html
-    assert "right on 318 of 842 frames (37.8%)" in html
-    assert "On the 3,277 labelled frames" in html
-    assert "A confident prediction can still be wrong: 51 frames" in html
-    assert "0.80 is the confidence line; 0.50 marks low confidence." in html
-    assert "Both values were set by judgement, not fitted to this table" in html
     assert "cut-off" not in html
-    # One open line names the lines; the numbers sit in a closed block under it.
+    # The open line carries all four sides; the wrong-count detail sits closed.
     line, closed = html.split('<details class="more">', 1)
-    assert line == '<p class="note">Confidence lines: 0.80 for the wait rule, 0.50 for low confidence.</p>'
-    assert "1,712 of 1,763" in closed and "set by judgement" in closed
+    assert line == (
+        '<p class="note">At 0.80 or higher the top prediction was right 97.1% of the time on 1,763 '
+        'labelled frames; below 0.80, 58.9% of 1,514. At 0.50 or higher, 93.9% of 2,435; '
+        'below 0.50, 37.8% of 842. 0.80 is the confidence line and 0.50 marks low confidence; '
+        'both are a judgement call, not fitted to this table.</p>')
+    assert "Counted over the 3,277 frames" in closed
+    assert "wrong: 51 frames at 0.80 or higher" in closed
 
 
 def test_threshold_evidence_is_empty_without_its_rows(queue_panels, tmp_path):
