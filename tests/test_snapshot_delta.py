@@ -160,3 +160,9 @@ def test_the_diff_is_between_the_two_newest_exports_whatever_the_file_order(mods
     assert c["diff"]["prev"] is A and c["diff"]["cur"] is B
     assert [r["export"] for r in c["runs"]] == ["2026-10-08", "2026-10-01"]
 
+
+def test_the_model_note_gives_the_version_and_the_date_it_was_checked(mods):
+    html = render(mods, [A, B])
+    assert "still what the endpoint reported on" in html
+    assert "changes when the recorded model version is updated" in html
+    assert "A new model would show" not in html

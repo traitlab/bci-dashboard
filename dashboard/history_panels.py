@@ -73,7 +73,8 @@ def _model_note(built: str) -> str:
     age = model_age_words(hc.PLANTNET_MODEL_VERSION, built)
     return (f'<p class="note">The Pl@ntNet model is {esc(hc.plantnet_version_words())}'
             + (f", {age} on the day this page was built" if age else "")
-            + ". A new model would show here as a change in the Model column.</p>")
+            + f", still what the endpoint reported on {esc(hc.date_words(hc.PLANTNET_VERSION_CHECKED))}"
+            + ". The Model column changes when the recorded model version is updated.</p>")
 
 
 def p_confused(c):
