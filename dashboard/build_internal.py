@@ -31,7 +31,7 @@ import page as pg
 import queues
 import reference
 from assets import esc, hero, pctf
-from build_index import scope_sentence
+from build_index import scope_byline
 from queue_filters import next_batch_block, send_filters
 from queue_panels import TEAM_BLOCK_ID
 from queues import BATCH_SIZE
@@ -87,7 +87,8 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
         verify_dir, per_species=c.per_species, buckets=c.buckets, bins_all=c.bins_all,
         never_all=c.never_all, unscoreable=c.unscoreable, strict_hits=c.strict1,
         queue_counts=c.queue_counts, n_no_answer=c.n_no_answer,
-        queue_keys=c.queue_keys, scored_against=c.reference, populations=c.populations)
+        queue_keys=c.queue_keys, scored_against=c.reference, populations=c.populations,
+        scope=c.scope)
 
     # Two counts and one line: the reasoning lives in the panels that state it.
     send_now = c.queue_counts.get("long_tail", 0) + c.queue_counts.get("low_conf_known", 0)
@@ -108,7 +109,7 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
          f'{reference.WORDS[c.reference]} behind the species statuses that sort the '
          f'queues</div>',
          # Second, never first: build_index.build_stamp reads the first subtitle.
-         f'<div class="subtitle">{esc(scope_sentence(verify_dir))}</div>',
+         scope_byline(verify_dir, c.available_pages),
          # The answer to "what do I send next" is the first thing on the page,
          # then the filters; the numbers behind it follow.
          next_batch_block(c),

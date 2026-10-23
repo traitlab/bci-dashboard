@@ -127,7 +127,7 @@ A dated `snapshots/` folder records a day the labels moved. No build reads one b
 - `docs/` is the published site, with the CSVs its pages link.
 - `diagrams/` holds the README flowcharts as mermaid source. `bin/render_diagrams.sh` redraws their SVGs.
 
-Three of the twelve CSVs in `build/tables` are evidence a person opens rather than page input: `filter_gain.csv`, `name_reconciliation.csv` and `coverage_gate.csv`. `measure.NOT_READ_BACK_BY_A_BUILD` names them.
+Three of the thirteen CSVs in `build/tables` are evidence a person opens rather than page input: `filter_gain.csv`, `name_reconciliation.csv` and `coverage_gate.csv`. `measure.NOT_READ_BACK_BY_A_BUILD` names them.
 
 `input/boxes/` is tracked, unlike the other data folders, because the frame list in it defines the population every number is counted over. Each module's docstring says why it is shaped the way it is.
 

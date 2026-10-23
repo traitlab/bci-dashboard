@@ -64,6 +64,7 @@ PUBLIC_FILES = frozenset(
         "per_species_health.csv",
         "refresh_status.json",
         "reject_sweep.csv",
+        "scope.csv",
         "send_batches.csv",
         "send_first_queue.csv",
         "support_buckets.csv",

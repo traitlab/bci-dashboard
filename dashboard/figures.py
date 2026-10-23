@@ -14,6 +14,7 @@ from collections import Counter, defaultdict
 from types import SimpleNamespace
 
 import assessments as am
+import mission_scope
 import core as hc
 import queues
 import reference
@@ -596,4 +597,6 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     # when no holdout is drawn, and the note then says nothing about one.
     fig["flight_holdout"] = measure_flight_holdout(sp_recs, held_out_manifest(), flights)
     fig.update(_genus_and_family(h))
+    # Frames and labels per mission and site, the counts every byline states.
+    fig["scope"] = mission_scope.rows(h)
     return SimpleNamespace(**fig)

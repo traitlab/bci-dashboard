@@ -21,6 +21,7 @@ import assessments as am
 import held_out as ho
 import reference
 import run_log as rl
+import mission_scope
 from health import load_health
 from core import (
     add_input_flags, add_label_source_flag, summarise, ledger_keys, LEDGER_DIR, REPO,
@@ -50,7 +51,7 @@ OUT_DIR = os.path.join(
 OUTPUTS = ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
            "confidence_calibration.csv", "name_reconciliation.csv", "send_first_queue.csv",
            "send_batches.csv", "label_review_queue.csv", "coverage_gate.csv",
-           "reject_sweep.csv", "held_out.csv", "flight_holdout.csv", "reference.json",
+           "reject_sweep.csv", "held_out.csv", "flight_holdout.csv", "scope.csv", "reference.json",
            "run_log.txt")
 
 # Three of those no build reads back. They are evidence a person opens: what
@@ -492,6 +493,7 @@ def main() -> None:
     rl.log_review_queue(log, review_rows, head.n, n_adjudicated)
     am.write_reject_sweep(out_dir, am.load(am.REJECT_SWEEP_JSON))
     ho.write_tables(out_dir, h.sp_recs)
+    mission_scope.write(out_dir, mission_scope.rows(h))
     reference.write(out_dir, h, args.gt, args.label_source)
     am.log_assessments(log, transductive, disagreement, h.per_species, review_rows)
 

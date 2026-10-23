@@ -337,12 +337,30 @@ def check_flight_holdout(directory, flight):
     return f"flight_holdout.csv: {len(ref)} populations match"
 
 
+def check_scope(directory, table):
+    """The scope line: same frame and label counts per mission and site as
+    scope.csv. Snapshots taken before the file existed have none, so an absent
+    file is skipped with a line saying so rather than a failure."""
+    import mission_scope
+    path = os.path.join(directory, "scope.csv")
+    if not os.path.exists(path):
+        return "scope.csv: not in this snapshot (older than the file), check skipped"
+    ref = [{k: r.get(k, "") for k in mission_scope.COLUMNS} for r in hc.read_csv_rows(path)]
+    for i, row in enumerate(table):
+        got = {k: str(row[k]) for k in mission_scope.COLUMNS}
+        if i >= len(ref) or ref[i] != got:
+            fail(f"scope.csv: {got} here, row {i + 1} of {path} differs")
+    if len(ref) != len(table):
+        fail(f"scope.csv: {len(table)} mission rows here vs {len(ref)} in {path}")
+    return f"scope.csv: {len(ref)} mission and site rows match"
+
+
 def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
                     unscoreable, strict_hits,
                     queue_counts=None, n_no_answer=None, review_counts=None,
                     queue_keys=None, limits=None, review_mechanisms=None,
                     reject_sweep=None, held_out=None, flight_holdout=None,
-                    scored_against=None, populations=None):
+                    scored_against=None, populations=None, scope=None):
     """Abort the build if the page disagrees with measure.py's snapshot.
 
     One check per file the snapshot holds, each returning the line the page
@@ -354,7 +372,8 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
     those behind flight_holdout.csv, each only when the page prints from it.
     ``scored_against`` is the reference the page was scored on and
     ``populations`` its label_source counts, checked against reference.json:
-    tables scored on other labels abort the build by name.
+    tables scored on other labels abort the build by name. ``scope`` is the
+    per-mission rows behind scope.csv, which every byline counts off.
     """
     checks = []
     if scored_against is not None:
@@ -385,6 +404,8 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
         checks.append(check_held_out(directory, held_out))
     if flight_holdout is not None:
         checks.append(check_flight_holdout(directory, flight_holdout))
+    if scope is not None:
+        checks.append(check_scope(directory, scope))
 
     return checks
 

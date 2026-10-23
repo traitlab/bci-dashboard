@@ -231,12 +231,13 @@ def test_about_carries_caveats_glossary_and_no_data(build_index, tmp_path):
 def _scope_tables(tmp_path):
     (tmp_path / "per_species_health.csv").write_text(
         "species,n_labelled_frames\na,10\nb,5\n", encoding="utf-8")
+    (tmp_path / "scope.csv").write_text(
+        "mission,site,n_frames,n_labelled\n,,4,1\n20240911_sitea_w_m3e,sitea,20,12\n"
+        "20250101_siteb_w_m3e,siteb,6,0\n20260114_sitea_x_m3e,sitea,10,5\n", encoding="utf-8")
     keys = ["DJI_20240911145743_0030_V_1zoom.JPG", "DJI_20260322092500_0001_V_2zoom.JPG",
             "DJI_20250101000000_0002_V_3zoom.JPG"]
-    missions = ["20240911_a", "20260114_b", "20240911_a"]
     (tmp_path / "send_batches.csv").write_text(
-        "global_key,image_url,mission\n" + "".join(f"{k},,{m}\n" for k, m in zip(keys, missions)),
-        encoding="utf-8")
+        "global_key,image_url,mission\n" + "".join(f"{k},,m\n" for k in keys), encoding="utf-8")
 
 
 def test_scope_sentence_numbers_equal_the_table_counts(build_index, tmp_path):
@@ -244,8 +245,11 @@ def test_scope_sentence_numbers_equal_the_table_counts(build_index, tmp_path):
     _scope_tables(tmp_path)
     (tmp_path / "embedding-atlas.html").write_text("<html>Atlas</html>")
     s = build_index.scope_sentence(str(tmp_path))
+    # Every frame, the unplaced row included; missions and sites only where named.
+    assert ("40 close-ups from 3 missions at 2 sites, photographed 2024-09-11 to 2026-01-14, "
+            "18 of them labelled") in s
     assert "15 labelled frames across 2 species are scored on Model health" in s
-    assert "3 unlabelled photos from 2 missions are queued for labelling, photographed 2024-09-11 to 2026-01-14" in s
+    assert "3 unlabelled photos are queued for labelling." in s
     assert "Drone-photographed crowns only" in s
     home = build_index.build(str(tmp_path))
     about = build_index.build_about(build_index.available_names(str(tmp_path)), s)
@@ -254,18 +258,34 @@ def test_scope_sentence_numbers_equal_the_table_counts(build_index, tmp_path):
         assert 'href="embedding-atlas.html#view=locations">See the map' in out
 
 
-def test_scope_sentence_omits_span_when_no_mission_has_a_date(build_index, tmp_path):
-    (tmp_path / "send_batches.csv").write_text(
-        "global_key,image_url,mission\nDJI_20260322092500_0001_V_2tele.JPG,,\nDJI_20260322092501_0002_V_3tele.JPG,,site_a\nDJI_20260322092502_0003_V_4tele.JPG,,site_b\n",
-        encoding="utf-8")
+def test_scope_byline_links_the_map_and_the_table_only_when_present(build_index, tmp_path):
+    line = build_index.scope_byline(str(tmp_path), {"index.html"})
+    assert line == '<div class="subtitle">Drone-photographed crowns only, not every tree.</div>'
+    _scope_tables(tmp_path)
+    line = build_index.scope_byline(str(tmp_path), {"embedding-atlas.html"})
+    assert line.startswith('<div class="subtitle">Drone-photographed crowns only, not every tree. 40 close-ups')
+    assert line.endswith('<a href="embedding-atlas.html#view=locations">See the map</a>.'
+                         ' Counted in <a href="scope.csv">scope.csv</a>.</div>')
+
+
+def test_scope_sentence_singular_and_undated(build_index, tmp_path):
+    (tmp_path / "scope.csv").write_text(
+        "mission,site,n_frames,n_labelled\n20240911_sitea_w_m3e,sitea,1,0\n", encoding="utf-8")
     s = build_index.scope_sentence(str(tmp_path))
-    assert "3 unlabelled photos from 2 missions are queued for labelling." in s
+    assert "1 close-up from 1 mission at 1 site, photographed on 2024-09-11, 0 of them labelled." in s
+    (tmp_path / "scope.csv").write_text(
+        "mission,site,n_frames,n_labelled\n,,3,2\nsite_a,a,2,0\n", encoding="utf-8")
+    s = build_index.scope_sentence(str(tmp_path))
+    assert "5 close-ups from 1 mission at 1 site, 2 of them labelled." in s
     assert "photographed" not in s.replace("Drone-photographed", "")
 
 
 def test_scope_sentence_omits_what_the_tables_cannot_give(build_index, tmp_path):
     assert build_index.scope_sentence(str(tmp_path)) == "Drone-photographed crowns only, not every tree."
     assert "Data scope" not in build_index.build_about({"about.html"})
+    (tmp_path / "scope.csv").write_text("mission,site,n_frames,n_labelled\n,,3,1\n", encoding="utf-8")
+    assert build_index.scope_sentence(str(tmp_path)) == (
+        "Drone-photographed crowns only, not every tree. 3 close-ups, 1 of them labelled.")
 
 
 def test_intro_names_the_audience_and_the_limits(build_index, tmp_path):
