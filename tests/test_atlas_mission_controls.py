@@ -1,5 +1,9 @@
 """Flight controls show the real effect and preserve it across navigation."""
 
+import json
+
+import pytest
+
 from test_atlas_mission_view import photo, run_atlas
 from test_explorer_browser import run_browser
 
@@ -27,7 +31,7 @@ def test_picking_a_flight_filters_stored_matches_and_survives_navigation():
 const flight='20251017_bciarmour_wptne_m3e';
 $('similarMissionMode').value=flight;$('similarMissionMode').onchange();
 assert.deepEqual(photoPair.candidates,[[2,.9],[3,.85]]);assert.equal($('mapMissionMode').value,flight);
-assert.equal(new URLSearchParams(location.hash.slice(1)).get('missions'),flight);
+assert.equal(new URLSearchParams(location.hash.slice(1)).get('missions'),flight);assert.equal(new URLSearchParams(navLinks[2].getAttribute('href').split('#')[1]).get('missions'),flight);
 assert.match($('neighborSupport').textContent,/^2 stored matches from this flight, filtered from this photo’s stored top matches, not re-ranked among the flight’s 2 photos\.$/);
 const picked=location.hash;
 select(4);assert.equal(neighborMode,flight);assert.equal($('similarMissionMode').value,flight);
@@ -82,15 +86,16 @@ assert.match($('neighborSupport').textContent,/unavailable/);
 """, initial_hash="#frame=query&missions=other")
 
 
-def test_catalogue_round_trip_keeps_the_selected_flight_scope():
+@pytest.mark.parametrize("missions", ["other", "20251017_bciarmour_wptne_m3e", None])
+def test_catalogue_round_trip_keeps_the_selected_flight_scope(missions):
     run_browser(r"""
-assert.equal(state.missions,'other');
+const M=__MISSIONS__;assert.equal(state.missions??null,M);
 setState({status:'compare'});
-assert.equal(new URLSearchParams(location.hash.slice(1)).get('missions'),'other');
+assert.equal(new URLSearchParams(location.hash.slice(1)).get('missions'),M);
 for(const id of ['cameraMapTask','compareModelsTask','similarPhotosTask','cameraLocations','crownResearch']){
- assert.equal(new URLSearchParams(new URL($(id).href,'https://example.org').hash.slice(1)).get('missions'),'other');
+ assert.equal(new URLSearchParams(new URL($(id).href,'https://example.org').hash.slice(1)).get('missions'),M);
 }
-""", initial_hash="#frame=b&missions=other")
+""".replace("__MISSIONS__", json.dumps(missions)), initial_hash="#frame=b" + (f"&missions={missions}" if missions else ""))
 
 
 def test_each_card_names_its_flight_and_marks_this_photos_flight():
