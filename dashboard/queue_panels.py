@@ -276,7 +276,7 @@ def threshold_evidence(c) -> str:
             f'{say(low)}. A confident guess can still be wrong: '
             f'{int(high["n_wrong"]):,} frames at {hc.WAIT_CONF:.2f} or more were. '
             f'{hc.WAIT_CONF:.2f} is the confidence line; {hc.LOW_CONF:.2f} marks low confidence. '
-            f'The table shows what each value separates. '
+            f'Both values were set by judgement, not fitted to this table; the table shows what each separates. '
             f'<a href="{CALIBRATION_FILE}">{CALIBRATION_FILE}</a></p>')
 
 

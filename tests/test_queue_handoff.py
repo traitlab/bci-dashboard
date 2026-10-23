@@ -116,7 +116,8 @@ def test_threshold_evidence_prints_the_calibration_table_values(queue_panels, tm
     assert "On the 3,277 labelled frames" in html
     assert "A confident guess can still be wrong: 51 frames" in html
     assert "0.80 is the confidence line; 0.50 marks low confidence." in html
-    assert "judgement" not in html and "cut-off" not in html
+    assert "Both values were set by judgement, not fitted to this table" in html
+    assert "cut-off" not in html
 
 
 def test_threshold_evidence_is_empty_without_its_rows(queue_panels, tmp_path):
