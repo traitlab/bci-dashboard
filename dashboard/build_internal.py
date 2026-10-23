@@ -30,7 +30,7 @@ import figures
 import page as pg
 import queues
 import reference
-from assets import esc, hero, pctf
+from assets import esc, hero, more
 from build_index import scope_byline
 from queue_filters import next_batch_block, send_filters
 from queue_panels import TEAM_BLOCK_ID
@@ -123,23 +123,19 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
          # 1 is a batch, so it comes off send_batches.csv; the other two count
          # the pool in queue order, which is send_first_queue.csv.
          hero([("First saved batch", f"{c.n_batch1:,}", "photos in batch 1",
-                "The pool below is broader than this batch.",
-                "send_batches.csv"),
+                "", "send_batches.csv"),
                ("Worth sending first", f"{send_now:,}", "unlabelled photos",
-                f"They point at a species with fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, "
-                f"or one the model gets right less than {pctf(hc.HARD_MAX_TOP1, 0)} of the time, "
-                "or a usually-right species the model is unsure of here.",
-                "send_first_queue.csv"),
+                "", "send_first_queue.csv"),
                ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
-                "The whole pool this page puts in an order.",
-                "send_first_queue.csv")], cls="wide",
+                "", "send_first_queue.csv")], cls="wide",
               tile=f"{c.n_unlab:,} unlabelled photos"),
-         batches_note(c),
-         ('<p class="note"><strong>This is a saved queue.</strong> It changes after '
-          'labels, predictions or ranking data are refreshed. Reloading this '
-          'browser page does not refresh the data. '
-          'Sending status is not recorded here. Check the batch in Labelbox '
-          'before sending it.</p>'),
+         more("About the batch files and this saved queue",
+              batches_note(c)
+              + '<p class="note"><strong>This is a saved queue.</strong> It changes after '
+                'labels, predictions or ranking data are refreshed. Reloading this '
+                'browser page does not refresh the data. '
+                'Sending status is not recorded here. Check the batch in Labelbox '
+                'before sending it.</p>'),
          pg.render(c, pg.INTERNAL_PANELS),
          pg.footer(c)]
 

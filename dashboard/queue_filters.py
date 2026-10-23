@@ -16,7 +16,7 @@ import os
 
 import core as hc
 import queues
-from assets import esc
+from assets import esc, more
 
 SEND_FILE = "send_batches.csv"
 QUEUE_FILE = "send_first_queue.csv"
@@ -148,8 +148,8 @@ def send_filters(c):
     # A send file written before a column existed gives no options; the JS skips that filter.
     uniq = lambda col: sorted({r[h.index(col)] for r in data["rows"] if r[h.index(col)]}) if col in h else []
     blob = json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/")
-    return (
-        '<h3 class="sub">Choose what to send</h3>'
+    return more(
+        "Choose what to send: filter the file and download a subset",
         f'<p class="note">Filter <a href="{SEND_FILE}">{SEND_FILE}</a> and download the '
         'matching rows in its columns. Confidence is the first guess, 0 to 1.</p>'
         '<div class="controls">'

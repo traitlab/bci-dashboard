@@ -297,3 +297,37 @@ def test_the_scope_byline_counts_every_frame_the_fixture_holds(synthetic_page):
         # The headline's 24 right of 33 species-level frames, all at one site.
         sites = html.split('id="by-site-and-mission"')[1].split("</details>")[0]
         assert "72.7% of 33" in sites
+
+
+def _shut(html: str) -> str:
+    """The page with every closed <details> body removed, innermost first."""
+    closed = re.compile(
+        r"<details(?![^>]*\bopen\b)[^>]*>(?:(?!<details).)*?</details>", re.DOTALL
+    )
+    prev = None
+    while prev != html:
+        prev, html = html, closed.sub("", html)
+    return html
+
+
+def test_first_screen_keeps_the_main_number_and_action_and_shuts_the_rest(
+    synthetic_page,
+):
+    html, _, carries = synthetic_page
+    shown = _shut(html)
+    if "species_status" in carries:
+        # One card open, the other five numbers and the label table closed.
+        assert shown.count('class="metric') == 1
+        assert (
+            "Top-1 accuracy, per species" in shown
+            and "Precision, per species" not in shown
+        )
+        assert "Precision, per species" in html and "change of reference" in html
+        assert "change of reference" not in shown
+    else:
+        # The download and the dry-run command stay open; the filter shuts.
+        assert 'id="f-next"' in shown and "--dry-run" in shown
+        assert 'id="f-download"' in html and 'id="f-download"' not in shown
+        assert (
+            "This is a saved queue." in html and "This is a saved queue." not in shown
+        )

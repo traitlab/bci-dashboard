@@ -328,10 +328,11 @@ def send_preview_table(c):
                        f"{c.support.get(pred, 0):,}", esc(how_new)]
                       for i, (_, stem, pred, cf, _rank, how_new) in enumerate(head, 1)],
                      source="send_first_queue.csv")
-             + ungraded_note(c)
-             + '<p class="note"><b>Confidence breaks ranking ties.</b> A low score '
-               'means the model is unsure of its first guess. Check the guess '
-               'against the photo; the score does not confirm a label.</p>')
+             + more("Is this order measured yet? Confidence and the batch 1 control",
+                    ungraded_note(c)
+                    + '<p class="note"><b>Confidence breaks ranking ties.</b> A low score '
+                      'means the model is unsure of its first guess. Check the guess '
+                      'against the photo; the score does not confirm a label.</p>'))
     return body
 
 
@@ -382,6 +383,11 @@ def p_send(c):
     # The queue itself first; sizes, link coverage and caveats are checks on it,
     # so they sit closed beneath it.
     body = (threshold_evidence(c) + send_preview_table(c) + DISPATCH
+            + more("How the order inside a queue works",
+                   f"<p class=\"note\">Inside each queue the photo least like anything labelled "
+                   f"comes first, then the one least like the labelled photos and those above it. "
+                   f"This applies to {c.n_ranked:,} of the {c.n_unlab:,}; the rest keep their "
+                   f"place by confidence.</p>")
             + more("Queue sizes, link coverage and caveats",
                    send_pool_table(c) + links_note(c) + held_out_note(c) + send_notes(c)))
     # The same two queues the hero counts, added the same way, so both agree.
@@ -394,10 +400,7 @@ def p_send(c):
                  f"fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, or one the model gets right "
                  f"less than {pctf(hc.HARD_MAX_TOP1, 0)} of the time; "
                  f"{c.queue_counts.get('low_conf_known', 0):,} show a usually-right species "
-                 f"the model is unsure of here. Inside each queue the photo least like anything labelled "
-                 f"comes first, then the one least like the labelled photos and those above it. "
-                 f"This applies to {c.n_ranked:,} of the "
-                 f"{c.n_unlab:,}; the rest keep their place by confidence. "
+                 f"the model is unsure of here. "
                  f'<a href="send_first_queue.csv">send_first_queue.csv</a> holds this same '
                  f"order, one row per frame.",
                  # Open: the answer to "what do I label next" is the queue
