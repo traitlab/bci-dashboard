@@ -109,12 +109,19 @@ def _batch_size_from_env(raw: str | None, default: int = 100) -> int:
 
 BATCH_SIZE = _batch_size_from_env(os.environ.get("BCI_BATCH_SIZE"))
 
+# At most this many photos of one predicted species in any one batch. A species
+# with more waits for the next batch, at the same place in the queue, so one
+# common species cannot fill a sitting. Control photos are not counted.
+SPECIES_CAP = 20
+
 # How rows are packed into batches. "species" keeps each species together at the
 # rank of its best photo; "rank" is strict queue order in fixed-size chunks.
 # Which one annotators work faster in is untested, so species stays the default.
 GROUP_BYS = ("species", "rank")
 # How each mode reads in a sentence on a page.
-GROUP_PHRASE = {"species": "each species kept together", "rank": "in strict rank order"}
+GROUP_PHRASE = {
+    "species": f"each species kept together, at most {SPECIES_CAP} photos of one species per batch",
+    "rank": f"in strict rank order, at most {SPECIES_CAP} photos of one species per batch"}
 
 
 def _group_by_from_env(raw: str | None, default: str = "species") -> str:
@@ -312,12 +319,18 @@ def control_size(batch_size: int = BATCH_SIZE,
 
 def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
                        control_fraction: float = CONTROL_FRACTION,
-                       group_by: str = GROUP_BY, seed: int = CONTROL_SEED) -> list:
+                       group_by: str = GROUP_BY, seed: int = CONTROL_SEED,
+                       species_cap: int = SPECIES_CAP) -> list:
     """Species-grouped, priority-first batches over an already-ordered
     ``queue_rows`` (send_first_queue.csv order). Each species is visited once,
     at its highest-priority row; its rows travel together, packed whole until
     the next would overflow the batch, which then opens the next one. A species
     larger than the room a batch has is cut at that room.
+
+    No batch holds more than ``species_cap`` queue rows of one predicted
+    species. The rows past it keep their place in the queue, in their rank
+    order: the packer skips that species for the rest of the batch, keeps
+    filling from later groups, and the skipped rows open the next batch.
 
     ``group_by="rank"`` instead cuts the queue in strict rank order into
     fixed-size chunks, each row labelled with its own species.
@@ -334,6 +347,8 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
     """
     if batch_size < 1:
         raise ValueError(f"batch_size must be at least 1, got {batch_size}")
+    if species_cap < 1:
+        raise ValueError(f"species_cap must be at least 1, got {species_cap}")
     if group_by not in GROUP_BYS:
         raise ValueError(f"group_by must be one of {GROUP_BYS}, got {group_by!r}")
     queue_at = SEND_FIRST_COLUMNS.index("queue")
@@ -364,22 +379,31 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
         # Pack the queue rows first: the control is sized from what the batch holds.
         pieces: list = []
         held = 0
-        while pending:
-            sp, idx = pending[0]
+        held_by: Counter = Counter()
+        j = 0  # a capped species is skipped, not popped: it stays for the next batch
+        while j < len(pending):
+            sp, idx = pending[j]
             rows = [i for i in idx if i not in taken]
             if not rows:
-                pending.pop(0)
+                pending.pop(j)
                 continue
-            if held and held + len(rows) > cap:
+            room_sp = species_cap - held_by[sp]
+            if room_sp <= 0:
+                j += 1
+                continue
+            take = rows[:room_sp]
+            if held and held + len(take) > cap:
                 break
-            pending.pop(0)
-            if len(rows) > cap - held:
-                # An oversized species fills the batch; the rest opens the next one.
-                pending.insert(0, (sp, rows[cap:]))
-                rows = rows[:cap]
-            pieces.append((sp, rows))
-            held += len(rows)
-            taken.update(rows)
+            # An oversized species fills the batch; the rest opens the next one.
+            take = take[:cap - held]
+            if len(take) < len(rows):
+                pending[j] = (sp, rows[len(take):])
+            else:
+                pending.pop(j)
+            pieces.append((sp, take))
+            held += len(take)
+            held_by[sp] += len(take)
+            taken.update(take)
         if not pieces:
             break
         batch_id += 1
