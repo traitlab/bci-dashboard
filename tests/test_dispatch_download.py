@@ -61,10 +61,16 @@ def test_a_downloaded_batch_file_is_read_by_path_and_skips_what_was_sent(dry, tm
     assert "as round 2" in out  # the round after the one ledger on disk
 
 
-def test_a_filtered_download_goes_as_one_batch_without_picking_a_batch_id(dry, tmp_path):
+def test_a_filtered_download_goes_as_one_batch_with_whole(dry, tmp_path):
     f = _write(tmp_path / "send_batches_filtered.csv", HEADER,
                [_row("1", "a.JPG"), _row("3", "b.JPG"), _row("3", "c.JPG")])
-    assert "Loaded 3 global keys" in dry(f)
+    assert "Loaded 3 global keys" in dry(f, "--whole")
+
+
+def test_a_file_of_several_batches_stops_without_batch_or_whole(dry, tmp_path):
+    f = _write(tmp_path / "send_batches.csv", HEADER, [_row("1", "a.JPG"), _row("2", "b.JPG")])
+    with pytest.raises(SystemExit, match="holds 2 batches"):
+        dry(f)
 
 
 def test_csv_flag_still_works_and_an_explicit_round_wins(dry, tmp_path):

@@ -72,7 +72,8 @@ METADATA_SCHEMA_NAME = rounds.METADATA_SCHEMA_NAME
 REQUIRED_COLUMNS = ["data_row_id", "batch_id", "global_key"]
 
 
-def load_selection_csv(csv_path: Path, batch_id: str | None = None) -> list[str]:
+def load_selection_csv(csv_path: Path, batch_id: str | None = None,
+                       whole: bool = False) -> list[str]:
     """The global keys to send, in file order.
 
     `send_batches.csv` holds every batch in one file, and one batch is one
@@ -99,6 +100,11 @@ def load_selection_csv(csv_path: Path, batch_id: str | None = None) -> list[str]
             if gk:
                 global_keys.append(gk)
                 n_control += (row.get("picked_by") or "").strip() == "control"
+    # The full send_batches.csv sent whole would be every batch as one Labelbox batch.
+    if batch_id is None and not whole and len(seen - {""}) > 1:
+        sys.exit(f"ERROR: {csv_path} holds {len(seen - {''})} batches. Pick one with "
+                 f"--batch, or pass --whole to send them as one Labelbox batch "
+                 f"(a filtered download).")
     if batch_id is not None and batch_id not in seen:
         sys.exit(f"ERROR: batch {batch_id} is not in {csv_path}. "
                  f"It holds {len(seen - {''})} batches.")
@@ -276,6 +282,9 @@ def parse_args():
     ap.add_argument("--csv", type=Path, dest="csv_flag", help="same as the positional path")
     ap.add_argument("--batch", help="send one batch_id out of the CSV (send_batches.csv "
                     "holds all of them; one batch is one Labelbox batch)")
+    ap.add_argument("--whole", action="store_true",
+                    help="send a CSV that spans several batches as one Labelbox batch, "
+                         "e.g. a filtered download")
     ap.add_argument("--dry-run", action="store_true",
                     help="read the CSV, skip keys sent before, print the plan, then "
                          "stop: no Labelbox client, no write. Run this first")
@@ -406,7 +415,7 @@ def main() -> None:
     combined_dataset_name = config["labelbox"]["combined_dataset_name"]
     project_b_name = config["labelbox"]["project_b_name"]
 
-    global_keys = load_selection_csv(args.csv, args.batch)
+    global_keys = load_selection_csv(args.csv, args.batch, args.whole)
     if not global_keys:
         sys.exit(f"ERROR: no global keys to send from {args.csv}.")
     global_keys, skipped = skip_sent(global_keys, already_sent(GT_CSV, LEDGER_DIR))
