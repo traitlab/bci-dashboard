@@ -241,9 +241,8 @@ def test_both_data_pages_carry_the_scope_sentence_after_the_stamp(synthetic_page
     subtitles = re.findall(r'<div class="subtitle">(.*?)</div>', html)
     if "What to label next" in html or "How well does Pl@ntNet" in html:
         assert any(
-            re.sub(r"<[^>]+>", "", s).startswith(
-                "Drone-photographed crowns only, not every tree"
-            )
+            re.sub(r"<[^>]+>", "", s).startswith("Drone-photographed crowns only.")
+            and 'href="about.html#scope"' in s
             for s in subtitles
         )
         assert subtitles[0].startswith("refreshed")
@@ -257,7 +256,11 @@ def test_each_glossary_term_is_defined_once_at_its_first_use(synthetic_page):
         from build_index import GLOSSARY
         from page import FIRST_USE
     main = html.split('<main id="main-content" tabindex="-1">', 1)[1]
-    visible = re.sub(r"<[^>]+>", " ", main.split("<script>")[0])
+    # The text mark_first_use reads: no script, style, chart or option text.
+    opaque = r"<(script|style|svg|option)\b.*?</\1>"
+    visible = re.sub(
+        r"<[^>]+>", " ", re.sub(opaque, " ", main, flags=re.DOTALL | re.IGNORECASE)
+    )
     for term, words in FIRST_USE:
         meaning = re.escape(html_lib.escape(dict(GLOSSARY)[term]))
         marked = re.findall(rf'<abbr title="{meaning}">([^<]*)</abbr>', main)
@@ -287,11 +290,8 @@ def test_the_scope_byline_counts_every_frame_the_fixture_holds(synthetic_page):
     if "What to label next" not in html and "How well does Pl@ntNet" not in html:
         return
     visible = re.sub(r"<[^>]+>", "", html)
-    assert (
-        "40 close-ups from 1 mission at 1 site, photographed on 2026-10-14, "
-        "35 of them labelled." in visible
-    )
-    assert 'Counted in <a href="scope.csv">scope.csv</a>.' in html
+    assert "Drone-photographed crowns only. 40 frames, 1 site." in visible
+    assert '<a href="scope.csv">' in html
     assert "scope.csv: 1 mission and site rows match" in stdout
     if "How well does Pl@ntNet" in html:
         # The headline's 24 right of 33 species-level frames, all at one site.

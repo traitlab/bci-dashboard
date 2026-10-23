@@ -118,6 +118,10 @@ def test_threshold_evidence_prints_the_calibration_table_values(queue_panels, tm
     assert "0.80 is the confidence line; 0.50 marks low confidence." in html
     assert "Both values were set by judgement, not fitted to this table" in html
     assert "cut-off" not in html
+    # One open line names the lines; the numbers sit in a closed block under it.
+    line, closed = html.split('<details class="more">', 1)
+    assert line == '<p class="note">Confidence lines: 0.80 for the wait rule, 0.50 for low confidence.</p>'
+    assert "1,712 of 1,763" in closed and "set by judgement" in closed
 
 
 def test_threshold_evidence_is_empty_without_its_rows(queue_panels, tmp_path):

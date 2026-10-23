@@ -270,14 +270,18 @@ def threshold_evidence(c) -> str:
     total = sum(int(r["n_crowns"]) for r in rows if r["row_type"] == "bin")
     say = lambda r: (f'right on {int(r["n_correct"]):,} of {int(r["n_crowns"]):,} frames '
                      f'({pctf(float(r["top1_accuracy"]))})')
-    return (f'<p class="note"><strong>How often the first guess was right.</strong> On the '
-            f'{total:,} labelled frames with a species-level label, at confidence '
-            f'{hc.WAIT_CONF:.2f} or more it was {say(high)}; under {hc.LOW_CONF:.2f} it was '
-            f'{say(low)}. A confident guess can still be wrong: '
-            f'{int(high["n_wrong"]):,} frames at {hc.WAIT_CONF:.2f} or more were. '
-            f'{hc.WAIT_CONF:.2f} is the confidence line; {hc.LOW_CONF:.2f} marks low confidence. '
-            f'Both values were set by judgement, not fitted to this table; the table shows what each separates. '
-            f'<a href="{CALIBRATION_FILE}">{CALIBRATION_FILE}</a></p>')
+    # One line beside the queue rules; the numbers behind it stay closed.
+    return (f'<p class="note">Confidence lines: {hc.WAIT_CONF:.2f} for the wait rule, '
+            f'{hc.LOW_CONF:.2f} for low confidence.</p>'
+            + more("How often the first guess was right at each line",
+                   f'<p class="note">On the '
+                   f'{total:,} labelled frames with a species-level label, at confidence '
+                   f'{hc.WAIT_CONF:.2f} or more it was {say(high)}; under {hc.LOW_CONF:.2f} it was '
+                   f'{say(low)}. A confident guess can still be wrong: '
+                   f'{int(high["n_wrong"]):,} frames at {hc.WAIT_CONF:.2f} or more were. '
+                   f'{hc.WAIT_CONF:.2f} is the confidence line; {hc.LOW_CONF:.2f} marks low confidence. '
+                   f'Both values were set by judgement, not fitted to this table; the table shows what each separates. '
+                   f'<a href="{CALIBRATION_FILE}">{CALIBRATION_FILE}</a></p>'))
 
 
 def send_preview_table(c):
@@ -377,9 +381,9 @@ def p_send(c):
     the queue, then the caveats that qualify both."""
     # The queue itself first; sizes, link coverage and caveats are checks on it,
     # so they sit closed beneath it.
-    body = (send_preview_table(c) + DISPATCH
+    body = (threshold_evidence(c) + send_preview_table(c) + DISPATCH
             + more("Queue sizes, link coverage and caveats",
-                   send_pool_table(c) + threshold_evidence(c) + links_note(c) + held_out_note(c) + send_notes(c)))
+                   send_pool_table(c) + links_note(c) + held_out_note(c) + send_notes(c)))
     # The same two queues the hero counts, added the same way, so both agree.
     send_now = (c.queue_counts.get("long_tail", 0)
                 + c.queue_counts.get("low_conf_known", 0))

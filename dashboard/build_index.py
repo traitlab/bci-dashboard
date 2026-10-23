@@ -57,6 +57,13 @@ a.card small{display:block;font-size:12px;color:var(--slate);margin-top:14px}
 @media(max-width:640px){main{padding:24px 14px 36px}h1{font-size:27px}.tasks{grid-template-columns:1fr;gap:12px}a.card{padding:18px;min-height:0}a.card b{font-size:18px}}
 """
 
+# The landing page's two-sentence intro, in full.
+AUDIENCE = ('<p>Drone photos of the canopy on Barro Colorado Island and other Panama field sites. '
+            'Pl@ntNet suggests a name for each photo and botanists confirm it.</p>'
+            '<p>This site is a window into the current data for the project leads and the labelling coordinator. '
+            'Annotators work in Labelbox, where model guesses are hidden on purpose so they do not bias identifications. '
+            'It does not yet suggest where to fly the drone.</p>')
+
 CAVEATS = ("Photo counts do not measure tree abundance.",
            "Model guesses need expert confirmation.",
            "Each page describes its own snapshot, so the dates differ from page to page.")
@@ -89,21 +96,23 @@ def build_figure(text: str) -> str:
     return html.unescape(found.group(1)).strip() if found else ""
 
 
+def _rows(build_dir: str, name: str) -> list[dict]:
+    try:
+        with open(os.path.join(build_dir, name), encoding="utf-8", newline="") as fh:
+            return list(csv.DictReader(fh))
+    except OSError:
+        return []
+
+
+def many(n: int, word: str) -> str:
+    return f"{n:,} {word}{'' if n == 1 else 's'}"
+
+
 def scope_sentence(build_dir: str) -> str:
     """What the data covers, counted off the published tables. A figure whose
-    table is absent is left out, never typed. Other pages' bylines can import this."""
-    def rows(name):
-        try:
-            with open(os.path.join(build_dir, name), encoding="utf-8", newline="") as fh:
-                return list(csv.DictReader(fh))
-        except OSError:
-            return []
-
-    def many(n, word):
-        return f"{n:,} {word}{'' if n == 1 else 's'}"
-
+    table is absent is left out, never typed. About carries it in full."""
     parts = ["Drone-photographed crowns only, not every tree"]
-    scope = rows("scope.csv")
+    scope = _rows(build_dir, "scope.csv")
     if scope:
         # Every frame with a cached answer, labelled or not. Mission and site are
         # blank where the inventory does not name them; a mission starts with the
@@ -117,22 +126,32 @@ def scope_sentence(build_dir: str) -> str:
         source = f" from {many(len(missions), 'mission')} at {many(len(sites), 'site')}" if missions else ""
         frames, labelled = (sum(int(r[k]) for r in scope) for k in ("n_frames", "n_labelled"))
         parts.append(f"{many(frames, 'close-up')}{source}{span}, {labelled:,} of them labelled")
-    health = rows("per_species_health.csv")
+    health = _rows(build_dir, "per_species_health.csv")
     if health:
         n = sum(int(r["n_labelled_frames"]) for r in health)
         parts.append(f"{n:,} labelled frames across {len(health)} species are scored on Model health")
-    queue = rows("send_batches.csv")
+    queue = _rows(build_dir, "send_batches.csv")
     if queue:
         parts.append(f"{len(queue):,} unlabelled photos are queued for labelling")
     return ". ".join(parts) + "."
 
 
+def scope_short(build_dir: str, present) -> str:
+    """The scope in one line, as HTML: frames and sites linked to the table they
+    are counted off, the map when built, and About's full scope sentence."""
+    scope = _rows(build_dir, "scope.csv")
+    counts = ""
+    if scope:
+        sites = len({r["site"] for r in scope if r["site"]})
+        words = many(sum(int(r["n_frames"]) for r in scope), "frame") + (f", {many(sites, 'site')}" if sites else "")
+        counts = f' <a href="scope.csv">{words}</a>.'
+    return (f'Drone-photographed crowns only.{counts}{_map_link(present)}'
+            ' <a href="about.html#scope">Full scope</a>.')
+
+
 def scope_byline(build_dir: str, present) -> str:
-    """The scope sentence as a data page's byline: the map link when that page is
-    built, and the table the counts come off when the snapshot has one."""
-    table = (' Counted in <a href="scope.csv">scope.csv</a>.'
-             if os.path.isfile(os.path.join(build_dir, "scope.csv")) else "")
-    return f'<div class="subtitle">{html.escape(scope_sentence(build_dir))}{_map_link(present)}{table}</div>'
+    """The short scope line as a data page's byline."""
+    return f'<div class="subtitle">{scope_short(build_dir, present)}</div>'
 
 
 def available_names(build_dir: str) -> set:
@@ -166,15 +185,13 @@ def build(build_dir: str) -> str:
     return (_head("Panama canopy photos and labelling",
                   "Drone photos of the Panama canopy with Pl@ntNet guesses and recorded labels: browse photos, choose the next labelling batch, check model health.", "index.html", present)
             + '<main id="main-content" tabindex="-1"><h1>Panama canopy</h1>'
-            + '<p class="intro">Drone photos of the canopy on Barro Colorado Island and other Panama field sites. '
-              'Pl@ntNet suggests a name for each photo and botanists confirm it. '
-              'This site is a window into the current data for the project leads and the labelling coordinator. '
-              'Annotators work in Labelbox, where model guesses are hidden on purpose so they do not bias identifications. '
-              'It does not yet suggest where to fly the drone. <a href="about.html">About</a></p>'
+            + '<p class="intro">Panama canopy drone photos and Pl@ntNet guesses, for the project leads and the labelling coordinator. '
+              'Annotators label in Labelbox, where the guesses are hidden; the site does not yet suggest where to fly. '
+              '<a href="about.html#audience">About</a></p>'
             + '<div class="tasks">' + "".join(card(*tile) for tile in tiles) + '</div>'
             + (f'<p class="more">{more}</p>' if more else "")
             + (f'<p class="scope">{html.escape(shared)}</p>' if shared else "")
-            + _scope_html(scope_sentence(build_dir), present)
+            + f'<p class="scope">{scope_short(build_dir, present)}</p>'
             + "</main></body></html>\n")
 
 
@@ -197,8 +214,9 @@ def build_about(available, scope: str = "") -> str:
                   if EXPERIMENT in available else "")
     return (_head("About Panama canopy", "What each page of the Panama canopy site is for, how to read its numbers, and a glossary.", "about.html", available)
             + '<main id="main-content" tabindex="-1" class="about"><h1>About</h1>'
+            + '<h2 id="audience">Who this is for</h2>' + AUDIENCE
             + '<h2>What each page is for</h2><ul>' + pages + '</ul>'
-            + ('<h2>Data scope</h2>' + _scope_html(scope, available) if scope else "")
+            + ('<h2 id="scope">Data scope</h2>' + _scope_html(scope, available) if scope else "")
             + '<h2>Read the numbers with care</h2>' + "".join(f"<p>{c}</p>" for c in CAVEATS)
             + experiment
             + '<h2>Glossary</h2><dl>'

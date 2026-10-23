@@ -62,12 +62,12 @@ def p_sites(c):
     if not c.scope:
         body = '<p class="note">No close-up has a cached answer.</p>'
     else:
-        body = ('<p class="note">The site is the second part of the mission folder name. '
-                "First guess right is over the frames labelled to a species there, the "
-                "headline population, so a site with few of them says little.</p>"
+        body = ('<p class="note">First guess right is over the frames labelled to a '
+                "species, the headline population; a site with few says little.</p>"
                 + _table(by_site, "Site")
                 + more(f"The same per mission ({len(by_mission)} missions)",
-                       _table(by_mission, "Mission")))
+                       '<p class="note">The site is the second part of the mission folder name.</p>'
+                       + _table(by_mission, "Mission")))
     return panel("By site and mission",
                  "<b>Where the labels and the errors are.</b> Close-ups, labels and the "
                  "first-guess rate for each drone site, and per mission below.",
