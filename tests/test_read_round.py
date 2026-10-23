@@ -96,13 +96,23 @@ def test_pool_sums_closed_rounds(rr, files):
 
 def test_cli_pending_exits_zero_and_writes_csv(rr, files, monkeypatch, capsys):
     out = files / "out.csv"
-    monkeypatch.setattr("sys.argv", ["read_round", "--round", "2", "--ledger-dir", str(files / "rounds"),
+    (files / "rounds" / "round_1.csv").unlink()  # only the unlabelled round 2 is left
+    monkeypatch.setattr("sys.argv", ["read_round", "--all", "--ledger-dir", str(files / "rounds"),
                                      "--gt", str(files / "gt.csv"),
                                      "--out", str(out)])
     rr.main()
     assert "pending" in capsys.readouterr().out
     rows = rr.read_rows(out)
-    assert rows == [{**dict.fromkeys(rr.OUT_COLUMNS, ""), "scope": "2", "status": "pending"}]
+    assert rows == [{**dict.fromkeys(rr.OUT_COLUMNS, ""), "scope": "pooled", "status": "pending"}]
+
+
+def test_a_single_round_run_leaves_the_page_file_alone(rr, files, monkeypatch):
+    out = files / "out.csv"
+    out.write_text("kept")
+    monkeypatch.setattr("sys.argv", ["read_round", "--round", "2", "--ledger-dir", str(files / "rounds"),
+                                     "--gt", str(files / "gt.csv"), "--out", str(out)])
+    rr.main()
+    assert out.read_text() == "kept"
 
 
 def test_cli_all_with_no_gt_file_is_pending(rr, files, monkeypatch, capsys):
@@ -115,7 +125,7 @@ def test_cli_all_with_no_gt_file_is_pending(rr, files, monkeypatch, capsys):
 def test_queue_page_reads_the_csv_read_round_writes(rr, files, monkeypatch, queue_panels):
     from types import SimpleNamespace
     out = files / "round_readout.csv"
-    monkeypatch.setattr("sys.argv", ["read_round", "--round", "1", "--ledger-dir", str(files / "rounds"),
+    monkeypatch.setattr("sys.argv", ["read_round", "--all", "--ledger-dir", str(files / "rounds"),
                                      "--gt", str(files / "gt.csv"),
                                      "--out", str(out)])
     rr.main()

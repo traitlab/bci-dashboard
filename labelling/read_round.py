@@ -23,7 +23,8 @@ otherwise this prints "pending" and exits 0. "New" and "long-tail" are judged
 against the GT rows that are not in this round or any later one. Long-tail
 includes new species.
 
-Writes build/tables/round_readout.csv (one row per scope and arm) for a page step.
+Writes build/tables/round_readout.csv (one row per scope and arm) for a page step,
+from --all only: a single --round run prints and leaves the file alone.
 
 Usage:
     python labelling/read_round.py --round 1
@@ -185,6 +186,8 @@ def main() -> None:
         else:
             print("pooled: pending (no round closed)")
             out.append({"scope": "pooled", "status": "pending"})
+    if not args.all:
+        return  # a lone round must not overwrite the page file's other rounds
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, OUT_COLUMNS, restval="")
