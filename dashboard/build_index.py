@@ -102,16 +102,17 @@ def scope_sentence(build_dir: str) -> str:
     health = rows("per_species_health.csv")
     if health:
         n = sum(int(r["n_labelled_frames"]) for r in health)
-        parts.append(f"{n:,} labelled close-ups across {len(health)} species are scored on Model health")
+        parts.append(f"{n:,} labelled frames across {len(health)} species are scored on Model health")
     queue = rows("send_batches.csv")
     if queue:
-        # mission is blank where the inventory does not name it; key is DJI_<capture date><time>_...
+        # mission is blank where the inventory does not name it; it starts with the flight date.
+        # The date in a file name is when it was written, not flown, so it is not used.
         missions = {r["mission"] for r in queue if r.get("mission")}
-        dates = sorted(m.group(1) for r in queue if (m := re.search(r"DJI_(\d{8})\d{6}_", r["global_key"])))
+        dates = sorted(m.group(1) for r in queue if (m := re.match(r"(\d{8})", r.get("mission") or "")))
         first, last = (f"{d[:4]}-{d[4:6]}-{d[6:]}" for d in (dates[0], dates[-1])) if dates else ("", "")
         span = f", photographed {first} to {last}" if dates else ""
         source = f" from {len(missions)} missions" if missions else ""
-        parts.append(f"{len(queue):,} close-ups{source} are queued for labelling{span}")
+        parts.append(f"{len(queue):,} unlabelled photos{source} are queued for labelling{span}")
     return ". ".join(parts) + "."
 
 
