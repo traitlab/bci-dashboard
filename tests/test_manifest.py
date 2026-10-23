@@ -33,6 +33,21 @@ def test_an_entry_carries_the_counts_the_change_log_needs(manifest, tmp_path):
     assert (e["test_n"], e["test_correct"], e["test_top1"]) == (100, 70, 0.7)
     assert e["species_counts"] == {"a": 12, "b": 3}
     assert e["model_version"] and e["reference"] == "labelbox"
+    # Tables older than confused_pairs.csv give a line that says so.
+    assert e["confused_pairs"] is None
+
+
+def test_an_entry_keeps_the_pair_counts_and_an_old_line_still_reads(manifest, tmp_path):
+    import json
+    d = tables(tmp_path / "t", {"a": 12, "b": 3})
+    (tmp_path / "t" / "confused_pairs.csv").write_text(
+        "label,first_guess,n_frames,n_label_frames\na,b,4,12\n", encoding="utf-8")
+    e = manifest.entry(d, run_date="2026-10-20", export="2026-10-19", frames=20)
+    assert e["confused_pairs"] == [["a", "b", 4]]
+    path = tmp_path / "manifest.jsonl"
+    old = {k: v for k, v in e.items() if k != "confused_pairs"}
+    path.write_text(json.dumps(old) + "\n" + json.dumps(e) + "\n", encoding="utf-8")
+    assert [x.get("confused_pairs") for x in manifest.read(str(path))] == [None, [["a", "b", 4]]]
 
 
 def test_two_exports_give_two_lines_and_the_same_export_gives_one(manifest, tmp_path):

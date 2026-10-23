@@ -51,6 +51,7 @@ PUBLIC_FILES = frozenset(
         ".nojekyll",
         "about.html",
         "confidence_calibration.csv",
+        "confused_pairs.csv",
         "coverage_gate.csv",
         "crownfirst-atlas.html",
         "embedding-atlas.html",

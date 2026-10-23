@@ -18,6 +18,7 @@ from collections import Counter, defaultdict
 from types import SimpleNamespace
 
 import assessments as am
+import confused_pairs
 import held_out as ho
 import reference
 import run_log as rl
@@ -51,7 +52,8 @@ OUT_DIR = os.path.join(
 OUTPUTS = ("per_species_health.csv", "support_buckets.csv", "filter_gain.csv",
            "confidence_calibration.csv", "name_reconciliation.csv", "send_first_queue.csv",
            "send_batches.csv", "label_review_queue.csv", "coverage_gate.csv",
-           "reject_sweep.csv", "held_out.csv", "flight_holdout.csv", "scope.csv", "reference.json",
+           "reject_sweep.csv", "held_out.csv", "flight_holdout.csv", "scope.csv", "confused_pairs.csv",
+           "reference.json",
            "run_log.txt")
 
 # Three of those no build reads back. They are evidence a person opens: what
@@ -494,6 +496,8 @@ def main() -> None:
     am.write_reject_sweep(out_dir, am.load(am.REJECT_SWEEP_JSON))
     ho.write_tables(out_dir, h.sp_recs)
     mission_scope.write(out_dir, mission_scope.rows(h))
+    confused_pairs.write(out_dir, confused_pairs.pairs(
+        h.sp_recs, {d["species"]: d["n_labelled_frames"] for d in h.per_species}))
     reference.write(out_dir, h, args.gt, args.label_source)
     am.log_assessments(log, transductive, disagreement, h.per_species, review_rows)
 

@@ -274,6 +274,13 @@ def test_every_csv_a_page_links_is_allowed_on_the_public_site(synthetic_page):
     assert linked - refresh.PUBLIC_FILES == set()
 
 
+def test_the_model_health_build_checks_the_mixed_up_pairs(synthetic_page):
+    html, stdout, _ = synthetic_page
+    if "How well does Pl@ntNet" in html:
+        assert re.search(r"confused_pairs\.csv: \d+ species pairs match", stdout)
+        assert 'href="confused_pairs.csv"' in html
+
+
 def test_the_scope_byline_counts_every_frame_the_fixture_holds(synthetic_page):
     # 35 labelled frames and 5 without a label, all from one mission folder.
     html, stdout, _ = synthetic_page

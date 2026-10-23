@@ -1,11 +1,13 @@
 """Model-health panels that read the refresh manifest: what changed between updates.
 
 Each takes the figure namespace and returns HTML, like ``panels.py``. The
-arithmetic is in ``snapshot_delta.py``; this only lays it out.
+arithmetic is in ``snapshot_delta.py`` and ``confused_pairs.py``; this only
+lays it out.
 """
 
 from __future__ import annotations
 
+import confused_pairs
 import core as hc
 import reference
 from assets import esc, panel, pctf, table
@@ -78,14 +80,24 @@ def _model_note(built: str) -> str:
 
 
 def p_confused(c):
-    """The wrong first guesses that repeat: which two species the model swaps."""
+    """The wrong first guesses that repeat: which two species the model swaps,
+    and, once an earlier refresh recorded them, each pair's count back then."""
+    then = confused_pairs.earlier(getattr(c, "changes", None))
     rows = [[f"<i>{esc(gt)}</i>", f"<i>{esc(guess)}</i>", f"{n:,}", f"{support:,}"]
+            + ([f"{then[1][gt, guess]:,}" if (gt, guess) in then[1] else "new"] if then else [])
             for gt, guess, n, support in c.confused]
+    headers = [("Label", False), ("First guess", False), ("Frames", True),
+               ("Labelled frames of the label species", True)]
+    if then:
+        headers.append((esc(f"Frames at export {then[0]}"), True))
     body = (f'<p class="note">Counted over the {c.n:,} frames labelled to a species, '
-            f"every wrong first guess. The last column is how many frames carry that "
-            f"label, so a pair is read against the species' own frames.</p>"
-            + table([("Label", False), ("First guess", False), ("Frames", True),
-                     ("Labelled frames of the label species", True)], rows)
+            f"every wrong first guess. The fourth column is how many frames carry that "
+            f"label, so a pair is read against the species' own frames."
+            + (f" The last is the same count at the export before, from the refresh "
+               f"manifest; new means the pair was not among the {confused_pairs.SHOWN} "
+               f"most common then." if then else "")
+            + "</p>"
+            + table(headers, rows, source=confused_pairs.NAME)
             if rows else '<p class="note">No first guess is wrong.</p>')
     return panel("Species the model mixes up",
                  f"<b>The pairs behind most repeated errors.</b> The {len(rows)} most common "

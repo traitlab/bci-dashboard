@@ -60,7 +60,8 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
         review_mechanisms=c.review_mechanisms, reject_sweep=c.reject_sweep,
         held_out=c.held_out,
         flight_holdout=c.flight_holdout,
-        scored_against=c.reference, populations=c.populations, scope=c.scope)
+        scored_against=c.reference, populations=c.populations, scope=c.scope,
+        confused=c.confused)
 
     # What the last export changed, off the refresh manifest. Here and not in
     # figures.prepare because the manifest is a refresh artifact, not a table.
