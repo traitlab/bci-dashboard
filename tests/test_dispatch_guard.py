@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -49,8 +50,14 @@ def run(dispatch_round, tmp_path, monkeypatch):
     monkeypatch.setattr(d, "fetch_data_row_ids",
                         lambda c, n: {k: "id_" + k for k in ("old.JPG", "new1.JPG", "new2.JPG")})
     monkeypatch.setattr(d, "tag_round", lambda c, keys, ids, r: calls.append(("tag", list(keys))))
-    monkeypatch.setattr(d, "create_batch",
-                        lambda c, p, keys, r, pri: calls.append(("batch", list(keys))) or "Round 2 - x")
+    failed = []  # data row ids the stub batch reports as refused
+
+    def create_batch(c, p, keys, r, pri):
+        # the ledger must already hold the rows when Labelbox is called
+        calls.append(("batch", list(keys), (ledger / "round_2.csv").exists()))
+        return SimpleNamespace(name="Round 2 - x", failed_data_row_ids=iter(failed))
+
+    monkeypatch.setattr(d, "create_batch", create_batch)
 
     def go(*flags):
         monkeypatch.setattr(sys, "argv", ["dispatch_round", "--round", "2", "--csv",
@@ -59,12 +66,13 @@ def run(dispatch_round, tmp_path, monkeypatch):
         return calls
 
     go.ledger = ledger
+    go.failed = failed
     return go
 
 
 def test_a_key_from_an_earlier_round_is_skipped_and_counted(run, capsys):
     calls = run()
-    assert ("batch", ["new1.JPG", "new2.JPG"]) in calls
+    assert ("batch", ["new1.JPG", "new2.JPG"], True) in calls
     assert ("tag", ["new1.JPG", "new2.JPG"]) in calls
     assert "Skipped 1 keys already sent" in capsys.readouterr().out
 
@@ -105,3 +113,19 @@ def test_a_real_send_stops_when_the_gt_file_is_absent(run, dispatch_round, tmp_p
         run()
     assert not run.ledger.exists()
     run("--dry-run")  # a dry run writes nothing and stays allowed
+
+
+def test_rows_labelbox_refused_are_dropped_from_the_ledger_and_re_sent(run):
+    run.failed.append("id_new2.JPG")
+    run()
+    with open(run.ledger / "round_2.csv", newline="", encoding="utf-8") as f:
+        assert [r["global_key"] for r in csv.DictReader(f)] == ["new1.JPG"]
+    run.failed.clear()
+    calls = run()  # new2 is not skipped as sent
+    assert calls[-1][:2] == ("batch", ["new2.JPG"])
+
+
+def test_a_zero_byte_ledger_gets_its_header(dispatch_round, tmp_path):
+    (tmp_path / "round_3.csv").write_bytes(b"")
+    path = dispatch_round.record_sent(["k"], 3, tmp_path / "none.csv", None, {"k": "id"}, tmp_path)
+    assert path.read_text().splitlines()[0].startswith("round,batch_id,global_key")

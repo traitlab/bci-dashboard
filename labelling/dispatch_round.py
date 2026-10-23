@@ -11,8 +11,9 @@ then full.
 
 Keys sent before are skipped, not re-sent. "Before" is two local records: the
 closed rounds' ground truth (data/gt_dominant_taxon.csv) and the per-round
-ledger this script writes after each batch it creates (input/rounds/round_N.csv,
-tracked: commit it, it is the only record of which frames were the control).
+ledger this script writes just before it creates each batch (input/rounds/round_N.csv,
+tracked: commit it, it is the only record of which frames were the control). Rows
+Labelbox reports as failed are dropped from it again, so they can be re-sent.
 A round sent without committing its ledger is not seen; Labelbox is not asked.
 
 `send_batches.csv` holds every batch in one file, so --batch picks the one to
@@ -144,7 +145,7 @@ def record_sent(keys, round_no, csv_path: Path, batch_id: str | None,
     now = datetime.now().isoformat(timespec="seconds")
     ledger_dir.mkdir(parents=True, exist_ok=True)
     path = ledger_dir / f"round_{round_no}.csv"
-    fresh = not path.exists()
+    fresh = not path.exists() or path.stat().st_size == 0
     with open(path, "a", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         if fresh:
@@ -156,6 +157,16 @@ def record_sent(keys, round_no, csv_path: Path, batch_id: str | None,
                        batch_id=row.get("batch_id") or batch_id or "")
             w.writerow([row.get(c, "") for c in LEDGER_FIELDS])
     return path
+
+
+def drop_rows(path: Path, data_row_ids: set[str]) -> None:
+    """Remove ledger rows by data_row_id: rows Labelbox refused were not sent."""
+    with open(path, newline="", encoding="utf-8") as f:
+        rows = [r for r in csv.DictReader(f) if r["data_row_id"] not in data_row_ids]
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, LEDGER_FIELDS)
+        w.writeheader()
+        w.writerows(rows)
 
 
 def get_or_create_round_schema(mdo) -> str:
@@ -355,14 +366,13 @@ def create_batch(client, project_name, matched_keys, round_no, priority):
     if project is None:
         sys.exit(f"ERROR: Project '{project_name}' not found.")
 
-    batch_name = rounds.batch_name(round_no)
     batch = project.create_batch(
-        name=batch_name,
+        name=rounds.batch_name(round_no),
         global_keys=matched_keys,
         priority=priority,
     )
     print(f"  Created batch: {batch.name} ({len(matched_keys)} data rows, priority={priority})")
-    return batch_name
+    return batch
 
 
 def main() -> None:
@@ -412,15 +422,26 @@ def main() -> None:
 
     priority = priority_for_batch(args.batch, args.priority)
     print(f"\nStep 4 - Creating labelling batch in Project B at priority {priority}...")
-    batch_name = create_batch(client, project_b_name, matched_keys,
-                              args.round, priority)
+    # Ledger first: a crash after the batch exists must not let a rerun send again.
     ledger = record_sent(matched_keys, args.round, args.csv, args.batch, key_to_id, LEDGER_DIR)
+    try:
+        batch = create_batch(client, project_b_name, matched_keys, args.round, priority)
+    except (Exception, SystemExit):
+        print(f"  Ledger rows kept in {ledger}. If Labelbox made no batch, delete them "
+              f"there before re-running, or they are skipped as sent.")
+        raise
+    failed = set(batch.failed_data_row_ids)
+    if failed:
+        drop_rows(ledger, failed)
+        print(f"  WARNING: Labelbox refused {len(failed)} data rows; dropped from the ledger "
+              f"so a re-run sends them (first 5: {sorted(failed)[:5]})")
+    batch_name = batch.name
 
     rule = "=" * 50
     print(f"\n{rule}\nDISPATCH COMPLETE\n{rule}")
     print(f"  Round:          {args.round}")
     print(f"  Batch:          {batch_name}")
-    print(f"  Data rows:      {len(matched_keys)}")
+    print(f"  Data rows:      {len(matched_keys) - len(failed)}")
     print(f"  Missing keys:   {len(missing)}")
     print(f"  Project:        {project_b_name}")
     print(f"  Metadata field: {METADATA_SCHEMA_NAME} = {args.round}")
