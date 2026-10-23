@@ -256,7 +256,7 @@ def test_num_cell_keeps_the_sort_attribute_wherever_the_text_would_mislead(asset
     assert assets.num_cell(1204, "1,204") == ("1,204", ' data-sort="1204"')
 
     # The attribute lands on the cell's own <td>, not on a span inside it.
-    headers = [("Species", False), ("First guess right", True)]
+    headers = [("Species", False), ("Top prediction right", True)]
     out = assets.table(headers, [["a", assets.num_cell("0.928571", "92.9%")]])
     assert '<td class="num" data-sort="0.928571">92.9%</td>' in out
 

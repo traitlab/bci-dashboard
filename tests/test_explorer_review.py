@@ -9,14 +9,14 @@ from test_explorer_browser import SELECTED, catalogue, run_browser
 def test_compare_filter_counts_compose_and_restore_from_history():
     run_browser(r"""
 const first=state.frame;
-assert.equal($('labelStatus').options.at(-1).textContent,'Label and guess name different taxa (1)');
+assert.equal($('labelStatus').options.at(-1).textContent,'Label and prediction name different taxa (1)');
 $('labelStatus').value='compare';$('labelStatus').onchange();
 assert.equal(state.status,'compare');assert.match(location.hash,/status=compare/);
-assert.equal($('browseTitle').textContent,'Label and guess name different taxa');
+assert.equal($('browseTitle').textContent,'Label and prediction name different taxa');
 assert.deepEqual(matchingPhotoKeys(catalogue,state),[first]);
 assert.equal($('stateNotice').textContent,'');assert.match($('resultCount').textContent,/1 of 6/);
 setState({source:'recorded',taxon:'s',search:'flight-a'});
-assert.equal($('browseTitle').textContent,'Canopia alba: Label and guess name different taxa');
+assert.equal($('browseTitle').textContent,'Canopia alba: Label and prediction name different taxa');
 assert.deepEqual(labelStatusCounts(catalogue,state),{all:1,with:1,without:0,compare:1});
 assert.equal(taxonCounts(catalogue,state).get('s'),1);
 const saved=location.hash;setState({status:'without',source:'prediction',taxon:'',search:''});
@@ -85,7 +85,7 @@ def test_similar_photo_links_name_their_evidence_origin_without_changing_rank():
     data["photos"][2]["label"] = None
     run_browser(r"""
 const names=$('similar').children.map(n=>n.children[0].textContent);
-assert.deepEqual(names,['Recorded label: Elseaceae · cosine 0.9','Pl@ntNet first guess: Canopia alba · cosine 0.8','No recorded label or Pl@ntNet first guess · cosine 0.7','Recorded label: Old unresolved name · cosine 0.6']);
+assert.deepEqual(names,['Recorded label: Elseaceae · cosine 0.9','Pl@ntNet top prediction: Canopia alba · cosine 0.8','No recorded label or Pl@ntNet top prediction · cosine 0.7','Recorded label: Old unresolved name · cosine 0.6']);
 $('similar').children[1].children[0].onclick();assert.equal(state.frame,'d');
 """, payload=data)
 
@@ -105,7 +105,7 @@ assert.equal(new URLSearchParams(new URL(task.href,'https://example.org').hash.s
 def test_cards_show_both_evidence_names_in_a_fixed_order_in_every_view():
     run_browser(r"""
 function copy(key){return $('gallery').children.find(card=>card.getAttribute('data-frame')===key).children[1].children.filter(n=>n.className!=='card-selection').map(n=>[n.className,n.textContent])}
-const first=state.frame,expected=[['card-evidence','Recorded label'],['card-name','Canopia alba'],['card-evidence','Pl@ntNet first guess'],['card-name','Canopia lutea']];
+const first=state.frame,expected=[['card-evidence','Recorded label'],['card-name','Canopia alba'],['card-evidence','Pl@ntNet top prediction'],['card-name','Canopia lutea']];
 assert.deepEqual(copy(first).slice(0,4),expected);
 for(const patch of [{status:'compare'},{source:'recorded'},{status:'all'}]){setState(patch);assert.deepEqual(copy(first).slice(0,4),expected)}
 const unlabelled=photos.find(p=>!hasRecordedLabel(p)&&matchingPhotoKeys(catalogue,state).includes(p.key));
@@ -142,8 +142,8 @@ assert.equal($('recordedLabel').children[0].textContent,'Canopia');
 assert.equal($('predictionLabel').children[0].textContent,'Canopia alba');
 assert.equal($('predictionLabel').children[1].textContent,'Pl@ntNet confidence in this guess: 0.97 / 1 Tied first score.');
 setState({frame:'c'});
-assert.equal($('predictionLabel').children[0].textContent,'No cached first guess');
-assert.equal($('predictionLabel').children[1].textContent,'Pl@ntNet confidence unavailable: no first guess.');
+assert.equal($('predictionLabel').children[0].textContent,'No cached top prediction');
+assert.equal($('predictionLabel').children[1].textContent,'Pl@ntNet confidence unavailable: no top prediction.');
 assert.equal(JSON.stringify(photos),evidence);
 """, payload=data)
 
@@ -174,8 +174,8 @@ def test_confidence_cannot_be_associated_with_a_recorded_label_when_guess_is_mis
     data['photos'][0]['prediction'].update(name=name, status='missing', score=.34568)
     run_browser(r"""
 assert.equal($('recordedLabel').children[0].textContent,'Canopia alba');
-assert.equal($('predictionLabel').children[0].textContent,'No cached first guess');
-assert.equal($('predictionLabel').children[1].textContent,'Pl@ntNet confidence unavailable: no first guess.');
+assert.equal($('predictionLabel').children[0].textContent,'No cached top prediction');
+assert.equal($('predictionLabel').children[1].textContent,'Pl@ntNet confidence unavailable: no top prediction.');
 assert.equal($('predictionLabel').children.length,2);
 assert.equal(photos[0].prediction.score,.34568);
 """, payload=data)

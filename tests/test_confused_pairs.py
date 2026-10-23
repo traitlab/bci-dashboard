@@ -22,7 +22,7 @@ def mods():
 
 
 def recs(*pairs):
-    """One scored frame per (label, first guess)."""
+    """One scored frame per (label, top prediction)."""
     return [{"gt": gt, "ranked": [(guess, 0.9)]} for gt, guess in pairs]
 
 
@@ -45,7 +45,7 @@ def test_only_the_top_fifteen_pairs_are_kept(mods):
 def test_no_wrong_guess_gives_no_pairs_and_the_panel_says_so(mods):
     assert mods.pairs.pairs(recs(("hura", "hura")), SUPPORT) == []
     html = mods.panels.p_confused(SimpleNamespace(confused=[], n=1))
-    assert "No first guess is wrong." in html
+    assert "No top prediction is wrong." in html
 
 
 def test_the_panel_prints_each_pair_with_its_count_and_label_support(mods):

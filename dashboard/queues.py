@@ -425,11 +425,11 @@ def with_batch_ids(queue_rows: list, batch_rows: list) -> list:
 
 
 def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> str:
-    """Which queue an unlabelled crown lands in, from its first guess alone.
+    """Which queue an unlabelled crown lands in, from its top prediction alone.
 
     ``support``: labelled-crown count per species. ``top1``: measured accuracy
     per species. Absent from both means never labelled. First rule wins, so a
-    weak guess on a rare species stays in the long tail.
+    weak prediction on a rare species stays in the long tail.
     """
     n = support.get(pred, 0)
     a = top1.get(pred)

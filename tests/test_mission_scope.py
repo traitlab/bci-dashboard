@@ -26,7 +26,7 @@ ORIGINS = {"comb_a.JPG": ("20240911_sitea_w_m3e", "sitea"),
 
 
 def health(*stems, labelled=(), scored=()):
-    """``scored`` is (stem, label, first guess) per frame labelled to a species."""
+    """``scored`` is (stem, label, top prediction) per frame labelled to a species."""
     return SimpleNamespace(
         predictions=dict.fromkeys(stems, []), labelled_stems=set(labelled),
         sp_recs=[{"global_key": "comb_" + s, "gt": gt, "ranked": [(guess, 0.9)]}

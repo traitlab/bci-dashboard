@@ -1,6 +1,6 @@
 # BCI dashboard
 
-Botanists outline tree crowns in drone photos of BCI and name each species in Labelbox. Pl@ntNet, a plant-naming service, guesses the species in the same photos. This repo turns those two sources into self-contained HTML pages that answer two questions:
+Botanists outline tree crowns in drone photos of BCI and name each species in Labelbox. Pl@ntNet, a plant-naming service, predicts the species in the same photos. This repo turns those two sources into self-contained HTML pages that answer two questions:
 
 1. **How well does Pl@ntNet name BCI trees?** The model-health page, for anyone outside the lab.
 2. **Which photo should a botanist label next?** The queue page, for the labelling team.
@@ -18,7 +18,7 @@ Both pages read one measurement pass, so they cannot disagree. The builders read
 
 The site publishes these pages from `docs/`:
 
-- the model-health page, by `dashboard/build_external.py`: per species, how often the first guess is right, on how many labelled frames, and why the species carries its status
+- the model-health page, by `dashboard/build_external.py`: per species, how often the top prediction is right, on how many labelled frames, and why the species carries its status
 - the queue page, by `dashboard/build_internal.py`
 - the photo explorer, by `dashboard/build_explorer.py` from `labelling/export_explorer.py`
 - the photo atlas (drone map and similar photos), by `dashboard/build_embedding_atlas.py` from `labelling/project_atlas_tsne.py`
@@ -36,7 +36,7 @@ The queue page orders every unlabelled photo that has a cached Pl@ntNet answer.
   <img alt="The rule that sends each unlabelled photo to queue 1, 2, 3 or 4" src="diagrams/queue-rule.svg">
 </picture>
 
-`send_first_queue.csv` lists the queues in order 1, 2, 3, 4. A photo that reaches the third test belongs to a species with 10 or more labelled frames, so a confident guess there is enough to push it down the queue. The two-part wait rule behind queue 4 is measured on frames held back for grading, and the queue page shows every confidence line it was compared against.
+`send_first_queue.csv` lists the queues in order 1, 2, 3, 4. A photo that reaches the third test belongs to a species with 10 or more labelled frames, so a confident prediction there is enough to push it down the queue. The two-part wait rule behind queue 4 is measured on frames held back for grading, and the queue page shows every confidence line it was compared against.
 
 The numbers are `dashboard/core.py` constants and the rule is `queues.queue_of_prediction`. The page prints both from the same source.
 
@@ -203,7 +203,7 @@ It shuffles the frames inside each group 5,000 times to see how often chance doe
 
 The page shows how many of the 8 draws agree, and stays blank under 10 frames.
 
-**Why do the two names differ?** crownfirst lists the frames where Pl@ntNet's first guess is not the label. It sorts each one as two different species, one species under two names, or a label that stops at genus or family.
+**Why do the two names differ?** crownfirst lists the frames where Pl@ntNet's top prediction is not the label. It sorts each one as two different species, one species under two names, or a label that stops at genus or family.
 
 **How many plausible names?** A plain classifier learns from how the photos look, in 5 folds. For each frame it lists the names it cannot rule out, built to hold the right name 90% of the time.
 

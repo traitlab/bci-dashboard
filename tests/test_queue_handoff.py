@@ -86,10 +86,10 @@ def test_species_statuses_are_review_guidance_not_biodiversity_skip_rules(queue_
                         n_sp=len(queue_panels.STATUS), gen_one=3, n_cand=5)
     html = queue_panels.p_todo(c)
     assert '<details class="panel" id="cheapest-confirmation-work">' in html
-    assert "How to review model guesses" in html
+    assert "How to review model predictions" in html
     assert "not biodiversity value" in html
     assert "manual identification" in html.lower()
-    assert "lower priority for checking model guesses" in html.lower()
+    assert "lower priority for checking model predictions" in html.lower()
     assert "need a yes or no" not in html
     assert "can skip" not in html and "Skip." not in html
     assert "More labels will not fix" not in html
@@ -114,7 +114,7 @@ def test_threshold_evidence_prints_the_calibration_table_values(queue_panels, tm
     assert "right on 1,712 of 1,763 frames (97.1%)" in html
     assert "right on 318 of 842 frames (37.8%)" in html
     assert "On the 3,277 labelled frames" in html
-    assert "A confident guess can still be wrong: 51 frames" in html
+    assert "A confident prediction can still be wrong: 51 frames" in html
     assert "0.80 is the confidence line; 0.50 marks low confidence." in html
     assert "Both values were set by judgement, not fitted to this table" in html
     assert "cut-off" not in html

@@ -75,7 +75,7 @@ def hero_terms(k):
         f"The <b>centre crop</b> is {CENTRE_CROP_IS}. Every rate over all the "
         f"labelled frames is scored on it. We ask Pl@ntNet for {k} names per photo, "
         f"a setting of ours and not a limit of the model.",
-        "The <b>first guess</b> is the top-ranked of those names, and <b>right</b> "
+        "The <b>top prediction</b> is the top-ranked of those names, and <b>right</b> "
         "means it matches the frame's label.",
         "<b>Outlining the trees first</b> means asking Pl@ntNet about each crown on "
         "its own. The answers are then weighted by how much of the frame each crown "
@@ -116,7 +116,7 @@ def hero_region(c):
 
 
 def _review_pairs(review):
-    """The review frames grouped by label-and-guess pair, recurring pairs first.
+    """The review frames grouped by label-and-prediction pair, recurring pairs first.
 
     ``figures._review`` already counts the pairs; it keeps confidences, not
     records, and a row on this table is a frame. Same key, so the two cannot
@@ -154,7 +154,7 @@ def _project_split(cov):
 # The columns of the one review table, numeric flag second, as ``table`` takes
 # them. The first two are the pair, and a pair with several frames writes them
 # once and spans them down its own rows.
-REVIEW_COLUMNS = [("botanist label", False), ("Pl@ntNet's first guess", False),
+REVIEW_COLUMNS = [("botanist label", False), ("Pl@ntNet's top prediction", False),
                   ("confidence", True), ("frame", False)]
 
 
@@ -235,10 +235,10 @@ def p_review(c):
     wide = hc.labelbox_link_coverage([r["global_key"] for r in c.h.gt_rows], urls)
     body = (f'<p class="note">On each frame here the model is at least '
             f'{hc.REVIEW_CONF:.1f} confident in a <em>different</em> species from the '
-            f'label. Over all labelled frames, a first guess this confident is right '
+            f'label. Over all labelled frames, a top prediction this confident is right '
             f'{pctf(c.confident_ok)} of the time ({c.confident_hits:,} of '
             f'{len(c.confident):,}).</p>'
-            f'<p class="note">All {n} frames, under {len(groups)} label-and-guess '
+            f'<p class="note">All {n} frames, under {len(groups)} label-and-prediction '
             f'pairs. The {len(recur)} pairs that recur come first and cover {covered} '
             f'frames. The other {len(groups) - len(recur)} are one frame each.</p>'
             + ap.mechanism_note(c.disagreement, c.review_mechanisms)
@@ -291,7 +291,7 @@ BAR_COUNT_ID = "accuracy-bar-count"
 
 def _clearing(per_species, bar):
     """Species carrying THIN_MIN_FRAMES or more labelled frames that score
-    ``bar`` or better on the first guess.
+    ``bar`` or better on the top prediction.
 
     The same tolerance as ``core.diagnose``, so at RELIABLE_MIN_TOP1 this is
     exactly the count of rows tagged "usually right" rather than one rounding
@@ -361,13 +361,13 @@ def _species_columns_note():
     what precision is was paying for the reader who does not."""
     return ('<details class="more"><summary>What the columns mean</summary>'
             '<p class="note"><b>Top-1 accuracy on a species row is its recall</b>: of '
-            'the frames labelled that species, the share the first guess got right. '
+            'the frames labelled that species, the share the top prediction got right. '
             '<b>Precision</b> is the reverse: of the frames the model gave that name, '
             'the share that were it, counted only where a botanist labelled the frame. '
             '<b>F1</b> is their harmonic mean, so a row scores well only when both '
             'do.</p>'
             '<p class="note"><b>Model&rsquo;s confidence</b> is Pl@ntNet&rsquo;s score '
-            'for its first guess, averaged over the species&rsquo; frames. 0.86 means '
+            'for its top prediction, averaged over the species&rsquo; frames. 0.86 means '
             'nearly all of it went on one name, and 0.32 means it was spread thin. '
             '<b>Confidence range</b> is where the middle 50% of those frames fall, the 25th '
             'to the 75th percentile. A wide range means the model\'s confidence varies a lot '
@@ -440,20 +440,20 @@ def p_species(c):
          (_hint("Labelled frames", "Frames a botanist labelled this species."), True),
          (_hint("Top-1 accuracy (recall)",
                 "Of the frames a botanist labelled this species, the share the "
-                "first guess got right."), True),
+                "top prediction got right."), True),
          (_hint(f"Top-{c.n_cand} accuracy",
                 f"The share of those frames where the right name is among the "
                 f"{c.n_cand} names requested."), True),
-         (_hint("Frames guessed",
+         (_hint("Frames predicted",
                 "Labelled frames the model returned this name on, right or "
                 "wrong. Precision is scored over these frames."), True),
          (_hint("Precision",
-                "Of the frames the model guessed this name on, the share that "
+                "Of the frames the model predicted this name on, the share that "
                 "really were it."), True),
          (_hint("F1", "The harmonic mean of precision and recall, so a row "
                       "scores well only when both do."), True),
          (_hint("Model's confidence",
-                "Pl@ntNet's own score for its first guess, averaged over this "
+                "Pl@ntNet's own score for its top prediction, averaged over this "
                 "species' frames."), True),
          (_hint("Confidence range (middle 50%)",
                 "Where the middle 50% of this species' frames fall, the 25th to "
@@ -483,7 +483,7 @@ def p_species(c):
 
 
 def p_calibration(c):
-    """How often the first guess is right at each confidence band.
+    """How often the top prediction is right at each confidence band.
 
     The measurement is already on disk and already verified against
     ``confidence_calibration.csv``; until now only the internal page drew it,
@@ -498,8 +498,8 @@ def p_calibration(c):
     graded = sum(nn for _, nn, _ in c.bins_all)
     return panel(
         "Is the confidence score worth anything: over all frames yes, on rare species no",
-        "<b>How often the first guess is right at each confidence score.</b>",
-        svg_hbar(rows, title="how often the first guess is right, "
+        "<b>How often the top prediction is right at each confidence score.</b>",
+        svg_hbar(rows, title="how often the top prediction is right, "
                              "by the model's own confidence")
         # The bars round to one figure a band, so the file that carries the counts
         # is named beside the population rather than in a paragraph of its own:
@@ -576,7 +576,7 @@ def p_ceiling(c):
             f'Pl@ntNet returned fewer than {c.n_cand}. On the other {c.n_pred - c.short5:,}, anything '
             f'ranked {c.n_cand + 1} or lower is invisible to us.</p>'
             + f'<p class="note"><strong>Spelling differences and renamed species lose no '
-              f'frames:</strong> labels and guesses are matched by accepted name '
+              f'frames:</strong> labels and predictions are matched by accepted name '
               f'before scoring. Raw names would score {pctf(c.strict1 / n)} '
               f'rather than {pctf(c.c1 / n)}, so matching already adds '
               f'{c.c1 - c.strict1} frames to every rate here. Every label, what it '
@@ -620,8 +620,8 @@ def _prf_block(c):
     Four cards, not six. Three of them average per species; the fourth is the
     per-frame figure, and there is only one of it because per frame the three
     rates are literally the same number. Every frame here carries exactly one
-    botanist label and exactly one first guess, so one wrong guess is one miss
-    for the labelled species and one false alarm for the guessed one. The two
+    botanist label and exactly one top prediction, so one wrong prediction is one miss
+    for the labelled species and one false alarm for the predicted one. The two
     denominators are then both the frame count, and the three rates collapse.
     Printing that number three times under three headings would read as three
     findings, so it is printed once with the reason beside it.
@@ -640,7 +640,7 @@ def _prf_block(c):
              f"averaged over the {c.n_sp} labelled species, each counting once",
              "per_species_health.csv"),
             ("Recall, per species", pctf(c.now["macro_recall"]),
-             "Of the frames labelled a species, how often the first guess is right",
+             "Of the frames labelled a species, how often the top prediction is right",
              "the same number as top-1 accuracy per species",
              "per_species_health.csv"),
             ("F1, per species", pctf(c.now["macro_f1"]),
@@ -656,7 +656,7 @@ def _prf_block(c):
         # raise them one reader in ten. So they sit behind their own line.
         + more("What these four are measured on",
                '<p class="note"><b>Why the per-frame figure is one number.</b> Each '
-               'frame has one botanist label and one first guess. So a wrong guess is '
+               'frame has one botanist label and one top prediction. So a wrong prediction is '
                'one miss for one species and one false alarm for another. Both '
                'denominators are '
                'the frame count, so precision, recall, F1 and top-1 accuracy come out '
@@ -665,7 +665,7 @@ def _prf_block(c):
                'alarm only shows where a botanist labelled the frame, so these are rates '
                f'over the frames we scored, not over the survey. The averages run over the {c.n_sp} labelled '
                'species only.</p>'
-               '<p class="note"><b>A species the model never guesses scores 0% precision, '
+               '<p class="note"><b>A species the model never predicts scores 0% precision, '
                'not a blank</b>, so an empty list does not flatter the average. Rows on '
                'few frames are noisy too.</p>'))
 

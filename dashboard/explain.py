@@ -53,7 +53,7 @@ FAT_MIN = hc.SUPPORT_BUCKETS[-1][0]
 
 
 def _near_miss(recs):
-    """Wrong first guesses, and the share whose right answer is still listed."""
+    """Wrong top predictions, and the share whose right answer is still listed."""
     wrong = [r for r in recs if r["ranked"][0][0] != r["gt"]]
     got = sum(1 for r in wrong if r["gt"] in
               [b for b, _ in r["ranked"][:hc.N_CANDIDATES]])
@@ -93,7 +93,7 @@ def weighting_panel(*, per_species, sp_recs, support, buckets, now, n, n_sp,
         corpus_block
         + table([("Labelled frames per species", False), ("Species", True),
                  ("Frames", True), ("Share of species", True),
-                 ("Share of frames", True), ("First guess right", True)],
+                 ("Share of frames", True), ("Top prediction right", True)],
                 rows, source="support_buckets.csv")
         + f'<p class="note">The {singles} single-frame species are '
           f'{100 * buckets[thin]["n_species"] / n_sp:.0f}% of the species but '

@@ -231,7 +231,7 @@ def write_send_batches(out_dir, batch_rows):
 
 
 def top1(r, key="ranked"):
-    """The model's first guess, off ``ranked`` or off the un-canonicalised
+    """The model's top prediction, off ``ranked`` or off the un-canonicalised
     ``ranked_strict``."""
     return r[key][0][0]
 
@@ -244,7 +244,7 @@ def hit(r, k, key="ranked", gtkey="gt"):
 def headline_counts(h):
     """The corpus rates, every way the run log reports them.
 
-    Species and genus, first guess and whole list, and the same again on the
+    Species and genus, top prediction and whole list, and the same again on the
     raw names, which says what canonicalising the two vocabularies is worth.
     """
     sp, gen = h.sp_recs, h.genus_recs
@@ -412,7 +412,7 @@ def send_queue(h, sent=()):
 
 
 def review_queue(h):
-    """First guess wrong at high confidence: either the label or the model is
+    """Top prediction wrong at high confidence: either the label or the model is
     wrong. Worked after the cheap queues, most confident first, and frames a
     botanist has already adjudicated are dropped.
     """

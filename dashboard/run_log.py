@@ -533,7 +533,7 @@ def log_review_queue(_log, review_rows, n, n_adjudicated):
     """Confident disagreements between the model and a label."""
     pairs = Counter((r[2], r[3]) for r in review_rows)
     _log("--- LABELS WORTH A SECOND LOOK ---")
-    _log(f"  first guess wrong at confidence >= {REVIEW_CONF} : {len(review_rows)} "
+    _log(f"  top prediction wrong at confidence >= {REVIEW_CONF} : {len(review_rows)} "
         f"of {n} evaluated frames ({pct(len(review_rows), n)})")
     _log(f"  distinct species-to-species confusions  : {len(pairs)}")
     # Printed even at zero: a queue that silently shrank is worse than a long one.

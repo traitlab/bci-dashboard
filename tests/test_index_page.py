@@ -216,9 +216,9 @@ def test_about_carries_caveats_glossary_and_no_data(build_index, tmp_path):
     about = build_index.build_about(build_index.available_names(str(tmp_path)))
     low = about.lower()
     assert "photo counts do not measure tree abundance" in low
-    assert "model guesses need expert confirmation" in low
+    assert "model predictions need expert confirmation" in low
     assert "each page describes its own snapshot" in low
-    for term in ("Recorded label", "Pl@ntNet first guess", "Labelled frame"):
+    for term in ("Recorded label", "Pl@ntNet top prediction", "Labelled frame"):
         assert f"<dt>{term}</dt>" in about
     assert "crownfirst" not in about
     assert 'href="explorer.html"' in about
@@ -301,7 +301,7 @@ def test_intro_names_the_audience_and_the_limits(build_index, tmp_path):
     out = build_index.build(fake_build(tmp_path))
     intro = out[out.index('<p class="intro">'):out.index("</p>", out.index('<p class="intro">'))]
     assert "project leads and the labelling coordinator" in intro
-    assert "Annotators label in Labelbox, where the guesses are hidden" in intro
+    assert "Annotators label in Labelbox, where the predictions are hidden" in intro
     assert "does not yet suggest where to fly" in intro
     assert intro.count(". ") <= 2 and 'href="about.html#audience"' in intro
     # The longer account sits on About, under the anchor the intro links.

@@ -106,7 +106,7 @@ def test_the_page_prints_the_per_frame_figure_once_and_says_why(panels):
     Four identical percentages under four headings read as four findings.
     """
     src = pathlib.Path(panels.__file__).read_text(encoding="utf-8")
-    assert "one botanist label and one first guess" in src
+    assert "one botanist label and one top prediction" in src
     assert "all three are the same number" in src
 
 
@@ -221,7 +221,7 @@ def test_the_page_names_the_metric_as_well_as_glossing_it(external_page):
     """
     html, _ = external_page
     assert "Top-1 accuracy" in html
-    assert "The first guess is right" in html
+    assert "The top prediction is right" in html
 
 
 def test_the_species_table_names_recall_in_the_column_that_holds_it(external_page):
@@ -236,5 +236,5 @@ def test_the_species_table_names_recall_in_the_column_that_holds_it(external_pag
     # The heading also carries its own definition as a tooltip, so the assertion
     # is on the heading cell around it rather than on the cell's whole text.
     assert ('<th class="num sortable"><abbr title="Of the frames a botanist '
-            'labelled this species, the share the first guess got right.">'
+            'labelled this species, the share the top prediction got right.">'
             'Top-1 accuracy (recall)</abbr></th>') in html

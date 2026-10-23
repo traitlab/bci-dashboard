@@ -131,7 +131,7 @@ def test_a_snapshot_without_the_file_is_skipped_with_a_line_saying_so(held_out, 
 # ---------------- the page ----------------
 
 TEST_LINE = re.compile(
-    r"first guess is right on ([0-9.]+)% of the ([0-9,]+) test frames")
+    r"top prediction is right on ([0-9.]+)% of the ([0-9,]+) test frames")
 UNPLACED = re.compile(r"([0-9,]+) test frames? could not be placed on a flight")
 
 

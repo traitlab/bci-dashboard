@@ -183,7 +183,7 @@ def test_support_bucket_first_guess_rate_mismatch_aborts(history, tmp_path):
     rows[0]["top1_accuracy"] = 0.0
     kwargs, _ = write_snapshot(tmp_path, bucket_rows=rows)
     msg = assert_aborts(history, tmp_path, kwargs)
-    assert "first-guess rate" in msg and "well_sampled" in msg
+    assert "top-prediction rate" in msg and "well_sampled" in msg
 
 
 # ---------------- confidence_calibration.csv ----------------

@@ -111,7 +111,7 @@ def limits_for(transductive: dict | None, per_species) -> dict:
 
 
 def mechanism_of(disagreement: dict | None, key: str) -> str:
-    """Why the label and the guess differ on one frame, in the file's words,
+    """Why the label and the prediction differ on one frame, in the file's words,
     or ``""`` when the file is absent or never saw the frame."""
     if not disagreement:
         return ""

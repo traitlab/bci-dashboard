@@ -325,7 +325,7 @@ def confound_note(c) -> str:
             f'It was tested {_times(f["tests"])}.{headline}</p>{why}'
             f'<ul class="note">{"".join(lines)}</ul>'
             f'<p class="note">On the labelled photos the species is known, and on the '
-            f'queue it is the one the model guessed. '
+            f'queue it is the one the model predicted. '
             f'Tested with labelfirst {esc(f["library"] or "unknown")} on '
             f'this checkout, written {esc(f["written"] or "on an unrecorded date")}. The '
             f'file of photo vectors was {_sha(f["sha"])} for the queue and '

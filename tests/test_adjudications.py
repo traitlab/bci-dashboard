@@ -138,7 +138,7 @@ def test_an_adjudicated_frame_leaves_the_queue(core):
 
 
 def test_an_adjudicated_frame_still_counts_as_a_model_miss(core):
-    """It must not silently improve the confident-first-guess accuracy claim."""
+    """It must not silently improve the confident-top-prediction accuracy claim."""
     recs = _recs()
     confident = [r for r in recs if r["ranked"][0][1] >= core.REVIEW_CONF]
     _, raised_with = _panels_side(core, recs, {"ruled"})

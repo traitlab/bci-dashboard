@@ -1,5 +1,5 @@
 """The status vocabulary all three pages share: what each status is called,
-why a species gets it, and how to check its model guesses.
+why a species gets it, and how to check its model predictions.
 
 One module, so a word changed here changes legend, table and to-do list together.
 """
@@ -8,20 +8,20 @@ from __future__ import annotations
 
 import core as hc
 
-# key -> (label, how to review model guesses). No status ranks biodiversity value.
+# key -> (label, how to review model predictions). No status ranks biodiversity value.
 STATUS = {
     "ranking": ("Right name in the list, not first",
-                "Compare the candidates with the photo; a lower-ranked guess may fit better"),
+                "Compare the candidates with the photo; a lower-ranked prediction may fit better"),
     "unmeasured": ("Too few labels to judge",
                    "Inspect photos and add labelled evidence before trusting this species' rate"),
     "hard": ("Often wrong on labelled frames",
-             "Use manual identification or expert review; do not rely on the first guess"),
-    "adequate": ("Mixed", "Check the guess against the photo; performance varies"),
-    "reliable": ("Usually right", "Lower priority for checking model guesses. Keep labels needed for biodiversity work"),
+             "Use manual identification or expert review; do not rely on the top prediction"),
+    "adequate": ("Mixed", "Check the prediction against the photo; performance varies"),
+    "reliable": ("Usually right", "Lower priority for checking model predictions. Keep labels needed for biodiversity work"),
     # core.diagnose reads in_corpus_vocabulary, true when the name came back on
     # ANY BCI photo, so 0.0% under a different status is not a contradiction.
     "unreachable": ("Never returned on any BCI photo",
-                    "Use manual identification; absence from returned guesses does not establish absence from the model"),
+                    "Use manual identification; absence from returned predictions does not establish absence from the model"),
     "out_of_scope": ("Not in the project's own species list",
                       "Use manual identification; this model's project checklist does not carry the species"),
 }
@@ -34,13 +34,13 @@ def uncap(label):
 
 STATUS_REASON = {
     "ranking": f"The right name was often among the {hc.N_CANDIDATES} returned "
-               f"candidates but below the first guess. Check candidates against the photo.",
+               f"candidates but below the top prediction. Check candidates against the photo.",
     "unmeasured": f"Fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, so the score is "
                   f"too thin to trust yet.",
-    "hard": f"At least {hc.WELL_SAMPLED_MIN_N} labelled frames, but first guesses are right "
+    "hard": f"At least {hc.WELL_SAMPLED_MIN_N} labelled frames, but top predictions are right "
             f"less than {hc.HARD_MAX_TOP1:.0%} of the time. Use manual identification or expert review.",
-    "adequate": "Mixed results on labelled frames. Check each guess against the photo.",
-    "reliable": "Usually right on labelled frames, so lower priority for checking model guesses. "
+    "adequate": "Mixed results on labelled frames. Check each prediction against the photo.",
+    "reliable": "Usually right on labelled frames, so lower priority for checking model predictions. "
                 "This does not measure the species' biodiversity importance.",
     "unreachable": "Pl@ntNet never returned this name on any BCI photo. We ask each "
                    f"photo for {hc.N_CANDIDATES} names. A species it carries but never "
