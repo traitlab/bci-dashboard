@@ -91,11 +91,9 @@ def p_confused(c):
     if then:
         headers.append((esc(f"Frames at export {then[0]}"), True))
     body = (f'<p class="note">Counted over the {c.n:,} frames labelled to a species, '
-            f"every wrong first guess. The fourth column is how many frames carry that "
-            f"label, so a pair is read against the species' own frames."
-            + (f" The last is the same count at the export before, from the refresh "
-               f"manifest; new means the pair was not among the {confused_pairs.SHOWN} "
-               f"most common then." if then else "")
+            f"every wrong first guess."
+            + (f" The last column is the export before; new means the pair was not "
+               f"among the {confused_pairs.SHOWN} most common then." if then else "")
             + "</p>"
             + table(headers, rows, source=confused_pairs.NAME)
             if rows else '<p class="note">No first guess is wrong.</p>')

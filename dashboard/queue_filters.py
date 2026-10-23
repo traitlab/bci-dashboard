@@ -16,7 +16,7 @@ import os
 
 import core as hc
 import queues
-from assets import esc
+from assets import esc, more
 
 SEND_FILE = "send_batches.csv"
 QUEUE_FILE = "send_first_queue.csv"
@@ -148,12 +148,10 @@ def send_filters(c):
     # A send file written before a column existed gives no options; the JS skips that filter.
     uniq = lambda col: sorted({r[h.index(col)] for r in data["rows"] if r[h.index(col)]}) if col in h else []
     blob = json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/")
-    n = len(data["rows"])
-    return (
-        '<h3 class="sub">Choose what to send</h3>'
-        f'<p class="note">Filter the {n:,} photos in <a href="{SEND_FILE}">{SEND_FILE}</a>, '
-        'then download exactly those rows in the same columns, ready for Labelbox. '
-        'With no filter the download is that file. Confidence is the first guess, 0 to 1.</p>'
+    return more(
+        "Choose what to send: filter the file and download a subset",
+        f'<p class="note">Filter <a href="{SEND_FILE}">{SEND_FILE}</a> and download the '
+        'matching rows in its columns. Confidence is the first guess, 0 to 1.</p>'
         '<div class="controls">'
         + _select("f-queue", "Queue", uniq("queue"))
         + _select("f-species", "Species", [v for v in uniq("species_group") if v != queues.CONTROL_GROUP])

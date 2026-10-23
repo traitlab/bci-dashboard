@@ -222,7 +222,8 @@ def test_about_carries_caveats_glossary_and_no_data(build_index, tmp_path):
         assert f"<dt>{term}</dt>" in about
     assert "crownfirst" not in about
     assert 'href="explorer.html"' in about
-    assert not re.search(r"\d{4}-\d{2}-\d{2}|labelbox|\d,\d{3}", low)
+    # Labelbox is named as the annotators' tool; no Labelbox link or data.
+    assert not re.search(r"\d{4}-\d{2}-\d{2}|labelbox\.com|\d,\d{3}", low)
     (tmp_path / "crownfirst-atlas.html").write_text("<html>x</html>")
     assert 'href="crownfirst-atlas.html#view=models"' in build_index.build_about(
         build_index.available_names(str(tmp_path)))
@@ -253,19 +254,25 @@ def test_scope_sentence_numbers_equal_the_table_counts(build_index, tmp_path):
     assert "Drone-photographed crowns only" in s
     home = build_index.build(str(tmp_path))
     about = build_index.build_about(build_index.available_names(str(tmp_path)), s)
+    # The full sentence lives on About; the landing page carries the short line.
+    assert s in about and s not in home and '<h2 id="scope">' in about
+    assert 'Drone-photographed crowns only. <a href="scope.csv">40 frames, 2 sites</a>.' in home
     for out in (home, about):
-        assert s in out
         assert 'href="embedding-atlas.html#view=locations">See the map' in out
 
 
 def test_scope_byline_links_the_map_and_the_table_only_when_present(build_index, tmp_path):
+    full = ' <a href="about.html#scope">Full scope</a>.'
     line = build_index.scope_byline(str(tmp_path), {"index.html"})
-    assert line == '<div class="subtitle">Drone-photographed crowns only, not every tree.</div>'
+    assert line == f'<div class="subtitle">Drone-photographed crowns only.{full}</div>'
     _scope_tables(tmp_path)
     line = build_index.scope_byline(str(tmp_path), {"embedding-atlas.html"})
-    assert line.startswith('<div class="subtitle">Drone-photographed crowns only, not every tree. 40 close-ups')
-    assert line.endswith('<a href="embedding-atlas.html#view=locations">See the map</a>.'
-                         ' Counted in <a href="scope.csv">scope.csv</a>.</div>')
+    assert line == ('<div class="subtitle">Drone-photographed crowns only. '
+                    '<a href="scope.csv">40 frames, 2 sites</a>. '
+                    f'<a href="embedding-atlas.html#view=locations">See the map</a>.{full}</div>')
+    # A table that names no site gives the frame count alone.
+    (tmp_path / "scope.csv").write_text("mission,site,n_frames,n_labelled\n,,1,0\n", encoding="utf-8")
+    assert '<a href="scope.csv">1 frame</a>.' in build_index.scope_byline(str(tmp_path), set())
 
 
 def test_scope_sentence_singular_and_undated(build_index, tmp_path):
@@ -292,8 +299,15 @@ def test_intro_names_the_audience_and_the_limits(build_index, tmp_path):
     out = build_index.build(fake_build(tmp_path))
     intro = out[out.index('<p class="intro">'):out.index("</p>", out.index('<p class="intro">'))]
     assert "project leads and the labelling coordinator" in intro
-    assert "Annotators work in Labelbox" in intro and "hidden on purpose" in intro
-    assert "does not yet suggest where to fly the drone" in intro
+    assert "Annotators label in Labelbox, where the guesses are hidden" in intro
+    assert "does not yet suggest where to fly" in intro
+    assert intro.count(". ") <= 2 and 'href="about.html#audience"' in intro
+    # The longer account sits on About, under the anchor the intro links.
+    about = build_index.build_about({"about.html"})
+    audience = about[about.index('<h2 id="audience">'):about.index("<h2>What each page")]
+    assert "Annotators work in Labelbox" in audience and "hidden on purpose" in audience
+    assert "do not bias identifications" in audience
+    assert "does not yet suggest where to fly the drone" in audience
 
 
 def test_about_glossary_defines_the_data_terms(build_index):

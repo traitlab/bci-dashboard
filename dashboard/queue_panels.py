@@ -269,14 +269,18 @@ def threshold_evidence(c) -> str:
     total = sum(int(r["n_crowns"]) for r in rows if r["row_type"] == "bin")
     say = lambda r: (f'right on {int(r["n_correct"]):,} of {int(r["n_crowns"]):,} frames '
                      f'({pctf(float(r["top1_accuracy"]))})')
-    return (f'<p class="note"><strong>How often the first guess was right.</strong> On the '
-            f'{total:,} labelled frames with a species-level label, at confidence '
-            f'{hc.WAIT_CONF:.2f} or more it was {say(high)}; under {hc.LOW_CONF:.2f} it was '
-            f'{say(low)}. A confident guess can still be wrong: '
-            f'{int(high["n_wrong"]):,} frames at {hc.WAIT_CONF:.2f} or more were. '
-            f'{hc.WAIT_CONF:.2f} is the confidence line; {hc.LOW_CONF:.2f} marks low confidence. '
-            f'Both values were set by judgement, not fitted to this table; the table shows what each separates. '
-            f'<a href="{CALIBRATION_FILE}">{CALIBRATION_FILE}</a></p>')
+    # One line beside the queue rules; the numbers behind it stay closed.
+    return (f'<p class="note">Confidence lines: {hc.WAIT_CONF:.2f} for the wait rule, '
+            f'{hc.LOW_CONF:.2f} for low confidence.</p>'
+            + more("How often the first guess was right at each line",
+                   f'<p class="note">On the '
+                   f'{total:,} labelled frames with a species-level label, at confidence '
+                   f'{hc.WAIT_CONF:.2f} or more it was {say(high)}; under {hc.LOW_CONF:.2f} it was '
+                   f'{say(low)}. A confident guess can still be wrong: '
+                   f'{int(high["n_wrong"]):,} frames at {hc.WAIT_CONF:.2f} or more were. '
+                   f'{hc.WAIT_CONF:.2f} is the confidence line; {hc.LOW_CONF:.2f} marks low confidence. '
+                   f'Both values were set by judgement, not fitted to this table; the table shows what each separates. '
+                   f'<a href="{CALIBRATION_FILE}">{CALIBRATION_FILE}</a></p>'))
 
 
 def send_preview_table(c):
@@ -323,10 +327,11 @@ def send_preview_table(c):
                        f"{c.support.get(pred, 0):,}", esc(how_new)]
                       for i, (_, stem, pred, cf, _rank, how_new) in enumerate(head, 1)],
                      source="send_first_queue.csv")
-             + ungraded_note(c)
-             + '<p class="note"><b>Confidence breaks ranking ties.</b> A low score '
-               'means the model is unsure of its first guess. Check the guess '
-               'against the photo; the score does not confirm a label.</p>')
+             + more("Is this order measured yet? Confidence and the random control",
+                    ungraded_note(c)
+                    + '<p class="note"><b>Confidence breaks ranking ties.</b> A low score '
+                      'means the model is unsure of its first guess. Check the guess '
+                      'against the photo; the score does not confirm a label.</p>'))
     return body
 
 
@@ -376,9 +381,14 @@ def p_send(c):
     the queue, then the caveats that qualify both."""
     # The queue itself first; sizes, link coverage and caveats are checks on it,
     # so they sit closed beneath it.
-    body = (send_preview_table(c) + DISPATCH
+    body = (threshold_evidence(c) + send_preview_table(c) + DISPATCH
+            + more("How the order inside a queue works",
+                   f"<p class=\"note\">Inside each queue the photo least like anything labelled "
+                   f"comes first, then the one least like the labelled photos and those above it. "
+                   f"This applies to {c.n_ranked:,} of the {c.n_unlab:,}; the rest keep their "
+                   f"place by confidence.</p>")
             + more("Queue sizes, link coverage and caveats",
-                   send_pool_table(c) + threshold_evidence(c) + links_note(c) + held_out_note(c) + send_notes(c)))
+                   send_pool_table(c) + links_note(c) + held_out_note(c) + send_notes(c)))
     # The same two queues the hero counts, added the same way, so both agree.
     send_now = (c.queue_counts.get("long_tail", 0)
                 + c.queue_counts.get("low_conf_known", 0))
@@ -389,10 +399,7 @@ def p_send(c):
                  f"fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, or one the model gets right "
                  f"less than {pctf(hc.HARD_MAX_TOP1, 0)} of the time; "
                  f"{c.queue_counts.get('low_conf_known', 0):,} show a usually-right species "
-                 f"the model is unsure of here. Inside each queue the photo least like anything labelled "
-                 f"comes first, then the one least like the labelled photos and those above it. "
-                 f"This applies to {c.n_ranked:,} of the "
-                 f"{c.n_unlab:,}; the rest keep their place by confidence. "
+                 f"the model is unsure of here. "
                  f'<a href="send_first_queue.csv">send_first_queue.csv</a> holds this same '
                  f"order, one row per frame.",
                  # Open: the answer to "what do I label next" is the queue

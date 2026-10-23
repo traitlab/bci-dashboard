@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import core as hc
 import reference
-from assets import esc, hero, pctf, svg_hbar, table
+from assets import esc, hero, more, pctf, svg_hbar, table
 from confirmatory_panels import floor_note, require
 from explain import BAND_SHORT, THIN_MAX
 from status_words import STATUS
@@ -67,7 +67,10 @@ def cards(c) -> str:
                 f"First guess right at least {100 * hc.RELIABLE_MIN_TOP1:.0f}% of the time",
                 f"among species with {hc.WELL_SAMPLED_MIN_N} or more labelled frames",
                 "per_species_health.csv"))
-    return hero(out, cls="wide")
+    # The number to quote stands alone; the other five sit closed under it. The
+    # second band's first card would carry the lead card's highlight, so drop it.
+    rest = hero(out[1:], cls="wide").replace("metric first", "metric", 1)
+    return hero(out[:1], cls="wide") + more("The other five numbers", rest)
 
 
 def _h(text, definition):
@@ -98,14 +101,18 @@ def populations(c) -> str:
     crossing = f'<p class="note">{esc(crossing)}</p>'
     if not rows:
         return f'<p class="note"><b>Scored against {ref}.</b></p>' + crossing
-    return (f'<p class="note"><b>Scored against {ref}.</b> The cards count only those '
-            f'frames. The other labelled frames are scored on their own row below.</p>' + crossing
+    # One line open; the break in the series and the per-population table sit
+    # closed under it.
+    return (f'<p class="note"><b>Scored against {ref}.</b></p>'
+            + more("Which labels the numbers use, and the change of reference",
+                   f'<p class="note">The cards count only those frames. The other labelled '
+                   f'frames are scored on their own row below.</p>' + crossing
             + table([("Labels", False), ("Frames", True), ("Species", True),
                      ("Top-1, per species", True), ("Top-1, per frame", True),
                      (f"Top-{k}, per species", True), (f"Top-{k}, per frame", True),
                      (_h("Frames with the tree in the crop", "Frames whose centre crop shows the labelled tree, the coverage requirement the gated rates use."), True),
                      (_h("Top-1 there, per species", "First-guess accuracy on those frames only, averaged over species."), True),
-                     (_h("Top-1 there, per frame", "First-guess accuracy on those frames only, counting each frame once."), True)], rows))
+                     (_h("Top-1 there, per frame", "First-guess accuracy on those frames only, counting each frame once."), True)], rows)))
 
 
 def status_bar(c) -> str:
@@ -147,11 +154,12 @@ def by_frames(c) -> str:
         rows.append((BAND_SHORT[lab], b["c1"] / b["n_crowns"],
                      f'{pctf(b["c1"] / b["n_crowns"])} of {b["n_crowns"]:,} frames, '
                      f'{b["n_species"]} species', BAR))
-    return (svg_hbar(rows, title="first guess right, by labelled frames per species")
-            + f'<p class="note">Species with more labelled frames are named far more '
-              f'often. {few} of the {c.n_sp} species have {THIN_MAX} frames or fewer. '
-              f'<a href="#why-the-two-headline-scores-differ">Why the two top-1 rates '
-              f'differ</a>.</p>')
+    return more("Accuracy by labelled frames per species",
+                svg_hbar(rows, title="first guess right, by labelled frames per species")
+                + f'<p class="note">Species with more labelled frames are named far more '
+                  f'often. {few} of the {c.n_sp} species have {THIN_MAX} frames or fewer. '
+                  f'<a href="#why-the-two-headline-scores-differ">Why the two top-1 rates '
+                  f'differ</a>.</p>')
 
 
 def review_line(c) -> str:
