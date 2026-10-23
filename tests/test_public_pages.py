@@ -239,5 +239,8 @@ def test_both_data_pages_carry_the_scope_sentence_after_the_stamp(synthetic_page
     html, _, _ = synthetic_page
     subtitles = re.findall(r'<div class="subtitle">(.*?)</div>', html)
     if "What to label next" in html or "How well does Pl@ntNet" in html:
-        assert any(s.startswith("Drone-photographed crowns only, not every tree") for s in subtitles)
+        assert any(
+            s.startswith("Drone-photographed crowns only, not every tree")
+            for s in subtitles
+        )
         assert subtitles[0].startswith("refreshed")
