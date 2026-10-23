@@ -97,3 +97,11 @@ def test_dry_run_makes_no_client_no_write_and_no_ledger(run, capsys):
 def test_no_ledger_and_no_gt_means_nothing_skipped(dispatch_round, tmp_path):
     assert dispatch_round.already_sent(tmp_path / "a.csv", tmp_path / "none") == set()
     assert dispatch_round.skip_sent([], {"x"}) == ([], [])
+
+
+def test_a_real_send_stops_when_the_gt_file_is_absent(run, dispatch_round, tmp_path, monkeypatch):
+    monkeypatch.setattr(dispatch_round, "GT_CSV", tmp_path / "missing_gt.csv")
+    with pytest.raises(SystemExit, match="ground-truth file"):
+        run()
+    assert not run.ledger.exists()
+    run("--dry-run")  # a dry run writes nothing and stays allowed

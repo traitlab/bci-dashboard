@@ -46,7 +46,11 @@ from lbox.exceptions import (
     AuthorizationError, LabelboxError, MalformedQueryException)
 
 REPO = Path(__file__).resolve().parents[1]
-GT_CSV = REPO / "data" / "gt_dominant_taxon.csv"
+sys.path.insert(0, str(REPO / "dashboard"))
+
+import core  # same GT path as read_round, BCI_DASHBOARD_DATA included
+
+GT_CSV = Path(core.GT_CSV)
 # Tracked, one file per round. No expert labels belong in it.
 LEDGER_DIR = REPO / "input" / "rounds"
 LEDGER_FIELDS = ["round", "batch_id", "global_key", "data_row_id", "picked_by", "queue",
@@ -392,6 +396,10 @@ def main() -> None:
               f"{args.round}. Nothing written, no API call made.")
         return
 
+    if not GT_CSV.exists():
+        # Without it every closed round's keys look unsent and would go out again.
+        sys.exit(f"ERROR: ground-truth file {GT_CSV} not found; cannot tell what was "
+                 f"already sent. Set BCI_DASHBOARD_DATA or restore the file.")
     client = lb.Client(api_key=settings.api_key())
 
     print(f"\nStep 2 - Fetching data row IDs from '{combined_dataset_name}'...")
