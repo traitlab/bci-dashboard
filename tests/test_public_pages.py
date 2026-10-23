@@ -6,6 +6,9 @@ import csv
 import html as html_lib
 import json
 import re
+import shutil
+import subprocess
+import sys
 from urllib.parse import urlsplit
 
 import public_snapshot as fixture
@@ -331,3 +334,87 @@ def test_the_scope_byline_counts_every_frame_the_fixture_holds(synthetic_page):
         # The headline's 24 right of 33 species-level frames, all at one site.
         sites = html.split('id="by-site-and-mission"')[1].split("</details>")[0]
         assert "72.7% of 33" in sites
+
+
+def test_the_published_tier_carries_no_label_or_labelbox_link(
+    public_snapshot, tmp_path
+):
+    # The whole public tier, built from the synthetic inputs and published the
+    # way the refresh does, passes the allow-list guard. The private tier it
+    # publishes beside it would not, so the guard is not passing vacuously.
+    repo = tmp_path / "repo"
+    build, public, docs = repo / "build", repo / "build/public", repo / "docs"
+    for folder in (repo / "bin", repo / "dashboard", public, docs):
+        folder.mkdir(parents=True)
+    shutil.copy2(fixture.REPO / "bin/publish_pages.sh", repo / "bin")
+    for name in ("build_index.py", "site_navigation.py"):
+        shutil.copy2(DASHBOARD / name, repo / "dashboard")
+    tables = ("--verify-against", str(public_snapshot / "tables"))
+    for script, out, tier in (
+        ("build_external.py", build / "model_health_dashboard.html", ()),
+        ("build_internal.py", build / "label_queue_dashboard.html", ()),
+        ("build_external.py", public / "model_health_dashboard.html", ("--public",)),
+    ):
+        proc = fixture.command(
+            public_snapshot,
+            script,
+            *tier,
+            "--generated",
+            fixture.GENERATED,
+            "--out",
+            str(out),
+            *tables,
+        )
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+    for out, tier in ((build, ()), (public, ("--public",))):
+        catalogue = out / "catalogue.json"
+        for command in (
+            [
+                fixture.REPO / "labelling/export_explorer.py",
+                "--data-root",
+                public_snapshot / "data",
+                *tier,
+                "--output",
+                catalogue,
+            ],
+            [
+                DASHBOARD / "build_explorer.py",
+                "--input",
+                catalogue,
+                "--output",
+                out / "explorer.html",
+            ],
+        ):
+            subprocess.run(
+                [sys.executable, *map(str, command)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+    subprocess.run(
+        ["bash", str(repo / "bin/publish_pages.sh")],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert (docs / "explorer.html").is_file()
+    refresh.validate_public_output(docs)
+    marker = re.compile(r"gt_species|recorded_label|app\.labelbox\.com")
+    assert not [p.name for p in docs.iterdir() if marker.search(p.read_text())]
+    private = build / "private"
+    leaking = sorted(
+        p.name
+        for p in private.iterdir()
+        if refresh.LABEL_MARKERS.search(p.read_bytes())
+    )
+    assert {
+        "explorer.html",
+        "model_health_dashboard.html",
+        "label_review_queue.csv",
+        "send_batches.csv",
+    } <= set(leaking)
+    for name in leaking:
+        shutil.copy2(private / name, docs / "model_health_dashboard.html")
+        with pytest.raises(ValueError, match="label column or Labelbox link"):
+            refresh.validate_public_output(docs)

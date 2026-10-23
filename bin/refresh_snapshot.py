@@ -68,6 +68,12 @@ PUBLIC_FILES = frozenset(
         "support_buckets.csv",
     )
 )
+# A label column, a recorded label in the embedded page data, or a Labelbox link:
+# any of them in a public file means a private-tier build reached docs/.
+LABEL_MARKERS = re.compile(
+    rb'gt_species|recorded_label|labelbox_url|app\.labelbox\.com'
+    rb'|"label":"|"recorded_taxon":"|"annotation_url":"'
+)
 MAX_BUNDLE_BYTES = 2 * 1024**3
 MAX_BUNDLE_MEMBERS = 100_000
 
@@ -249,6 +255,11 @@ def validate_public_output(directory: Path) -> None:
         raise ValueError(
             "public output contains unexpected files or non-regular entries"
         )
+    for path in sorted(directory.iterdir()):
+        if LABEL_MARKERS.search(path.read_bytes()):
+            raise ValueError(
+                f"public output contains a label column or Labelbox link: {path.name}"
+            )
 
 
 def run(repo: Path, script: str, *args: str, env: dict, research: bool = False) -> None:
