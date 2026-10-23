@@ -97,8 +97,8 @@ $('search').value='nothing';filter();assert.match($('selectionStatus').textConte
 def test_locations_without_matches_punctuates_support_and_disables_fit():
     points = [photo("query", "flight-a", model_available=False), photo("matched", "flight-a", [[2, .9]]), photo("other", "flight-b", [[1, .9]])]
     run_atlas(points, r"""
-assert.match($('mapMatchSupport').textContent,/^All flights: Pl@ntNet matches unavailable for this photo: it has no Pl@ntNet vector in this atlas, which was drawn from 2 of 3 inventory photos\. .* 0 stored matches,/);assert.equal($('fitMatches').disabled,true);
-select(1);assert.equal($('fitMatches').disabled,false);assert.match($('mapMatchSupport').textContent,/^All flights: 1 stored matches/);
+assert.match($('mapMatchSupport').textContent,/^Any flight: Pl@ntNet matches unavailable for this photo: it has no Pl@ntNet vector in this atlas, which was drawn from 2 of 3 inventory photos\. .* 0 stored matches,/);assert.equal($('fitMatches').disabled,true);
+select(1);assert.equal($('fitMatches').disabled,false);assert.match($('mapMatchSupport').textContent,/^Any flight: 1 stored matches/);
 """, initial_hash="#frame=query&view=locations", page="embedding-atlas.html")
 
 
