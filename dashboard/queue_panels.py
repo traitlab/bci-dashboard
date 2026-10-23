@@ -259,27 +259,36 @@ def threshold_evidence(c) -> str:
     if not verify_dir or not os.path.exists(path):
         return ""
     rows = [r for r in hc.read_csv_rows(path) if r["scope"] == CALIBRATION_SCOPE]
-    pick = lambda kind, band: next(
-        (r for r in rows if r["row_type"] == kind and r["band"] == band), None)
-    high = pick("threshold", f">={hc.WAIT_CONF}")
-    low = pick("bin", f"[0.0,{hc.LOW_CONF})")
-    # An empty band has no accuracy to quote.
-    if not high or not low or not int(high["n_crowns"]) or not int(low["n_crowns"]):
+    bins = sorted((tuple(float(x) for x in r["band"].strip("[)]").split(",")), r)
+                  for r in rows if r["row_type"] == "bin")
+    edges = [b[0] for b, _ in bins]
+    # Each side is a sum of whole bins, so the bins must tile and both lines be edges.
+    if (not bins or any(a[1] != b[0] for (a, _), (b, _) in zip(bins, bins[1:]))
+            or hc.LOW_CONF not in edges or hc.WAIT_CONF not in edges):
         return ""
-    total = sum(int(r["n_crowns"]) for r in rows if r["row_type"] == "bin")
-    say = lambda r: (f'right on {int(r["n_correct"]):,} of {int(r["n_crowns"]):,} frames '
-                     f'({pctf(float(r["top1_accuracy"]))})')
-    # One line beside the queue rules; the numbers behind it stay closed.
-    return (f'<p class="note">Confidence lines: {hc.WAIT_CONF:.2f} for the wait rule, '
-            f'{hc.LOW_CONF:.2f} for low confidence.</p>'
+
+    def side(keep):
+        part = [r for b, r in bins if keep(b[0])]
+        n = sum(int(r["n_crowns"]) for r in part)
+        return (pctf(sum(int(r["n_correct"]) for r in part) / n), n) if n else None
+    sides = [side(lambda lo: lo >= hc.WAIT_CONF), side(lambda lo: lo < hc.WAIT_CONF),
+             side(lambda lo: lo >= hc.LOW_CONF), side(lambda lo: lo < hc.LOW_CONF)]
+    # An empty side has no accuracy to quote.
+    if not all(sides):
+        return ""
+    (a_hi, n_hi), (a_lo, n_lo), (b_hi, nb_hi), (b_lo, nb_lo) = sides
+    wrong_hi = sum(int(r["n_wrong"]) for b, r in bins if b[0] >= hc.WAIT_CONF)
+    w, lo = f"{hc.WAIT_CONF:.2f}", f"{hc.LOW_CONF:.2f}"
+    # The sentence sits beside the queue rules; the wrong-count detail stays closed.
+    return (f'<p class="note">At {w} or higher the top prediction was right {a_hi} of the time '
+            f'on {n_hi:,} labelled frames; below {w}, {a_lo} of {n_lo:,}. '
+            f'At {lo} or higher, {b_hi} of {nb_hi:,}; below {lo}, {b_lo} of {nb_lo:,}. '
+            f'{w} is the confidence line and {lo} marks low confidence; both are a judgement call, '
+            f'not fitted to this table.</p>'
             + more("How often the top prediction was right at each line",
-                   f'<p class="note">On the '
-                   f'{total:,} labelled frames with a species-level label, at confidence '
-                   f'{hc.WAIT_CONF:.2f} or more it was {say(high)}; under {hc.LOW_CONF:.2f} it was '
-                   f'{say(low)}. A confident prediction can still be wrong: '
-                   f'{int(high["n_wrong"]):,} frames at {hc.WAIT_CONF:.2f} or more were. '
-                   f'{hc.WAIT_CONF:.2f} is the confidence line; {hc.LOW_CONF:.2f} marks low confidence. '
-                   f'Both values were set by judgement, not fitted to this table; the table shows what each separates. '
+                   f'<p class="note">Counted over the {n_hi + n_lo:,} frames with a species-level label. '
+                   f'A confident prediction can still be wrong: {wrong_hi:,} frames at '
+                   f'{w} or higher were. '
                    f'<a href="{CALIBRATION_FILE}">{CALIBRATION_FILE}</a></p>'))
 
 
