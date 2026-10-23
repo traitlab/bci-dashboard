@@ -18,7 +18,6 @@ import os
 import random
 import re
 from collections import Counter, defaultdict
-from itertools import islice
 
 from core import (
     HARD_MAX_TOP1,
@@ -66,8 +65,9 @@ SEND_BATCH_LOOKUP_COLUMNS = ["how_new_it_looks"]
 # every row; `labelbox_url` is the only one that shows which crown is asked about.
 #
 # `data_row_id` is the id inside `labelbox_url`, parsed by `core.data_row_id`,
-# so it is empty exactly where the link is. It is the link's id, which for a
-# legacy-mode link is the row in the project the frame was labelled in.
+# which for a legacy-mode link is the row in the project the frame was labelled
+# in. A frame with no link takes its id from the dispatch dataset inventory
+# (`core.send_row_id`), so it is empty only for a photo that dataset lacks.
 #
 # `mission` and `site` say where the frame was flown, off the inventory; blank
 # for a frame it does not name.
@@ -316,17 +316,19 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
     """Species-grouped, priority-first batches over an already-ordered
     ``queue_rows`` (send_first_queue.csv order). Each species is visited once,
     at its highest-priority row; its rows travel together, packed whole until
-    the next would overflow the batch, then split.
+    the next would overflow the batch, which then opens the next one. A species
+    larger than the room a batch has is cut at that room.
 
     ``group_by="rank"`` instead cuts the queue in strict rank order into
     fixed-size chunks, each row labelled with its own species.
 
-    Every batch first takes ``control_size`` rows as its random control: the
-    next photos not sent yet in one seeded shuffle of the whole pool, so each
-    batch's control is a uniform draw from what is left, head of the queue
-    included. The queue's groups pack into the remaining room and the control
-    rides at the end of the batch as one block. The last batch
-    takes fewer when the pool is short, but always keeps one queue photo. The result is
+    Each batch's queue rows are packed first, then the batch takes a random
+    control sized from them: about ``control_fraction`` of the batch total, at
+    most ``control_size`` rows. The control is the next photos not sent yet in
+    one seeded shuffle of the whole pool, outside the batch's own rows, so it
+    is a uniform draw from what is left, and it rides at the end of the batch as
+    one block. When the pool runs dry (the last batch) the rest comes out of the
+    batch's own rows, and a batch always keeps one queue photo. The result is
     still a repartition of the queue: control photos move forward, are never
     added, and no photo is sent twice.
     """
@@ -353,40 +355,55 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
         groups = [(row[species_at], [i]) for i, row in enumerate(queue_rows)]
 
     n = len(queue_rows)
-    draw = iter(random.Random(seed).sample(range(n), n) if n_control else [])
+    draw = random.Random(seed).sample(range(n), n) if n_control else []
     taken: set[int] = set()
     batches: list = []
-    control: list[int] = []
-    batch_id = held = 0
-
-    def close_batch():
-        batches.extend([batch_id, CONTROL_GROUP, queue_rows[i][key_at],
-                        queue_rows[i][queue_at], "control"] for i in sorted(control))
-
     pending = list(groups)
+    batch_id = 0
     while pending:
-        sp, idx = pending.pop(0)
-        rows = [i for i in idx if i not in taken]
-        if not rows:
-            continue
-        if not batch_id or held + len(rows) > cap:
-            close_batch()
-            batch_id += 1
-            held = 0
-            # Keep one photo for the queue, so the last batch is never all control.
-            k = min(n_control, n - len(taken) - 1)
-            control = list(islice((i for i in draw if i not in taken), k))
-            taken.update(control)
-            rows = [i for i in rows if i not in taken]
-            if len(rows) > cap:
+        # Pack the queue rows first: the control is sized from what the batch holds.
+        pieces: list = []
+        held = 0
+        while pending:
+            sp, idx = pending[0]
+            rows = [i for i in idx if i not in taken]
+            if not rows:
+                pending.pop(0)
+                continue
+            if held and held + len(rows) > cap:
+                break
+            pending.pop(0)
+            if len(rows) > cap - held:
                 # An oversized species fills the batch; the rest opens the next one.
                 pending.insert(0, (sp, rows[cap:]))
                 rows = rows[:cap]
-        held += len(rows)
-        taken.update(rows)
-        batches.extend([batch_id, sp, queue_rows[i][key_at], queue_rows[i][queue_at], "queue"]
-                       for i in rows)
-    close_batch()
+            pieces.append((sp, rows))
+            held += len(rows)
+            taken.update(rows)
+        if not pieces:
+            break
+        batch_id += 1
+        control: list[int] = []
+        if n_control:
+            # Random photos not sent yet, outside this batch. The share is of the
+            # batch total, queue / (1 - fraction) control rows, at most n_control.
+            want = min(n_control, max(1, round(held * control_fraction / (1 - control_fraction))))
+            pool = [i for i in draw if i not in taken]
+            control = pool[:want]
+            if len(pool) < want:
+                # The pool ran dry (last batch): the rest of the control comes out of
+                # this batch's own rows, in the same draw, and the share is of what remains.
+                total = held + len(pool)
+                size = min(total - 1, max(1, round(control_fraction * total)))
+                own = {i for _, rows in pieces for i in rows}
+                control = (pool + [i for i in draw if i in own])[:max(size, 0)]
+            taken.update(control)
+        drawn = set(control)
+        for sp, rows in pieces:
+            batches.extend([batch_id, sp, queue_rows[i][key_at], queue_rows[i][queue_at], "queue"]
+                           for i in rows if i not in drawn)
+        batches.extend([batch_id, CONTROL_GROUP, queue_rows[i][key_at],
+                        queue_rows[i][queue_at], "control"] for i in sorted(control))
     return batches
 
 

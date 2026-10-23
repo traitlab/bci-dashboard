@@ -124,7 +124,7 @@ def test_the_long_lens_share_is_absent_rather_than_dividing_by_an_empty_queue(
 # The two link columns, when no row carries either link
 # ---------------------------------------------------------------------------
 
-def _links_note(queue_panels, monkeypatch, n_img, n_linked):
+def _links_note(queue_panels, monkeypatch, n_img, n_linked, n_ids=2):
     """`links_note` over a two-row queue with the given link coverage.
 
     Both lookups are patched on the module `queue_panels` itself imported, not
@@ -141,7 +141,18 @@ def _links_note(queue_panels, monkeypatch, n_img, n_linked):
                                        "n_unlinked": len(keys) - n_linked})
     monkeypatch.setattr(queue_panels.hc, "inventory_image_urls",
                         lambda: {k: "http://example/photo" for k in keys[:n_img]})
+    monkeypatch.setattr(queue_panels.hc, "labelbox_urls", lambda: {})
+    monkeypatch.setattr(queue_panels.hc, "inventory_row_ids",
+                        lambda: {k: "row" for k in keys[:n_ids]})
     return queue_panels.links_note(SimpleNamespace(queue_rows=rows))
+
+
+def test_the_links_panel_counts_queued_photos_missing_from_labelbox(queue_panels, monkeypatch):
+    assert "not in Labelbox yet" not in _links_note(queue_panels, monkeypatch, 2, 2)
+    assert "1 queued photos are not in Labelbox yet." in _links_note(
+        queue_panels, monkeypatch, 2, 2, n_ids=1)
+    assert "2 queued photos are not in Labelbox yet." in _links_note(
+        queue_panels, monkeypatch, 0, 0, n_ids=0)
 
 
 def test_the_links_panel_does_not_promise_links_no_row_carries(

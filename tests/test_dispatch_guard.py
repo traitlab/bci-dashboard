@@ -28,8 +28,8 @@ def run(dispatch_round, tmp_path, monkeypatch):
     d = dispatch_round
     csv_path = tmp_path / "send_batches.csv"
     _write(csv_path, ["batch_id", "global_key", "picked_by", "queue", "data_row_id"],
-           [["1", "old.JPG", "queue", "q", ""], ["1", "new1.JPG", "queue", "q", ""],
-            ["1", "new2.JPG", "control", "q", ""]])
+           [["1", "old.JPG", "queue", "q", "r0"], ["1", "new1.JPG", "queue", "q", "r1"],
+            ["1", "new2.JPG", "control", "q", "r2"]])
     gt = tmp_path / "gt.csv"
     _write(gt, ["global_key", "wcvp_canonical_name"], [["old.JPG", "x"]])
     ledger = tmp_path / "rounds"
@@ -93,6 +93,14 @@ def test_a_dispatched_batch_lands_in_the_round_ledger_and_is_skipped_next_time(r
     capsys.readouterr()
     with pytest.raises(SystemExit, match="every key"):
         run()  # the CSV has nothing left that was not sent
+
+
+def test_a_row_without_a_data_row_id_stops_the_run_even_as_a_dry_run(run, tmp_path):
+    path = tmp_path / "send_batches.csv"
+    path.write_text(path.read_text().replace("new2.JPG,control,q,r2", "new2.JPG,control,q,"))
+    for flags in ((), ("--dry-run",)):
+        with pytest.raises(SystemExit, match=r"1 of the 3 selected rows have no data_row_id.*new2.JPG"):
+            run(*flags)
 
 
 def test_dry_run_makes_no_client_no_write_and_no_ledger(run, capsys):

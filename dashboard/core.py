@@ -653,6 +653,33 @@ def inventory_labelbox_urls(path=LEGACY_INVENTORIES) -> dict[str, str]:
     return dict(_inventory_pairs(path))
 
 
+def inventory_row_ids(path: str = DATASET_ROWS_COMBINED_JSONL) -> dict[str, str]:
+    """global_key -> the data row id in the dispatch dataset, off its inventory.
+
+    The dispatch dataset's own ``uid`` for every frame it holds, labelled or not.
+    ``labelbox_urls`` only names a frame an export or a legacy URL has touched,
+    so an unlabelled queued frame has a data row and no link; this is the id it
+    still has. Only the combined (dispatch) inventory: the legacy one is a
+    different dataset and its ids do not open here.
+    """
+    out = {}
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if row.get("global_key") and row.get("uid"):
+                    out[row["global_key"]] = row["uid"]
+    return out
+
+
+def send_row_id(key: str, urls: dict[str, str], row_ids: dict[str, str]) -> str:
+    """The ``data_row_id`` a send CSV row carries: the link's id, else the dispatch row's."""
+    return data_row_id(urls.get(key, "")) or row_ids.get(key, "")
+
+
 def labelbox_urls(path: str = DATA_ROW_IDS_CSV,
                   legacy_path=LEGACY_INVENTORIES,
                   mode: str | None = None) -> dict[str, str]:
