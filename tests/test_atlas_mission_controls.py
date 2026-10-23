@@ -93,6 +93,16 @@ for(const id of ['cameraMapTask','compareModelsTask','similarPhotosTask','camera
 """, initial_hash="#frame=b&missions=other")
 
 
+def test_each_card_names_its_flight_and_marks_this_photos_flight():
+    run_atlas(FLIGHTS, r"""
+const cards=()=>$('neighbors').children.map(li=>li.children[0]),flights=()=>cards().map(button=>button.children.at(-1).children.find(child=>child.className==='similar-mission').textContent);
+assert.deepEqual(flights(),['This photo’s flight','2025-10-17 · bciarmour wptne m3e','2025-10-17 · bciarmour wptne m3e']);
+assert.match(cards()[0]['aria-label'],/^Fabaceae\. Frame same\. .* This photo’s flight$/);
+$('similarMissionMode').value='other';$('similarMissionMode').onchange();
+assert.deepEqual(flights(),['2025-10-17 · bciarmour wptne m3e','2024-12-26 · bcitbarbour3o wptover100norte m3e','2025-10-17 · bciarmour wptne m3e']);
+""")
+
+
 def test_missing_alternative_export_disables_the_option_without_faking_matches():
     run_atlas([photo("query", "flight-a", [[1, .9]]), photo("other", "flight-b")], r"""
 assert.equal($('similarMissionMode').options[1].disabled,true);

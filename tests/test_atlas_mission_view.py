@@ -83,7 +83,7 @@ assert.equal(neighborMode,'all');assert.equal($('similarMissionMode').value,'all
 assert.match($('neighborSupport').textContent,/2 of 2 stored matches.*5 other photos/);
 assert.equal($('similarMissionMode').hidden,false);assert.equal($('similarMissionLabel').hidden,false);
 select(3);assert.match($('similarMissionHelp').textContent,/give the same matches here/);assert.deepEqual(['similarMissionMode','similarMissionLabel','similarMissionHelp'].map(id=>$(id).hidden),[true,true,true]);select(0);assert.equal($('similarMissionMode').hidden,false);
-const allButton=$('neighbors').children[0].children[0];assert.match(allButton['aria-label'],/same-one.*0.990.*Same recorded mission/);
+const allButton=$('neighbors').children[0].children[0];assert.match(allButton['aria-label'],/same-one.*0.990.*This photo’s flight/);
 context('map').arcs=[];context('plot').arcs=[];draw();assert.deepEqual(context('map').arcs,[3,3,3,10,10,14,9]);assert.deepEqual(context('plot').arcs,[3,3,3,10,10,14,9]);
 allButton.onclick();$('workspaceEnlarge').onclick();assert.equal(photoComparison.mode,'all');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[1,.99],[2,.98]]);assert.match($('photoComparisonScore').textContent,/0.990/);$('closePhotoComparison').onclick();
 const initial={selected,hash:location.hash,view:{...view},visible,rows:$('results').children};browsePage=2;
@@ -91,11 +91,11 @@ context('map').arcs=[];context('plot').arcs=[];$('similarMissionMode').value='ot
 assert.equal(selected,initial.selected);assert.equal(location.hash,initial.hash+'&missions=other&atlasPage=3');assert.deepEqual(view,initial.view);assert.equal(visible,initial.visible);assert.equal(browsePage,2);assert.equal($('results').children,initial.rows);assert.equal(document.activeElement,$('similarMissionMode'));
 assert.deepEqual(context('map').arcs,[3,3,3,10,10,14,9]);assert.deepEqual(context('plot').arcs,[3,3,3,10,10,14,9]);
 assert.match($('neighborSupport').textContent,/2 of 2 stored matches.*2 photos with other recorded mission IDs/);
-const otherButton=$('neighbors').children[0].children[0];assert.match(otherButton['aria-label'],/other-one.*0.880.*Other recorded mission/);otherButton.onclick();$('workspaceEnlarge').onclick();
+const otherButton=$('neighbors').children[0].children[0];assert.match(otherButton['aria-label'],/other-one.*0.880.*flight-b$/);otherButton.onclick();$('workspaceEnlarge').onclick();
 assert.equal(photoComparison.mode,'other');assert.equal(photoComparison.query,0);assert.deepEqual(photoComparison.candidates,[[3,.88],[4,.77]]);assert.match($('photoComparisonContext').textContent,/Other flights.*do not prove different trees/);assert.match($('photoComparisonScore').textContent,/0.880/);
 $('nextComparison').onclick();assert.match($('photoComparisonScore').textContent,/0.770/);assert.equal($('nextComparison').disabled,true);$('nextComparison').onclick();assert.equal(photoComparison.rank,1);assert.equal(selected,0);assert.equal(location.hash,initial.hash+'&missions=other&atlasPage=3');
-$('previousComparison').onclick();$('chooseComparison').onclick();assert.equal(selected,3);assert.equal(neighborMode,'other');assert.equal($('similarMissionMode').value,'other');assert.equal(location.hash,'#frame=other-one&view=photos&missions=other');assert.match($('neighbors').children[0].children[0]['aria-label'],/query.*Other recorded mission/);
-assert.equal(missionRelation({mission:null},{mission:null}),'Mission unknown');assert.equal(missionRelation({mission:' '},{mission:' '}),'Mission unknown');
+$('previousComparison').onclick();$('chooseComparison').onclick();assert.equal(selected,3);assert.equal(neighborMode,'other');assert.equal($('similarMissionMode').value,'other');assert.equal(location.hash,'#frame=other-one&view=photos&missions=other');assert.match($('neighbors').children[0].children[0]['aria-label'],/query.*flight-a$/);
+assert.equal(missionRelation({mission:null},{mission:null}),'Flight unknown');assert.equal(missionRelation({mission:' '},{mission:' '}),'Flight unknown');
 """)
 
 
@@ -111,8 +111,8 @@ assert.equal(neighborMode,'other');assert.equal($('neighbors').children.length,0
 context('map').arcs=[];context('plot').arcs=[];draw();assert.deepEqual(context('map').arcs,[3,3,14,9]);assert.deepEqual(context('plot').arcs,[3,3,14,9]);
 $('inspectPhoto').onclick();assert.equal($('photoComparison').open,true);assert.equal(photoComparison.mode,'other');assert.equal($('comparisonCandidate').hidden,true);$('closePhotoComparison').onclick();
 select(1);assert.equal(neighborMode,'other');assert.equal($('neighbors').children.length,0);assert.match($('neighborSupport').textContent,/unavailable.*no stored other-mission ranking/);assert.equal(openPhotoComparison(0),false);
-$('similarMissionMode').value='all';$('similarMissionMode').onchange();assert.equal($('neighbors').children.length,1);assert.match($('neighbors').children[0].children[0]['aria-label'],/query.*Same recorded mission/);
-P[1].mission=null;P[0].mission=null;renderSimilarPhotos();assert.match($('neighbors').children[0].children[0]['aria-label'],/Mission unknown/);assert.doesNotMatch($('neighbors').children[0].children[0]['aria-label'],/Same recorded mission/);
+$('similarMissionMode').value='all';$('similarMissionMode').onchange();assert.equal($('neighbors').children.length,1);assert.match($('neighbors').children[0].children[0]['aria-label'],/query.*This photo’s flight/);
+P[1].mission=null;P[0].mission=null;renderSimilarPhotos();assert.match($('neighbors').children[0].children[0]['aria-label'],/Flight unknown/);assert.doesNotMatch($('neighbors').children[0].children[0]['aria-label'],/This photo’s flight/);
 P[0].label=null;data.provenance.labels.available=false;renderSimilarPhotos();assert.match($('neighbors').children[0].children[0]['aria-label'],/Recorded frame labels unavailable/);data.provenance.labels.available=true;renderSimilarPhotos();assert.match($('neighbors').children[0].children[0]['aria-label'],/No recorded frame label/);
 """)
 
