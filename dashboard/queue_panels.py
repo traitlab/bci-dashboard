@@ -253,8 +253,8 @@ CALIBRATION_SCOPE = "all_species_level_gt"
 def threshold_evidence(c) -> str:
     """How often the first guess was right at each queue cut-off, off the
     calibration table the build verified. Empty when the table or either row is
-    absent, rather than a number from somewhere else. The cut-offs are not
-    changed here: they are judgement calls and the table says what they separate."""
+    absent, rather than a number from somewhere else. The two values are not
+    changed here: the table says what each separates."""
     verify_dir = getattr(c, "verify_dir", None)
     path = os.path.join(verify_dir or "", CALIBRATION_FILE)
     if not verify_dir or not os.path.exists(path):
@@ -275,8 +275,8 @@ def threshold_evidence(c) -> str:
             f'{hc.WAIT_CONF:.2f} or more it was {say(high)}; under {hc.LOW_CONF:.2f} it was '
             f'{say(low)}. A confident guess can still be wrong: '
             f'{int(high["n_wrong"]):,} frames at {hc.WAIT_CONF:.2f} or more were. '
-            f'The {hc.LOW_CONF:.2f} and {hc.WAIT_CONF:.2f} cut-offs are judgement calls; '
-            f'this table shows what each one separates. '
+            f'{hc.WAIT_CONF:.2f} is the confidence line; {hc.LOW_CONF:.2f} marks low confidence. '
+            f'The table shows what each value separates. '
             f'<a href="{CALIBRATION_FILE}">{CALIBRATION_FILE}</a></p>')
 
 
