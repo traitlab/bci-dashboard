@@ -240,6 +240,7 @@ INPUT_ID = "species-filter"
 SELECT_ID = "status-filter"
 COUNT_ID = "species-count"
 THIN_ID = "show-thin"
+FORM_ID = "form-filter"
 
 # Client-side sort + filter, vanilla. string.Template, not an f-string: the body
 # is mostly JS braces an f-string would need escaped. Table pages only.
@@ -252,6 +253,7 @@ TABLE_JS = Template("""\
   var q=document.getElementById('$input_id');
   var sel=document.getElementById('$select_id');
   var count=document.getElementById('$count_id');
+  var fsel=document.getElementById('$form_id');
   // Rows a caller marked data-thin start hidden, unless a deliberate filter
   // overrides that: a typed needle, or a chosen status. Without the override,
   // picking "too few labels to judge" would empty the table and read as a
@@ -267,6 +269,7 @@ TABLE_JS = Template("""\
   function apply(){
     var needle=(q.value||'').trim().toLowerCase();
     var want=sel?sel.value:'all';
+    var form=fsel?fsel.value:'all';
     var showThin=thin?thin.checked:true;
     var shown=0;
     rows.forEach(function(r){
@@ -274,7 +277,8 @@ TABLE_JS = Template("""\
       var hay=(r.cells[0]?r.cells[0].textContent:'').toLowerCase();
       var ok=(!needle||hay.indexOf(needle)>=0)&&
              (want==='all'||statusOf(r)===want)&&
-             (showThin||needle||want!=='all'||
+             (form==='all'||r.getAttribute('data-form')===form)&&
+             (showThin||needle||want!=='all'||form!=='all'||
               r.getAttribute('data-thin')!=='1');
       r.classList.toggle('hidden',!ok);
       if(ok) shown++;
@@ -320,11 +324,12 @@ TABLE_JS = Template("""\
 
   q.addEventListener('input',apply);
   if(sel) sel.addEventListener('change',apply);
+  if(fsel) fsel.addEventListener('change',apply);
   if(thin) thin.addEventListener('change',apply);
   apply();
 })();
 """).substitute(table_id=TABLE_ID, input_id=INPUT_ID, select_id=SELECT_ID,
-                count_id=COUNT_ID, thin_id=THIN_ID)
+                count_id=COUNT_ID, thin_id=THIN_ID, form_id=FORM_ID)
 
 # Printing and jump links, which every page needs, kept out of TABLE_JS.
 EVERY_PAGE_JS = """\

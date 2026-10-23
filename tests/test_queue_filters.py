@@ -9,13 +9,13 @@ from types import SimpleNamespace
 import pytest
 
 HEADER = ["batch_id", "species_group", "global_key", "queue", "picked_by",
-          "how_new_it_looks", "image_url", "labelbox_url", "data_row_id", "mission", "site"]
+          "how_new_it_looks", "image_url", "labelbox_url", "data_row_id", "mission", "site", "growth_form"]
 # A comma, a quote, a line break and a non-ASCII name: every case the serializer quotes.
 ROWS = [
-    ["1", "persicaria a", "k1", "long_tail", "queue", "0.700", "u1", "l1", "r1", "m1", "s1"],
-    ["1", "control", "k2", "normal", "control", "", "", "", "", "", ""],
-    ["2", 'odd, "name"', "k3", "can_wait", "queue", "0.100", "u3", "l3", "r3", "m2", "s2"],
-    ["2", "café\nline", "k4", "normal", "queue", "0.200", "u4", "l4", "r4", "m2", "s2"],
+    ["1", "persicaria a", "k1", "long_tail", "queue", "0.700", "u1", "l1", "r1", "m1", "s1", "tree"],
+    ["1", "control", "k2", "normal", "control", "", "", "", "", "", "", "unknown"],
+    ["2", 'odd, "name"', "k3", "can_wait", "queue", "0.100", "u3", "l3", "r3", "m2", "s2", "liana"],
+    ["2", "café\nline", "k4", "normal", "queue", "0.200", "u4", "l4", "r4", "m2", "s2", "liana"],
 ]
 QUEUE_HEADER = ["queue", "global_key", "confidence", "predicted_species"]
 CONF = {"k1": "0.1200", "k2": "0.5000", "k3": "0.9500"}  # k4 has no confidence
@@ -111,7 +111,7 @@ def _count(queue_filters, tables, tmp_path, lo, hi):
         "var data=" + json.dumps(data) + ";var els={};\n"
         "function E(){return {value:'',textContent:'',children:[],className:'',"
         "addEventListener:function(){},appendChild:function(){}}}\n"
-        "['f-queue','f-species','f-mission','f-site','f-lo','f-hi','f-count','f-missions',"
+        "['f-queue','f-species','f-mission','f-site','f-form','f-lo','f-hi','f-count','f-missions',"
         "'f-download'].forEach(function(i){els[i]=E()});\n"
         f"els['f-lo'].value='{lo}';els['f-hi'].value='{hi}';\n"
         "els['send-data']={textContent:JSON.stringify(data)};\n"
@@ -133,3 +133,10 @@ def test_control_is_not_a_species_option(queue_filters, tables):
     html = queue_filters.send_filters(SimpleNamespace(verify_dir=str(tables)))
     species = re.search(r'id="f-species">(.*?)</select>', html, re.DOTALL).group(1)
     assert "persicaria a" in species and 'value="control"' not in species
+
+
+def test_growth_form_is_a_filter_and_the_unfiltered_rows_keep_it(queue_filters, tables):
+    html = queue_filters.send_filters(SimpleNamespace(verify_dir=str(tables)))
+    form = re.search(r'id="f-form">(.*?)</select>', html, re.DOTALL).group(1)
+    assert [v for v in re.findall(r'value="([^"]*)"', form) if v] == ["liana", "tree", "unknown"]
+    assert "growth_form" in embedded(html)["header"]

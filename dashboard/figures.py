@@ -15,6 +15,7 @@ from types import SimpleNamespace
 
 import assessments as am
 import confused_pairs
+import growth_form
 import mission_scope
 import core as hc
 import queues
@@ -588,4 +589,5 @@ def prepare(h, *, verify_dir, fallback_tag) -> SimpleNamespace:
     fig.update(_genus_and_family(h))
     # Frames and labels per mission and site, the counts every byline states.
     fig["scope"] = mission_scope.rows(h)
+    fig["growth_forms"] = growth_form.rows(sp_recs, {d["species"]: d["growth_form"] for d in per_species})
     return SimpleNamespace(**fig)

@@ -31,16 +31,17 @@ _JS = """(function(){
 var d=JSON.parse(document.getElementById('send-data').textContent);
 var H=d.header,R=d.rows,C=d.conf;
 var F={queue:H.indexOf('queue'),species:H.indexOf('species_group'),
-  mission:H.indexOf('mission'),site:H.indexOf('site')};
+  mission:H.indexOf('mission'),site:H.indexOf('site'),form:H.indexOf('growth_form')};
 var el=function(id){return document.getElementById(id)};
 function pick(){var lo=parseFloat(el('f-lo').value),hi=parseFloat(el('f-hi').value);
   if(isNaN(lo))lo=0;if(isNaN(hi))hi=1;
   var narrowed=lo>0||hi<1;
   var q=el('f-queue').value,s=el('f-species').value,m=el('f-mission').value,
-    t=el('f-site').value,out=[];
+    t=el('f-site').value,g=el('f-form').value,out=[];
   for(var i=0;i<R.length;i++){var r=R[i];
     if(q&&r[F.queue]!==q)continue;if(s&&r[F.species]!==s)continue;
     if(m&&r[F.mission]!==m)continue;if(t&&r[F.site]!==t)continue;
+    if(g&&r[F.form]!==g)continue;
     if(C[i]===''?narrowed:(+C[i]<lo||+C[i]>hi))continue;out.push(r)}
   return out}
 function show(){var rows=pick(),by={};
@@ -52,7 +53,7 @@ function show(){var rows=pick(),by={};
     a=document.createElement('td'),b=document.createElement('td');
     a.textContent=k;b.textContent=by[k].toLocaleString('en-US');b.className='num';
     tr.appendChild(a);tr.appendChild(b);tb.appendChild(tr)})}
-['f-queue','f-species','f-mission','f-site','f-lo','f-hi'].forEach(function(id){
+['f-queue','f-species','f-mission','f-site','f-form','f-lo','f-hi'].forEach(function(id){
   el(id).addEventListener('input',show)});
 function save(text,name){
   var u=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'})),
@@ -156,6 +157,7 @@ def send_filters(c):
         + _select("f-species", "Species", [v for v in uniq("species_group") if v != queues.CONTROL_GROUP])
         + _select("f-mission", "Mission", uniq("mission"))
         + _select("f-site", "Site", uniq("site"))
+        + _select("f-form", "Growth form", uniq("growth_form"))
         + '<label>Confidence from <input id="f-lo" type="number" min="0" max="1" '
           'step="0.01" value="0" style="width:5em"></label>'
         + '<label>to <input id="f-hi" type="number" min="0" max="1" step="0.01" '

@@ -15,7 +15,7 @@ import re
 from typing import NamedTuple
 from urllib.parse import quote
 
-from style import COUNT_ID, INPUT_ID, SELECT_ID, TABLE_ID, THIN_ID
+from style import COUNT_ID, FORM_ID, INPUT_ID, SELECT_ID, TABLE_ID, THIN_ID
 
 def esc(s: object) -> str:
     """HTML-escape any value (same role as labelfirst's ``_esc``)."""
@@ -208,7 +208,7 @@ def table(headers, rows, *, tid=None, sortable_from=None, row_attrs=None, source
 
 
 def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None,
-                     source=None):
+                     source=None, forms=()):
     """A search/filter strip followed by a sortable table. The page has exactly
     one; element ids use the ``TABLE_ID`` constants, not literals."""
     # No options means no status to filter on, so no select: one holding nothing
@@ -221,6 +221,9 @@ def filterable_table(headers, rows, *, options, row_attrs=None, thin_label=None,
                   f'<option value="all">every status</option>{opts}</select>')
     else:
         select = ""
+    # ``forms``: growth forms to filter on; the caller marks each row ``data-form``.
+    select += (f'<select id="{FORM_ID}" aria-label="filter by growth form"><option value="all">every growth form</option>'
+               + "".join(f'<option value="{esc(f)}">{esc(f)}</option>' for f in forms) + '</select>') if forms else ""
     # ``thin_label`` turns on the show-everything checkbox; the caller marks the
     # rows it hides with ``data-thin="1"`` in ``row_attrs``. No label, no checkbox.
     if thin_label:

@@ -191,6 +191,11 @@ def write_inputs(root: Path) -> Path:
         root / "input" / "boxes" / "crop_bounding_boxes.csv", boxes, list(boxes[0])
     )
     write_csv(data / "data_row_ids.csv", ids, list(ids[0]))
+    write_csv(
+        root / "input" / "growth_form.csv",
+        [{"species": s.lower(), "growth_form": "tree"} for s in SPECIES],
+        ["species", "growth_form"],
+    )
     (data / "dataset_rows_combined.jsonl").write_text(
         "".join(json.dumps(r) + "\n" for r in inventory), encoding="utf-8"
     )

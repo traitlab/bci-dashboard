@@ -17,6 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from types import SimpleNamespace
 
+import growth_form
 import reference
 import run_log as rl
 from checklist import load_checklist, membership
@@ -572,6 +573,7 @@ def load_health(*, gt_csv=GT_CSV, splits_csv=SPLITS_CSV, cache_dir=CACHE_DIR,
     checklist = load_checklist()
     per_species = aggregate_per_species(sp_recs, corpus_norm, corpus_canon,
                                         membership(checklist, canon))
+    growth_form.attach(per_species)
 
     return Health(
         gt_rows=gt_rows, split_rows=split_rows, split_of=split_of, predictions=predictions,

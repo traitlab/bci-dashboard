@@ -19,6 +19,7 @@ from types import SimpleNamespace
 
 import assessments as am
 import confused_pairs
+import growth_form
 import held_out as ho
 import reference
 import run_log as rl
@@ -208,7 +209,7 @@ def write_send_first_queue(out_dir, queue_rows):
                        + list(origins.get(row[key_at], ("", ""))))
 
 
-def write_send_batches(out_dir, batch_rows):
+def write_send_batches(out_dir, batch_rows, queue_rows):
     """The send-first queue, batched to one botanist sitting, each row linked.
 
     The links are joined on here rather than inside the batcher, so the packing
@@ -219,6 +220,10 @@ def write_send_batches(out_dir, batch_rows):
     """
     images, boxes, origins = inventory_image_urls(), labelbox_urls(), inventory_origins()
     distance = load_novelty_distance(QUEUE_NOVELTY_CSV)
+    forms = growth_form.load()
+    # A control row's species_group is not a species, so the form is the prediction's.
+    predicted = {r[SEND_FIRST_COLUMNS.index("global_key")]: r[SEND_FIRST_COLUMNS.index("predicted_species")]
+                 for r in queue_rows}
     key_at = SEND_BATCH_COLUMNS.index("global_key")
     with _csv(out_dir, "send_batches.csv") as f:
         w = csv.writer(f)
@@ -227,7 +232,8 @@ def write_send_batches(out_dir, batch_rows):
             key = row[key_at]
             w.writerow(list(row) + [how_new(distance, key), images.get(key, ""),
                                     boxes.get(key, ""), data_row_id(boxes.get(key, "")),
-                                    *origins.get(key, ("", "")), GROUP_BY])
+                                    *origins.get(key, ("", "")),
+                                    forms.get(predicted.get(key), growth_form.UNKNOWN), GROUP_BY])
 
 
 def top1(r, key="ranked"):
@@ -486,7 +492,7 @@ def main() -> None:
     # batch it landed in and that is only known once the packing has run.
     batch_rows = chunk_send_batches(queue_rows, batch_size=BATCH_SIZE, group_by=GROUP_BY)
     write_send_first_queue(out_dir, with_batch_ids(queue_rows, batch_rows))
-    write_send_batches(out_dir, batch_rows)
+    write_send_batches(out_dir, batch_rows, queue_rows)
     rl.log_send_queue(log, q_counts, batch_rows, n_no_answer, n_ranked,
                       novelty=novelty_prov, held_out=held_out)
 
