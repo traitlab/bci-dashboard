@@ -46,7 +46,8 @@ QL = {"long_tail": ("Species with few labelled frames, or often wrong",
 def _batch1_note(c) -> str:
     if not c.n_batch1:
         return ""
-    n_control = min(queues.control_size(), len(c.queue_rows))
+    # Every batch is sized to carry this share, so batch 1's count follows from its size.
+    n_control = round(queues.CONTROL_FRACTION * c.n_batch1)
     return (
         f'<p class="note"><b>Every batch carries the comparison.</b> {n_control} of the '
         f'{c.n_batch1} photos in batch 1, and the same share of every later batch, are drawn at '

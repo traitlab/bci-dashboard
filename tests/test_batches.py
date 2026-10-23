@@ -203,10 +203,10 @@ def test_a_later_batch_draws_from_what_is_left(queues):
 
 
 def test_a_short_pool_gives_each_batch_fewer_control_but_keeps_queue_work(queues):
-    """20 photos, batch of 100: the lone batch keeps one queue photo and takes 15."""
+    """20 photos, batch of 100: the lone batch takes 15% of its own size, 3."""
     batches = queues.chunk_send_batches(rows(20), batch_size=100)
     assert sizes(batches) == [20]
-    assert len(controls_by_batch(batches)[1]) == 15
+    assert len(controls_by_batch(batches)[1]) == 3
     batches = queues.chunk_send_batches(rows(1), batch_size=100)
     assert [b[4] for b in batches] == ["queue"]
 
@@ -397,7 +397,7 @@ def test_rank_mode_keeps_global_rank_order_in_fixed_chunks(queues):
     queue_part = [b for b in got if b[4] == "queue"]
     control = [(b[0], b[2]) for b in got if b[4] == "control"]
     assert sizes(got) == [7, 7, 7, 7, 2]       # each batch: 6 queue rows + 1 control
-    assert control == [(1, "k25"), (2, "k14"), (3, "k20"), (4, "k24"), (5, "k28")]
+    assert control == [(1, "k25"), (2, "k14"), (3, "k20"), (4, "k28"), (5, "k29")]
     assert [b[2] for b in queue_part] == [
         f"k{i:02d}" for i in range(30) if f"k{i:02d}" not in {k for _, k in control}]
     assert {b[1] for b in queue_part} <= set("abcde")
@@ -465,3 +465,23 @@ def test_group_by_is_validated(queues):
     assert queues._group_by_from_env("rank") == "rank"
     with pytest.raises(ValueError, match="BCI_GROUP_BY"):
         queues._group_by_from_env("Rank")
+
+
+# --- the control is a share of each batch, not a fixed count -------------------
+
+
+def shares(batches):
+    """(batch size, control count) per batch, in batch_id order."""
+    ctl = {b: len(v) for b, v in controls_by_batch(batches).items()}
+    return [(n, ctl.get(i + 1, 0)) for i, n in enumerate(sizes(batches))]
+
+
+@pytest.mark.parametrize("counts", [(9, 80, 70, 55), (1, 200, 3, 3, 40), (5,), (30, 30, 30, 30, 30, 7)])
+def test_every_batch_controls_within_one_photo_of_its_share(queues, counts):
+    """Uneven species and a tiny first group: species stay whole, so batches come out
+    uneven, and each one, the last included, holds 15% control to within one photo."""
+    batches = queues.chunk_send_batches(rows(*counts), batch_size=100)
+    assert len({b[2] for b in batches}) == sum(counts)
+    for size, ctl in shares(batches):
+        assert abs(ctl - 0.15 * size) <= 1, (size, ctl)
+        assert ctl < size
