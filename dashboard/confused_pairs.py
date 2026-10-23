@@ -16,6 +16,8 @@ from collections import Counter
 NAME = "confused_pairs.csv"
 COLUMNS = ("label", "first_guess", "n_frames", "n_label_frames")
 SHOWN = 15
+# Refreshes in the trend cell, the current one included.
+TREND_RUNS = 4
 
 
 def pairs(sp_recs, support) -> list[tuple]:
@@ -54,3 +56,23 @@ def earlier(changes) -> tuple[str, dict] | None:
     if d is None or d["crossed"] or d["prev"].get("confused_pairs") is None:
         return None
     return d["prev"]["export"], {(gt, guess): n for gt, guess, n in d["prev"]["confused_pairs"]}
+
+
+def trend(changes) -> tuple[list[str], dict] | None:
+    """(exports oldest first, {(label, guess): [frames or None per export]}) over the
+    newest TREND_RUNS lines that carry pair counts and share the newest line's
+    reference labels, so a moved count is not the labels' change. None unless
+    ``earlier`` finds a comparable line, so a single run renders as before."""
+    if earlier(changes) is None:
+        return None
+    runs = changes["runs"]
+    ref = runs[0].get("reference")
+    kept = []
+    for r in runs[:TREND_RUNS]:
+        if r.get("confused_pairs") is None or r.get("reference") != ref:
+            break
+        kept.append(r)
+    kept.reverse()
+    by_run = [{(gt, guess): n for gt, guess, n in r["confused_pairs"]} for r in kept]
+    keys = set().union(*by_run)
+    return [r["export"] for r in kept], {k: [m.get(k) for m in by_run] for k in keys}

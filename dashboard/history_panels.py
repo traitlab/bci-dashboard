@@ -89,18 +89,21 @@ def _model_note(built: str) -> str:
 def p_confused(c):
     """The wrong top predictions that repeat: which two species the model swaps,
     and, once an earlier refresh recorded them, each pair's count back then."""
-    then = confused_pairs.earlier(getattr(c, "changes", None))
+    then = confused_pairs.trend(getattr(c, "changes", None))
     rows = [[f"<i>{esc(gt)}</i>", f"<i>{esc(guess)}</i>", f"{n:,}", f"{support:,}"]
-            + ([f"{then[1][gt, guess]:,}" if (gt, guess) in then[1] else "new"] if then else [])
+            + ([" → ".join("new" if m is None else f"{m:,}" for m in then[1].get((gt, guess), [None]))]
+               if then else [])
             for gt, guess, n, support in c.confused]
     headers = [("Label", False), ("Top prediction", False), ("Frames", True),
                ("Labelled frames of the label species", True)]
     if then:
-        headers.append((esc(f"Frames at export {then[0]}"), True))
+        headers.append((esc(f"Frames at exports {', '.join(then[0])}"), True))
     body = (f'<p class="note">Counted over the {c.n:,} frames labelled to a species, '
             f"every wrong top prediction."
-            + (f" The last column is the export before; new means the pair was not "
-               f"among the {confused_pairs.SHOWN} most common then." if then else "")
+            + (f" The last column is the pair's frame count at each recent export, oldest first; "
+               f"new means the pair was not among the {confused_pairs.SHOWN} most common then. "
+               f"Counts, not rates: the label species' labelled frames are in the column before, "
+               f"as of now." if then else "")
             + "</p>"
             + table(headers, rows, source=confused_pairs.NAME)
             if rows else '<p class="note">No top prediction is wrong.</p>')
