@@ -150,7 +150,7 @@ def send_filters(c):
     return more(
         "Choose what to send: filter the file and download a subset",
         f'<p class="note">Filter <a href="{SEND_FILE}">{SEND_FILE}</a> and download the '
-        'matching rows in its columns. Confidence is the first guess, 0 to 1.</p>'
+        'matching rows in its columns. Confidence is the top prediction, 0 to 1.</p>'
         '<div class="controls">'
         + _select("f-queue", "Queue", uniq("queue"))
         + _select("f-species", "Species", [v for v in uniq("species_group") if v != queues.CONTROL_GROUP])

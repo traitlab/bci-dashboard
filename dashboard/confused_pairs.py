@@ -19,7 +19,7 @@ SHOWN = 15
 
 
 def pairs(sp_recs, support) -> list[tuple]:
-    """The label-and-first-guess pairs that occur most among wrong first guesses,
+    """The label-and-top-prediction pairs that occur most among wrong top predictions,
     as (label, guess, frames, labelled frames of the label species). Every scored
     frame counts, not only the confident ones the review list holds."""
     counts = Counter((r["gt"], r["ranked"][0][0]) for r in sp_recs

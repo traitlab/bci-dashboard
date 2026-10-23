@@ -368,7 +368,7 @@ BUCKET_ORDER = [lab for _, _, lab in SUPPORT_BUCKETS]
 WELL_SAMPLED_MIN_N = 10
 
 # Send-first queue thresholds, applied in ``queues.py``. Below LOW_CONF the
-# calibration table puts the first guess right only ~38% of the time.
+# calibration table puts the top prediction right only ~38% of the time.
 LOW_CONF = 0.5
 WAIT_CONF = 0.8
 # A species with at least this many labelled crowns and this measured top-1 is
@@ -376,7 +376,7 @@ WAIT_CONF = 0.8
 RELIABLE_MIN_TOP1 = 0.90
 HARD_MAX_TOP1 = 0.70
 # "Right name in the list, not first": the right-name-in-the-list rate has to
-# beat the first-guess rate by RANKING_MIN_GAP, on a rate of RANKING_MIN_TOP5 or
+# beat the top-prediction rate by RANKING_MIN_GAP, on a rate of RANKING_MIN_TOP5 or
 # better.
 RANKING_MIN_GAP = 0.20
 RANKING_MIN_TOP5 = 0.60
@@ -385,7 +385,7 @@ RANKING_MIN_TOP5 = 0.60
 # by exactly 0.20, and by 0.19999999999999996 in binary. Compare rates through
 # this tolerance so a species is not sorted by a rounding step.
 RATE_EPS = 1e-9
-# A confident first guess that still disagrees with the botanist label is worth
+# A confident top prediction that still disagrees with the botanist label is worth
 # a second look: either the label or the model is wrong.
 REVIEW_CONF = 0.8
 

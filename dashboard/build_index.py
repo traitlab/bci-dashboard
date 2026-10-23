@@ -29,7 +29,7 @@ PAGES = [
 
 OPTIONAL_PAGES = [
     ("explorer.html", "Browse photos",
-     "Explore families, genera and species using Pl@ntNet first guesses or recorded labels.", ""),
+     "Explore families, genera and species using Pl@ntNet top predictions or recorded labels.", ""),
     ("embedding-atlas.html", "Drone map",
      "Find photos by drone photo location.", "#view=locations"),
     ("embedding-atlas.html", "Similar photos",
@@ -59,13 +59,13 @@ a.card small{display:block;font-size:12px;color:var(--slate);margin-top:14px}
 
 # The landing page's two-sentence intro, in full.
 AUDIENCE = ('<p>Drone photos of the canopy on Barro Colorado Island and other Panama field sites. '
-            'Pl@ntNet suggests a name for each photo and botanists confirm it.</p>'
+            'Pl@ntNet predicts a name for each photo. Botanists label the photos in Labelbox without seeing the prediction.</p>'
             '<p>This site is a window into the current data for the project leads and the labelling coordinator. '
-            'Annotators work in Labelbox, where model guesses are hidden on purpose so they do not bias identifications. '
+            'Annotators work in Labelbox, where model predictions are hidden on purpose so they do not bias identifications. '
             'It does not yet suggest where to fly the drone.</p>')
 
 CAVEATS = ("Photo counts do not measure tree abundance.",
-           "Model guesses need expert confirmation.",
+           "Model predictions need expert confirmation.",
            "Each page describes its own snapshot, so the dates differ from page to page.")
 
 
@@ -185,10 +185,10 @@ def build(build_dir: str) -> str:
                    for name, title, _, fragment in OPTIONAL_PAGES
                    if name == "embedding-atlas.html" and name in present)
     head = _head("Panama canopy photos and labelling",
-                 "Drone photos of the Panama canopy with Pl@ntNet guesses and recorded labels: browse photos, choose the next labelling batch, check model health.", "index.html", present)
+                 "Drone photos of the Panama canopy with Pl@ntNet predictions and recorded labels: browse photos, choose the next labelling batch, check model health.", "index.html", present)
     main = ('<main id="main-content" tabindex="-1"><h1>Panama canopy</h1>'
-            + '<p class="intro">Panama canopy drone photos and Pl@ntNet guesses, for the project leads and the labelling coordinator. '
-              'Annotators label in Labelbox, where the guesses are hidden; the site does not yet suggest where to fly. '
+            + '<p class="intro">Panama canopy drone photos and Pl@ntNet predictions, for the project leads and the labelling coordinator. '
+              'Annotators label in Labelbox, where the predictions are hidden; the site does not yet suggest where to fly. '
               '<a href="about.html#audience">About</a></p>'
             + '<div class="tasks">' + "".join(card(*tile) for tile in tiles) + '</div>'
             + (f'<p class="more">{more}</p>' if more else "")
@@ -224,7 +224,7 @@ def build_about(available, scope: str = "") -> str:
             + experiment
             + '<h2>Glossary</h2><dl>'
               '<dt>Recorded label</dt><dd>The species name a botanist has recorded for a photo.</dd>'
-              '<dt>Pl@ntNet first guess</dt><dd>The species Pl@ntNet ranks first for a photo.</dd>'
+              '<dt>Pl@ntNet top prediction</dt><dd>The species Pl@ntNet ranks first for a photo.</dd>'
               '<dt>Labelled frame</dt><dd>A drone photo that carries a recorded label.</dd>'
               + "".join(f"<dt>{term}</dt><dd>{html.escape(meaning)}</dd>" for term, meaning in GLOSSARY)
               + '</dl>'

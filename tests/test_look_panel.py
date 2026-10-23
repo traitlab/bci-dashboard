@@ -291,7 +291,7 @@ def test_queue_record_gives_long_tail_a_species_count_and_the_others_none(
     c = _sheet_context()
     lt = queue_why_panels.queue_record(c, "long_tail")
     assert "5 photos are in this queue" in lt
-    assert "2 distinct species show up in these guesses" in lt
+    assert "2 distinct species show up in these predictions" in lt
     assert "send_first_queue.csv" in lt
 
     normal = queue_why_panels.queue_record(c, "normal")

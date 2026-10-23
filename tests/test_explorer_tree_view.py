@@ -114,7 +114,7 @@ chooseTaxon('any');assert.deepEqual(card(),{title:['span:Any Pl@ntNet taxon'],co
 
 def test_card_for_unassigned_counts_the_unassigned_photos_and_marks_no_crumb():
     run_browser(RADIAL + CARD + r"""
-chooseTaxon('unassigned');assert.deepEqual(card(),{title:['span:No Pl@ntNet guess or unresolved name'],count:'2 photos, 33% of matching photos.',current:0});listed(2);
+chooseTaxon('unassigned');assert.deepEqual(card(),{title:['span:No Pl@ntNet prediction or unresolved name'],count:'2 photos, 33% of matching photos.',current:0});listed(2);
 """, initial_hash='#layout=tree')
 
 

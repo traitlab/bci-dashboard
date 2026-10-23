@@ -196,7 +196,7 @@ def _flight_sentences(flight: dict) -> str:
     # the holdout was drawn, and which species it cannot grade at all, are read
     # once by someone checking us, so they wait behind a summary line.
     line = (f'<p class="note"><b>A second score, on flights held back whole.</b> '
-            f'The first guess is right on {pctf(held["top1"])} of the {held["n"]:,} '
+            f'The top prediction is right on {pctf(held["top1"])} of the {held["n"]:,} '
             f'frames on the {n_f:,} held-back flights that carry an answer. These are '
             f'not the test frames, so do not subtract one rate from the other.</p>')
     rest = (f'<p class="note">The {ver} flight holdout holds {n_f:,} of the '
@@ -254,7 +254,7 @@ def _mix_sentences(mix: dict | None) -> str:
                "the held-back flights score higher" if ci[0] > 0 else
                "the held-back flights score lower")
     line = (f'<p class="note"><b>Read on the same species, {verdict}.</b> On the '
-            f'{mix["n_shared_species"]:,} species both sets hold, the first guess is '
+            f'{mix["n_shared_species"]:,} species both sets hold, the top prediction is '
             f'right on {pctf(raw["a"])} of {mix["frames"]["a"]:,} test frames and '
             f'{pctf(raw["b"])} of {mix["frames"]["b"]:,} held-back frames. Given the '
             f'same mix of those species, it is {pctf(std["a"])} and {pctf(std["b"])}, '
@@ -319,7 +319,7 @@ def note(result: dict, flight: dict | None = None) -> str:
                    'saw.')
     line = (f'<p class="note"><b>{verdict}</b> The rate to quote is the page\'s headline '
             f'number, not either rate this note prints: both are read over a subset of '
-            f'the frames it covers. The first guess is right on '
+            f'the frames it covers. The top prediction is right on '
             f'{pctf(t["top1"])} of the {t["n"]:,} test frames, mostly on flights that '
             f'also carried a labelled frame, so this leans on the same-flight subset. ')
     if u["n"]:

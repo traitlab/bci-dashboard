@@ -23,7 +23,7 @@ def rows(h, origins=None) -> list[dict]:
     """One row per (mission, site) over every frame with a cached Pl@ntNet
     answer, labelled or not. ``n_labelled`` counts those with any recorded
     label; ``n_scored`` the headline population, frames labelled to a species
-    (``h.sp_recs``), and ``n_correct_top1`` those whose first guess is the
+    (``h.sp_recs``), and ``n_correct_top1`` those whose top prediction is the
     label. A frame the inventory does not place is counted on a row with a
     blank mission and site, never guessed into one."""
     origins = inventory_origins() if origins is None else origins
@@ -40,7 +40,7 @@ def rows(h, origins=None) -> list[dict]:
 
 
 def _table(groups: dict, first: str) -> str:
-    """One row per group key, its frame counts summed, and the first-guess rate
+    """One row per group key, its frame counts summed, and the top-prediction rate
     over the scored frames beside the count it is over."""
     out = []
     for key, rs in sorted(groups.items()):
@@ -49,7 +49,7 @@ def _table(groups: dict, first: str) -> str:
         out.append([esc(key) or "not placed", f"{frames:,}", f"{labelled:,}", f"{scored:,}",
                     f"{pctf(rate)} of {scored:,}" if rate is not None else "not scored"])
     return table([(first, False), ("Close-ups", True), ("Labelled", True),
-                  ("Labelled to a species", True), ("First guess right", True)], out,
+                  ("Labelled to a species", True), ("Top prediction right", True)], out,
                  source=NAME)
 
 
@@ -62,7 +62,7 @@ def p_sites(c):
     if not c.scope:
         body = '<p class="note">No close-up has a cached answer.</p>'
     else:
-        body = ('<p class="note">First guess right is over the frames labelled to a '
+        body = ('<p class="note">Top prediction right is over the frames labelled to a '
                 "species, the headline population; a site with few says little.</p>"
                 + _table(by_site, "Site")
                 + more(f"The same per mission ({len(by_mission)} missions)",
@@ -70,7 +70,7 @@ def p_sites(c):
                        + _table(by_mission, "Mission")))
     return panel("By site and mission",
                  "<b>Where the labels and the errors are.</b> Close-ups, labels and the "
-                 "first-guess rate for each drone site, and per mission below.",
+                 "top-prediction rate for each drone site, and per mission below.",
                  body, anchor="by-site-and-mission")
 
 

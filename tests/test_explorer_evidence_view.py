@@ -97,7 +97,7 @@ assert.equal(row('p0').children[1].textContent,'No recorded label');assert.equal
 assert.equal(row('p5').children[2].textContent,'No names returned');assert.match(row('p0').children[2].textContent,/Canopia lutea/);
 assert.match(row('p0').children[3].title,/0.41209/);
 catalogue.provenance.predictions.available=false;setState({source:'recorded'});
-assert.equal(row('p3').children[2].textContent,'Pl@ntNet guesses unavailable');assert.equal(row('p3').children[3].textContent,'Unavailable');
+assert.equal(row('p3').children[2].textContent,'Pl@ntNet predictions unavailable');assert.equal(row('p3').children[3].textContent,'Unavailable');
 assert.equal(row('p3').children[1].textContent,'Canopia alba');
 """, payload=data, initial_hash='#layout=table')
 
@@ -233,7 +233,7 @@ $('sortConfidence').onclick();assert.equal(state.order,'confidence-desc');assert
 $('filterGuess').value='LUTEA';$('filterGuess').oninput();assert.equal(state.guess,'LUTEA');assert.equal(state.page,0);
 assert.ok(keys().length>0);assert.ok(keys().every(key=>/lutea/i.test(photoIndex.get(key).prediction.name)));
 assert.equal(readExplorerState(location.hash,photos).guess,'LUTEA');
-const chip=$('activeFilters').children.find(button=>button.getAttribute('data-filter')==='guess');assert.match(chip.textContent,/Pl@ntNet first guess contains: LUTEA/);
+const chip=$('activeFilters').children.find(button=>button.getAttribute('data-filter')==='guess');assert.match(chip.textContent,/Pl@ntNet top prediction contains: LUTEA/);
 $('filterMission').value='no such mission';$('filterMission').oninput();assert.deepEqual(keys(),[]);
 $('filterConfidence').value='-';$('filterConfidence').oninput();assert.equal(state.minConfidence??'','');
 $('filterConfidence').value='.5';$('filterConfidence').oninput();assert.equal(state.minConfidence,'.5');assert.equal($('minConfidence').value,'.5');

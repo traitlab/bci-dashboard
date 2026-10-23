@@ -127,7 +127,7 @@ setState({source:'recorded',status:'with'});assert.deepEqual(matchingPhotoKeys(c
 setState({taxon:'f',search:'no matches',status:'without'});assert.equal(root('recorded').children[1].textContent,'0');
 setState({taxon:'',search:'',status:'all'});assert.equal(matchingPhotoKeys(catalogue,state).length,7);
 setState({source:'prediction',taxon:'unassigned'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['c','e','whitespace']);
-assert.equal($('browseTitle').textContent,'No Pl@ntNet guess or unresolved name');assert.match($('sourceHelp').textContent,/Taxa below use the Pl@ntNet first guess/);
+assert.equal($('browseTitle').textContent,'No Pl@ntNet prediction or unresolved name');assert.match($('sourceHelp').textContent,/Taxa below use the Pl@ntNet top prediction/);
 setState({taxon:'any'});assert.equal($('browseTitle').textContent,'Any Pl@ntNet taxon');assert.deepEqual(matchingPhotoKeys(catalogue,state).filter(k=>['c','e','whitespace'].includes(k)),[]);assert.equal(matchingPhotoKeys(catalogue,state).length,4);
 setState({source:'recorded'});assert.equal($('browseTitle').textContent,'Any recorded taxon');assert.deepEqual(matchingPhotoKeys(catalogue,state),['a & ä /?.JPG','b','c','z']);assert.equal(taxonCounts(catalogue,state).get('any'),4);assert.equal(taxonCounts(catalogue,state).get('unassigned'),3);
 setState({status:'without'});assert.equal(taxonCounts(catalogue,state).get('any'),0);assert.equal(matchingPhotoKeys(catalogue,state).length,0);assert.match($('activeFilters').children[0].textContent,/^Taxon \(recorded label\): Any recorded taxon/);
@@ -142,7 +142,7 @@ def test_count_helpers_preserve_explicit_unavailable_sources_and_empty_populatio
     run_browser(r"""
 assert.deepEqual(labelStatusCounts(catalogue,state),{all:0,with:0,without:0,compare:0});
 function root(source){return $('taxonomy').querySelector('[data-root="'+source+'"]')}
-assert.equal(root('prediction').disabled,true);assert.equal(root('prediction').children[0].textContent,'Pl@ntNet guesses unavailable');
+assert.equal(root('prediction').disabled,true);assert.equal(root('prediction').children[0].textContent,'Pl@ntNet predictions unavailable');
 assert.equal(state.source,'prediction');
 setState({source:'recorded'});assert.deepEqual(labelStatusCounts(catalogue,state),{all:6,with:5,without:1,compare:0});
 setState({source:'unsupported'});assert.deepEqual(labelStatusCounts(catalogue,state),{all:0,with:0,without:0,compare:0});

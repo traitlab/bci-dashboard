@@ -56,7 +56,7 @@ RETIRED = {
     r"\brevocable\b": "undone at the next model change",
     r"\b(un)?gated\b": "with, or without, the labelled-frames condition",
     r"\bthresholds?\b": "the confidence line",
-    r"\bhits?\b": "right, or a right first guess",
+    r"\bhits?\b": "right, or a right top prediction",
     r"\bsupport\b": "labelled frames",
     r"\bembeddings?\b": "how the photo looks to the model",
     r"\bfarthest-first\b": "least like everything already labelled",

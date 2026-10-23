@@ -205,7 +205,7 @@ code.key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.72r
 /* Sideways scroll only: a height cap hid rows below the fold with no cue. */
 .tscroll{overflow-x:auto}
 .tscroll:focus-visible{outline:3px solid #287752;outline-offset:-3px}
-/* A recurring label-and-guess pair is written once and spanned down its own
+/* A recurring label-and-prediction pair is written once and spanned down its own
    frames, so the pair cells align to the first of them and the block that
    starts a new pair carries the rule between pairs. */
 td.pair{vertical-align:top}

@@ -103,7 +103,7 @@ def unplaced_note(pop: dict) -> str:
 
 def reject_table(sweep: dict) -> str:
     """If only frames with at most k plausible names are trusted: what share of
-    frames that keeps and how often their first guess is right. A queue
+    frames that keeps and how often their top prediction is right. A queue
     position, never a label: it says which frames a botanist can look at last."""
     pop, method = sweep["population"], sweep["method"]
 
@@ -125,11 +125,11 @@ def reject_table(sweep: dict) -> str:
                    f'then asked how many names it cannot rule out, so that the list of '
                    f'names holds the right one '
                    f'{round(10 * (1 - method["alpha"]))} times in 10. This is not '
-                   f'Pl@ntNet and its first guess is not Pl@ntNet&rsquo;s.</p>')
+                   f'Pl@ntNet and its top prediction is not Pl@ntNet&rsquo;s.</p>')
             + table([("At most this many plausible names", True),
                      ("Frames kept", True), ("Frames kept, new flight", True),
-                     ("First guess right, kept frames", True),
-                     ("First guess right, new flight", True)], rows,
+                     ("Top prediction right, kept frames", True),
+                     ("Top prediction right, new flight", True)], rows,
                     source="reject_sweep.csv")
             # The frames a queue orders sit on flights with no labelled frame, so
             # the rate beside the frame-by-frame one is the one that describes

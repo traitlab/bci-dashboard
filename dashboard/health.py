@@ -185,13 +185,13 @@ def reconcile_names(gt_rows, predictions, corpus_vocab, crosswalk):
 
 
 def confusion_counts(sp_recs):
-    """Per species: right first guesses, frames guessed, frames labelled.
+    """Per species: right top predictions, frames guessed, frames labelled.
 
     The three counts precision, recall and F1 are all built from, in one pass.
     Recall's denominator is the frames a species was *labelled* on, which is
-    the same denominator the first-guess rate already uses. Precision's is the
+    the same denominator the top-prediction rate already uses. Precision's is the
     frames it was *guessed* on, and no per-species row holds that: a wrong
-    first guess lands in the guessed count of a species whose own row it never
+    top prediction lands in the guessed count of a species whose own row it never
     touches, so it cannot be recovered from the rows afterwards.
 
     Counted here rather than folded into ``aggregate_per_species``'s own tally,
@@ -283,7 +283,7 @@ def aggregate_per_species(sp_recs, corpus_norm, corpus_canon, in_checklist=None)
     ``mean_top1_confidence`` is the arithmetic mean it has always been; the
     median and the quartile pair beside it say what a mean hides on a skewed
     score. ``mean_top1_confidence_when_correct`` is the same mean over only the
-    frames the first guess got right, so the gap between the two is what being
+    frames the top prediction got right, so the gap between the two is what being
     confident is worth on this species.
     """
     def top1(r):

@@ -78,13 +78,13 @@ def queue_record(c, q: str) -> str:
     """One line for a queue a botanist works: count, and the measured number
     that applies to it, if this checkout has one.
 
-    Only ``long_tail`` has one today: how many distinct species its guesses
+    Only ``long_tail`` has one today: how many distinct species its predictions
     name, counted off the queue itself rather than a labelled frame, since
     nothing else here carries a ground truth to measure against. The other two
     working queues get the count and the link and no invented number.
     """
     n = c.queue_counts.get(q, 0)
-    measured = (f' {len(c.lt_species):,} distinct species show up in these guesses.'
+    measured = (f' {len(c.lt_species):,} distinct species show up in these predictions.'
                if q == "long_tail" and c.lt_species else '')
     return (f'<p class="note"><b>{n:,} photos are in this queue.</b>{measured}</p>'
             f'<p class="note">The rows are the ones marked {esc(q)} in '
@@ -124,7 +124,7 @@ def contact_sheet(c) -> str:
             continue
         cells = "".join(
             f'<img src="{uri}" width="{hc.THUMB_PX}" height="{hc.THUMB_PX}" '
-            f'alt="{esc(stem)}, guessed {esc(pred) or "nothing"}" '
+            f'alt="{esc(stem)}, predicted {esc(pred) or "nothing"}" '
             f'title="{esc(stem)} &#10; {esc(pred)}"/>'
             for stem, pred, uri in shots)
         out.append(head + f'<div class="sheet">{cells}</div>')
@@ -145,7 +145,7 @@ def wait_record(c) -> str:
     if held["n"]:
         graded = (f' The same rule was graded on {held["n_frames"]:,} labelled frames held '
                   f'back by whole flights. It applies to {held["n"]:,} of them, and the first '
-                  f'guess is wrong on {pctf(held["err"])} of those.')
+                  f'prediction is wrong on {pctf(held["err"])} of those.')
     else:
         graded = (' On the labelled frames held back for grading, the rule is wrong on '
                   f'{pctf(c.best["err"])} of the frames it applies to.')
@@ -186,7 +186,7 @@ def p_look(c):
 
 
 def _near_copy_note(c) -> str:
-    """Whether the wrong-guess share leans on near-copies of the rule's frames.
+    """Whether the wrong-prediction share leans on near-copies of the rule's frames.
 
     Once flights are held back whole, the rule is graded there too and the page
     prints that grade. Until then it says the share is a floor it cannot size.
@@ -195,7 +195,7 @@ def _near_copy_note(c) -> str:
     if held["n"]:
         return ('<p class="note"><strong>The same rule on flights held back whole:'
                 f'</strong> it applies to {held["n"]:,} of the {held["n_frames"]:,} frames '
-                f'there, and the first guess is wrong on {pctf(held["err"])} of those. '
+                f'there, and the top prediction is wrong on {pctf(held["err"])} of those. '
                 'Those frames hold different species in different shares, so how many the '
                 'rule applies to differs for that reason alone.</p>'
                 + more("Why grade it on those flights too",
@@ -203,7 +203,7 @@ def _near_copy_note(c) -> str:
                        'shares a flight with a frame the rule was picked on. Frames from one '
                        'flight overlap, so one can be a near-copy of another. No frame above '
                        'shares a flight with the ones held back whole.</p>'))
-    return ('<p class="note"><strong>Why the wrong-guess share is a floor, not an '
+    return ('<p class="note"><strong>Why the wrong-prediction share is a floor, not an '
             'estimate:</strong> the split was drawn frame by frame, not site by site. '
             'Drone frames from one flight over one site overlap, so a held-out '
             "frame, one kept back from the rule's frames, can be a near-copy of "
@@ -223,7 +223,7 @@ def _wait_rule(c) -> str:
             f'Pl@ntNet is at least {RECOMMENDED_CONF} confident and its species already has '
             f'{WAIT_SUPPORT_MIN} or more labelled frames.</strong> On the '
             f'{len(c.test_recs):,} frames held back for grading, that rule applies to '
-            f'{best["n"]:,} of them ({pctf(best["share"])}), and the first guess is wrong '
+            f'{best["n"]:,} of them ({pctf(best["share"])}), and the top prediction is wrong '
             f'on {pctf(best["err"])} of those.</div>'
             # Every share in the comparison table below is out of this count.
             f'<p class="note"><strong>What those {len(c.test_recs):,} frames are:</strong> '
@@ -263,7 +263,7 @@ def _rules_compared(c) -> str:
     a reader can check rather than a number to accept."""
     body = (f'<h3 class="sub">The {len(c.ops)} rules we compared</h3>'
             + table([("how sure the model has to be", False), ("frames that can wait", True),
-                     ("share of the queue", True), ("of those, first guess wrong", True),
+                     ("share of the queue", True), ("of those, top prediction wrong", True),
                      ("rarely-labelled frames it pushed down", True),
                      ("of what is left at the top, share rarely labelled", True)],
                     [[f'<strong>{o["label"]}</strong>' if o is c.best else o["label"],
@@ -276,7 +276,7 @@ def _rules_compared(c) -> str:
 
 
 def _confidence_evidence(c) -> str:
-    """How often the first guess is right at each confidence band, over all frames
+    """How often the top prediction is right at each confidence band, over all frames
     at once. This is the evidence that ordering the queue by confidence works."""
     # Same blue as the chart on the model-health page: same measure, so a colour
     # change would read as meaning something. Green is spoken for by the tags.
@@ -285,7 +285,7 @@ def _confidence_evidence(c) -> str:
             + svg_hbar([(CONF_BAND_WORDS[band], k / nn if nn else 0.0,
                          f'{pctf(k / nn) if nn else "n/a"} of {nn:,} frames', "#1565c0")
                         for band, nn, k in c.bins_all],
-                       title="how often the first guess is right, "
+                       title="how often the top prediction is right, "
                              "by the model's own confidence")
             + '<p class="note">Over all frames at once the score is trustworthy: when the '
               'model is sure it is almost always right. <strong>On rarely-labelled species it is not</strong>, '
@@ -293,7 +293,7 @@ def _confidence_evidence(c) -> str:
               'about to the bottom:</p>'
             + table([("labelled frames for that species", False),
                      (f"frames the model was {c.flat_thr} or more sure about", True),
-                     ("of those, first guess wrong", True)],
+                     ("of those, top prediction wrong", True)],
                     [[BAND_SHORT[lab], f"{flat[lab][0]:,}",
                       pctf(flat[lab][1] / flat[lab][0])]
                      for lab in hc.BUCKET_ORDER if lab in flat])

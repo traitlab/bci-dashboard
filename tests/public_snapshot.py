@@ -1,6 +1,6 @@
 """Synthetic observations for the real offline measurement and page commands.
 
-No private table is copied. Twenty-eight Hura frames have 22 correct first guesses,
+No private table is copied. Twenty-eight Hura frames have 22 correct top predictions,
 four Ceiba frames have two, and one Swartzia frame has no name in the cache's
 vocabulary. A genus label and an unreviewed label exercise population boundaries.
 The three queued frames cover long-tail, normal and can-wait queues.

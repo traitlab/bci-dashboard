@@ -108,7 +108,7 @@ def _rates(sp_recs, per_species):
     One question two ways: per species, so a rare one weighs as much as a common
     one, and per frame. Both, because neither alone says how the model does.
 
-    Top-1 and top-5 are accuracy: how often the label is the first guess, and
+    Top-1 and top-5 are accuracy: how often the label is the top prediction, and
     how often it is among the names we asked for. Precision, recall and F1 come
     off the same frames through ``health.confusion_counts``, and answer the
     question accuracy cannot: not "how often is the model right" but "when it
@@ -116,16 +116,16 @@ def _rates(sp_recs, per_species):
 
     Two identities are worth knowing before reading what comes back.
 
-    Per species, recall *is* the first-guess rate. Both count a species' right
-    first guesses over its own labelled frames. ``macro_recall`` is computed
+    Per species, recall *is* the top-prediction rate. Both count a species' right
+    top predictions over its own labelled frames. ``macro_recall`` is computed
     from the confusion counts rather than copied off ``macro_top1``, so the two
     routes can be checked against each other; they must agree.
 
     Per frame, precision, recall and F1 are one number, and that number is the
-    per-frame first-guess rate. Every frame in ``sp_recs`` carries exactly one
-    label and exactly one first guess, since ``health.load_health`` admits a
-    frame only when it has both, so a wrong guess is one miss for the labelled
-    species and one false positive for the guessed one at the same time. The
+    per-frame top-prediction rate. Every frame in ``sp_recs`` carries exactly one
+    label and exactly one top prediction, since ``health.load_health`` admits a
+    frame only when it has both, so a wrong prediction is one miss for the labelled
+    species and one false positive for the predicted one at the same time. The
     two counts are the same count, so their rates are the same rate. It is
     returned once, as ``micro_prf1``, rather than three times.
     """
@@ -136,7 +136,7 @@ def _rates(sp_recs, per_species):
     # Averaged over the labelled species, the same population macro_top1 uses,
     # so the two per-species columns are comparable row for row. A species the
     # model only ever guesses wrongly has no row of its own and no recall to
-    # average; its guesses are already counted as another species' misses.
+    # average; its predictions are already counted as another species' misses.
     precisions = [(tp[s] / guessed[s]) if guessed[s] else 0.0 for s in labelled]
     recalls = [tp[s] / labelled[s] for s in labelled]
     # F1 per species, then averaged. Averaging first and taking the F1 of the
@@ -151,7 +151,7 @@ def _rates(sp_recs, per_species):
                 "macro_recall": hc.ratio(sum(recalls), len(recalls)),
                 "macro_f1": hc.ratio(sum(f1s), len(f1s)),
                 "micro_prf1": hc.ratio(c1, n)},
-        # How many frames the model guessed each labelled species on: the
+        # How many frames the model predicted each labelled species on: the
         # denominator under every per-species precision, carried so a panel can
         # print a rate beside the population it was measured on.
         "n_guessed": {s: guessed[s] for s in labelled}}
@@ -166,7 +166,7 @@ def _confidence(sp_recs, per_species):
     the median lands somewhere else. The middle half is carried with it, since
     a median without a spread is one number standing in for a shape again.
 
-    ``when_correct`` is the mean over only the frames the first guess got
+    ``when_correct`` is the mean over only the frames the top prediction got
     right. ``health.aggregate_per_species`` has computed it per species from
     the beginning and no page has ever shown it; the corpus figure is here so
     one can.
@@ -232,7 +232,7 @@ def _coverage_sweep(sp_recs, per_species):
 
 
 def _confidence_bands(sp_recs):
-    """How often the first guess is right, by how sure the model was."""
+    """How often the top prediction is right, by how sure the model was."""
     return {"bins_all": list(rl.confidence_bands(sp_recs, top1))}
 
 

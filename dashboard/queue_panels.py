@@ -27,7 +27,7 @@ SEND_PREVIEW = 25
 QL = {"long_tail": ("Species with few labelled frames, or often wrong",
                     f"Fewer than {hc.WELL_SAMPLED_MIN_N} labelled frames, or right less "
                     f"than {pctf(hc.HARD_MAX_TOP1, 0)} of the time"),
-      "low_conf_known": ("A usually-right species, guessed weakly",
+      "low_conf_known": ("A usually-right species, predicted weakly",
                          f"Right at least {pctf(hc.RELIABLE_MIN_TOP1, 0)} of the time "
                          f"overall, but confidence under {hc.LOW_CONF:.2f} here"),
       # Named by its WAIT_CONF threshold: this queue is everything the wait
@@ -78,7 +78,7 @@ def readout_rows(c) -> list:
         return []
     closed = [r for r in hc.read_csv_rows(path) if r["status"] == "closed"]
     for r in closed:
-        if not r["corrections_lo"]:  # no labelled row had a first guess, so no interval
+        if not r["corrections_lo"]:  # no labelled row had a top prediction, so no interval
             continue
         lo, hi = float(r["corrections_lo"]), float(r["corrections_hi"])
         if not 0 <= lo <= hi <= 1 or int(r["corrections"]) > int(r["n_with_guess"]):
@@ -97,7 +97,7 @@ def readout_block(c) -> str:
                 'closed yet.</p>')
     rows = []
     for r in closed:
-        # read_round scores corrections over labelled rows that had a first guess
+        # read_round scores corrections over labelled rows that had a top prediction
         g = int(r["n_with_guess"])
         rate = (f'{pctf(int(r["corrections"]) / g)} ({pctf(float(r["corrections_lo"]))} to '
                 f'{pctf(float(r["corrections_hi"]))})') if g else "n/a"
@@ -196,7 +196,7 @@ def links_note(c) -> str:
 
 
 def p_todo(c):
-    """Species-level evidence for reviewing guesses, separate from photo priority."""
+    """Species-level evidence for reviewing predictions, separate from photo priority."""
     body = ['<ul class="todo">']
     body += [f'<li><span class="n">{c.counts[k]}</span> species '
              f'<span class="tag {k}">{esc(lab)}</span> {esc(act)}</li>'
@@ -213,10 +213,10 @@ def p_todo(c):
                 f'{hc.in_words(c.n_cand)} candidates hold exactly one species from '
                 f'it.</strong> The candidate still needs expert confirmation; '
                 f'alternatives outside the returned list remain possible.</p>')
-    return panel("How to review model guesses",
+    return panel("How to review model predictions",
                  "<b>These statuses describe model performance, not biodiversity value.</b> "
                  "Use the photo queue to choose work; use these species-level results "
-                 "to decide how closely to check a guess.",
+                 "to decide how closely to check a prediction.",
                  "\n".join(body), open_=False, anchor="cheapest-confirmation-work")
 
 
@@ -237,10 +237,10 @@ def send_pool_table(c):
                    for q in queues.QUEUE_ORDER],
                   source="send_first_queue.csv")
     # The ladder is tried in this order and the first match wins, which is the
-    # only way to read the table without contradiction: a weak guess on a rare
-    # species is long tail, not "guessed weakly".
+    # only way to read the table without contradiction: a weak prediction on a rare
+    # species is long tail, not "predicted weakly".
     body += ('<p class="note">Rows are tried top to bottom. The first one that fits '
-             'wins, so a weak guess on a rare species stays in the first queue.</p>')
+             'wins, so a weak prediction on a rare species stays in the first queue.</p>')
     return body
 
 
@@ -250,7 +250,7 @@ CALIBRATION_SCOPE = "all_species_level_gt"
 
 
 def threshold_evidence(c) -> str:
-    """How often the first guess was right at each queue cut-off, off the
+    """How often the top prediction was right at each queue cut-off, off the
     calibration table the build verified. Empty when the table or either row is
     absent, rather than a number from somewhere else. The two values are not
     changed here: the table says what each separates."""
@@ -272,11 +272,11 @@ def threshold_evidence(c) -> str:
     # One line beside the queue rules; the numbers behind it stay closed.
     return (f'<p class="note">Confidence lines: {hc.WAIT_CONF:.2f} for the wait rule, '
             f'{hc.LOW_CONF:.2f} for low confidence.</p>'
-            + more("How often the first guess was right at each line",
+            + more("How often the top prediction was right at each line",
                    f'<p class="note">On the '
                    f'{total:,} labelled frames with a species-level label, at confidence '
                    f'{hc.WAIT_CONF:.2f} or more it was {say(high)}; under {hc.LOW_CONF:.2f} it was '
-                   f'{say(low)}. A confident guess can still be wrong: '
+                   f'{say(low)}. A confident prediction can still be wrong: '
                    f'{int(high["n_wrong"]):,} frames at {hc.WAIT_CONF:.2f} or more were. '
                    f'{hc.WAIT_CONF:.2f} is the confidence line; {hc.LOW_CONF:.2f} marks low confidence. '
                    f'Both values were set by judgement, not fitted to this table; the table shows what each separates. '
@@ -316,9 +316,9 @@ def send_preview_table(c):
                'labelled photos only, so it falls down the table overall but not row '
                'by row. It is not evidence of a new species.</p>'
              + ('<p class="note">Photo links open the catalogue, which carries its own '
-                'saved labels and guesses. Queue scores remain from the snapshot above.</p>'
+                'saved labels and predictions. Queue scores remain from the snapshot above.</p>'
                 if explorer_available else '')
-             + table([("#", True), ("photo", False), ("Pl@ntNet's guess", False),
+             + table([("#", True), ("photo", False), ("Pl@ntNet's prediction", False),
                       ("confidence", True), ("frames that species has", True),
                       ("how new it looks", True)],
                      [[f"{i}", photo_links(stem),
@@ -330,7 +330,7 @@ def send_preview_table(c):
              + more("Is this order measured yet? Confidence and the random control",
                     ungraded_note(c)
                     + '<p class="note"><b>Confidence breaks ranking ties.</b> A low score '
-                      'means the model is unsure of its first guess. Check the guess '
+                      'means the model is unsure of its top prediction. Check the prediction '
                       'against the photo; the score does not confirm a label.</p>'))
     return body
 

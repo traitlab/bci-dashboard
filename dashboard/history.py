@@ -73,7 +73,7 @@ def check_per_species(directory, per_species, limits=None):
 
 
 def check_support_buckets(directory, buckets):
-    """Species grouped by labelled-frame count: counts and the first-guess rate."""
+    """Species grouped by labelled-frame count: counts and the top-prediction rate."""
     for r in hc.read_csv_rows(os.path.join(directory, "support_buckets.csv")):
         b = buckets.get(r["support_bucket"])
         if b is None:
@@ -81,7 +81,7 @@ def check_support_buckets(directory, buckets):
         if int(r["n_crowns"]) != b["n_crowns"] or int(r["n_species"]) != b["n_species"]:
             fail(f"labelled-frame group {r['support_bucket']!r} counts")
         if not close(r["top1_accuracy"], b["c1"] / b["n_crowns"]):
-            fail(f"labelled-frame group {r['support_bucket']!r} first-guess rate")
+            fail(f"labelled-frame group {r['support_bucket']!r} top-prediction rate")
     return f"support_buckets.csv: {len(buckets)} labelled-frame groups match"
 
 
@@ -107,7 +107,7 @@ def check_run_log(log, path, never_all, unscoreable, strict_hits):
             (r"excludes the (\d+) (?:crowns|frames) that are unscoreable", unscoreable,
              "unscoreable frames inside the evaluated set"),
             (r"strict top-1\s*:\s*[\d.]+%\s*\((\d+)/", strict_hits,
-             "first guesses right without name reconciliation")):
+             "top predictions right without name reconciliation")):
         m = re.search(pat, log, re.MULTILINE)
         if m is None:
             fail(f"no line for {what} in {path}")
@@ -305,7 +305,7 @@ def check_held_out(directory, result):
             fail(f"held_out.csv: {w['population']} frames: {w['n_frames']} here vs "
                  f"{r['n_frames']} in {path}")
         if str(r["n_correct_top1"]) != str(w["n_correct_top1"]):
-            fail(f"held_out.csv: {w['population']} right first guesses in {path}")
+            fail(f"held_out.csv: {w['population']} right top predictions in {path}")
         if (r["top1_accuracy"] or w["top1_accuracy"]) and not close(
                 r["top1_accuracy"], w["top1_accuracy"]):
             fail(f"held_out.csv: {w['population']} top-1 in {path}")
@@ -330,7 +330,7 @@ def check_flight_holdout(directory, flight):
             fail(f"flight_holdout.csv: {w['population']} frames: {w['n_frames']} here "
                  f"vs {r['n_frames']} in {path}")
         if str(r["n_correct_top1"]) != str(w["n_correct_top1"]):
-            fail(f"flight_holdout.csv: {w['population']} right first guesses in {path}")
+            fail(f"flight_holdout.csv: {w['population']} right top predictions in {path}")
         if (r["top1_accuracy"] or w["top1_accuracy"]) and not close(
                 r["top1_accuracy"], w["top1_accuracy"]):
             fail(f"flight_holdout.csv: {w['population']} top-1 in {path}")

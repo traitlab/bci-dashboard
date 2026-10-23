@@ -357,7 +357,7 @@ def test_the_note_over_edge_tolerance_still_counts_the_boxes_it_claims():
 
 
 def test_the_low_confidence_note_states_what_the_calibration_table_measured():
-    """`core.LOW_CONF` carries a comment saying the model's first guess is
+    """`core.LOW_CONF` carries a comment saying the model's top prediction is
     right only about 38% of the time below it. That is not a rule anyone chose,
     it is a measurement off the calibration table, and the table is rebuilt
     every run. Nothing was comparing the two, so the day the number moved the

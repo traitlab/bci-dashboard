@@ -44,7 +44,7 @@ def _summary_table(d: dict) -> str:
          _signed(d["new_frames"])],
         ["Species", f"{prev['species']:,}", f"{cur['species']:,}",
          _signed(cur["species"] - prev["species"])],
-        ["First guess right", _top1(prev), _top1(cur), top1],
+        ["Top prediction right", _top1(prev), _top1(cur), top1],
         ["Model", esc(prev["model_version"]), esc(cur["model_version"]),
          "changed" if d["version_changed"] else "same"],
     ]
@@ -73,7 +73,7 @@ def _history_table(runs: list[dict]) -> str:
              + (" (new model)" if o and o["model_version"] != e["model_version"] else "")]
             for e, o in zip(runs, older)]
     return table([("Refreshed", False), ("Export", False), ("Labelled frames", True),
-                  ("Species", True), ("First guess right", False), ("Labels changed since baseline", True),
+                  ("Species", True), ("Top prediction right", False), ("Labels changed since baseline", True),
                   ("Model", False)], rows)
 
 
@@ -87,26 +87,26 @@ def _model_note(built: str) -> str:
 
 
 def p_confused(c):
-    """The wrong first guesses that repeat: which two species the model swaps,
+    """The wrong top predictions that repeat: which two species the model swaps,
     and, once an earlier refresh recorded them, each pair's count back then."""
     then = confused_pairs.earlier(getattr(c, "changes", None))
     rows = [[f"<i>{esc(gt)}</i>", f"<i>{esc(guess)}</i>", f"{n:,}", f"{support:,}"]
             + ([f"{then[1][gt, guess]:,}" if (gt, guess) in then[1] else "new"] if then else [])
             for gt, guess, n, support in c.confused]
-    headers = [("Label", False), ("First guess", False), ("Frames", True),
+    headers = [("Label", False), ("Top prediction", False), ("Frames", True),
                ("Labelled frames of the label species", True)]
     if then:
         headers.append((esc(f"Frames at export {then[0]}"), True))
     body = (f'<p class="note">Counted over the {c.n:,} frames labelled to a species, '
-            f"every wrong first guess."
+            f"every wrong top prediction."
             + (f" The last column is the export before; new means the pair was not "
                f"among the {confused_pairs.SHOWN} most common then." if then else "")
             + "</p>"
             + table(headers, rows, source=confused_pairs.NAME)
-            if rows else '<p class="note">No first guess is wrong.</p>')
+            if rows else '<p class="note">No top prediction is wrong.</p>')
     return panel("Species the model mixes up",
                  f"<b>The pairs behind most repeated errors.</b> The {len(rows)} most common "
-                 f"wrong first guesses, as a label and the species the model named instead.",
+                 f"wrong top predictions, as a label and the species the model named instead.",
                  body, anchor="species-the-model-mixes-up")
 
 

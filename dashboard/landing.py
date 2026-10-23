@@ -25,9 +25,9 @@ from style import SELECT_ID
 # typed per card, so the card and the metric name cannot drift apart. The name
 # is the metric's own and the question is its plain-English gloss.
 HEADLINES = [
-    ("macro_top1", "Top-1 accuracy", "The first guess is right", "per species",
+    ("macro_top1", "Top-1 accuracy", "The top prediction is right", "per species",
      "each of the {n_sp} species counts once. Quote this one"),
-    ("micro_top1", "Top-1 accuracy", "The first guess is right", "per frame",
+    ("micro_top1", "Top-1 accuracy", "The top prediction is right", "per frame",
      "each frame counts once, so common species dominate"),
     ("macro_top5", "Top-{k} accuracy", "The right name is among the {k} returned",
      "per species", "capped by our {k}-name request, not by the model"),
@@ -64,7 +64,7 @@ def cards(c) -> str:
                    "When it offers a name, that name is right",
                    f"averaged over the {c.n_sp} species", "per_species_health.csv"))
     out.append(("Species it usually gets right", f"{usually} of {thick}",
-                f"First guess right at least {100 * hc.RELIABLE_MIN_TOP1:.0f}% of the time",
+                f"Top prediction right at least {100 * hc.RELIABLE_MIN_TOP1:.0f}% of the time",
                 f"among species with {hc.WELL_SAMPLED_MIN_N} or more labelled frames",
                 "per_species_health.csv"))
     # The number to quote stands alone; the other five sit closed under it. The
@@ -111,8 +111,8 @@ def populations(c) -> str:
                      ("Top-1, per species", True), ("Top-1, per frame", True),
                      (f"Top-{k}, per species", True), (f"Top-{k}, per frame", True),
                      (_h("Frames with the tree in the crop", "Frames whose centre crop shows the labelled tree, the coverage requirement the gated rates use."), True),
-                     (_h("Top-1 there, per species", "First-guess accuracy on those frames only, averaged over species."), True),
-                     (_h("Top-1 there, per frame", "First-guess accuracy on those frames only, counting each frame once."), True)], rows)))
+                     (_h("Top-1 there, per species", "Top-prediction accuracy on those frames only, averaged over species."), True),
+                     (_h("Top-1 there, per frame", "Top-prediction accuracy on those frames only, counting each frame once."), True)], rows)))
 
 
 def status_bar(c) -> str:
@@ -155,7 +155,7 @@ def by_frames(c) -> str:
                      f'{pctf(b["c1"] / b["n_crowns"])} of {b["n_crowns"]:,} frames, '
                      f'{b["n_species"]} species', BAR))
     return more("Accuracy by labelled frames per species",
-                svg_hbar(rows, title="first guess right, by labelled frames per species")
+                svg_hbar(rows, title="top prediction right, by labelled frames per species")
                 + f'<p class="note">Species with more labelled frames are named far more '
                   f'often. {few} of the {c.n_sp} species have {THIN_MAX} frames or fewer. '
                   f'<a href="#why-the-two-headline-scores-differ">Why the two top-1 rates '
