@@ -328,7 +328,7 @@ def send_preview_table(c):
                        f"{c.support.get(pred, 0):,}", esc(how_new)]
                       for i, (_, stem, pred, cf, _rank, how_new) in enumerate(head, 1)],
                      source="send_first_queue.csv")
-             + more("Is this order measured yet? Confidence and the batch 1 control",
+             + more("Is this order measured yet? Confidence and the random control",
                     ungraded_note(c)
                     + '<p class="note"><b>Confidence breaks ranking ties.</b> A low score '
                       'means the model is unsure of its first guess. Check the guess '
