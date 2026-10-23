@@ -23,7 +23,7 @@ import reference
 import run_log as rl
 from health import load_health
 from core import (
-    add_input_flags, add_label_source_flag, summarise,
+    add_input_flags, add_label_source_flag, summarise, ledger_keys, LEDGER_DIR, REPO,
     ratio, fmt, genus_of, normalize,
     coverage_gate_stats, data_row_id, diagnose, labelbox_urls, inventory_image_urls,
     inventory_origins,
@@ -72,6 +72,9 @@ def log(msg: str = "") -> None:
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=summarise(__doc__))
     add_input_flags(p)
+    p.add_argument("--ledger-dir", default=LEDGER_DIR,
+                   help="folder of round_<N>.csv ledgers; their photos are dropped from the "
+                        f"send queue (default: {os.path.relpath(LEDGER_DIR, REPO)})")
     p.add_argument("--out-dir", default=OUT_DIR,
                    help=f"directory to write the {len(OUTPUTS)} output files to")
     add_label_source_flag(p)
@@ -368,7 +371,7 @@ def calibration_scopes(h):
     return scopes, good, good_recs
 
 
-def send_queue(h):
+def send_queue(h, sent=()):
     """Which unlabelled frames reach the botanist first, as CSV rows.
 
     A cached response whose stem no GT row joined to is an unlabelled photo with
@@ -389,7 +392,7 @@ def send_queue(h):
     decided, n_no_answer, held_out = send_first_rows(
         h.predictions, h.labelled_stems, h.canon, support, top1_of,
         novelty=load_novelty(QUEUE_NOVELTY_CSV), key_prefix=GT_KEY_PREFIX,
-        splits=h.split_of)
+        splits=h.split_of, sent=sent)
     distance = load_novelty_distance(QUEUE_NOVELTY_CSV)
     # The `split` column stays even though the filter above guarantees it is
     # empty on every row now. It is the proof the filter ran: a non-empty value
@@ -473,7 +476,7 @@ def main() -> None:
                        gain.sw_short, gain.sw_full_unreachable)
     rl.log_calibration(log, scopes, top1, head.n, good, good_recs)
 
-    queue_rows, q_counts, n_no_answer, n_ranked, novelty_prov, held_out = send_queue(h)
+    queue_rows, q_counts, n_no_answer, n_ranked, novelty_prov, held_out = send_queue(h, ledger_keys(args.ledger_dir))
     # Send batches over the same priority order, capped at BATCH_SIZE rows:
     # priority-first globally, one species per batch, never a mixed bag.
     # Batched before the queue is written, because the queue row now carries the

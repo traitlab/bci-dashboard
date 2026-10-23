@@ -14,6 +14,7 @@ import csv
 import json
 import os
 
+import core as hc
 import queues
 from assets import esc
 
@@ -66,9 +67,10 @@ if(nb)nb.addEventListener('click',function(){var b=nb.getAttribute('data-batch')
 show()})();"""
 
 # The one-line hand-off, named once: the page shows it first and the labelling
-# team block repeats it. Round 1 and batch 1 are the example, as there.
-DISPATCH_CMD = ("python3 labelling/dispatch_round.py --round 1 "
-                "--csv build/tables/send_batches.csv --batch 1 --dry-run")
+# team block repeats it. The round is the one after the last ledger, the batch
+# the first one in the file.
+DISPATCH_CMD = ("python3 labelling/dispatch_round.py --round {round} "
+                "--csv build/tables/send_batches.csv --batch {batch} --dry-run")
 
 
 def _read(path):
@@ -99,6 +101,7 @@ def next_batch_block(c):
     download, and the dry-run command that follows. Batch 1 is the lowest batch
     in the file; sending status is not recorded, so the page does not claim it."""
     verify_dir = getattr(c, "verify_dir", None)
+    ledger_dir = getattr(c, "ledger_dir", hc.LEDGER_DIR)
     data = send_data(verify_dir) if verify_dir else None
     if not data or not data["rows"]:
         return ""
@@ -125,7 +128,7 @@ def next_batch_block(c):
         f'Download batch {first} as CSV</button></p>'
         '<p class="note">Then check the batch in Labelbox and run this first. '
         '<code>--dry-run</code> writes nothing and calls no API; drop it to send.</p>'
-        f'<pre class="cmd">{esc(DISPATCH_CMD)}</pre></div>')
+        f'<pre class="cmd">{esc(DISPATCH_CMD.format(round=hc.next_round(ledger_dir), batch=first))}</pre></div>')
 
 
 def _select(id_, label, values):

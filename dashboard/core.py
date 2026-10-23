@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import datetime as _dt
+import glob
 import json
 import os
 import re
@@ -53,6 +54,9 @@ PUBLICATION_WORKBOOK = os.path.join(BASE, "publication_final_list.xlsx")
 HEADLINE_LABEL_SOURCE = LABEL_SOURCE_REVIEWED
 REFERENCE_SWITCHED_ON = "2026-09-29"
 SPLITS_CSV = os.path.join(BASE, "splits.csv")
+# One round_<N>.csv per round sent, written by labelling/dispatch_round.py. The
+# queue drops what is in them: sent to Labelbox, not labelled yet.
+LEDGER_DIR = os.path.join(REPO, "input", "rounds")
 CACHE_DIR = os.path.join(BASE, "predictions", "cache")
 
 # The flight holdout labelling/draw_holdout.py drew: whole flights, tracked and
@@ -477,6 +481,21 @@ def add_label_source_flag(p) -> None:
                         f"other population is reported beside it. {LABEL_SOURCE_ALL} "
                         f"scores every row, the only choice for a GT without the column "
                         f"(default: {HEADLINE_LABEL_SOURCE})")
+
+
+def ledger_keys(ledger_dir: str = LEDGER_DIR) -> set[str]:
+    """Every global_key in any round_*.csv ledger; no ledger is an empty set."""
+    keys = set()
+    for path in sorted(glob.glob(os.path.join(ledger_dir, "round_*.csv"))):
+        keys |= {(r.get("global_key") or "").strip() for r in read_csv_rows(path)}
+    return keys - {""}
+
+
+def next_round(ledger_dir: str = LEDGER_DIR) -> int:
+    """The highest ledger round plus one; 1 when nothing has been sent."""
+    nums = [int(m.group(1)) for p in glob.glob(os.path.join(ledger_dir, "round_*.csv"))
+            if (m := re.fullmatch(r"round_(\d+)\.csv", os.path.basename(p)))]
+    return max(nums, default=0) + 1
 
 
 def read_csv_rows(path: str) -> list[dict]:

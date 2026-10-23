@@ -472,7 +472,7 @@ def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> st
 
 
 def send_first_rows(predictions, joined_stems, canon, support, top1,
-                    novelty=None, key_prefix="", splits=None) -> tuple:
+                    novelty=None, key_prefix="", splits=None, sent=()) -> tuple:
     """Every unlabelled frame's queue, in the order send_first_queue.csv writes.
 
     Returns ``([(queue, stem, species, confidence, novelty_rank), ...],
@@ -497,13 +497,16 @@ def send_first_rows(predictions, joined_stems, canon, support, top1,
     vanishes from a work queue with nothing said is how a count moves and
     nobody can explain why. ``None`` holds nothing out, which is the behaviour
     a caller with no splits file gets.
+
+    ``sent`` is the keys in the round ledgers, keyed like ``novelty``: sent to
+    Labelbox and not labelled yet, so they are not the next thing to send.
     """
     novelty = novelty or {}
     splits = splits or {}
     rows, n_no_answer = [], 0
     held_out: Counter = Counter()
     for stem in sorted(predictions):
-        if stem in joined_stems:
+        if stem in joined_stems or key_prefix + stem in sent:
             continue
         split = splits.get(key_prefix + stem, "")
         if split:

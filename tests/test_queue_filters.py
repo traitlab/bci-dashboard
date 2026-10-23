@@ -93,3 +93,12 @@ def test_send_file_without_mission_and_site_columns_still_builds(queue_filters, 
     html = queue_filters.send_filters(SimpleNamespace(verify_dir=str(tmp_path)))
     assert 'id="f-mission"><option value="">all</option></select>' in html
     assert 'id="f-site"><option value="">all</option></select>' in html
+
+
+def test_next_batch_block_offers_the_round_after_the_last_ledger(queue_filters, tables, tmp_path):
+    (tmp_path / "round_1.csv").write_text("round,global_key\n1,k1\n", encoding="utf-8")
+    (tmp_path / "round_2.csv").write_text("round,global_key\n", encoding="utf-8")
+    c = SimpleNamespace(verify_dir=str(tables), ledger_dir=str(tmp_path))
+    assert "--round 3 --csv build/tables/send_batches.csv --batch 1" in queue_filters.next_batch_block(c)
+    c.ledger_dir = str(tmp_path / "none")
+    assert "--round 1 --csv" in queue_filters.next_batch_block(c)

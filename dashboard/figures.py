@@ -312,7 +312,7 @@ def _queue(h, support, per_species):
     rows, n_no_answer, held_out = queues.send_first_rows(
         h.predictions, joined_stems, h.canon, support, acc_of,
         novelty=queues.load_novelty(hc.QUEUE_NOVELTY_CSV), key_prefix=hc.GT_KEY_PREFIX,
-        splits=h.split_of)
+        splits=h.split_of, sent=hc.ledger_keys())
     # Each row gains how new the photo looks: the distance the ordering was
     # sorted on, three decimals, blank when the photo was never ranked. Read
     # off the same file `load_novelty` reads, through the accessor

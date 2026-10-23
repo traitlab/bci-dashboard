@@ -100,20 +100,11 @@ def load_selection_csv(csv_path: Path, batch_id: str | None = None) -> list[str]
     return global_keys
 
 
-def _keys_in(path: Path) -> set[str]:
-    """Every global_key in a CSV; an absent file is an empty record."""
-    if not path.exists():
-        return set()
-    with open(path, newline="", encoding="utf-8") as f:
-        return {(r.get("global_key") or "").strip() for r in csv.DictReader(f)} - {""}
-
-
 def already_sent(gt_path: Path = GT_CSV, ledger_dir: Path = LEDGER_DIR) -> set[str]:
     """Keys that went out in an earlier round: closed-round GT plus every ledger."""
-    sent = _keys_in(gt_path)
-    for path in sorted(ledger_dir.glob("round_*.csv")):
-        sent |= _keys_in(path)
-    return sent
+    gt = ({(r.get("global_key") or "").strip() for r in core.read_csv_rows(str(gt_path))}
+          if gt_path.exists() else set())  # an absent file is an empty record
+    return (gt - {""}) | core.ledger_keys(str(ledger_dir))
 
 
 def skip_sent(global_keys: list[str], sent: set[str]) -> tuple[list[str], list[str]]:
