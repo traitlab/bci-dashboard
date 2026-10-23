@@ -5,7 +5,8 @@ which page carries which, so a panel names its audience once. ``render`` groups
 the chosen panels into sections; ``run`` is both builders' ``main()``.
 
 The panels themselves live in ``panels.py``, ``queue_panels.py``,
-``queue_why_panels.py`` and ``confirmatory_panels.py``. This module knows what a page is made of, never
+``queue_why_panels.py``, ``confirmatory_panels.py``, ``history_panels.py`` and
+``mission_scope.py``. This module knows what a page is made of, never
 what a panel says.
 """
 
@@ -24,6 +25,7 @@ from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
 from site_navigation import FAVICON, navigation
 from confirmatory_panels import p_floor
 from history_panels import p_changes, p_confused
+from mission_scope import p_sites
 from panels import (
     _hint, p_calibration, p_ceiling, p_counts, p_coverage, p_method, p_review, p_species,
     p_terms, p_weighting)
@@ -81,6 +83,8 @@ PANELS = {
     # What the last Labelbox export changed, off the refresh manifest.
     "changes": ("model-health", p_changes),
     "confused": ("model-health", p_confused),
+    # Drone teams work by site and mission (feedback F4): the same counts split.
+    "sites": ("model-health", p_sites),
     # "weighting" carries the support-vs-accuracy chart. It is an explanation
     # of the two headline rates, so it belongs here.
     "weighting": ("explanations", p_weighting),
@@ -105,7 +109,7 @@ PANELS = {
 INTERNAL_PANELS = ("send", "todo", "look", "evidence")
 # Order inside a section is the order these ids are listed in; the sections
 # themselves order the page. The species table leads; definitions close.
-EXTERNAL_PANELS = ("species", "review", "confused", "changes",
+EXTERNAL_PANELS = ("species", "review", "confused", "sites", "changes",
                    "floor", "weighting", "coverage", "calibration", "terms", "counts",
                    "ceiling", "method")
 

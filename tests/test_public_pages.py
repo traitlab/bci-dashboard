@@ -286,3 +286,7 @@ def test_the_scope_byline_counts_every_frame_the_fixture_holds(synthetic_page):
     )
     assert 'Counted in <a href="scope.csv">scope.csv</a>.' in html
     assert "scope.csv: 1 mission and site rows match" in stdout
+    if "How well does Pl@ntNet" in html:
+        # The headline's 24 right of 33 species-level frames, all at one site.
+        sites = html.split('id="by-site-and-mission"')[1].split("</details>")[0]
+        assert "72.7% of 33" in sites
