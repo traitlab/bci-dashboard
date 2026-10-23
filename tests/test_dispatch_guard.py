@@ -27,9 +27,9 @@ def run(dispatch_round, tmp_path, monkeypatch):
     """Run main() on a 3-key batch where ``old.JPG`` is in the closed-round GT."""
     d = dispatch_round
     csv_path = tmp_path / "send_batches.csv"
-    _write(csv_path, ["batch_id", "global_key", "picked_by", "queue"],
-           [["1", "old.JPG", "queue", "q"], ["1", "new1.JPG", "queue", "q"],
-            ["1", "new2.JPG", "control", "q"]])
+    _write(csv_path, ["batch_id", "global_key", "picked_by", "queue", "data_row_id"],
+           [["1", "old.JPG", "queue", "q", ""], ["1", "new1.JPG", "queue", "q", ""],
+            ["1", "new2.JPG", "control", "q", ""]])
     gt = tmp_path / "gt.csv"
     _write(gt, ["global_key", "wcvp_canonical_name"], [["old.JPG", "x"]])
     ledger = tmp_path / "rounds"
