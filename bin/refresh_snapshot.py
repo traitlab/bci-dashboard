@@ -384,6 +384,9 @@ def refresh(
         tables = rendered / "tables"
         env["BCI_DASHBOARD_TABLES"] = str(tables)
         run(repo, "dashboard/measure.py", "--out-dir", str(tables), env=env)
+        # The queue page reads this from the tables it verifies against. No ledger
+        # yet writes nothing and the page says pending. It is not linked, so not published.
+        run(repo, "labelling/read_round.py", "--all", "--out", str(tables / "round_readout.csv"), env=env)
         # Temporary output paths are presentation details, not source provenance.
         # Canonicalize those paths so an identical retry keeps the dated snapshot.
         run_log = tables / "run_log.txt"

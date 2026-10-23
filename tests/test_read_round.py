@@ -139,3 +139,12 @@ def test_later_keys_come_from_the_ledgers_round_not_batch_id(rr, files):
     sent, gt, guess = load_inputs(rr, files)
     res = rr.read_round(sent, {**gt, "p9": "fresh"}, guess, 2)  # p3 made fresh known in round 1
     assert res["arms"]["prioritised"]["new_rows"] == 0
+
+
+def test_all_with_no_ledger_is_a_clean_no_op(rr, tmp_path, monkeypatch, capsys):
+    out = tmp_path / "round_readout.csv"
+    monkeypatch.setattr("sys.argv", ["read_round", "--all", "--ledger-dir", str(tmp_path / "none"),
+                                     "--out", str(out)])
+    rr.main()
+    assert "nothing to read" in capsys.readouterr().out
+    assert not out.exists()

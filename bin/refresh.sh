@@ -91,6 +91,8 @@ fi
 # any snapshot, records that, which is how a snapshot from before the switch is
 # told apart.
 python3 dashboard/measure.py --out-dir "$REPO/build/tables" > /dev/null
+# The queue page's prioritised-vs-control readout; with no round ledger it writes nothing.
+python3 labelling/read_round.py --all --out "$REPO/build/tables/round_readout.csv" > /dev/null
 
 python3 dashboard/build_external.py \
   --out "$REPO/build/model_health_dashboard.html" --generated "$TODAY"

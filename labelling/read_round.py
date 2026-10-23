@@ -153,6 +153,10 @@ def main() -> None:
         sent = [{**r, "round": r["batch_id"]} for r in read_rows(args.sent)]
     else:
         sent = [r for p in sorted(args.ledger_dir.glob("round_*.csv")) for r in read_rows(p)]
+        if not sent and args.all:
+            # Nothing dispatched yet: the page already says pending without the file.
+            print(f"no round ledger rows in {args.ledger_dir}; nothing to read")
+            return
         if not sent:
             sys.exit(f"ERROR: no round ledger rows in {args.ledger_dir}.")
     # No GT file yet means no round has been closed: pending, not an error.
