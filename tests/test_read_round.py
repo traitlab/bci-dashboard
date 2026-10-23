@@ -108,3 +108,15 @@ def test_cli_all_with_no_gt_file_is_pending(rr, files, monkeypatch, capsys):
                                      "--gt", str(files / "missing.csv"), "--out", str(files / "o.csv")])
     rr.main()
     assert "pooled: pending" in capsys.readouterr().out
+
+
+def test_queue_page_reads_the_csv_read_round_writes(rr, files, monkeypatch, queue_panels):
+    from types import SimpleNamespace
+    out = files / "round_readout.csv"
+    monkeypatch.setattr("sys.argv", ["read_round", "--round", "1", "--sent", str(files / "sent.csv"),
+                                     "--queue", str(files / "queue.csv"), "--gt", str(files / "gt.csv"),
+                                     "--out", str(out)])
+    rr.main()
+    html = queue_panels.readout_block(SimpleNamespace(verify_dir=str(files)))
+    assert "pending" not in html
+    assert ">prioritised<" in html and ">random control<" in html
