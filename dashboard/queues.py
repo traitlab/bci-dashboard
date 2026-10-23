@@ -323,9 +323,11 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
                        species_cap: int = SPECIES_CAP) -> list:
     """Species-grouped, priority-first batches over an already-ordered
     ``queue_rows`` (send_first_queue.csv order). Each species is visited once,
-    at its highest-priority row; its rows travel together, packed whole until
-    the next would overflow the batch, which then opens the next one. A species
-    larger than the room a batch has is cut at that room.
+    at its highest-priority row; its rows travel together. Every batch is filled
+    to its room: the species that would overflow it is cut there, and its rest
+    opens the next batch, so a species sits together inside a batch without
+    having to be whole. A batch is short only when it is the last or every species
+    left already holds its cap in it.
 
     No batch holds more than ``species_cap`` queue rows of one predicted
     species. The rows past it keep their place in the queue, in their rank
@@ -391,11 +393,8 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
             if room_sp <= 0:
                 j += 1
                 continue
-            take = rows[:room_sp]
-            if held and held + len(take) > cap:
-                break
-            # An oversized species fills the batch; the rest opens the next one.
-            take = take[:cap - held]
+            # A species larger than the room left fills it; the rest opens the next batch.
+            take = rows[:min(room_sp, cap - held)]
             if len(take) < len(rows):
                 pending[j] = (sp, rows[len(take):])
             else:
@@ -404,6 +403,8 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
             held += len(take)
             held_by[sp] += len(take)
             taken.update(take)
+            if held == cap:
+                break
         if not pieces:
             break
         batch_id += 1
