@@ -165,14 +165,19 @@ jobs:
           restore-keys: embeddings-labelled-
       - name: Fetch the previous run's refresh manifest
         # The change log needs the earlier runs' lines and CI keeps no snapshots.
-        # A missing artifact (first run, or older than its retention) starts the
-        # history again, which the page states.
+        # No unexpired artifact (first run, or older than its retention) starts the
+        # history again, which the page states. Any other failure fails the job,
+        # so a one-line manifest never shadows the real history.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p history
-          if ! gh run download --repo "$GITHUB_REPOSITORY" --name refresh-manifest --dir history; then
+          found=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=refresh-manifest" --jq '[.artifacts[]|select(.expired|not)]|length')
+          if [ "$found" = "0" ]; then
             echo "::warning::no earlier refresh-manifest artifact; the change log starts here"
+          else
+            gh run download --repo "$GITHUB_REPOSITORY" --name refresh-manifest --dir history \
+              || { sleep 10; gh run download --repo "$GITHUB_REPOSITORY" --name refresh-manifest --dir history; }
           fi
       - name: Recompute, verify, and stage the public snapshot offline
         env:
@@ -200,6 +205,7 @@ jobs:
           name: refresh-manifest
           path: history/manifest.jsonl
           retention-days: 90
+          overwrite: true
       - name: Save the per-photo vectors even when the build fails
         # A fetch costs seconds per photo. Keeping it when a later step fails
         # means the next run resumes instead of fetching the same photos again.
