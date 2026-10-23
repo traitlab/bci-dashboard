@@ -104,3 +104,38 @@ def test_an_unreadable_line_is_skipped_with_a_warning(manifest, tmp_path, capsys
     assert [x["export"] for x in manifest.read(str(path))] == ["2026-10-19"]
     out = capsys.readouterr().out
     assert "::warning::" in out and "line 2" in out and "line 3" in out
+
+
+@pytest.mark.parametrize("before, after, n", [
+    ({}, {"f1": "a"}, 0),
+    ({"f1": "a", "f2": "b"}, {"f1": "a", "f2": "b"}, 0),
+    ({"f1": "a", "f2": "b", "f3": "c"}, {"f1": "x", "f2": "b", "f3": "y"}, 2),
+    # A removed frame and a new frame are not relabels.
+    ({"f1": "a", "f2": "b"}, {"f1": "a", "f9": "z"}, 0),
+])
+def test_a_relabel_is_a_frame_in_both_exports_with_a_different_label(manifest, before, after, n):
+    assert manifest.count_relabels(before, after) == n
+
+
+def test_the_entry_stores_only_the_count_and_the_default_is_unknown(manifest, tmp_path):
+    d = tables(tmp_path / "t", {"a": 1})
+    assert manifest.entry(d, run_date="2026-10-20", export="2026-10-19", frames=1)["relabels_vs_baseline"] is None
+    e = manifest.entry(d, run_date="2026-10-20", export="2026-10-19", frames=1, relabels_vs_baseline=3)
+    assert e["relabels_vs_baseline"] == 3
+
+
+def test_read_labels_maps_frame_to_label(manifest, tmp_path):
+    p = tmp_path / "gt.csv"
+    p.write_text("global_key,wcvp_canonical_name\nf1,Hura crepitans\n", encoding="utf-8")
+    assert manifest.read_labels(str(p)) == {"f1": "Hura crepitans"}
+
+
+def test_a_rerun_of_the_same_export_keeps_the_relabel_count(manifest, tmp_path):
+    path = str(tmp_path / "manifest.jsonl")
+    first = manifest.entry(tables(tmp_path / "t1", {"a": 12}), run_date="2026-10-20",
+                           export="2026-10-19", frames=12, relabels_vs_baseline=4)
+    manifest.append(path, first)
+    rerun = manifest.entry(tables(tmp_path / "t2", {"a": 13}), run_date="2026-10-21",
+                           export="2026-10-19", frames=13, relabels_vs_baseline=0)
+    assert manifest.append(path, rerun) is True
+    assert manifest.read(path)[0]["relabels_vs_baseline"] == 4

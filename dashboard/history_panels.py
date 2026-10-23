@@ -21,6 +21,12 @@ def _signed(n: int) -> str:
     return f"{n:+,}"
 
 
+def _relabels(e: dict) -> str:
+    """Frames whose label differs from the baseline ground truth, a dash when unknown."""
+    n = e.get("relabels_vs_baseline")
+    return "-" if n is None else f"{n:,}"
+
+
 def _top1(e: dict) -> str:
     """The rate with the population and frame count it is over."""
     return (f"{pctf(e['test_top1'])} of {e['test_n']:,} test frames"
@@ -62,12 +68,13 @@ def _history_table(runs: list[dict]) -> str:
     # Newest first, so a line's model is compared with the next line down.
     older = runs[1:] + [None]
     rows = [[esc(e["run_date"]), esc(e["export"]), f"{e['labelled']:,}", f"{e['species']:,}",
-             _top1(e),
+             _top1(e), _relabels(e),
              esc(e["model_version"])
              + (" (new model)" if o and o["model_version"] != e["model_version"] else "")]
             for e, o in zip(runs, older)]
     return table([("Refreshed", False), ("Export", False), ("Labelled frames", True),
-                  ("Species", True), ("First guess right", False), ("Model", False)], rows)
+                  ("Species", True), ("First guess right", False), ("Labels changed since baseline", True),
+                  ("Model", False)], rows)
 
 
 def _model_note(built: str) -> str:
@@ -130,7 +137,10 @@ def p_changes(c):
                 + _moved_table(d))
     if runs:
         body += (f'<p class="note">The last {len(runs)} update{"" if len(runs) == 1 else "s"}, '
-                 f"newest first.</p>" + _history_table(runs))
+                 f"newest first.</p>" + _history_table(runs)
+                 + '<p class="note">Labels changed since baseline counts frames labelled in both '
+                 'the baseline ground truth and now with a different species. It is cumulative, '
+                 'not per refresh, and only the count is recorded.</p>')
     body = _model_note(c.generated) + body
     return panel("Since the last update",
                  "<b>Read this before comparing today's rates with an earlier visit.</b> "

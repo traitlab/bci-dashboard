@@ -444,6 +444,29 @@ def test_one_usable_export_among_empty_ones_still_merges(tmp_path):
     assert status["labelbox_export_date"] == "2026-10-15"
 
 
+def test_the_manifest_counts_frames_the_merge_relabelled_against_the_baseline(tmp_path):
+    fixture_repo(tmp_path)
+    (tmp_path / "data/gt_dominant_taxon.csv").write_text(
+        "global_key,wcvp_canonical_name\ncomb_one.JPG,Baseline species\n"
+    )
+    export = fixture_export(tmp_path)
+    args = ("--export", str(export), "--export-date", "2026-10-15")
+    # No recorded refresh: nothing to compare, so the count is unknown.
+    assert invoke(tmp_path, *args).returncode == 0
+    first = tmp_path / "history/manifest.jsonl"
+    assert json.loads(first.read_text())["relabels_vs_baseline"] is None
+    # With one recorded, the export's label for the same frame differs from the baseline.
+    (tmp_path / "data/gt_dominant_taxon.csv").write_text(
+        "global_key,wcvp_canonical_name\ncomb_one.JPG,Baseline species\n"
+    )
+    old = json.loads(first.read_text())
+    first.write_text(json.dumps({**old, "export": "2026-10-01"}) + "\n")
+    result = invoke(tmp_path, *args)
+    assert result.returncode == 0, result.stderr
+    last = [json.loads(x) for x in first.read_text().splitlines()][-1]
+    assert last["export"] == "2026-10-15" and last["relabels_vs_baseline"] == 1
+
+
 @pytest.mark.parametrize(
     "kind", ["private-file", "symlink", "allowed-symlink", "directory"]
 )
