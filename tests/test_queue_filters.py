@@ -83,6 +83,13 @@ def test_next_batch_block_states_size_download_and_dry_run_first(queue_filters, 
     assert "send_batch_1.csv --dry-run</pre>" in html
 
 
+def test_next_batch_block_says_why_a_batch_is_short_and_its_control_share(queue_filters, tables):
+    html = queue_filters.next_batch_block(SimpleNamespace(verify_dir=str(tables)))
+    assert ("It stops at 2 because the next species, <i>odd, &quot;name&quot;</i> (1 photo), "
+            "does not fit the room left, so it starts the next batch.") in html
+    assert "About 15% of every batch is random control." in html
+
+
 def test_next_batch_block_is_empty_without_the_send_file(queue_filters, tmp_path):
     assert queue_filters.next_batch_block(SimpleNamespace(verify_dir=str(tmp_path))) == ""
 

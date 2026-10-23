@@ -117,12 +117,22 @@ def next_batch_block(c):
     spread = (f'{n_groups:,} species group{"" if n_groups == 1 else "s"}' if mode == "species"
               else f"{n_groups:,} species")
     n_batches = max(int(r[at["batch_id"]]) for r in data["rows"])
+    # Say why a batch is short of the cap: the next species did not fit the room left.
+    later = [r for r in data["rows"] if int(r[at["batch_id"]]) > int(first) and r[at["picked_by"]] != "control"]
+    short = ""
+    if mode == "species" and later and len(rows) < queues.BATCH_SIZE:
+        nxt = later[0][at["species_group"]]
+        n_nxt = sum(1 for r in data["rows"] if r[at["species_group"]] == nxt and r[at["picked_by"]] != "control")
+        short = (f'It stops at {len(rows):,} because the next species, <i>{esc(nxt)}</i> '
+                 f'({n_nxt:,} photo{"" if n_nxt == 1 else "s"}), does not fit the room left, so it starts the next batch. '
+                 f'Species stay together; one larger than a batch fills whole batches. ')
     return (
         '<div class="rec" id="next-batch">'
         f'<h2>Next batch: {len(rows):,} photos, {how}</h2>'
         f'<p>Batch {first} holds {len(rows):,} photos in {spread}{control}. '
         f'The file has {len(data["rows"]):,} photos in {n_batches:,} batches of at most '
-        f'{queues.BATCH_SIZE}. '
+        f'{queues.BATCH_SIZE}. {short}'
+        f'About {queues.CONTROL_FRACTION:.0%} of every batch is random control. '
         f'<button type="button" class="primary" id="f-next" data-batch="{first}">'
         f'Download batch {first} as CSV</button></p>'
         '<p class="note">Then check the batch in Labelbox and run this first. '
