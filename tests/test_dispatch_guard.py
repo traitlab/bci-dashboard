@@ -107,12 +107,13 @@ def test_no_ledger_and_no_gt_means_nothing_skipped(dispatch_round, tmp_path):
     assert dispatch_round.skip_sent([], {"x"}) == ([], [])
 
 
-def test_a_real_send_stops_when_the_gt_file_is_absent(run, dispatch_round, tmp_path, monkeypatch):
+def test_a_real_send_and_a_dry_run_stop_when_the_gt_file_is_absent(run, dispatch_round, tmp_path, monkeypatch):
     monkeypatch.setattr(dispatch_round, "GT_CSV", tmp_path / "missing_gt.csv")
     with pytest.raises(SystemExit, match="ground-truth file"):
         run()
     assert not run.ledger.exists()
-    run("--dry-run")  # a dry run writes nothing and stays allowed
+    with pytest.raises(SystemExit, match="ground-truth file"):
+        run("--dry-run")  # a dry run must fail the way the real send does
 
 
 def test_rows_labelbox_refused_are_dropped_from_the_ledger_and_re_sent(run):

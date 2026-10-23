@@ -374,6 +374,12 @@ def main() -> None:
     if not args.csv.exists():
         sys.exit(f"ERROR: {args.csv} not found.")
 
+    # Checked before the dry run too, so it fails exactly as the real send would.
+    if not GT_CSV.exists():
+        # Without it every closed round's keys look unsent and would go out again.
+        sys.exit(f"ERROR: ground-truth file {GT_CSV} not found; cannot tell what was "
+                 f"already sent. Set BCI_DASHBOARD_DATA or restore the file.")
+
     config = settings.load_config()
     combined_dataset_name = config["labelbox"]["combined_dataset_name"]
     project_b_name = config["labelbox"]["project_b_name"]
@@ -397,10 +403,6 @@ def main() -> None:
               f"{args.round}. Nothing written, no API call made.")
         return
 
-    if not GT_CSV.exists():
-        # Without it every closed round's keys look unsent and would go out again.
-        sys.exit(f"ERROR: ground-truth file {GT_CSV} not found; cannot tell what was "
-                 f"already sent. Set BCI_DASHBOARD_DATA or restore the file.")
     client = lb.Client(api_key=settings.api_key())
 
     print(f"\nStep 2 - Fetching data row IDs from '{combined_dataset_name}'...")
