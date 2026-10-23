@@ -63,9 +63,10 @@ CAVEATS = ("Photo counts do not measure tree abundance.",
 
 
 GLOSSARY = (
-    ("Close-up", "One close-up drone photo of a tree crown. A frame is the same thing."),
+    ("Close-up", "One drone photo, aimed at one tree crown. A frame is the same thing. It can show more crowns than the one it is aimed at."),
     ("Crown", "The top of one tree, as seen from the drone."),
-    ("Centre crown", "The crown in the middle of a frame. Each frame is assigned to its centre crown."),
+    ("Centre crown", "The crown the frame is aimed at. Pl@ntNet is sent the centre crop, the middle square of the frame, which should hold this crown. "
+                     "The label of the frame is the species with the most crown area in the whole frame, usually this crown but not always."),
     ("Segmentation version", "A run of the tool that outlines crowns in the mission map. The version can differ from mission to mission."),
     ("Mission", "One drone flight session over a site. Each frame belongs to one mission."),
 )
