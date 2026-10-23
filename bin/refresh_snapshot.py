@@ -334,6 +334,20 @@ def refresh(
         BCI_DASHBOARD_SNAPSHOTS=str(snapshots),
         BCI_WCVP_CACHE=str(data / "wcvp_cache.json"),
     )
+    sys.path.insert(0, str(REPO / "dashboard"))
+    import manifest
+
+    # Labels before this export merges in. CI restores the fixed baseline bundle each
+    # run, so this counts frames differing from the baseline, not from the last refresh.
+    # No recorded refresh leaves the count unknown.
+    recorded_manifest = repo / "history" / "manifest.jsonl"
+    labels_before = (
+        manifest.read_labels(str(data / "gt_dominant_taxon.csv"))
+        if exports
+        and manifest.read(str(recorded_manifest))
+        and (data / "gt_dominant_taxon.csv").is_file()
+        else None
+    )
     # Validate the reviewed workbook before a merge changes accumulated GT.
     run(repo, "labelling/gt_from_publication.py", "--check", env=env)
     flags = [value for path in exports for value in ("--export", str(path))]
@@ -409,15 +423,11 @@ def refresh(
             encoding="utf-8", newline=""
         ) as source:
             label_count = sum(1 for _ in csv.DictReader(source))
-        recorded_manifest = repo / "history" / "manifest.jsonl"
         staged_manifest = stage / "history" / "manifest.jsonl"
         staged_manifest.parent.mkdir()
         if recorded_manifest.is_file():
             shutil.copy2(recorded_manifest, staged_manifest)
         env["BCI_DASHBOARD_MANIFEST"] = str(staged_manifest)
-        sys.path.insert(0, str(REPO / "dashboard"))
-        import manifest
-
         manifest.append(
             str(staged_manifest),
             manifest.entry(
@@ -425,6 +435,14 @@ def refresh(
                 run_date=generated,
                 export=export_date or export_source_date or generated,
                 frames=label_count,
+                relabels_vs_baseline=(
+                    None
+                    if labels_before is None
+                    else manifest.count_relabels(
+                        labels_before,
+                        manifest.read_labels(str(data / "gt_dominant_taxon.csv")),
+                    )
+                ),
             ),
         )
         published = stage / "docs"

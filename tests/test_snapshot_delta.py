@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import re
 from types import SimpleNamespace
 
 import public_snapshot as fixture
@@ -84,6 +85,30 @@ def test_the_panel_carries_each_rate_with_its_frame_count(mods):
     assert "No longer labelled: <i>old</i>." in html
     assert html.index("<i>hura</i></td>") < html.index("<i>swartzia</i></td>")
     assert "—" not in html
+
+
+def labels_changed_cells(html):
+    """The history table's Labels changed since baseline cells, newest first."""
+    head = html[html.index("Refreshed"):]
+    cols = re.findall(r"<th[^>]*>(.*?)</th>", head.split("</tr>")[0])
+    i = cols.index("Labels changed since baseline")
+    rows = head.split("</tr>")[1:]
+    return [re.findall(r"<td[^>]*>(.*?)</td>", r)[i] for r in rows if "<td" in r]
+
+
+def test_the_history_shows_labels_changed_with_a_dash_when_unknown(mods):
+    first = line("2026-10-01", {"hura": 20})
+    none = {**line("2026-10-08", {"hura": 20}), "relabels_vs_baseline": 0}
+    some = {**line("2026-10-15", {"hura": 20}), "relabels_vs_baseline": 1234}
+    # Newest first: a count, a real zero, then the first refresh as a dash.
+    assert labels_changed_cells(render(mods, [first, none, some])) == ["1,234", "0", "-"]
+
+
+def test_the_public_panel_carries_only_the_count(mods):
+    html = render(mods, [A, {**B, "relabels_vs_baseline": 7}])
+    assert ">7<" in html
+    for leak in ("gt_species", "recorded_label", "labelbox.com", "global_key"):
+        assert leak not in html
 
 
 def test_the_panel_without_history_says_so_plainly(mods):

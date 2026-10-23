@@ -26,11 +26,25 @@ REQUIRED = {"run_date", "export", "frames", "labelled", "species", "test_n", "te
             "test_top1", "model_version", "species_counts"}
 
 
-def entry(tables_dir: str, *, run_date: str, export: str, frames: int) -> dict:
+def read_labels(path: str) -> dict[str, str]:
+    """Frame key to species label off a ground-truth CSV. Kept in memory only."""
+    return {r["global_key"]: r["wcvp_canonical_name"] for r in hc.read_csv_rows(path)}
+
+
+def count_relabels(before: dict[str, str], after: dict[str, str]) -> int:
+    """Frames in both exports whose label differs. A frame in only one is new or
+    removed, not relabelled. Only this count leaves the function, never a name."""
+    return sum(1 for k, v in before.items() if k in after and after[k] != v)
+
+
+def entry(tables_dir: str, *, run_date: str, export: str, frames: int,
+          relabels_vs_baseline: int | None = None) -> dict:
     """One manifest line off a measure.py table directory.
 
     ``frames`` is every frame a botanist has labelled at all; ``labelled`` is the
     subset labelled to a species and scored, the population the rates are over.
+    ``relabels_vs_baseline`` is ``count_relabels`` of the baseline ground truth against
+    the merged one (cumulative, not per refresh), None when not compared.
     """
     rows = hc.read_csv_rows(os.path.join(tables_dir, "per_species_health.csv"))
     if not rows:
@@ -55,6 +69,8 @@ def entry(tables_dir: str, *, run_date: str, export: str, frames: int) -> dict:
         "model_version": hc.PLANTNET_MODEL_VERSION,
         "reference": reference.read(tables_dir),
         "species_counts": dict(sorted(counts.items())),
+        # Not in REQUIRED: older lines lack it and the panel shows a dash.
+        "relabels_vs_baseline": relabels_vs_baseline,
         # Not in REQUIRED: lines written before the table existed lack it.
         "confused_pairs": confused_pairs.read(tables_dir),
     }
@@ -102,6 +118,9 @@ def append(path: str, new: dict) -> bool:
         if new["export"] < lines[newest]["export"]:
             return False
         if new["export"] == lines[newest]["export"]:
+            # A rerun merges the same export onto itself and would count 0.
+            if lines[newest].get("relabels_vs_baseline") is not None:
+                new = {**new, "relabels_vs_baseline": lines[newest]["relabels_vs_baseline"]}
             if _same(lines[newest], new):
                 return False
             lines[newest] = new
