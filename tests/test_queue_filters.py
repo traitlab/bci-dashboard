@@ -85,3 +85,11 @@ def test_next_batch_block_states_size_download_and_dry_run_first(queue_filters, 
 
 def test_next_batch_block_is_empty_without_the_send_file(queue_filters, tmp_path):
     assert queue_filters.next_batch_block(SimpleNamespace(verify_dir=str(tmp_path))) == ""
+
+
+def test_send_file_without_mission_and_site_columns_still_builds(queue_filters, tmp_path):
+    (tmp_path / "send_batches.csv").write_text(
+        "batch_id,species_group,global_key,queue\n1,a,k1,normal\n", encoding="utf-8")
+    html = queue_filters.send_filters(SimpleNamespace(verify_dir=str(tmp_path)))
+    assert 'id="f-mission"><option value="">all</option></select>' in html
+    assert 'id="f-site"><option value="">all</option></select>' in html

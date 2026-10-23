@@ -141,7 +141,8 @@ def send_filters(c):
     if not data or not data["rows"]:
         return ""
     h = data["header"]
-    uniq = lambda col: sorted({r[h.index(col)] for r in data["rows"] if r[h.index(col)]})
+    # A send file written before a column existed gives no options; the JS skips that filter.
+    uniq = lambda col: sorted({r[h.index(col)] for r in data["rows"] if r[h.index(col)]}) if col in h else []
     blob = json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/")
     n = len(data["rows"])
     return (
