@@ -1,8 +1,8 @@
 """Read out a closed round: prioritised arm against the random control.
 
-Batch 1 carries `CONTROL_FRACTION` of rows drawn at random from the whole pool,
-marked `picked_by == control`; later batches carry none. Once the botanists' labels are in the GT file, those rows are a free randomised
-comparison. Per arm this prints n, the share of labels that differ from the
+Every batch carries `CONTROL_FRACTION` of its rows drawn at random from the photos not
+sent yet, marked `picked_by == control`. Once the botanists' labels are in the GT file,
+those rows are a free randomised comparison, round by round. Per arm this prints n, the share of labels that differ from the
 model's first guess (corrections), the rows whose species was new to the
 project at that round, and the rows whose species was long-tail (fewer than
 `WELL_SAMPLED_MIN_N` labelled crowns before the round), each with a Wilson 95%

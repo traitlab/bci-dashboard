@@ -56,8 +56,8 @@ def test_queue_preview_without_explorer_keeps_exact_available_links(queue_panels
 def test_batch_comparison_uses_actual_packed_size(queue_panels):
     c = SimpleNamespace(selection_audit=None, n_batch1=95, queue_rows=[None] * 100)
     html = queue_panels.ungraded_note(c)
-    assert "15 of its 95 photos" in html
-    assert "15 of its 100 photos" not in html
+    assert "15 of the 95 photos in batch 1" in html
+    assert "15 of the 100 photos in batch 1" not in html
 
 
 def test_dispatch_description_calls_test_a_live_action(queue_panels):
@@ -155,7 +155,7 @@ def test_readout_is_pending_without_a_closed_round(queue_panels, tmp_path):
     c = _readout(queue_panels, tmp_path, "all,pending,prioritised,100,0,0,,,,0,0\n")
     assert "pending, no round closed yet" in queue_panels.readout_block(c)
     assert "has not been measured yet" in queue_panels.ungraded_note(c)
-    assert "15 of its 95 photos" in queue_panels.ungraded_note(c)
+    assert "15 of the 95 photos in batch 1" in queue_panels.ungraded_note(c)
 
 
 def test_readout_prints_counts_with_the_rate_once_closed(queue_panels, tmp_path):
