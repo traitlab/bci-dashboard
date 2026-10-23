@@ -16,21 +16,21 @@ tracked: commit it, it is the only record of which frames were the control). Row
 Labelbox reports as failed are dropped from it again, so they can be re-sent.
 A round sent without committing its ledger is not seen; Labelbox is not asked.
 
-`send_batches.csv` holds every batch in one file, so --batch picks the one to
-send. One batch there is one Labelbox batch.
+The CSV is the file the queue page downloads (send_batch_1.csv, or
+send_batches_filtered.csv): send_batches.csv's columns, with data_row_id,
+batch_id and global_key required. The whole file is one Labelbox batch. Given
+the full send_batches.csv instead, --batch picks the one batch to send. --round
+defaults to the round after the last ledger.
 
 Usage:
     # Stage 0, always first: nothing is written, no API call is made.
-    python labelling/dispatch_round.py \\
-        --round 1 --csv build/tables/send_batches.csv --batch 1 --dry-run
+    python labelling/dispatch_round.py ~/Downloads/send_batch_1.csv --dry-run
 
     # Stage 1, test with 5 rows. This writes to Labelbox like a full run:
-    python labelling/dispatch_round.py \\
-        --round 1 --csv build/tables/send_batches.csv --batch 1 --test
+    python labelling/dispatch_round.py ~/Downloads/send_batch_1.csv --test
 
     # Stage 2, full dispatch:
-    python labelling/dispatch_round.py \\
-        --round 1 --csv build/tables/send_batches.csv --batch 1
+    python labelling/dispatch_round.py ~/Downloads/send_batch_1.csv
 """
 from __future__ import annotations
 
@@ -68,18 +68,30 @@ EXPORT_TIMEOUT_SEC = 300
 # `rounds` holds both so the two scripts cannot drift apart.
 METADATA_SCHEMA_NAME = rounds.METADATA_SCHEMA_NAME
 
+# What a queue-page download carries, the whole file and the filtered one alike.
+REQUIRED_COLUMNS = ["data_row_id", "batch_id", "global_key"]
 
-def load_selection_csv(csv_path: Path, batch_id: str | None = None) -> list[str]:
+
+def load_selection_csv(csv_path: Path, batch_id: str | None = None,
+                       whole: bool = False) -> list[str]:
     """The global keys to send, in file order.
 
     `send_batches.csv` holds every batch in one file, and one batch is one
     Labelbox batch, so `batch_id` picks the one to send. A file without that
-    column is sent whole: an older selection CSV is still a valid selection.
-    An id that is not in the file is a stop, never an empty send.
+    column is sent whole. An id that is not in the file is a stop, never an
+    empty send. A file missing a column in `REQUIRED_COLUMNS` is a stop too:
+    it is not a queue-page download.
     """
     global_keys, seen, n_control = [], set(), 0
     with open(csv_path, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
+        reader = csv.DictReader(f)
+        have = reader.fieldnames or []
+        absent = [c for c in REQUIRED_COLUMNS if c not in have]
+        if absent:
+            sys.exit(f"ERROR: {csv_path} has no {', '.join(absent)} column. Send a CSV "
+                     f"downloaded from the queue page; it has {', '.join(REQUIRED_COLUMNS)}. "
+                     f"This one has: {', '.join(have) or 'no header'}.")
+        for row in reader:
             in_file = (row.get("batch_id") or "").strip()
             seen.add(in_file)
             if batch_id is not None and in_file != batch_id:
@@ -88,6 +100,11 @@ def load_selection_csv(csv_path: Path, batch_id: str | None = None) -> list[str]
             if gk:
                 global_keys.append(gk)
                 n_control += (row.get("picked_by") or "").strip() == "control"
+    # The full send_batches.csv sent whole would be every batch as one Labelbox batch.
+    if batch_id is None and not whole and len(seen - {""}) > 1:
+        sys.exit(f"ERROR: {csv_path} holds {len(seen - {''})} batches. Pick one with "
+                 f"--batch, or pass --whole to send them as one Labelbox batch "
+                 f"(a filtered download).")
     if batch_id is not None and batch_id not in seen:
         sys.exit(f"ERROR: batch {batch_id} is not in {csv_path}. "
                  f"It holds {len(seen - {''})} batches.")
@@ -259,10 +276,15 @@ def parse_args():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("--round", type=int, required=True, help="round number (1, 2, ...)")
-    ap.add_argument("--csv", type=Path, required=True, help="selection CSV from the send-first queue (dashboard/measure.py)")
+    ap.add_argument("--round", type=int, default=None,
+                    help="round number (1, 2, ...). Default: the round after the last ledger")
+    ap.add_argument("path", nargs="?", type=Path, help="the CSV downloaded from the queue page")
+    ap.add_argument("--csv", type=Path, dest="csv_flag", help="same as the positional path")
     ap.add_argument("--batch", help="send one batch_id out of the CSV (send_batches.csv "
                     "holds all of them; one batch is one Labelbox batch)")
+    ap.add_argument("--whole", action="store_true",
+                    help="send a CSV that spans several batches as one Labelbox batch, "
+                         "e.g. a filtered download")
     ap.add_argument("--dry-run", action="store_true",
                     help="read the CSV, skip keys sent before, print the plan, then "
                          "stop: no Labelbox client, no write. Run this first")
@@ -272,7 +294,14 @@ def parse_args():
     ap.add_argument("--priority", type=int, default=None, choices=[1, 2, 3, 4, 5],
                     help="labelling priority (1=highest). Default: derived from "
                          "--batch, so the queue order survives into Labelbox")
-    return ap.parse_args()
+    args = ap.parse_args()
+    if args.path and args.csv_flag and args.path != args.csv_flag:
+        ap.error("give the CSV once, as a path or with --csv, not both")
+    args.csv = args.path or args.csv_flag
+    if args.csv is None:
+        ap.error("a CSV is required: the file downloaded from the queue page")
+    args.csv = args.csv.expanduser()
+    return args
 
 
 # Labelbox has five priority levels and the queue has fifty batches, so the
@@ -371,6 +400,8 @@ def main() -> None:
     rows, tag them with the round number, and create the batch. Four numbered
     steps, because any of them can be the one that finds nothing."""
     args = parse_args()
+    if args.round is None:
+        args.round = core.next_round(str(LEDGER_DIR))
     if not args.csv.exists():
         sys.exit(f"ERROR: {args.csv} not found.")
 
@@ -384,7 +415,7 @@ def main() -> None:
     combined_dataset_name = config["labelbox"]["combined_dataset_name"]
     project_b_name = config["labelbox"]["project_b_name"]
 
-    global_keys = load_selection_csv(args.csv, args.batch)
+    global_keys = load_selection_csv(args.csv, args.batch, args.whole)
     if not global_keys:
         sys.exit(f"ERROR: no global keys to send from {args.csv}.")
     global_keys, skipped = skip_sent(global_keys, already_sent(GT_CSV, LEDGER_DIR))

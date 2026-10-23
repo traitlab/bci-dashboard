@@ -155,9 +155,9 @@ DISPATCH = more(
     "For the labelling team: send a batch",
     f'<p class="note"><a href="send_batches.csv">send_batches.csv</a> is this same queue '
     f'packed into batches of {queues.BATCH_SIZE}, {queues.GROUP_PHRASE[queues.GROUP_BY]}. To send a '
-    'batch, after checking its status in Labelbox, run this first with the chosen '
-    f'round and batch numbers. This example selects batch 1 of round {hc.next_round()}:</p>'
-    f'<pre class="cmd">{DISPATCH_CMD.format(round=hc.next_round(), batch=1)}</pre>'
+    'batch, after checking its status in Labelbox, download it with the button above '
+    'and run this first on the downloaded file. This example sends batch 1:</p>'
+    f'<pre class="cmd">{DISPATCH_CMD.format(batch=1)}</pre>'
     '<p class="note"><code>--dry-run</code> writes nothing and calls no API: it reports '
     'how many photos it would send and skips any sent in an earlier round. Drop it to send the full batch. '
     '<strong>Adding <code>--test</code> instead creates a live five-photo batch and '

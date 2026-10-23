@@ -80,7 +80,7 @@ def test_next_batch_block_states_size_download_and_dry_run_first(queue_filters, 
     assert "Next batch: 2 photos, grouped by species" in html
     assert "1 species group, 1 of them random control photos" in html
     assert 'data-batch="1"' in html and "Download batch 1 as CSV" in html
-    assert "--batch 1 --dry-run</pre>" in html
+    assert "send_batch_1.csv --dry-run</pre>" in html
 
 
 def test_next_batch_block_is_empty_without_the_send_file(queue_filters, tmp_path):
@@ -95,13 +95,12 @@ def test_send_file_without_mission_and_site_columns_still_builds(queue_filters, 
     assert 'id="f-site"><option value="">all</option></select>' in html
 
 
-def test_next_batch_block_offers_the_round_after_the_last_ledger(queue_filters, tables, tmp_path):
-    (tmp_path / "round_1.csv").write_text("round,global_key\n1,k1\n", encoding="utf-8")
-    (tmp_path / "round_2.csv").write_text("round,global_key\n", encoding="utf-8")
-    c = SimpleNamespace(verify_dir=str(tables), ledger_dir=str(tmp_path))
-    assert "--round 3 --csv build/tables/send_batches.csv --batch 1" in queue_filters.next_batch_block(c)
-    c.ledger_dir = str(tmp_path / "none")
-    assert "--round 1 --csv" in queue_filters.next_batch_block(c)
+def test_next_batch_block_prints_the_downloaded_file_and_how_annotators_find_it(queue_filters, tables):
+    html = queue_filters.next_batch_block(SimpleNamespace(verify_dir=str(tables)))
+    assert "python3 labelling/dispatch_round.py ~/Downloads/send_batch_1.csv --dry-run" in html
+    assert "one batch named" in html
+    # the download button names the file the command reads
+    assert "'send_batch_'+b+'.csv'" in queue_filters._JS
 
 
 def _count(queue_filters, tables, tmp_path, lo, hi):

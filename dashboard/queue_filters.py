@@ -14,7 +14,6 @@ import csv
 import json
 import os
 
-import core as hc
 import queues
 from assets import esc, more
 
@@ -68,10 +67,9 @@ if(nb)nb.addEventListener('click',function(){var b=nb.getAttribute('data-batch')
 show()})();"""
 
 # The one-line hand-off, named once: the page shows it first and the labelling
-# team block repeats it. The round is the one after the last ledger, the batch
-# the first one in the file.
-DISPATCH_CMD = ("python3 labelling/dispatch_round.py --round {round} "
-                "--csv build/tables/send_batches.csv --batch {batch} --dry-run")
+# team block repeats it. The file is the one the download button gives
+# (`send_batch_<n>.csv`); the script picks the round after the last ledger.
+DISPATCH_CMD = "python3 labelling/dispatch_round.py ~/Downloads/send_batch_{batch}.csv --dry-run"
 
 
 def _read(path):
@@ -102,7 +100,6 @@ def next_batch_block(c):
     download, and the dry-run command that follows. Batch 1 is the lowest batch
     in the file; sending status is not recorded, so the page does not claim it."""
     verify_dir = getattr(c, "verify_dir", None)
-    ledger_dir = getattr(c, "ledger_dir", hc.LEDGER_DIR)
     data = send_data(verify_dir) if verify_dir else None
     if not data or not data["rows"]:
         return ""
@@ -128,8 +125,10 @@ def next_batch_block(c):
         f'<button type="button" class="primary" id="f-next" data-batch="{first}">'
         f'Download batch {first} as CSV</button></p>'
         '<p class="note">Then check the batch in Labelbox and run this first. '
-        '<code>--dry-run</code> writes nothing and calls no API; drop it to send.</p>'
-        f'<pre class="cmd">{esc(DISPATCH_CMD.format(round=hc.next_round(ledger_dir), batch=first))}</pre></div>')
+        '<code>--dry-run</code> writes nothing and calls no API; drop it to send. '
+        'Annotators find the batch in the Labelbox labelling project as one batch named '
+        '"Round &lt;n&gt; - &lt;date&gt;".</p>'
+        f'<pre class="cmd">{esc(DISPATCH_CMD.format(batch=first))}</pre></div>')
 
 
 def _select(id_, label, values):
