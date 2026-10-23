@@ -55,7 +55,7 @@ def test_the_candidate_list_length(readme, core):
 
 def test_how_many_csvs_a_measurement_pass_writes(readme, measure):
     csvs = [name for name in measure.OUTPUTS if name.endswith(".csv")]
-    words = {7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven",
+    words = {7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 13: "thirteen", 14: "fourteen",
              12: "twelve"}
     assert f"{words[len(csvs)]} CSVs" in readme, (
         f"measure.OUTPUTS writes {len(csvs)} CSVs and the diagram in the README "
@@ -333,7 +333,7 @@ def test_readme_names_the_csvs_no_build_reads_back(readme, measure):
     # and how many there are. The second was written as a literal and went
     # stale the first time measure.OUTPUTS grew.
     total = len([name for name in measure.OUTPUTS if name.endswith(".csv")])
-    totals = {9: "nine", 10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen"}
+    totals = {9: "nine", 10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen"}
     assert readme.count(f"{words[len(named)]} of the {totals[total]} CSVs") == 1, (
         f"{len(named)} of {total} CSVs go unread and the README counts "
         f"different numbers.")

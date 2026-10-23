@@ -132,7 +132,7 @@ def _crop_share():
 # The README's diagram (diagrams/pipeline.mmd) and its prose count the files at
 # one step in words. measure.OUTPUTS is the list, and it is read here rather than imported
 # so this file keeps needing nothing installed.
-WORDS = "zero one two three four five six seven eight nine ten eleven twelve".split()
+WORDS = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen".split()
 
 
 def _measure_csv_count():

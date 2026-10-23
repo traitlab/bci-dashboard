@@ -99,22 +99,40 @@ def scope_sentence(build_dir: str) -> str:
         except OSError:
             return []
 
+    def many(n, word):
+        return f"{n:,} {word}{'' if n == 1 else 's'}"
+
     parts = ["Drone-photographed crowns only, not every tree"]
+    scope = rows("scope.csv")
+    if scope:
+        # Every frame with a cached answer, labelled or not. Mission and site are
+        # blank where the inventory does not name them; a mission starts with the
+        # flight date. The date in a file name is when it was written, not flown.
+        missions = {r["mission"] for r in scope if r["mission"]}
+        sites = {r["site"] for r in scope if r["site"]}
+        dates = sorted(m.group(1) for r in scope if (m := re.match(r"(\d{8})", r["mission"])))
+        first, last = (f"{d[:4]}-{d[4:6]}-{d[6:]}" for d in (dates[0], dates[-1])) if dates else ("", "")
+        span = (f", photographed {first} to {last}" if first != last
+                else f", photographed on {first}" if dates else "")
+        source = f" from {many(len(missions), 'mission')} at {many(len(sites), 'site')}" if missions else ""
+        frames, labelled = (sum(int(r[k]) for r in scope) for k in ("n_frames", "n_labelled"))
+        parts.append(f"{many(frames, 'close-up')}{source}{span}, {labelled:,} of them labelled")
     health = rows("per_species_health.csv")
     if health:
         n = sum(int(r["n_labelled_frames"]) for r in health)
         parts.append(f"{n:,} labelled frames across {len(health)} species are scored on Model health")
     queue = rows("send_batches.csv")
     if queue:
-        # mission is blank where the inventory does not name it; it starts with the flight date.
-        # The date in a file name is when it was written, not flown, so it is not used.
-        missions = {r["mission"] for r in queue if r.get("mission")}
-        dates = sorted(m.group(1) for r in queue if (m := re.match(r"(\d{8})", r.get("mission") or "")))
-        first, last = (f"{d[:4]}-{d[4:6]}-{d[6:]}" for d in (dates[0], dates[-1])) if dates else ("", "")
-        span = f", photographed {first} to {last}" if dates else ""
-        source = f" from {len(missions)} missions" if missions else ""
-        parts.append(f"{len(queue):,} unlabelled photos{source} are queued for labelling{span}")
+        parts.append(f"{len(queue):,} unlabelled photos are queued for labelling")
     return ". ".join(parts) + "."
+
+
+def scope_byline(build_dir: str, present) -> str:
+    """The scope sentence as a data page's byline: the map link when that page is
+    built, and the table the counts come off when the snapshot has one."""
+    table = (' Counted in <a href="scope.csv">scope.csv</a>.'
+             if os.path.isfile(os.path.join(build_dir, "scope.csv")) else "")
+    return f'<div class="subtitle">{html.escape(scope_sentence(build_dir))}{_map_link(present)}{table}</div>'
 
 
 def available_names(build_dir: str) -> set:
@@ -160,10 +178,13 @@ def build(build_dir: str) -> str:
             + "</main></body></html>\n")
 
 
-def _scope_html(sentence: str, present) -> str:
-    link = (' <a href="embedding-atlas.html#view=locations">See the map</a>.'
+def _map_link(present) -> str:
+    return (' <a href="embedding-atlas.html#view=locations">See the map</a>.'
             if "embedding-atlas.html" in present else "")
-    return f'<p class="scope">{html.escape(sentence)}{link}</p>'
+
+
+def _scope_html(sentence: str, present) -> str:
+    return f'<p class="scope">{html.escape(sentence)}{_map_link(present)}</p>'
 
 
 def build_about(available, scope: str = "") -> str:

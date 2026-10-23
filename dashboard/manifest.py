@@ -3,8 +3,9 @@
 Snapshots are dated folders that CI throws away, so nothing compared one update
 with the next. This keeps the few numbers a change log needs: how many frames
 were labelled, which species, how many frames each, the test top-1 with its
-frame count, and the model version. ``refresh_snapshot.py build`` appends a line;
-``snapshot_delta.py`` reads the last two.
+frame count, the model version, and the most mixed-up species pairs.
+``refresh_snapshot.py build`` appends a line; ``snapshot_delta.py`` reads the
+last two.
 
 Idempotent on the export: a rerun with the same content changes nothing, and
 a rerun whose numbers moved replaces the newest line.
@@ -16,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 
+import confused_pairs
 import core as hc
 import reference
 
@@ -53,6 +55,8 @@ def entry(tables_dir: str, *, run_date: str, export: str, frames: int) -> dict:
         "model_version": hc.PLANTNET_MODEL_VERSION,
         "reference": reference.read(tables_dir),
         "species_counts": dict(sorted(counts.items())),
+        # Not in REQUIRED: lines written before the table existed lack it.
+        "confused_pairs": confused_pairs.read(tables_dir),
     }
 
 

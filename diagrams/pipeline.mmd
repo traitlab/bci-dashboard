@@ -5,7 +5,7 @@ flowchart LR
     lb -- "weekly export" --> disk[("Files on disk<br/>labels and<br/>cached answers")]
     pn -- "cached answers" --> disk
     disk --> measure["dashboard/measure.py<br/>scores every photo"]
-    measure --> tables[("build/tables<br/>twelve CSVs")]
+    measure --> tables[("build/tables<br/>fourteen CSVs")]
     tables --> ext["build_external.py"] --> health["Model-health page"]
     tables --> int["build_internal.py"] --> queue["Queue page<br/>and send_batches.csv"]
     queue -- "dispatch_round.py<br/>sends one batch" --> lb

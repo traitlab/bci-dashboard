@@ -11,7 +11,8 @@ from urllib.parse import urlsplit
 import public_snapshot as fixture
 import pytest
 import test_pages as contracts
-from conftest import PAGES, species_rows
+from conftest import DASHBOARD, PAGES, _on_path, species_rows
+from test_refresh_snapshot import refresh
 
 
 @pytest.fixture(scope="module")
@@ -240,7 +241,59 @@ def test_both_data_pages_carry_the_scope_sentence_after_the_stamp(synthetic_page
     subtitles = re.findall(r'<div class="subtitle">(.*?)</div>', html)
     if "What to label next" in html or "How well does Pl@ntNet" in html:
         assert any(
-            s.startswith("Drone-photographed crowns only, not every tree")
+            re.sub(r"<[^>]+>", "", s).startswith(
+                "Drone-photographed crowns only, not every tree"
+            )
             for s in subtitles
         )
         assert subtitles[0].startswith("refreshed")
+
+
+def test_each_glossary_term_is_defined_once_at_its_first_use(synthetic_page):
+    html, _, _ = synthetic_page
+    if "What to label next" not in html and "How well does Pl@ntNet" not in html:
+        return
+    with _on_path(DASHBOARD):
+        from build_index import GLOSSARY
+        from page import FIRST_USE
+    main = html.split('<main id="main-content" tabindex="-1">', 1)[1]
+    visible = re.sub(r"<[^>]+>", " ", main.split("<script>")[0])
+    for term, words in FIRST_USE:
+        meaning = re.escape(html_lib.escape(dict(GLOSSARY)[term]))
+        marked = re.findall(rf'<abbr title="{meaning}">([^<]*)</abbr>', main)
+        first = re.search(rf"\b(?:{words})\b", visible, re.IGNORECASE)
+        assert len(marked) == (1 if first else 0), (term, marked)
+        assert first is None or first.group(0) == marked[0]
+
+
+def test_every_csv_a_page_links_is_allowed_on_the_public_site(synthetic_page):
+    # publish_pages.sh copies each linked CSV into docs/, and the refresh then
+    # refuses a docs/ holding any name outside PUBLIC_FILES.
+    html, _, _ = synthetic_page
+    linked = set(re.findall(r'href="([A-Za-z0-9_]+\.csv)"', html))
+    assert linked - refresh.PUBLIC_FILES == set()
+
+
+def test_the_model_health_build_checks_the_mixed_up_pairs(synthetic_page):
+    html, stdout, _ = synthetic_page
+    if "How well does Pl@ntNet" in html:
+        assert re.search(r"confused_pairs\.csv: \d+ species pairs match", stdout)
+        assert 'href="confused_pairs.csv"' in html
+
+
+def test_the_scope_byline_counts_every_frame_the_fixture_holds(synthetic_page):
+    # 35 labelled frames and 5 without a label, all from one mission folder.
+    html, stdout, _ = synthetic_page
+    if "What to label next" not in html and "How well does Pl@ntNet" not in html:
+        return
+    visible = re.sub(r"<[^>]+>", "", html)
+    assert (
+        "40 close-ups from 1 mission at 1 site, photographed on 2026-10-14, "
+        "35 of them labelled." in visible
+    )
+    assert 'Counted in <a href="scope.csv">scope.csv</a>.' in html
+    assert "scope.csv: 1 mission and site rows match" in stdout
+    if "How well does Pl@ntNet" in html:
+        # The headline's 24 right of 33 species-level frames, all at one site.
+        sites = html.split('id="by-site-and-mission"')[1].split("</details>")[0]
+        assert "72.7% of 33" in sites

@@ -5,7 +5,8 @@ which page carries which, so a panel names its audience once. ``render`` groups
 the chosen panels into sections; ``run`` is both builders' ``main()``.
 
 The panels themselves live in ``panels.py``, ``queue_panels.py``,
-``queue_why_panels.py`` and ``confirmatory_panels.py``. This module knows what a page is made of, never
+``queue_why_panels.py``, ``confirmatory_panels.py``, ``history_panels.py`` and
+``mission_scope.py``. This module knows what a page is made of, never
 what a panel says.
 """
 
@@ -19,12 +20,14 @@ import shutil
 import core as hc
 import health as hl
 from assets import css_for, esc, section, strip_comments
+from build_index import GLOSSARY
 from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
 from site_navigation import FAVICON, navigation
 from confirmatory_panels import p_floor
 from history_panels import p_changes, p_confused
+from mission_scope import p_sites
 from panels import (
-    p_calibration, p_ceiling, p_counts, p_coverage, p_method, p_review, p_species,
+    _hint, p_calibration, p_ceiling, p_counts, p_coverage, p_method, p_review, p_species,
     p_terms, p_weighting)
 from queue_panels import p_send, p_todo
 from queue_why_panels import p_evidence, p_look
@@ -80,6 +83,8 @@ PANELS = {
     # What the last Labelbox export changed, off the refresh manifest.
     "changes": ("model-health", p_changes),
     "confused": ("model-health", p_confused),
+    # Drone teams work by site and mission (feedback F4): the same counts split.
+    "sites": ("model-health", p_sites),
     # "weighting" carries the support-vs-accuracy chart. It is an explanation
     # of the two headline rates, so it belongs here.
     "weighting": ("explanations", p_weighting),
@@ -104,7 +109,7 @@ PANELS = {
 INTERNAL_PANELS = ("send", "todo", "look", "evidence")
 # Order inside a section is the order these ids are listed in; the sections
 # themselves order the page. The species table leads; definitions close.
-EXTERNAL_PANELS = ("species", "review", "confused", "changes",
+EXTERNAL_PANELS = ("species", "review", "confused", "sites", "changes",
                    "floor", "weighting", "coverage", "calibration", "terms", "counts",
                    "ceiling", "method")
 
@@ -175,6 +180,47 @@ def footer(c) -> str:
             f'off. Run {esc(c.tag)}.{audit_footer(c)}</div>')
 
 
+# Glossary terms (About's wording) defined on their first use on a page, and the
+# words that count as a use. A frame is a close-up, so either word is one term.
+FIRST_USE = (("Close-up", r"close-ups?|frames?"), ("Crown", r"crowns?"),
+             ("Mission", r"missions?"))
+# Opaque blocks, then any tag; text between tokens is what a reader sees.
+_TOKENS = re.compile(r"(<script\b.*?</script>|<style\b.*?</style>|<svg\b.*?</svg>|<[^>]*>)",
+                     re.S | re.I)
+# Elements whose text cannot hold, or already is, an abbr.
+_NO_ABBR = {"abbr", "option", "textarea", "title"}
+
+
+def mark_first_use(body: str) -> str:
+    """Wrap the first use of each ``FIRST_USE`` term in visible text in an abbr
+    carrying its glossary definition, as panels._hint does for column headings.
+
+    Text inside a tag, script, style, svg or an element in ``_NO_ABBR`` is
+    skipped, so an attribute or a chart label is never rewritten.
+    """
+    meaning = dict(GLOSSARY)
+    todo = {term: re.compile(rf"\b(?:{words})\b", re.I) for term, words in FIRST_USE}
+    out, inside = [], []
+    for part in _TOKENS.split(body):
+        if part.startswith("<"):
+            tag = re.match(r"<(/?)([a-zA-Z]+)", part)
+            if tag and tag.group(2).lower() in _NO_ABBR:
+                if not tag.group(1):
+                    inside.append(tag.group(2).lower())
+                elif inside:
+                    inside.pop()
+        elif todo and not inside:
+            # Positions in the original text, so a definition just inserted is
+            # never searched for the next term.
+            found = sorted((m.start(), m.end(), term) for term, rx in todo.items()
+                           if (m := rx.search(part)))
+            for start, end, term in reversed(found):
+                part = part[:start] + _hint(part[start:end], meaning[term]) + part[end:]
+                del todo[term]
+        out.append(part)
+    return "".join(out)
+
+
 def document(title: str, body: str, *, current: str = "", available=None) -> str:
     """One self-contained file: every style and script inlined, nothing fetched.
 
@@ -182,7 +228,7 @@ def document(title: str, body: str, *, current: str = "", available=None) -> str
     """
     available = OPERATIONAL_PAGES if available is None else available
     body = (navigation(current, available=available)
-            + '<main id="main-content" tabindex="-1">' + body + '</main>')
+            + '<main id="main-content" tabindex="-1">' + mark_first_use(body) + '</main>')
     return ("<!DOCTYPE html>\n"
             '<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'

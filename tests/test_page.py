@@ -288,3 +288,29 @@ def test_the_publish_script_reads_the_links_rather_than_listing_them(measure):
         f"built pages; add one link to a panel and these stop reaching docs/")
     assert "grep" in text and "href=" in text, \
         "publish_pages.sh no longer scans the pages for the CSVs they link"
+
+
+# ---------------------------------------------------------------------------
+# mark_first_use(): glossary terms defined where a reader first meets them
+# ---------------------------------------------------------------------------
+
+def test_mark_first_use_wraps_only_the_first_visible_use_of_each_term(pagemod):
+    body = ('<p title="a frame">Crowns seen from <b>one</b> mission.</p>'
+            '<p>Each frame and crown, every mission.</p>')
+    out = pagemod.mark_first_use(body)
+    assert out.count("<abbr") == 3
+    assert out.startswith('<p title="a frame"><abbr title="The top of one tree')
+    assert '<abbr title="One drone flight session over a site. Each frame belongs to one mission.">mission</abbr>.' in out
+    assert '>frame</abbr> and crown, every mission.</p>' in out
+    # The definitions inserted carry the other terms; none of those is wrapped.
+    assert out.count("crown</abbr>") == 0 and out.count(">Crowns</abbr>") == 1
+
+
+def test_mark_first_use_skips_scripts_options_and_existing_abbr(pagemod):
+    body = ('<script>var frame = 1; if (a<b) {}</script><select><option>crown</option></select>'
+            '<abbr title="x">Frames</abbr><svg><text>mission</text></svg><p>close-ups</p>')
+    out = pagemod.mark_first_use(body)
+    assert out.count("<abbr") == 2
+    assert out.endswith('<p><abbr title="One drone photo, aimed at one tree crown. A frame is the same '
+                        'thing. It can show more crowns than the one it is aimed at.">close-ups</abbr></p>')
+    assert pagemod.mark_first_use("") == "" and pagemod.mark_first_use("<p>no terms</p>") == "<p>no terms</p>"
