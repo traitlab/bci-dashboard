@@ -292,6 +292,17 @@ def test_batch_exceeding_batch_size_aborts(history, tmp_path):
     assert "exceeds" in msg and "BATCH_SIZE" in msg
 
 
+def test_batch_over_the_species_cap_aborts(history, tmp_path):
+    over = history.queues.SPECIES_CAP + 1  # fits BATCH_SIZE, breaks the species cap
+    counts = {"long_tail": over}
+    qrows = queue_rows_for(counts)
+    brows = batch_rows_for(qrows, batch_id=0)
+    kwargs, _ = write_snapshot(tmp_path, queue_rows=qrows, batch_rows=brows)
+    kwargs["queue_counts"] = counts
+    msg = assert_aborts(history, tmp_path, kwargs)
+    assert "SPECIES_CAP" in msg
+
+
 def test_batch_with_noncontiguous_species_group_aborts(history, tmp_path):
     qrows = queue_rows_for()
     brows = batch_rows_for(qrows)

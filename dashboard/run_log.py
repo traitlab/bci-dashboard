@@ -35,7 +35,7 @@ from core import (
     pct,
 )
 from crop_overlap import CROP_SIZE
-from queues import BATCH_SIZE, GROUP_BY, QUEUE_ORDER
+from queues import BATCH_SIZE, GROUP_BY, QUEUE_ORDER, SPECIES_CAP
 
 # The rule that opens and closes a block of run_log.txt. measure.py writes the
 # file's banner at this width too, or the log comes out ragged.
@@ -522,7 +522,7 @@ def log_send_queue(_log, q_counts, batch_rows, n_no_answer, n_ranked=0,
     _log("    Sending an evaluation frame back for labelling would put a new")
     _log("    answer into the set the per-species statuses are measured on.")
     _log(f"  send_batches.csv                    : {len(batch_rows)} rows in {n_batches} "
-        f"batches, max {BATCH_SIZE}/batch, group_by {GROUP_BY}")
+        f"batches, max {BATCH_SIZE}/batch, max {SPECIES_CAP}/species/batch, group_by {GROUP_BY}")
     _log(f"  unlabelled frames with NO answer    : {n_no_answer}  (empty candidate list;")
     _log("    possible junk or non-plant photos; check a sample")
     _log("    by eye before queueing, no automatic rule)")

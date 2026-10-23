@@ -90,6 +90,35 @@ def test_next_batch_block_says_why_a_batch_is_short_and_its_control_share(queue_
     assert "About 15% of every batch is random control." in html
 
 
+def _write_send(tmp_path, rows):
+    with open(tmp_path / "send_batches.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(HEADER + ["group_by"])
+        w.writerows([r + ["species"] for r in rows])
+    return SimpleNamespace(verify_dir=str(tmp_path))
+
+
+def _row(batch, sp, k, picked="queue"):
+    return [str(batch), sp, k, "normal", picked, "0.5", "", "", "", "", "", ""]
+
+
+def test_a_batch_short_because_every_waiting_species_is_capped_says_so(queue_filters, tmp_path):
+    cap = queue_filters.queues.SPECIES_CAP
+    rows = ([_row(1, "a", f"a{i}") for i in range(cap)]
+            + [_row(2, "a", f"b{i}") for i in range(5)])
+    html = queue_filters.next_batch_block(_write_send(tmp_path, rows))
+    assert f"It stops at {cap} because every species still waiting already has {cap} photos" in html
+    assert "does not fit the room left" not in html
+
+
+def test_a_capped_species_is_skipped_when_naming_the_one_that_did_not_fit(queue_filters, tmp_path):
+    cap = queue_filters.queues.SPECIES_CAP
+    rows = ([_row(1, "a", f"a{i}") for i in range(cap)]
+            + [_row(2, "a", "a_more"), _row(2, "b", "b0")])
+    html = queue_filters.next_batch_block(_write_send(tmp_path, rows))
+    assert "because the next species, <i>b</i> (1 photo), does not fit the room left" in html
+
+
 def test_next_batch_block_is_empty_without_the_send_file(queue_filters, tmp_path):
     assert queue_filters.next_batch_block(SimpleNamespace(verify_dir=str(tmp_path))) == ""
 

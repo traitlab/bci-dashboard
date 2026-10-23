@@ -13,6 +13,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+from collections import Counter
 
 import queues
 from assets import esc, more
@@ -117,15 +118,25 @@ def next_batch_block(c):
     spread = (f'{n_groups:,} species group{"" if n_groups == 1 else "s"}' if mode == "species"
               else f"{n_groups:,} species")
     n_batches = max(int(r[at["batch_id"]]) for r in data["rows"])
-    # Say why a batch is short of the cap: the next species did not fit the room left.
+    # Say why a batch is short of the cap. Two reasons: the next species did not fit
+    # the room left, or every species still waiting already holds its per-species cap
+    # in this batch. A capped species is skipped by the packer, so the one that
+    # stopped the batch is the first waiting species that is not at its cap.
     later = [r for r in data["rows"] if int(r[at["batch_id"]]) > int(first) and r[at["picked_by"]] != "control"]
     short = ""
-    if mode == "species" and later and len(rows) < queues.BATCH_SIZE:
-        nxt = later[0][at["species_group"]]
-        n_nxt = sum(1 for r in data["rows"] if r[at["species_group"]] == nxt and r[at["picked_by"]] != "control")
-        short = (f'It stops at {len(rows):,} because the next species, <i>{esc(nxt)}</i> '
-                 f'({n_nxt:,} photo{"" if n_nxt == 1 else "s"}), does not fit the room left, so it starts the next batch. '
-                 f'Species stay together; one larger than a batch fills whole batches. ')
+    if later and len(rows) < queues.BATCH_SIZE:
+        held = Counter(r[at["species_group"]] for r in rows if r[at["picked_by"]] != "control")
+        waiting = dict.fromkeys(r[at["species_group"]] for r in later)
+        nxt = next((sp for sp in waiting if held[sp] < queues.SPECIES_CAP), None)
+        if nxt is None:
+            short = (f'It stops at {len(rows):,} because every species still waiting already has '
+                     f'{queues.SPECIES_CAP} photos in it, the most one batch takes, so the rest '
+                     f'start the next batch. ')
+        elif mode == "species":
+            n_nxt = sum(1 for r in data["rows"] if r[at["species_group"]] == nxt and r[at["picked_by"]] != "control")
+            short = (f'It stops at {len(rows):,} because the next species, <i>{esc(nxt)}</i> '
+                     f'({n_nxt:,} photo{"" if n_nxt == 1 else "s"}), does not fit the room left, so it starts the next batch. '
+                     f'Species stay together; no batch takes more than {queues.SPECIES_CAP} photos of one species. ')
     return (
         '<div class="rec" id="next-batch">'
         f'<h2>Next batch: {len(rows):,} photos, {how}</h2>'

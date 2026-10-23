@@ -176,7 +176,8 @@ def check_send_first(directory, queue_counts, queue_keys):
 
 def check_send_batches(directory, queue_path, n_unlab, page_group_by=None):
     """The batches are a repartition of the queue: same rows, every batch at most
-    BATCH_SIZE with contiguous species groups, no global_key skipped or twice.
+    BATCH_SIZE with contiguous species groups and at most SPECIES_CAP queue rows of
+    one species, no global_key skipped or twice.
 
     Each batch's random control rides at its end as one block under the group name
     `control`, so it is contiguous like any other group and the repartition is
@@ -200,6 +201,11 @@ def check_send_batches(directory, queue_path, n_unlab, page_group_by=None):
         if len(rows) > queues.BATCH_SIZE:
             fail(f"send_batches.csv batch {bid}: {len(rows)} rows exceeds "
                  f"BATCH_SIZE={queues.BATCH_SIZE}")
+        held = Counter(r["species_group"] for r in rows if r["picked_by"] != "control")
+        over = {sp: n for sp, n in held.items() if n > queues.SPECIES_CAP}
+        if over:
+            fail(f"send_batches.csv batch {bid}: more than SPECIES_CAP={queues.SPECIES_CAP} "
+                 f"rows of one species, {over}")
         if group_by == "rank":
             continue
         runs = [r["species_group"] for i, r in enumerate(rows)
@@ -239,7 +245,7 @@ def check_send_batches(directory, queue_path, n_unlab, page_group_by=None):
     n_control = sum(1 for r in brows if r["picked_by"] == "control")
     return (f"send_batches.csv: {len(brows):,} rows in {len(by_batch)} batches, "
             f"the assignment chunk_send_batches makes, at most "
-            f"{queues.BATCH_SIZE} rows each, {n_control} control rows drawn at random, a share of every batch, "
+            f"{queues.BATCH_SIZE} rows each and {queues.SPECIES_CAP} per species, {n_control} control rows drawn at random, a share of every batch, "
             f"how_new_it_looks the same as {os.path.basename(queue_path)} row for row")
 
 

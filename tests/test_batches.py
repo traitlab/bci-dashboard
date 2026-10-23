@@ -15,6 +15,8 @@ at the end of this file.
     .venv/bin/pytest tests/test_batches.py
 """
 
+from functools import partial
+
 import pytest
 
 
@@ -33,6 +35,12 @@ def rows(*counts):
     return out
 
 
+def uncapped(queues):
+    """The chunker with the per-species cap out of the way. These tests use one
+    big species to exercise the batch size, and the cap has its own tests below."""
+    return partial(queues.chunk_send_batches, species_cap=10**9)
+
+
 def sizes(batches):
     """Row count per batch, in batch_id order."""
     counts: dict = {}
@@ -48,45 +56,45 @@ def groups_of(batches, batch_id):
 
 
 def test_small_species_share_a_batch(queues):
-    batches = queues.chunk_send_batches(rows(40, 30, 20), batch_size=100, control_fraction=0)
+    batches = uncapped(queues)(rows(40, 30, 20), batch_size=100, control_fraction=0)
     assert sizes(batches) == [90]
     assert groups_of(batches, 1) == ["species 0", "species 1", "species 2"]
 
 
 def test_a_group_that_would_overflow_opens_the_next_batch(queues):
     # 60 + 50 is 110, so the second species starts a batch rather than straddle.
-    batches = queues.chunk_send_batches(rows(60, 50), batch_size=100, control_fraction=0)
+    batches = uncapped(queues)(rows(60, 50), batch_size=100, control_fraction=0)
     assert sizes(batches) == [60, 50]
 
 
 def test_a_species_larger_than_a_batch_splits_into_its_own(queues):
-    batches = queues.chunk_send_batches(rows(250), batch_size=100, control_fraction=0)
+    batches = uncapped(queues)(rows(250), batch_size=100, control_fraction=0)
     assert sizes(batches) == [100, 100, 50]
     assert groups_of(batches, 3) == ["species 0"]
 
 
 def test_the_remainder_of_a_split_species_packs_with_the_next(queues):
     # 250 leaves 50 trailing, which has room for the following 30.
-    batches = queues.chunk_send_batches(rows(250, 30), batch_size=100, control_fraction=0)
+    batches = uncapped(queues)(rows(250, 30), batch_size=100, control_fraction=0)
     assert sizes(batches) == [100, 100, 80]
     assert groups_of(batches, 3) == ["species 0", "species 1"]
 
 
 def test_every_batch_holds_contiguous_species_groups(queues):
-    batches = queues.chunk_send_batches(rows(7, 1, 1, 120, 3, 1), batch_size=100, control_fraction=0)
+    batches = uncapped(queues)(rows(7, 1, 1, 120, 3, 1), batch_size=100, control_fraction=0)
     for bid in {b[0] for b in batches}:
         seen = groups_of(batches, bid)
         assert len(seen) == len(set(seen)), f"batch {bid} interleaves species"
 
 
 def test_no_batch_exceeds_the_cap(queues):
-    batches = queues.chunk_send_batches(rows(7, 1, 1, 120, 3, 1, 99), batch_size=100, control_fraction=0)
+    batches = uncapped(queues)(rows(7, 1, 1, 120, 3, 1, 99), batch_size=100, control_fraction=0)
     assert max(sizes(batches)) <= 100
 
 
 def test_the_batches_are_a_repartition_of_the_queue(queues):
     queue = rows(7, 1, 1, 120, 3, 1, 99)
-    batches = queues.chunk_send_batches(queue, batch_size=100, control_fraction=0)
+    batches = uncapped(queues)(queue, batch_size=100, control_fraction=0)
     keys = [b[2] for b in batches]
     assert len(keys) == len(queue)
     assert keys == [r[1] for r in queue], "priority order or a row was lost"
@@ -148,7 +156,7 @@ def controls_by_batch(batches):
 
 
 def test_every_batch_carries_its_own_control(queues):
-    batches = queues.chunk_send_batches(rows(500), batch_size=100)
+    batches = uncapped(queues)(rows(500), batch_size=100)
     control = controls_by_batch(batches)
     assert set(control) == set(range(1, len(sizes(batches)) + 1))
     assert all(len(v) == 15 for v in list(control.values())[:-1])
@@ -185,7 +193,7 @@ def test_the_draw_reaches_past_the_head_of_the_queue(queues):
     """A control taken from the frames the queue would have sent anyway measures
     nothing. It is drawn from the whole pool left, so most of it sits behind the head."""
     queue = rows(1000)
-    batches = queues.chunk_send_batches(queue, batch_size=100)
+    batches = uncapped(queues)(queue, batch_size=100)
     key_at = {r[1]: i for i, r in enumerate(queue)}
     first = controls_by_batch(batches)[1]
     assert len(first) == 15
@@ -195,7 +203,7 @@ def test_the_draw_reaches_past_the_head_of_the_queue(queues):
 def test_a_later_batch_draws_from_what_is_left(queues):
     """Without replacement across batches, and not confined to the next hundred."""
     queue = rows(1000)
-    batches = queues.chunk_send_batches(queue, batch_size=100)
+    batches = uncapped(queues)(queue, batch_size=100)
     key_at = {r[1]: i for i, r in enumerate(queue)}
     second = controls_by_batch(batches)[2]
     assert len(second) == 15
@@ -223,7 +231,7 @@ def test_the_tail_never_opens_a_batch_of_only_control(queues):
 
 def test_the_control_turns_off(queues):
     """`control_fraction=0` is the way back to the order before this existed."""
-    batches = queues.chunk_send_batches(rows(500), batch_size=100, control_fraction=0)
+    batches = uncapped(queues)(rows(500), batch_size=100, control_fraction=0)
     assert all(b[4] == "queue" for b in batches)
     assert sizes(batches) == [100, 100, 100, 100, 100]
 
@@ -255,7 +263,7 @@ def test_with_no_control_the_packing_is_the_pre_control_packing(queues, batch_si
         counts = [rng.choice([1, 1, 2, 5, 30, 120]) for _ in range(rng.randint(1, 8))]
         queue = rows(*counts)
         rng.shuffle(queue)
-        assert queues.chunk_send_batches(
+        assert uncapped(queues)(
             queue, batch_size=batch_size, control_fraction=0) == old_packing(queue, batch_size)
 
 
@@ -263,7 +271,7 @@ def test_a_species_that_fills_a_batch_is_cut_at_the_room_the_control_leaves(queu
     """A batch has 85 rows of room, not a hundred. A species that fills a whole
     batch is cut at 85 rather than leaving the batch nearly empty, and the
     remainder opens the next one."""
-    batches = queues.chunk_send_batches(rows(500), batch_size=100)
+    batches = uncapped(queues)(rows(500), batch_size=100)
     assert sizes(batches)[0] == 100, "85 queue rows plus the 15-row control"
     assert max(sizes(batches)) <= 100
     assert sum(sizes(batches)) == 500
@@ -485,3 +493,106 @@ def test_every_batch_controls_within_one_photo_of_its_share(queues, counts):
     for size, ctl in shares(batches):
         assert abs(ctl - 0.15 * size) <= 1, (size, ctl)
         assert ctl < size
+
+
+# --- at most species_cap photos of one predicted species per batch -------------
+
+
+def per_batch(batches, sp):
+    """Queue rows of species `sp` in each batch, by batch_id."""
+    out: dict = {}
+    for bid, group, _, _, picked in batches:
+        if picked == "queue" and group == sp:
+            out[bid] = out.get(bid, 0) + 1
+    return out
+
+
+def test_the_default_cap_is_twenty(queues):
+    assert queues.SPECIES_CAP == 20
+
+
+def test_a_big_species_splits_across_batches_and_others_fill_the_room(queues):
+    # Species 0 has 50 rows and the cap lets 20 in per batch. The species behind
+    # it fill the room the cap leaves instead of waiting for it.
+    batches = queues.chunk_send_batches(rows(50, 15, 15, 15), batch_size=100,
+                                        control_fraction=0)
+    assert per_batch(batches, "species 0") == {1: 20, 2: 20, 3: 10}
+    assert sizes(batches) == [65, 20, 10]
+    assert groups_of(batches, 1) == ["species 0", "species 1", "species 2", "species 3"]
+    # Rows of a species keep their rank order across the batches.
+    s0 = [b[2] for b in batches if b[1] == "species 0"]
+    assert s0 == [f"s0_{k}.JPG" for k in range(50)]
+
+
+def test_capped_rows_lead_the_next_batch(queues):
+    batches = queues.chunk_send_batches(rows(30, 15, 15), batch_size=100, control_fraction=0)
+    assert sizes(batches) == [50, 10]
+    assert per_batch(batches, "species 0") == {1: 20, 2: 10}
+    assert groups_of(batches, 2) == ["species 0"]
+
+
+def test_rank_mode_honours_the_cap(queues):
+    batches = queues.chunk_send_batches(rows(50, 5), batch_size=30, control_fraction=0,
+                                        group_by="rank")
+    assert per_batch(batches, "species 0") == {1: 20, 2: 20, 3: 10}
+    # Skipped rows of species 0 do not stop species 1 from filling batch 1.
+    assert per_batch(batches, "species 1") == {1: 5}
+    assert sizes(batches) == [25, 20, 10]
+
+
+@pytest.mark.parametrize("group_by", ["species", "rank"])
+@pytest.mark.parametrize("cap", [1, 3, 20, 10**9])
+@pytest.mark.parametrize("control", [0, 0.15])
+def test_the_cap_still_repartitions_the_queue(queues, group_by, cap, control):
+    queue = rows(7, 1, 1, 120, 3, 1, 99, 20, 21)
+    batches = queues.chunk_send_batches(queue, batch_size=40, control_fraction=control,
+                                        group_by=group_by, species_cap=cap)
+    keys = [b[2] for b in batches]
+    assert sorted(keys) == sorted(r[1] for r in queue), "a row was lost or sent twice"
+    assert max(sizes(batches)) <= 40
+    for bid in {b[0] for b in batches}:
+        for sp in {b[1] for b in batches if b[0] == bid and b[4] == "queue"}:
+            assert per_batch(batches, sp)[bid] <= cap
+
+
+def test_a_cap_of_one_puts_one_photo_of_a_species_in_each_batch(queues):
+    batches = queues.chunk_send_batches(rows(3, 2), batch_size=100, control_fraction=0,
+                                        species_cap=1)
+    assert sizes(batches) == [2, 2, 1]
+
+
+def test_exactly_the_cap_is_not_cut(queues):
+    assert sizes(queues.chunk_send_batches(rows(20), batch_size=100, control_fraction=0)) == [20]
+    assert sizes(queues.chunk_send_batches(rows(21), batch_size=100, control_fraction=0)) == [20, 1]
+
+
+def test_an_empty_queue_makes_no_batches_under_the_cap(queues):
+    assert queues.chunk_send_batches([], species_cap=5) == []
+
+
+@pytest.mark.parametrize("cap", [0, -1])
+def test_a_species_cap_below_one_is_refused(queues, cap):
+    with pytest.raises(ValueError, match="species_cap"):
+        queues.chunk_send_batches(rows(3), species_cap=cap)
+
+
+def test_control_rows_do_not_count_against_the_cap(queues):
+    batches = queues.chunk_send_batches(rows(1000), batch_size=100)
+    first = [b for b in batches if b[0] == 1]
+    assert sum(1 for b in first if b[4] == "queue") <= 20
+    assert any(b[4] == "control" for b in first)
+
+
+def test_the_capped_packing_golden(queues):
+    """Batch of 12, cap 5. Batch 1 stops before species 2 (10 + 4 > 12). Batch 2
+    resumes species 1 first and then fits species 2 and 3. The rest of species 1
+    follows five at a time."""
+    from collections import Counter
+    got = queues.chunk_send_batches(rows(5, 30, 4, 2), batch_size=12, control_fraction=0,
+                                    species_cap=5)
+    counts = Counter((b[0], b[1]) for b in got)
+    assert list(counts.items()) == [
+        ((1, "species 0"), 5), ((1, "species 1"), 5),
+        ((2, "species 1"), 5), ((2, "species 2"), 4), ((2, "species 3"), 2),
+        ((3, "species 1"), 5), ((4, "species 1"), 5), ((5, "species 1"), 5),
+        ((6, "species 1"), 5)]
