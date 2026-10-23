@@ -27,18 +27,20 @@ def write(path, header, rows):
 
 @pytest.fixture
 def files(tmp_path):
-    """Round 1: prioritised p1-p4, control c1-c2. Round 2 (unlabelled): p9 only.
+    """Ledgers in rounds/. Round 1: prioritised p1-p4, control c1-c2. Round 2
+    (unlabelled): p9 only. Ledger batch_id is not the round: round 1 was batch 7.
 
     Before round 1 the GT holds `common` x10 (well sampled) and `rare` x2.
     Labels: p1 common (guess common), p2 rare (guess common), p3 fresh (guess
     common), p4 unlabelled; c1 common (guess common), c2 common (guess rare).
     """
-    sent = [("1", "g", f"p{i}", "q", "queue") for i in (1, 2, 3, 4)]
-    sent += [("1", "g", f"c{i}", "q", "control") for i in (1, 2)]
-    sent += [("2", "g", "p9", "q", "queue")]
-    write(tmp_path / "sent.csv", ["batch_id", "species_group", "global_key", "queue", "picked_by"], sent)
     guesses = {"p1": "common", "p2": "common", "p3": "common", "c1": "common", "c2": "rare"}
-    write(tmp_path / "queue.csv", ["global_key", "predicted_species"], guesses.items())
+    head = ["round", "batch_id", "global_key", "picked_by", "predicted_species"]
+    (tmp_path / "rounds").mkdir()
+    r1 = [("1", "7", f"p{i}", "queue", guesses.get(f"p{i}", "")) for i in (1, 2, 3, 4)]
+    r1 += [("1", "7", f"c{i}", "control", guesses[f"c{i}"]) for i in (1, 2)]
+    write(tmp_path / "rounds" / "round_1.csv", head, r1)
+    write(tmp_path / "rounds" / "round_2.csv", head, [("2", "1", "p9", "queue", "")])
     gt = [(f"old{i}", "common") for i in range(WELL)] + [("old_r1", "rare"), ("old_r2", "rare")]
     gt += [("p1", "Common"), ("p2", "rare"), ("p3", "fresh"), ("c1", "common"), ("c2", "common")]
     write(tmp_path / "gt.csv", ["global_key", "wcvp_canonical_name"], gt)
@@ -46,9 +48,9 @@ def files(tmp_path):
 
 
 def load_inputs(rr, d):
-    sent = rr.read_rows(d / "sent.csv")
+    sent = [r for p in sorted((d / "rounds").glob("round_*.csv")) for r in rr.read_rows(p)]
     gt = {r["global_key"]: r["wcvp_canonical_name"] for r in rr.read_rows(d / "gt.csv")}
-    guess = {r["global_key"]: r["predicted_species"] for r in rr.read_rows(d / "queue.csv")}
+    guess = {r["global_key"]: r["predicted_species"] for r in sent}
     return sent, gt, guess
 
 
@@ -94,8 +96,8 @@ def test_pool_sums_closed_rounds(rr, files):
 
 def test_cli_pending_exits_zero_and_writes_csv(rr, files, monkeypatch, capsys):
     out = files / "out.csv"
-    monkeypatch.setattr("sys.argv", ["read_round", "--round", "2", "--sent", str(files / "sent.csv"),
-                                     "--queue", str(files / "queue.csv"), "--gt", str(files / "gt.csv"),
+    monkeypatch.setattr("sys.argv", ["read_round", "--round", "2", "--ledger-dir", str(files / "rounds"),
+                                     "--gt", str(files / "gt.csv"),
                                      "--out", str(out)])
     rr.main()
     assert "pending" in capsys.readouterr().out
@@ -104,7 +106,7 @@ def test_cli_pending_exits_zero_and_writes_csv(rr, files, monkeypatch, capsys):
 
 
 def test_cli_all_with_no_gt_file_is_pending(rr, files, monkeypatch, capsys):
-    monkeypatch.setattr("sys.argv", ["read_round", "--all", "--sent", str(files / "sent.csv"),
+    monkeypatch.setattr("sys.argv", ["read_round", "--all", "--ledger-dir", str(files / "rounds"),
                                      "--gt", str(files / "missing.csv"), "--out", str(files / "o.csv")])
     rr.main()
     assert "pooled: pending" in capsys.readouterr().out
@@ -113,10 +115,17 @@ def test_cli_all_with_no_gt_file_is_pending(rr, files, monkeypatch, capsys):
 def test_queue_page_reads_the_csv_read_round_writes(rr, files, monkeypatch, queue_panels):
     from types import SimpleNamespace
     out = files / "round_readout.csv"
-    monkeypatch.setattr("sys.argv", ["read_round", "--round", "1", "--sent", str(files / "sent.csv"),
-                                     "--queue", str(files / "queue.csv"), "--gt", str(files / "gt.csv"),
+    monkeypatch.setattr("sys.argv", ["read_round", "--round", "1", "--ledger-dir", str(files / "rounds"),
+                                     "--gt", str(files / "gt.csv"),
                                      "--out", str(out)])
     rr.main()
     html = queue_panels.readout_block(SimpleNamespace(verify_dir=str(files)))
     assert "pending" not in html
     assert ">prioritised<" in html and ">random control<" in html
+
+
+def test_later_keys_come_from_the_ledgers_round_not_batch_id(rr, files):
+    # round 1 was batch 7: read by batch_id it would count as "later" than round 2
+    sent, gt, guess = load_inputs(rr, files)
+    res = rr.read_round(sent, {**gt, "p9": "fresh"}, guess, 2)  # p3 made fresh known in round 1
+    assert res["arms"]["prioritised"]["new_rows"] == 0

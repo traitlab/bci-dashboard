@@ -1,8 +1,7 @@
 """Read out a closed round: prioritised arm against the random control.
 
-Batch 1 (and every batch after it) carries `CONTROL_FRACTION` of rows drawn at
-random from the whole pool, marked `picked_by == control` in send_batches.csv.
-Once the botanists' labels are in the GT file, those rows are a free randomised
+Batch 1 carries `CONTROL_FRACTION` of rows drawn at random from the whole pool,
+marked `picked_by == control`; later batches carry none. Once the botanists' labels are in the GT file, those rows are a free randomised
 comparison. Per arm this prints n, the share of labels that differ from the
 model's first guess (corrections), the rows whose species was new to the
 project at that round, and the rows whose species was long-tail (fewer than
@@ -10,11 +9,13 @@ project at that round, and the rows whose species was long-tail (fewer than
 interval. The interval is the point: a round holds a handful of control rows.
 
 Inputs, all local, no network:
-  --sent   the send_batches.csv the round was dispatched from (batch_id, picked_by).
-           Keep the dispatched copy: a later measure.py run rewrites the file.
-  --queue  the send_first_queue.csv of that run, for `predicted_species`. Rows
-           missing from it have no first guess and are left out of the
-           correction rate only.
+  --ledger-dir  the round ledgers `dispatch_round.py` wrote, input/rounds/round_<N>.csv
+           (round, picked_by, predicted_species). They are the record of what each
+           round sent; send_batches.csv is rewritten every refresh and is not.
+           Rows with no `predicted_species` have no first guess and are left out of
+           the correction rate only.
+  --sent / --queue  explicit overrides: a send_batches.csv (its batch_id read as the
+           round) and a send_first_queue.csv whose `predicted_species` wins.
   --gt     gt_dominant_taxon.csv, which `close_round.py` appends to.
 
 A round is closed when at least one of its sent rows has a label in the GT file;
@@ -66,9 +67,9 @@ def _norm(name: str) -> str:
 def read_round(sent: list[dict], gt: dict[str, str], guess: dict[str, str],
                round_no: int) -> dict:
     """One round's per-arm counts. `status` is pending when nothing is labelled."""
-    mine = [r for r in sent if r["batch_id"].strip() == str(round_no)]
+    mine = [r for r in sent if r["round"].strip() == str(round_no)]
     later = {r["global_key"] for r in sent
-             if r["batch_id"].strip().isdigit() and int(r["batch_id"]) >= round_no}
+             if r["round"].strip().isdigit() and int(r["round"]) >= round_no}
     before = Counter(_norm(s) for k, s in gt.items() if k not in later)
     arms = {a: {**dict.fromkeys(COUNTS, 0), "new_species": set()} for a in ARMS}
     for r in mine:
@@ -133,10 +134,11 @@ def parse_args():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     which = ap.add_mutually_exclusive_group(required=True)
-    which.add_argument("--round", type=int, help="round (batch_id) to read")
+    which.add_argument("--round", type=int, help="round to read (the ledger's round)")
     which.add_argument("--all", action="store_true", help="pool every closed round")
-    ap.add_argument("--sent", type=Path, default=REPO / "build/tables/send_batches.csv")
-    ap.add_argument("--queue", type=Path, default=REPO / "build/tables/send_first_queue.csv")
+    ap.add_argument("--ledger-dir", type=Path, default=REPO / "input" / "rounds")
+    ap.add_argument("--sent", type=Path, help="send_batches.csv instead of the ledgers")
+    ap.add_argument("--queue", type=Path, help="send_first_queue.csv for the first guesses")
     ap.add_argument("--gt", type=Path, default=Path(core.GT_CSV))
     ap.add_argument("--out", type=Path, default=REPO / "build/tables/round_readout.csv")
     return ap.parse_args()
@@ -144,24 +146,30 @@ def parse_args():
 
 def main() -> None:
     args = parse_args()
-    if not args.sent.exists():
-        sys.exit(f"ERROR: {args.sent} not found.")
-    sent = read_rows(args.sent)
+    if args.sent:
+        if not args.sent.exists():
+            sys.exit(f"ERROR: {args.sent} not found.")
+        sent = [{**r, "round": r["batch_id"]} for r in read_rows(args.sent)]
+    else:
+        sent = [r for p in sorted(args.ledger_dir.glob("round_*.csv")) for r in read_rows(p)]
+        if not sent:
+            sys.exit(f"ERROR: no round ledger rows in {args.ledger_dir}.")
     # No GT file yet means no round has been closed: pending, not an error.
     gt = ({r["global_key"]: r["wcvp_canonical_name"] for r in read_rows(args.gt)}
           if args.gt.exists() else {})
-    guess = ({r["global_key"]: r["predicted_species"] for r in read_rows(args.queue)}
-             if args.queue.exists() else {})
+    guess = {r["global_key"]: r.get("predicted_species") or "" for r in sent}
+    if args.queue and args.queue.exists():
+        guess.update({r["global_key"]: r["predicted_species"] for r in read_rows(args.queue)})
     if args.round is not None:
         wanted = [args.round]
     else:
-        wanted = sorted({int(r["batch_id"]) for r in sent if r["batch_id"].strip().isdigit()})
+        wanted = sorted({int(r["round"]) for r in sent if r["round"].strip().isdigit()})
     results = [read_round(sent, gt, guess, n) for n in wanted]
     closed = [r for r in results if r["status"] == "closed"]
     out = []
     for r in results:
         if r["status"] == "pending" and args.all:
-            continue  # --all lists the closed rounds; the rest of send_batches.csv is future batches
+            continue  # --all lists the closed rounds; the rest are rounds not yet read
         if r["status"] == "pending":
             print(f"round {r['round']}: pending (no labels for its sent rows in {args.gt.name})")
             out.append({"scope": str(r["round"]), "status": "pending"})
