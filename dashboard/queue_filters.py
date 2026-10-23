@@ -36,12 +36,13 @@ var F={queue:H.indexOf('queue'),species:H.indexOf('species_group'),
 var el=function(id){return document.getElementById(id)};
 function pick(){var lo=parseFloat(el('f-lo').value),hi=parseFloat(el('f-hi').value);
   if(isNaN(lo))lo=0;if(isNaN(hi))hi=1;
+  var narrowed=lo>0||hi<1;
   var q=el('f-queue').value,s=el('f-species').value,m=el('f-mission').value,
     t=el('f-site').value,out=[];
   for(var i=0;i<R.length;i++){var r=R[i];
     if(q&&r[F.queue]!==q)continue;if(s&&r[F.species]!==s)continue;
     if(m&&r[F.mission]!==m)continue;if(t&&r[F.site]!==t)continue;
-    if(C[i]!==''&&(+C[i]<lo||+C[i]>hi))continue;out.push(r)}
+    if(C[i]===''?narrowed:(+C[i]<lo||+C[i]>hi))continue;out.push(r)}
   return out}
 function show(){var rows=pick(),by={};
   el('f-count').textContent=rows.length.toLocaleString('en-US')+' of '+
@@ -155,7 +156,7 @@ def send_filters(c):
         'With no filter the download is that file. Confidence is the first guess, 0 to 1.</p>'
         '<div class="controls">'
         + _select("f-queue", "Queue", uniq("queue"))
-        + _select("f-species", "Species", uniq("species_group"))
+        + _select("f-species", "Species", [v for v in uniq("species_group") if v != queues.CONTROL_GROUP])
         + _select("f-mission", "Mission", uniq("mission"))
         + _select("f-site", "Site", uniq("site"))
         + '<label>Confidence from <input id="f-lo" type="number" min="0" max="1" '

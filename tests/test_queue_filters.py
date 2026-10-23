@@ -102,3 +102,35 @@ def test_next_batch_block_offers_the_round_after_the_last_ledger(queue_filters, 
     assert "--round 3 --csv build/tables/send_batches.csv --batch 1" in queue_filters.next_batch_block(c)
     c.ledger_dir = str(tmp_path / "none")
     assert "--round 1 --csv" in queue_filters.next_batch_block(c)
+
+
+def _count(queue_filters, tables, tmp_path, lo, hi):
+    """Run the page script under node with a stub DOM; return the shown count text."""
+    data = queue_filters.send_data(str(tables))
+    script = tmp_path / "pick.js"
+    script.write_text(
+        "var data=" + json.dumps(data) + ";var els={};\n"
+        "function E(){return {value:'',textContent:'',children:[],className:'',"
+        "addEventListener:function(){},appendChild:function(){}}}\n"
+        "['f-queue','f-species','f-mission','f-site','f-lo','f-hi','f-count','f-missions',"
+        "'f-download'].forEach(function(i){els[i]=E()});\n"
+        f"els['f-lo'].value='{lo}';els['f-hi'].value='{hi}';\n"
+        "els['send-data']={textContent:JSON.stringify(data)};\n"
+        "global.document={getElementById:function(i){return els[i]||null},"
+        "createElement:E};\n"
+        + queue_filters._JS + "\nconsole.log(els['f-count'].textContent);\n", encoding="utf-8")
+    out = subprocess.run(["node", str(script)], capture_output=True, check=True, text=True).stdout
+    return int(out.split()[0])
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_blank_confidence_passes_the_full_range_but_not_a_narrowed_one(queue_filters, tables, tmp_path):
+    assert _count(queue_filters, tables, tmp_path, 0, 1) == 4  # k4 has no confidence, kept
+    assert _count(queue_filters, tables, tmp_path, 0.8, 1) == 1  # only k3; k4 is dropped
+    assert _count(queue_filters, tables, tmp_path, 0, 0.6) == 2  # k1, k2; k4 is dropped
+
+
+def test_control_is_not_a_species_option(queue_filters, tables):
+    html = queue_filters.send_filters(SimpleNamespace(verify_dir=str(tables)))
+    species = re.search(r'id="f-species">(.*?)</select>', html, re.DOTALL).group(1)
+    assert "persicaria a" in species and 'value="control"' not in species
