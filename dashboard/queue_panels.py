@@ -65,6 +65,10 @@ _UNMEASURED_NOTE = (
 READOUT_FILE = "round_readout.csv"
 
 
+# read_round.py arm names, as CONTEXT.md says a page words them
+PICKED_BY = {"prioritised": "prioritised", "control": "random control"}
+
+
 def readout_rows(c) -> list:
     """Closed rows of the round read-out, or [] when the file or any closed row
     is absent. Intervals must be rates in [0, 1]; anything else aborts the build
@@ -98,14 +102,14 @@ def readout_block(c) -> str:
         g = int(r["n_with_guess"])
         rate = (f'{pctf(int(r["corrections"]) / g)} ({pctf(float(r["corrections_lo"]))} to '
                 f'{pctf(float(r["corrections_hi"]))})') if g else "n/a"
-        rows.append([esc(r["scope"]), esc(r["arm"]), f'{int(r["n_sent"]):,}',
+        rows.append([esc(r["scope"]), esc(PICKED_BY.get(r["arm"], r["arm"])), f'{int(r["n_sent"]):,}',
                      f'{int(r["n_labelled"]):,}', f'{int(r["corrections"]):,}', rate,
                      f'{int(r["new_rows"]):,}', f'{int(r["long_tail_rows"]):,}'])
     return ('<p class="note"><b>Prioritised vs random control.</b> For each closed round, the '
             'share of labelled photos where the botanist corrected the model, with its '
             'interval. A small number of labelled photos gives a wide interval; read the '
             'counts first.</p>'
-            + table([("scope", False), ("arm", False), ("sent", True), ("labelled", True),
+            + table([("round", False), ("picked by", False), ("sent", True), ("labelled", True),
                      ("corrections", True), ("correction rate (interval)", True),
                      ("new rows", True), ("long-tail rows", True)], rows))
 

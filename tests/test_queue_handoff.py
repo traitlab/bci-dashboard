@@ -166,6 +166,7 @@ def test_readout_prints_counts_with_the_rate_once_closed(queue_panels, tmp_path)
     assert ">80<" in html and ">20<" in html and ">10<" in html
     assert "25.0% (16.0% to 36.0%)" in html
     assert ">n/a<" in html
+    assert ">random control<" in html and ">arm<" not in html
     note = queue_panels.ungraded_note(c)
     assert "has not been measured yet" not in note
     assert "Prioritised vs random control." in note
