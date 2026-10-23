@@ -407,10 +407,11 @@ def p_species(c):
             ap.limit_cell(*c.limits[sp])])
         # No data-status: the row's status tag carries it and the filter reads
         # it from there, rather than 4KB of markup saying it twice.
-        attrs.append(' data-thin="1"' if _starts_hidden(d, st) else "")
+        attrs.append((' data-thin="1"' if _starts_hidden(d, st) else "")
+                     + f' data-form="{esc(d["growth_form"])}"')
     # Counted off the marks just made, so the prose below cannot name a
     # different number from the table.
-    n_thin = sum(1 for a in attrs if a)
+    n_thin = sum(1 for a in attrs if "data-thin" in a)
     # Only the one caveat that changes how every number reads (the control) and
     # the line about the hidden rows sit above the table. Definitions are a
     # heading's tooltip and a closed block.
@@ -465,6 +466,7 @@ def p_species(c):
         row_attrs=attrs,
         source="per_species_health.csv",
         thin_label=f"show all {c.n_sp}",
+        forms=sorted({d["growth_form"] for d in c.per_species}),
     )
             # Under the table, not above it, and open either way. It is the guard
             # that stops a reader taking the rate on the graded frames for the

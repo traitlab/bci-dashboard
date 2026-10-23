@@ -23,11 +23,12 @@ def test_both_send_csvs_carry_ids_mission_and_site(core, queues, measure, tmp_pa
     monkeypatch.setattr(measure, "load_novelty_distance", lambda path: {})
     monkeypatch.setattr(measure, "inventory_origins",
                         lambda: {"k1": ("20260114_bciarmour_wptne01_m3e", "bciarmour")})
+    monkeypatch.setattr(measure.growth_form, "load", lambda: {"sp": "liana"})
     qrows = [["long_tail", k, "train", "sp", 0.5, 0, 0.0, i, "", ""]
              for i, k in enumerate(["k1", "k2", "k3"], 1)]
     brows = queues.chunk_send_batches(qrows, control_fraction=0)
     measure.write_send_first_queue(str(tmp_path), qrows)
-    measure.write_send_batches(str(tmp_path), brows)
+    measure.write_send_batches(str(tmp_path), brows, qrows)
 
     first = _read(tmp_path / "send_first_queue.csv")
     batches = _read(tmp_path / "send_batches.csv")
@@ -41,6 +42,8 @@ def test_both_send_csvs_carry_ids_mission_and_site(core, queues, measure, tmp_pa
         by_key = {r["global_key"]: (r["mission"], r["site"]) for r in rows}
         assert by_key["k1"] == ("20260114_bciarmour_wptne01_m3e", "bciarmour")
         assert by_key["k2"] == by_key["k3"] == ("", "")  # inventory does not name them
+    assert {r["growth_form"] for r in batches} == {"liana"}
+    assert list(batches[0]) == queues.SEND_BATCH_HEADER
 
 
 def test_inventory_origins_reads_metadata_then_the_url_folder(core, tmp_path):

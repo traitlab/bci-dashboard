@@ -72,11 +72,14 @@ SEND_BATCH_LOOKUP_COLUMNS = ["how_new_it_looks"]
 # `mission` and `site` say where the frame was flown, off the inventory; blank
 # for a frame it does not name.
 #
+# `growth_form` is the predicted species' growth form off input/growth_form.csv,
+# `unknown` where the file does not name it (a control row carries its own prediction's).
+#
 # `group_by` is last and the same on every row: how the file was packed
 # ("species" or "rank", see `GROUP_BY`), so a batch's mode can be read off it
 # when Labelbox time per label is compared across batches.
 SEND_BATCH_LINK_COLUMNS = ["image_url", "labelbox_url", "data_row_id", "mission", "site",
-                           "group_by"]
+                           "growth_form", "group_by"]
 SEND_BATCH_HEADER = SEND_BATCH_COLUMNS + SEND_BATCH_LOOKUP_COLUMNS + SEND_BATCH_LINK_COLUMNS
 
 # No more than this many crowns per Labelbox batch, one botanist session's worth.
