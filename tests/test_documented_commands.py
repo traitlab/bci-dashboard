@@ -45,7 +45,7 @@ DECLARED = re.compile(r"add_argument\(\s*\"(--[\w-]+)\"")
 def documented() -> dict[tuple[str, frozenset], list[str]]:
     """Every command in the prose, with where it was printed."""
     sources = {}
-    for path in [REPO / "README.md", *(REPO / "bin").glob("*"),
+    for path in [REPO / "README.md", *(p for p in (REPO / "bin").glob("*") if p.is_file()),
                  *(REPO / "docs").rglob("*.md")]:
         sources[path.name] = path.read_text(encoding="utf-8")
     for directory in CODE_DIRS:
