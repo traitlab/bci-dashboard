@@ -264,7 +264,7 @@ def run(repo: Path, script: str, *args: str, env: dict, research: bool = False) 
 
 
 def build_atlas_pages(
-    repo: Path, data: Path, stage: Path, rendered: Path, *, env: dict
+    repo: Path, data: Path, stage: Path, rendered: Path, tables: Path, *, env: dict
 ) -> None:
     """Rebuild the explorer and embedding atlas from the vectors this run holds."""
     work = stage / "atlas"
@@ -284,10 +284,13 @@ def build_atlas_pages(
             *out, comparison[1], **labelling)
     run(repo, "labelling/export_explorer.py", *root, "--plantnet-atlas", str(atlas),
         *out, str(catalogue), **labelling)
-    run(repo, "dashboard/build_explorer.py", "--input", str(catalogue),
-        *out, str(rendered / "explorer.html"), env=env)
+    # The atlas first, so the explorer's byline can link the map. Both read the
+    # scope counts off the measured tables.
+    scope = ("--scope-dir", str(tables))
     run(repo, "dashboard/build_embedding_atlas.py", "--input", str(atlas), *comparison,
-        "--catalogue", str(catalogue), *out, str(rendered / "embedding-atlas.html"), env=env)
+        "--catalogue", str(catalogue), *scope, *out, str(rendered / "embedding-atlas.html"), env=env)
+    run(repo, "dashboard/build_explorer.py", "--input", str(catalogue), *scope,
+        *out, str(rendered / "explorer.html"), env=env)
 
 
 def label_dates(provenance: str) -> tuple[str | None, str | None]:
@@ -433,7 +436,7 @@ def refresh(
         # The crownfirst atlas needs an external experiment file, so it is copied.
         names = ["crownfirst-atlas.html"]
         try:
-            build_atlas_pages(repo, data, stage, rendered, env=env)
+            build_atlas_pages(repo, data, stage, rendered, tables, env=env)
         except subprocess.CalledProcessError as error:
             print(
                 f"::warning::atlas pages kept from docs, rebuild failed: {error}",

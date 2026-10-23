@@ -18,6 +18,7 @@ from atlas_inventory import join_photo_inventory
 from build_index import build as build_index, build_about
 from embedding_atlas_assets import HTML as ATLAS_HTML
 from explorer_assets import HTML as EXPLORER_HTML
+from page import scoped_photo_page
 from site_navigation import CSS as SITE_CSS, FAVICON
 from site_navigation import navigation
 from style import CSS as REPORT_CSS
@@ -32,7 +33,7 @@ REPORT_PAGES = ("model_health_dashboard.html", "label_queue_dashboard.html")
 
 def refresh_page(
     name: str, original: str, available: set[str], catalogue: dict | None = None,
-    catalogue_source: dict | None = None,
+    catalogue_source: dict | None = None, scope_dir: str = "",
 ) -> str:
     """Replace presentation while retaining the recorded data and report body."""
     if name in PHOTO_PAGES:
@@ -53,6 +54,7 @@ def refresh_page(
             recorded_payload = json.dumps(data, separators=(",", ":"), allow_nan=False).replace("<", "\\u003c")
         if population == "points" and not data["points"]:
             raise ValueError(f"{name}: atlas requires at least one positioned photo; recorded pages retained")
+        template = scoped_photo_page(template, scope_dir, available)
         return (template.replace("__SITE_CSS__", SITE_CSS)
                 .replace("__SITE_NAV__", navigation(name, available=available))
                 .replace(placeholder, recorded_payload))
@@ -107,7 +109,7 @@ def refresh_site(source: Path, output: Path) -> None:
         catalogue = json.loads(match.group(1))
         catalogue_source = {"file": "explorer.html#explorer-data", "sha256": hashlib.sha256(match.group(1).encode()).hexdigest()}
     pages = {name: refresh_page(name, (source / name).read_text(encoding="utf-8"), available,
-                                catalogue, catalogue_source) for name in names}
+                                catalogue, catalogue_source, str(source)) for name in names}
     # Home derives each date from its own page rather than a fresh UI build date.
     with tempfile.TemporaryDirectory(prefix="bci-site-ui-") as folder:
         stage = Path(folder)

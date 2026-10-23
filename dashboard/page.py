@@ -20,7 +20,7 @@ import shutil
 import core as hc
 import health as hl
 from assets import css_for, esc, section, strip_comments
-from build_index import GLOSSARY
+from build_index import GLOSSARY, scope_byline
 from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
 from site_navigation import FAVICON, navigation
 from confirmatory_panels import p_floor
@@ -219,6 +219,17 @@ def mark_first_use(body: str) -> str:
                 del todo[term]
         out.append(part)
     return "".join(out)
+
+
+def scoped_photo_page(template: str, scope_dir: str, available) -> str:
+    """A photo tool's template with the scope byline in its header and the first
+    use of each glossary term marked from the header on, like ``document``.
+
+    ``scope_dir`` holds scope.csv; ``available`` names the pages the byline may link.
+    """
+    head, sep, rest = template.partition("<header>")
+    byline = scope_byline(scope_dir, available)
+    return head + sep + mark_first_use(rest.replace("__SCOPE__", byline))
 
 
 def document(title: str, body: str, *, current: str = "", available=None) -> str:

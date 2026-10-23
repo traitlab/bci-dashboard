@@ -30,7 +30,7 @@ main{min-width:0}
 body>header{max-width:1600px;margin:auto;background:transparent;color:var(--ink);border:0;padding:24px 24px 0}
 body>header h1{font-size:26px;line-height:1.25;font-weight:650;letter-spacing:-.6px;color:var(--ink);margin:0}
 body h1,body[data-workspace]>header h1{font-size:26px;line-height:1.25;font-weight:650;letter-spacing:-.6px}
-body>header p{font-size:14px;color:var(--slate);margin:6px 0 0}
+body>header p,body>header .subtitle{font-size:14px;color:var(--slate);margin:6px 0 0}
 button,input,select,textarea{font-family:inherit;border-color:#a8bdb0;border-radius:var(--radius);accent-color:var(--green)}
 button,select,input[type=search]{min-height:44px}
 button:hover{background:var(--pale)}

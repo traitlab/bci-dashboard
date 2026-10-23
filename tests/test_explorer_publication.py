@@ -12,14 +12,13 @@ ROOT = Path(__file__).resolve().parents[1]
 @pytest.mark.parametrize("already_published", [False, True])
 def test_publication_keeps_explorers_discoverable_without_raw_exports(tmp_path, already_published):
     (tmp_path / "bin").mkdir()
-    (tmp_path / "dashboard").mkdir()
+    # build_index marks glossary first uses with page.py, so it needs the package.
+    shutil.copytree(ROOT / "dashboard", tmp_path / "dashboard", ignore=shutil.ignore_patterns("__pycache__"))
     build = tmp_path / "build"
     build.mkdir()
     docs = tmp_path / "docs"
     docs.mkdir()
     shutil.copy2(ROOT / "bin/publish_pages.sh", tmp_path / "bin/publish_pages.sh")
-    for name in ("build_index.py", "site_navigation.py"):
-        shutil.copy2(ROOT / "dashboard" / name, tmp_path / "dashboard" / name)
     operational = ["model_health_dashboard.html", "label_queue_dashboard.html", "label_queue_team.html"]
     explorers = ["explorer.html", "embedding-atlas.html", "crownfirst-atlas.html"]
     expected = {name: "<!doctype html><h1>" + name + "</h1>" for name in operational + explorers}

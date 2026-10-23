@@ -269,6 +269,111 @@ def test_each_glossary_term_is_defined_once_at_its_first_use(synthetic_page):
         assert first is None or first.group(0) == marked[0]
 
 
+@pytest.fixture(scope="module")
+def public_site(public_snapshot):
+    """Every public page built over the synthetic tables: both data pages, the
+    three photo tools, the index and About."""
+    root, pages = public_snapshot, public_snapshot / "pages"
+    explorer = root / "explorer.json"
+    explorer.write_text(json.dumps({"schema_version": 1, "photos": [], "taxa": []}))
+    atlas = root / "atlas.json"
+    atlas.write_text(json.dumps({"points": [{"key": "a.JPG"}]}))
+    scope = ["--scope-dir", str(root / "tables")]
+    for script, source, name in (
+        ("build_embedding_atlas.py", atlas, "embedding-atlas.html"),
+        ("build_explorer.py", explorer, "explorer.html"),
+    ):
+        proc = fixture.command(
+            root, script, "--input", str(source), "--output", str(pages / name), *scope
+        )
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+    # The crown-first atlas is the same builder; its encoder names the page.
+    crown = root / "crown.json"
+    crown.write_text(
+        json.dumps(
+            {"points": [{"key": "a.JPG"}], "provenance": {"encoder": "Crownfirst"}}
+        )
+    )
+    proc = fixture.command(
+        root,
+        "build_embedding_atlas.py",
+        "--input",
+        str(crown),
+        "--output",
+        str(pages / "crownfirst-atlas.html"),
+        *scope,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    for script, name in (
+        ("build_external.py", "model_health_dashboard.html"),
+        ("build_internal.py", "label_queue_dashboard.html"),
+    ):
+        proc = fixture.build(root, script, name)
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+    proc = fixture.command(
+        root,
+        "build_index.py",
+        "--build",
+        str(pages),
+        "--out",
+        str(pages / "index.html"),
+        "--about-out",
+        str(pages / "about.html"),
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    return {
+        path.name: path.read_text(encoding="utf-8") for path in pages.glob("*.html")
+    }
+
+
+PUBLIC_PAGES = {
+    "index.html",
+    "about.html",
+    "explorer.html",
+    "embedding-atlas.html",
+    "crownfirst-atlas.html",
+    "model_health_dashboard.html",
+    "label_queue_dashboard.html",
+}
+
+
+def test_every_public_page_states_the_scope_from_the_scope_table(public_site):
+    assert PUBLIC_PAGES <= set(public_site)
+    for name in PUBLIC_PAGES - {"about.html"}:
+        page = public_site[name]
+        visible = re.sub(r"<[^>]+>", "", page)
+        assert "Drone-photographed crowns only. 40 frames, 1 site." in visible, name
+        assert '<a href="scope.csv">' in page and 'href="about.html#scope"' in page, (
+            name
+        )
+        # The atlas is built first, as in a refresh, so every page can link the map.
+        assert 'href="embedding-atlas.html#view=locations">See the map' in page, name
+    # About holds the full sentence the byline links to.
+    assert '<h2 id="scope">Data scope</h2>' in public_site["about.html"]
+
+
+def test_every_public_page_defines_each_glossary_term_at_its_first_use(public_site):
+    with _on_path(DASHBOARD):
+        from build_index import GLOSSARY
+        from page import FIRST_USE
+    for name in PUBLIC_PAGES - {"about.html"}:  # About is the glossary itself
+        page = public_site[name]
+        # From where a reader meets text: the header of a photo tool, else <main>.
+        main = page[re.search(r"<header>|<main\b", page).start() :]
+        opaque = r"<(script|style|svg|option)\b.*?</\1>"
+        visible = re.sub(
+            r"<[^>]+>", " ", re.sub(opaque, " ", main, flags=re.DOTALL | re.IGNORECASE)
+        )
+        for term, words in FIRST_USE:
+            meaning = re.escape(html_lib.escape(dict(GLOSSARY)[term]))
+            marked = re.findall(rf'<abbr title="{meaning}">([^<]*)</abbr>', main)
+            first = re.search(rf"\b(?:{words})\b", visible, re.IGNORECASE)
+            assert len(marked) == (1 if first else 0), (name, term, marked)
+            assert first is None or first.group(0) == marked[0], (name, term)
+        # The byline is the one place every page uses crown and frame.
+        assert "<abbr" in main, name
+
+
 def test_every_csv_a_page_links_is_allowed_on_the_public_site(synthetic_page):
     # publish_pages.sh copies each linked CSV into docs/, and the refresh then
     # refuses a docs/ holding any name outside PUBLIC_FILES.
