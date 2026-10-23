@@ -256,7 +256,9 @@ def test_scope_sentence_numbers_equal_the_table_counts(build_index, tmp_path):
     about = build_index.build_about(build_index.available_names(str(tmp_path)), s)
     # The full sentence lives on About; the landing page carries the short line.
     assert s in about and s not in home and '<h2 id="scope">' in about
-    assert 'Drone-photographed crowns only. <a href="scope.csv">40 frames, 2 sites</a>.' in home
+    # The first use of crown and frame carries its glossary definition.
+    assert 'Drone-photographed crowns only. <a href="scope.csv">40 frames, 2 sites</a>.' in re.sub(r"</?abbr[^>]*>", "", home)
+    assert home.count(">crowns</abbr>") == 1 and home.count(">frames</abbr>") == 1
     for out in (home, about):
         assert 'href="embedding-atlas.html#view=locations">See the map' in out
 

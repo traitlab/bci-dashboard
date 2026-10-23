@@ -10,6 +10,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from atlas_inventory import join_photo_inventory
+from build_index import available_names
+from page import scoped_photo_page
 
 
 def validate_comparison(atlas, comparison):
@@ -36,7 +38,7 @@ def validate_comparison(atlas, comparison):
         raise ValueError("Comparison and atlas label availability differ")
 
 
-def build(source, output, comparison=None, catalogue=None):
+def build(source, output, comparison=None, catalogue=None, scope_dir=None):
     data = json.loads(Path(source).read_text())
     if comparison:
         result = json.loads(Path(comparison).read_text())
@@ -57,6 +59,9 @@ def build(source, output, comparison=None, catalogue=None):
     current = ("crownfirst-atlas.html" if "crownfirst" in
                str(data.get("provenance", {}).get("encoder", "")).lower()
                else "embedding-atlas.html")
+    template = scoped_photo_page(
+        template, scope_dir or str(Path(output).parent),
+        available_names(str(Path(output).parent)) | {current})
     template = template.replace("__SITE_CSS__", site["CSS"]).replace(
         "__SITE_NAV__", site["navigation"](current)
     )
@@ -73,5 +78,6 @@ if __name__ == "__main__":
     parser.add_argument("--output", default="build/embedding-atlas.html")
     parser.add_argument("--comparison")
     parser.add_argument("--catalogue", help="Photo catalogue supplying the shared positioned photo inventory")
+    parser.add_argument("--scope-dir", help="Folder holding scope.csv for the byline (default: the output folder)")
     args = parser.parse_args()
-    build(args.input, args.output, args.comparison, args.catalogue)
+    build(args.input, args.output, args.comparison, args.catalogue, args.scope_dir)

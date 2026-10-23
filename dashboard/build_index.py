@@ -179,12 +179,14 @@ def build(build_dir: str) -> str:
         return (f'<a class="card" href="{name}{fragment}">'
                 f'<b>{html.escape(title)}</b><span>{html.escape(purpose)}</span>{small}</a>')
 
+    from page import mark_first_use  # page imports GLOSSARY from here, so not at the top
+
     more = "".join(f'<a href="{name}{fragment}">{html.escape(title)}</a>'
                    for name, title, _, fragment in OPTIONAL_PAGES
                    if name == "embedding-atlas.html" and name in present)
-    return (_head("Panama canopy photos and labelling",
-                  "Drone photos of the Panama canopy with Pl@ntNet guesses and recorded labels: browse photos, choose the next labelling batch, check model health.", "index.html", present)
-            + '<main id="main-content" tabindex="-1"><h1>Panama canopy</h1>'
+    head = _head("Panama canopy photos and labelling",
+                 "Drone photos of the Panama canopy with Pl@ntNet guesses and recorded labels: browse photos, choose the next labelling batch, check model health.", "index.html", present)
+    main = ('<main id="main-content" tabindex="-1"><h1>Panama canopy</h1>'
             + '<p class="intro">Panama canopy drone photos and Pl@ntNet guesses, for the project leads and the labelling coordinator. '
               'Annotators label in Labelbox, where the guesses are hidden; the site does not yet suggest where to fly. '
               '<a href="about.html#audience">About</a></p>'
@@ -193,6 +195,7 @@ def build(build_dir: str) -> str:
             + (f'<p class="scope">{html.escape(shared)}</p>' if shared else "")
             + f'<p class="scope">{scope_short(build_dir, present)}</p>'
             + "</main></body></html>\n")
+    return head + mark_first_use(main)
 
 
 def _map_link(present) -> str:
