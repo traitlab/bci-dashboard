@@ -174,7 +174,7 @@ def check_send_first(directory, queue_counts, queue_keys):
     return checks, n_unlab
 
 
-def check_send_batches(directory, queue_path, n_unlab):
+def check_send_batches(directory, queue_path, n_unlab, page_group_by=None):
     """The batches are a repartition of the queue: same rows, every batch at most
     BATCH_SIZE with contiguous species groups, no global_key skipped or twice.
 
@@ -191,6 +191,11 @@ def check_send_batches(directory, queue_path, n_unlab):
     if len(modes) > 1 or not modes <= set(queues.GROUP_BYS):
         fail(f"send_batches.csv: group_by is {sorted(modes)}, want one of {queues.GROUP_BYS}")
     group_by = modes.pop() if modes else queues.GROUP_BY
+    # The page packs and words its batches from BCI_GROUP_BY; a file packed the other way
+    # (measure.py run with a different setting) would sit beside counts it did not produce.
+    if page_group_by and brows and group_by != page_group_by:
+        fail(f"send_batches.csv was packed by {group_by} but BCI_GROUP_BY is {page_group_by}; "
+             "build the page with the setting measure.py ran with")
     for bid, rows in by_batch.items():
         if len(rows) > queues.BATCH_SIZE:
             fail(f"send_batches.csv batch {bid}: {len(rows)} rows exceeds "
@@ -369,7 +374,8 @@ def verify_snapshot(directory, *, per_species, buckets, bins_all, never_all,
         queue_checks, n_unlab = check_send_first(directory, queue_counts, queue_keys)
         checks += queue_checks
         checks.append(check_send_batches(
-            directory, os.path.join(directory, "send_first_queue.csv"), n_unlab))
+            directory, os.path.join(directory, "send_first_queue.csv"), n_unlab,
+            page_group_by=queues.GROUP_BY))
 
     if review_counts is not None:
         checks.append(check_review_queue(directory, review_counts, review_mechanisms))

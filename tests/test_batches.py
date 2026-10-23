@@ -373,6 +373,26 @@ def test_the_build_check_follows_the_group_by_column(queues, history, tmp_path, 
             history.check_send_batches(str(tmp_path), str(tmp_path / "q.csv"), 30)
 
 
+def test_the_build_fails_when_the_file_and_the_page_setting_disagree(queues, history, tmp_path):
+    import csv
+    rows = golden_rows(queues)
+    for r in rows:
+        r[queues.SEND_FIRST_COLUMNS.index("how_new_it_looks")] = "0.5"
+    batches = queues.chunk_send_batches(rows, batch_size=queues.BATCH_SIZE, group_by="rank")
+    with open(tmp_path / "q.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(queues.SEND_FIRST_COLUMNS)
+        w.writerows(rows)
+    with open(tmp_path / "send_batches.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(queues.SEND_BATCH_COLUMNS + ["how_new_it_looks", "group_by"])
+        w.writerows(b + ["0.5", "rank"] for b in batches)
+    args = (str(tmp_path), str(tmp_path / "q.csv"), 30)
+    assert "30 rows" in history.check_send_batches(*args, page_group_by="rank")
+    with pytest.raises(SystemExit, match="VERIFY FAIL: send_batches.csv was packed by rank but BCI_GROUP_BY is species"):
+        history.check_send_batches(*args, page_group_by="species")
+
+
 def test_group_by_is_validated(queues):
     with pytest.raises(ValueError, match="group_by"):
         queues.chunk_send_batches(golden_rows(queues), group_by="confusion")
