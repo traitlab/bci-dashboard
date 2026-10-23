@@ -83,10 +83,9 @@ def test_next_batch_block_states_size_download_and_dry_run_first(queue_filters, 
     assert "send_batch_1.csv --dry-run</pre>" in html
 
 
-def test_next_batch_block_says_why_a_batch_is_short_and_its_control_share(queue_filters, tables):
+def test_next_batch_block_states_its_control_share(queue_filters, tables):
     html = queue_filters.next_batch_block(SimpleNamespace(verify_dir=str(tables)))
-    assert ("It stops at 2 because the next species, <i>odd, &quot;name&quot;</i> (1 photo), "
-            "does not fit the room left, so it starts the next batch.") in html
+    assert "It stops at" not in html, "the waiting species is not at its cap"
     assert "About 15% of every batch is random control." in html
 
 
@@ -108,15 +107,6 @@ def test_a_batch_short_because_every_waiting_species_is_capped_says_so(queue_fil
             + [_row(2, "a", f"b{i}") for i in range(5)])
     html = queue_filters.next_batch_block(_write_send(tmp_path, rows))
     assert f"It stops at {cap} because every species still waiting already has {cap} photos" in html
-    assert "does not fit the room left" not in html
-
-
-def test_a_capped_species_is_skipped_when_naming_the_one_that_did_not_fit(queue_filters, tmp_path):
-    cap = queue_filters.queues.SPECIES_CAP
-    rows = ([_row(1, "a", f"a{i}") for i in range(cap)]
-            + [_row(2, "a", "a_more"), _row(2, "b", "b0")])
-    html = queue_filters.next_batch_block(_write_send(tmp_path, rows))
-    assert "because the next species, <i>b</i> (1 photo), does not fit the room left" in html
 
 
 def test_next_batch_block_is_empty_without_the_send_file(queue_filters, tmp_path):

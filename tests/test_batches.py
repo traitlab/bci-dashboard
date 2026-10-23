@@ -61,10 +61,11 @@ def test_small_species_share_a_batch(queues):
     assert groups_of(batches, 1) == ["species 0", "species 1", "species 2"]
 
 
-def test_a_group_that_would_overflow_opens_the_next_batch(queues):
-    # 60 + 50 is 110, so the second species starts a batch rather than straddle.
+def test_a_group_that_would_overflow_fills_the_room_and_carries_the_rest(queues):
+    # 60 + 50 is 110: the second species fills the 40 left and its last 10 open batch 2.
     batches = uncapped(queues)(rows(60, 50), batch_size=100, control_fraction=0)
-    assert sizes(batches) == [60, 50]
+    assert sizes(batches) == [100, 10]
+    assert groups_of(batches, 2) == ["species 1"]
 
 
 def test_a_species_larger_than_a_batch_splits_into_its_own(queues):
@@ -236,35 +237,26 @@ def test_the_control_turns_off(queues):
     assert sizes(batches) == [100, 100, 100, 100, 100]
 
 
-def old_packing(queue, batch_size):
-    """The packer before the control: species pre-split to batch_size, whole
-    groups until the next would overflow. Kept here as the reference."""
-    order, by = [], {}
+def species_order(queue):
+    """The queue regrouped by species, each species at the place its first row
+    earned. With no control and no cap, the batches are this cut into full ones."""
+    order: dict = {}
     for r in queue:
-        if r[3] not in by:
-            order.append(r[3])
-        by.setdefault(r[3], []).append(r)
-    out, bid, held = [], 0, batch_size
-    for sp in order:
-        for i in range(0, len(by[sp]), batch_size):
-            chunk = by[sp][i:i + batch_size]
-            if held + len(chunk) > batch_size:
-                bid, held = bid + 1, 0
-            held += len(chunk)
-            out += [[bid, sp, r[1], r[0], "queue"] for r in chunk]
-    return out
+        order.setdefault(r[3], []).append(r)
+    return [r for group in order.values() for r in group]
 
 
 @pytest.mark.parametrize("batch_size", [1, 3, 7, 25, 100])
-def test_with_no_control_the_packing_is_the_pre_control_packing(queues, batch_size):
+def test_with_no_control_and_no_cap_the_batches_are_the_species_order_cut_full(queues, batch_size):
     import random
     rng = random.Random(batch_size)
     for _ in range(40):
         counts = [rng.choice([1, 1, 2, 5, 30, 120]) for _ in range(rng.randint(1, 8))]
         queue = rows(*counts)
         rng.shuffle(queue)
-        assert uncapped(queues)(
-            queue, batch_size=batch_size, control_fraction=0) == old_packing(queue, batch_size)
+        flat = species_order(queue)
+        assert uncapped(queues)(queue, batch_size=batch_size, control_fraction=0) == [
+            [i // batch_size + 1, r[3], r[1], r[0], "queue"] for i, r in enumerate(flat)]
 
 
 def test_a_species_that_fills_a_batch_is_cut_at_the_room_the_control_leaves(queues):
@@ -366,8 +358,8 @@ def test_a_cap_below_one_stops_the_run(queues, raw):
 # --- group_by -----------------------------------------------------------------
 
 def golden_rows(queues):
-    """30 interleaved rows over five species; the golden below came from the
-    packer before `group_by` existed."""
+    """30 interleaved rows over five species; the golden below is the
+    fill-the-room packing: every batch but the last holds 6 queue rows and 1 control."""
     cols = queues.SEND_FIRST_COLUMNS
     out = []
     for i in range(30):
@@ -381,20 +373,21 @@ def golden_rows(queues):
 
 GOLDEN_SPECIES = [
     (1, "a", "k00", "queue"), (1, "a", "k11", "queue"), (1, "a", "k14", "queue"),
-    (1, "a", "k17", "queue"), (1, "a", "k20", "queue"), (1, "control", "k25", "control"),
-    (2, "d", "k01", "queue"), (2, "d", "k04", "queue"), (2, "d", "k15", "queue"),
-    (2, "d", "k18", "queue"), (2, "d", "k21", "queue"), (2, "d", "k24", "queue"),
+    (1, "a", "k17", "queue"), (1, "a", "k20", "queue"), (1, "d", "k01", "queue"),
+    (1, "control", "k25", "control"),
+    (2, "d", "k04", "queue"), (2, "d", "k15", "queue"), (2, "d", "k18", "queue"),
+    (2, "d", "k21", "queue"), (2, "d", "k24", "queue"), (2, "b", "k02", "queue"),
     (2, "control", "k08", "control"),
-    (3, "b", "k02", "queue"), (3, "b", "k05", "queue"), (3, "b", "k19", "queue"),
-    (3, "b", "k22", "queue"), (3, "b", "k28", "queue"), (3, "control", "k07", "control"),
-    (4, "e", "k03", "queue"), (4, "e", "k06", "queue"), (4, "e", "k09", "queue"),
-    (4, "e", "k12", "queue"), (4, "e", "k23", "queue"), (4, "e", "k26", "queue"),
-    (4, "control", "k10", "control"),
-    (5, "e", "k29", "queue"), (5, "c", "k13", "queue"), (5, "c", "k27", "queue"),
-    (5, "control", "k16", "control")]
+    (3, "b", "k05", "queue"), (3, "b", "k19", "queue"), (3, "b", "k22", "queue"),
+    (3, "b", "k28", "queue"), (3, "e", "k03", "queue"), (3, "e", "k06", "queue"),
+    (3, "control", "k07", "control"),
+    (4, "e", "k09", "queue"), (4, "e", "k12", "queue"), (4, "e", "k23", "queue"),
+    (4, "e", "k26", "queue"), (4, "e", "k29", "queue"), (4, "c", "k10", "queue"),
+    (4, "control", "k16", "control"),
+    (5, "c", "k27", "queue"), (5, "control", "k13", "control")]
 
 
-def test_species_mode_is_unchanged_and_the_default(queues):
+def test_species_mode_is_the_default(queues):
     for kwargs in ({}, {"group_by": "species"}):
         got = queues.chunk_send_batches(golden_rows(queues), batch_size=7, **kwargs)
         assert [(b[0], b[1], b[2], b[4]) for b in got] == GOLDEN_SPECIES
@@ -584,15 +577,15 @@ def test_control_rows_do_not_count_against_the_cap(queues):
 
 
 def test_the_capped_packing_golden(queues):
-    """Batch of 12, cap 5. Batch 1 stops before species 2 (10 + 4 > 12). Batch 2
-    resumes species 1 first and then fits species 2 and 3. The rest of species 1
-    follows five at a time."""
+    """Batch of 12, cap 5. Batch 1 takes 5 + 5 and fills its last 2 from species 2.
+    Batch 2 resumes species 1, then the rest of species 2 and species 3, and stops
+    at 9 because only capped species 1 is left. The rest follows five at a time."""
     from collections import Counter
     got = queues.chunk_send_batches(rows(5, 30, 4, 2), batch_size=12, control_fraction=0,
                                     species_cap=5)
     counts = Counter((b[0], b[1]) for b in got)
     assert list(counts.items()) == [
-        ((1, "species 0"), 5), ((1, "species 1"), 5),
-        ((2, "species 1"), 5), ((2, "species 2"), 4), ((2, "species 3"), 2),
+        ((1, "species 0"), 5), ((1, "species 1"), 5), ((1, "species 2"), 2),
+        ((2, "species 1"), 5), ((2, "species 2"), 2), ((2, "species 3"), 2),
         ((3, "species 1"), 5), ((4, "species 1"), 5), ((5, "species 1"), 5),
         ((6, "species 1"), 5)]
