@@ -10,13 +10,17 @@ from __future__ import annotations
 
 import csv
 import os
+import re
 from collections import defaultdict
 
 from assets import esc, more, panel, pctf, table
 from core import GT_KEY_PREFIX, inventory_origins, ratio
 
 NAME = "scope.csv"
-COLUMNS = ("mission", "site", "n_frames", "n_labelled", "n_scored", "n_correct_top1")
+COLUMNS = ("mission", "site", "n_frames", "n_labelled", "n_scored", "n_correct_top1",
+           "first_capture", "last_capture")
+CHECKED = COLUMNS[:6]  # the capture dates are new; a snapshot written before them still verifies
+CAPTURE = re.compile(r"DJI_(\d{8})")
 
 
 def rows(h, origins=None) -> list[dict]:
@@ -25,13 +29,19 @@ def rows(h, origins=None) -> list[dict]:
     label; ``n_scored`` the headline population, frames labelled to a species
     (``h.sp_recs``), and ``n_correct_top1`` those whose top prediction is the
     label. A frame the inventory does not place is counted on a row with a
-    blank mission and site, never guessed into one."""
+    blank mission and site, never guessed into one. ``first_capture`` and
+    ``last_capture`` are the earliest and latest DJI_YYYYMMDD stamp in the
+    frame names, blank where none carries one: a mission folder is not the day
+    its photos were taken."""
     origins = inventory_origins() if origins is None else origins
-    counts = defaultdict(lambda: [0, 0, 0, 0])
+    counts = defaultdict(lambda: [0, 0, 0, 0, "", ""])
     for stem in h.predictions:
         n = counts[origins.get(GT_KEY_PREFIX + stem, ("", ""))]
         n[0] += 1
         n[1] += stem in h.labelled_stems
+        if found := CAPTURE.search(stem):
+            day = found.group(1)
+            n[4], n[5] = min(n[4] or day, day), max(n[5], day)
     for r in h.sp_recs:
         n = counts[origins.get(r["global_key"], ("", ""))]
         n[2] += 1
@@ -44,7 +54,7 @@ def _table(groups: dict, first: str) -> str:
     over the scored frames beside the count it is over."""
     out = []
     for key, rs in sorted(groups.items()):
-        frames, labelled, scored, hits = (sum(int(r[k]) for r in rs) for k in COLUMNS[2:])
+        frames, labelled, scored, hits = (sum(int(r[k]) for r in rs) for k in CHECKED[2:])
         rate = ratio(hits, scored)
         out.append([esc(key) or "not placed", f"{frames:,}", f"{labelled:,}", f"{scored:,}",
                     f"{pctf(rate)} of {scored:,}" if rate is not None else "not scored"])

@@ -98,7 +98,7 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     # set. Both are named, each against its own work.
     prov = queues.novelty_provenance(hc.QUEUE_NOVELTY_CSV)
     anchors, unembedded = prov["anchors"], prov["unembedded"]
-    anchor_clause = (f"&middot; {anchors:,} labelled frames anchor the ranking "
+    anchor_clause = (f"&middot; {anchors:,} labelled frames with an embedding anchor the ranking "
                      if anchors else "")
     if anchors and unembedded:
         anchor_clause += f"({unembedded:,} more named frames have no embedding yet) "

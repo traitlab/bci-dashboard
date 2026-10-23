@@ -358,7 +358,7 @@ def check_scope(directory, table):
     """The scope line: same frame and label counts per mission and site as
     scope.csv."""
     import mission_scope
-    return _check_rows(directory, mission_scope.NAME, mission_scope.COLUMNS, table,
+    return _check_rows(directory, mission_scope.NAME, mission_scope.CHECKED, table,
                        "mission and site rows")
 
 

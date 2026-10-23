@@ -35,7 +35,8 @@ def health(*stems, labelled=(), scored=()):
 
 def row(mission, site, *n):
     return dict(zip(("mission", "site", "n_frames", "n_labelled", "n_scored",
-                     "n_correct_top1"), (mission, site, *n)))
+                     "n_correct_top1", "first_capture", "last_capture"),
+                    (mission, site, *n, *([""] * (6 - len(n))))))
 
 
 MISSION_A, MISSION_B = ORIGINS["comb_a.JPG"][0], ORIGINS["comb_c.JPG"][0]
@@ -48,6 +49,15 @@ def test_rows_count_every_frame_and_keep_unplaced_ones_blank(mods):
         row("", "", 1, 1, 1, 1), row(MISSION_A, "sitea", 2, 2, 2, 1),
         row(MISSION_B, "siteb", 1, 0, 0, 0)]
     assert mods.scope.rows(health(), ORIGINS) == []
+
+
+def test_rows_take_capture_dates_from_the_frame_stamps(mods):
+    stems = ("DJI_20260322093453_0025_V_1032tele", "DJI_20250811090000_0001_V_1zoom", "a.JPG")
+    origins = {"comb_" + s: ("20250811_sitea_w_m3e", "sitea") for s in stems}
+    [r] = mods.scope.rows(health(*stems), origins)
+    assert (r["first_capture"], r["last_capture"]) == ("20250811", "20260322")
+    # A snapshot written before the dates still verifies.
+    assert mods.scope.CHECKED == mods.scope.COLUMNS[:6]
 
 
 def test_the_sites_panel_gives_each_rate_its_count(mods):
