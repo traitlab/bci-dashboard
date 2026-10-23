@@ -70,7 +70,9 @@ def diff(prev: dict, cur: dict) -> dict:
 
 
 def compute(lines: list[dict]) -> dict:
-    """``lines`` are manifest lines, oldest first. ``diff`` is None until there
-    are two, and ``runs`` is the last HISTORY_RUNS, newest first."""
+    """``lines`` are manifest lines. ``diff`` is None until there are two, and
+    ``runs`` is the last HISTORY_RUNS, newest first. Order is by export, not by
+    file position."""
+    lines = sorted(lines, key=lambda e: e["export"])
     return {"runs": lines[-HISTORY_RUNS:][::-1],
             "diff": diff(lines[-2], lines[-1]) if len(lines) >= 2 else None}

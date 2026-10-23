@@ -153,3 +153,10 @@ def test_the_model_health_page_prints_the_panel_from_the_manifest(synthetic_root
     assert proc.returncode == 0, proc.stdout + proc.stderr
     html = (synthetic_root / "pages" / "model_health_dashboard.html").read_text(encoding="utf-8")
     assert "No update has been recorded yet." in html
+
+
+def test_the_diff_is_between_the_two_newest_exports_whatever_the_file_order(mods):
+    c = mods.delta.compute([B, A])
+    assert c["diff"]["prev"] is A and c["diff"]["cur"] is B
+    assert [r["export"] for r in c["runs"]] == ["2026-10-08", "2026-10-01"]
+

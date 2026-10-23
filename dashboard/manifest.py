@@ -6,7 +6,8 @@ were labelled, which species, how many frames each, the test top-1 with its
 frame count, and the model version. ``refresh_snapshot.py build`` appends a line;
 ``snapshot_delta.py`` reads the last two.
 
-Idempotent on the export: a rerun on an export already recorded appends nothing.
+Idempotent on the export: a rerun with the same content changes nothing, and
+a rerun whose numbers moved replaces the newest line.
 Standard library only, like everything under dashboard/.
 """
 
@@ -19,6 +20,8 @@ import core as hc
 import reference
 
 FRAME_COLUMNS = ("n_labelled_frames", "n_labelled_crowns")
+REQUIRED = {"run_date", "export", "frames", "labelled", "species", "test_n", "test_correct",
+            "test_top1", "model_version", "species_counts"}
 
 
 def entry(tables_dir: str, *, run_date: str, export: str, frames: int) -> dict:
@@ -54,17 +57,53 @@ def entry(tables_dir: str, *, run_date: str, export: str, frames: int) -> dict:
 
 
 def read(path: str) -> list[dict]:
-    """Every line, oldest first. A missing file is no history, not an error."""
+    """Every usable line, oldest first. A missing file is no history, not an error.
+
+    A truncated line or one missing a key is skipped with a warning: one bad
+    line in a kept artifact must not block every later refresh.
+    """
     if not os.path.exists(path):
         return []
+    out = []
     with open(path, encoding="utf-8") as f:
-        return [json.loads(line) for line in f if line.strip()]
+        for n, line in enumerate(f, 1):
+            if not line.strip():
+                continue
+            try:
+                e = json.loads(line)
+                if not isinstance(e, dict) or REQUIRED - e.keys():
+                    raise ValueError("missing key")
+            except ValueError:
+                print(f"::warning::{path} line {n} is unreadable and was skipped", flush=True)
+                continue
+            out.append(e)
+    return out
+
+
+def _same(a: dict, b: dict) -> bool:
+    return {k: v for k, v in a.items() if k != "run_date"} == {k: v for k, v in b.items() if k != "run_date"}
 
 
 def append(path: str, new: dict) -> bool:
-    """Write ``new`` unless its export is already recorded. True when written."""
-    if any(e["export"] == new["export"] for e in read(path)):
-        return False
+    """Record ``new``. True when the file changed.
+
+    An export older than the newest recorded one is refused (a run that fetched
+    no labels would otherwise run the delta backwards). The same export as the
+    newest replaces that line when the numbers or model moved, and changes
+    nothing when they did not. Older lines are never rewritten.
+    """
+    lines = read(path)
+    if lines:
+        newest = max(range(len(lines)), key=lambda i: lines[i]["export"])
+        if new["export"] < lines[newest]["export"]:
+            return False
+        if new["export"] == lines[newest]["export"]:
+            if _same(lines[newest], new):
+                return False
+            lines[newest] = new
+            with open(path, "w", encoding="utf-8") as f:
+                f.writelines(json.dumps(e, sort_keys=True) + "\n" for e in lines)
+            return True
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(new, sort_keys=True) + "\n")
