@@ -8,8 +8,8 @@ is unchanged: the batches are a repartition of the queue, nothing lost, nothing
 duplicated, priority order kept.
 
 The packing tests below pass ``control_fraction=0``. They are about how species
-groups are packed, and the control slice is a separate decision that would
-otherwise move every expected batch size by fifteen. The slice has its own tests
+groups are packed, and the random control is a separate decision that would
+otherwise move every expected batch size by fifteen. The control has its own tests
 at the end of this file.
 
     .venv/bin/pytest tests/test_batches.py
@@ -129,36 +129,41 @@ def test_the_order_a_photo_looks_new_in_does_not_reach_the_batches(queues):
     assert queues.chunk_send_batches(shuffled, batch_size=100, control_fraction=0) == plain
 
 
-# ---------------- the control slice ----------------
+# ---------------- the random control ----------------
 #
-# Fifteen of the first batch are drawn at random from the whole pool instead of
-# from the head of the queue. Nothing here measures whether the queue fills gaps
-# faster than random, and after the first batch is labelled nothing can: every
-# later pool has been reshaped by the queue. These tests hold the slice to being
-# a comparison rather than a corruption of the send order.
+# Fifteen of every batch are drawn at random from the photos not sent yet instead
+# of from the head of the queue. Nothing here measures whether the queue fills
+# gaps faster than random, and a later pool has been reshaped by the queue, so
+# the comparison has to ride in every batch. These tests hold the control to
+# being a comparison rather than a corruption of the send order.
 
 
-def test_the_first_batch_carries_a_control_slice(queues):
+def controls_by_batch(batches):
+    out: dict = {}
+    for bid, group, key, _, picked in batches:
+        if picked == "control":
+            assert group == "control"
+            out.setdefault(bid, []).append(key)
+    return out
+
+
+def test_every_batch_carries_its_own_control(queues):
     batches = queues.chunk_send_batches(rows(500), batch_size=100)
-    first = [b for b in batches if b[0] == 1]
-    control = [b for b in first if b[4] == "control"]
-    assert len(control) == 15
-    assert len(first) == 100, "the slice takes room from the batch, it does not add to it"
+    control = controls_by_batch(batches)
+    assert set(control) == set(range(1, len(sizes(batches)) + 1))
+    assert all(len(v) == 15 for v in list(control.values())[:-1])
+    assert max(sizes(batches)) <= 100, "the control takes room from a batch, it does not add to it"
 
 
-def test_no_later_batch_carries_a_control_row(queues):
+def test_the_control_is_one_block_at_the_end_of_its_batch(queues):
     batches = queues.chunk_send_batches(rows(500), batch_size=100)
-    assert {b[0] for b in batches if b[4] == "control"} == {1}
+    for bid in controls_by_batch(batches):
+        seen = groups_of(batches, bid)
+        assert seen[-1] == queues.CONTROL_GROUP
+        assert seen.count(queues.CONTROL_GROUP) == 1
 
 
-def test_the_slice_is_contiguous_and_named_so_it_cannot_be_a_species(queues):
-    batches = queues.chunk_send_batches(rows(500), batch_size=100)
-    seen = groups_of(batches, 1)
-    assert seen[-1] == queues.CONTROL_GROUP
-    assert seen.count(queues.CONTROL_GROUP) == 1
-
-
-def test_the_slice_moves_frames_forward_and_never_adds_one(queues):
+def test_the_control_moves_frames_forward_and_never_adds_one(queues):
     """The whole invariant verify_snapshot rests on: same rows, no frame twice."""
     queue = rows(120, 90, 300)
     batches = queues.chunk_send_batches(queue, batch_size=100)
@@ -167,44 +172,99 @@ def test_the_slice_moves_frames_forward_and_never_adds_one(queues):
     assert set(keys) == {r[1] for r in queue}
 
 
-def test_the_same_queue_draws_the_same_slice(queues):
+def test_the_same_queue_draws_the_same_control(queues):
     """A fixed seed, so two runs of measure.py write the same file. A different
     draw is a different comparison, not a correction."""
     a = queues.chunk_send_batches(rows(500), batch_size=100)
     b = queues.chunk_send_batches(rows(500), batch_size=100)
     assert a == b
+    assert a != queues.chunk_send_batches(rows(500), batch_size=100, seed=1)
 
 
 def test_the_draw_reaches_past_the_head_of_the_queue(queues):
-    """A slice taken from the frames the queue would have sent anyway measures
-    nothing. It is drawn from the whole pool, so most of it sits behind the head."""
+    """A control taken from the frames the queue would have sent anyway measures
+    nothing. It is drawn from the whole pool left, so most of it sits behind the head."""
     queue = rows(1000)
-    control = queues.draw_control_slice(queue, batch_size=100)
-    assert len(control) == 15
-    assert max(control) > 100, "the draw never left the first batch"
+    batches = queues.chunk_send_batches(queue, batch_size=100)
+    key_at = {r[1]: i for i, r in enumerate(queue)}
+    first = controls_by_batch(batches)[1]
+    assert len(first) == 15
+    assert max(key_at[k] for k in first) > 100, "the draw never left the first batch"
 
 
-def test_a_frame_the_queue_would_send_anyway_may_be_drawn(queues):
-    """Dropping the overlap is what would bias the sample, so it is kept. The
-    draw is uniform over the pool, head included."""
-    queue = rows(20)
-    control = queues.draw_control_slice(queue, batch_size=100)
-    assert len(control) == 15 and len(set(control)) == 15
+def test_a_later_batch_draws_from_what_is_left(queues):
+    """Without replacement across batches, and not confined to the next hundred."""
+    queue = rows(1000)
+    batches = queues.chunk_send_batches(queue, batch_size=100)
+    key_at = {r[1]: i for i, r in enumerate(queue)}
+    second = controls_by_batch(batches)[2]
+    assert len(second) == 15
+    assert max(key_at[k] for k in second) > 300
 
 
-def test_the_slice_turns_off(queues):
+def test_a_short_pool_gives_each_batch_fewer_control_but_keeps_queue_work(queues):
+    """20 photos, batch of 100: the lone batch keeps one queue photo and takes 15."""
+    batches = queues.chunk_send_batches(rows(20), batch_size=100)
+    assert sizes(batches) == [20]
+    assert len(controls_by_batch(batches)[1]) == 15
+    batches = queues.chunk_send_batches(rows(1), batch_size=100)
+    assert [b[4] for b in batches] == ["queue"]
+
+
+def test_the_tail_never_opens_a_batch_of_only_control(queues):
+    for n in range(1, 260):
+        batches = queues.chunk_send_batches(rows(n), batch_size=20)
+        assert len({b[2] for b in batches}) == n
+        by_batch: dict = {}
+        for b in batches:
+            by_batch.setdefault(b[0], set()).add(b[4])
+        assert all("queue" in kinds for kinds in by_batch.values()), n
+
+
+def test_the_control_turns_off(queues):
     """`control_fraction=0` is the way back to the order before this existed."""
     batches = queues.chunk_send_batches(rows(500), batch_size=100, control_fraction=0)
     assert all(b[4] == "queue" for b in batches)
     assert sizes(batches) == [100, 100, 100, 100, 100]
 
 
-def test_a_group_too_big_for_the_shortened_first_batch_is_chopped_to_fit(queues):
-    """The first batch has 85 rows of room, not a hundred. A species that fills
-    a whole batch is cut at 85 rather than leaving the first batch nearly empty,
-    and the remainder opens the next one."""
+def old_packing(queue, batch_size):
+    """The packer before the control: species pre-split to batch_size, whole
+    groups until the next would overflow. Kept here as the reference."""
+    order, by = [], {}
+    for r in queue:
+        if r[3] not in by:
+            order.append(r[3])
+        by.setdefault(r[3], []).append(r)
+    out, bid, held = [], 0, batch_size
+    for sp in order:
+        for i in range(0, len(by[sp]), batch_size):
+            chunk = by[sp][i:i + batch_size]
+            if held + len(chunk) > batch_size:
+                bid, held = bid + 1, 0
+            held += len(chunk)
+            out += [[bid, sp, r[1], r[0], "queue"] for r in chunk]
+    return out
+
+
+@pytest.mark.parametrize("batch_size", [1, 3, 7, 25, 100])
+def test_with_no_control_the_packing_is_the_pre_control_packing(queues, batch_size):
+    import random
+    rng = random.Random(batch_size)
+    for _ in range(40):
+        counts = [rng.choice([1, 1, 2, 5, 30, 120]) for _ in range(rng.randint(1, 8))]
+        queue = rows(*counts)
+        rng.shuffle(queue)
+        assert queues.chunk_send_batches(
+            queue, batch_size=batch_size, control_fraction=0) == old_packing(queue, batch_size)
+
+
+def test_a_species_that_fills_a_batch_is_cut_at_the_room_the_control_leaves(queues):
+    """A batch has 85 rows of room, not a hundred. A species that fills a whole
+    batch is cut at 85 rather than leaving the batch nearly empty, and the
+    remainder opens the next one."""
     batches = queues.chunk_send_batches(rows(500), batch_size=100)
-    assert sizes(batches)[0] == 100, "85 queue rows plus the 15-row slice"
+    assert sizes(batches)[0] == 100, "85 queue rows plus the 15-row control"
     assert max(sizes(batches)) <= 100
     assert sum(sizes(batches)) == 500
 
@@ -228,16 +288,17 @@ def test_every_queued_frame_carries_the_batch_it_was_packed_into(queues):
     assert all(len(r) == len(queues.SEND_FIRST_COLUMNS) for r in joined)
 
 
-def test_the_control_slice_keeps_its_batch_id_on_the_queue_row(queues):
-    """The slice rides in batch 1 and moves forward out of queue order, so its
+def test_the_control_keeps_its_batch_id_on_the_queue_row(queues):
+    """The control rides in its batch and moves forward out of queue order, so its
     rows are the ones a positional join would get wrong."""
     queue = rows(500)
     batches = queues.chunk_send_batches(queue, batch_size=100)
     joined = queues.with_batch_ids(queue, batches)
-    control = {b[2] for b in batches if b[4] == "control"}
+    control = controls_by_batch(batches)
     key_at = queues.SEND_FIRST_COLUMNS.index("global_key")
-    assert len(control) == 15
-    assert {r[-1] for r in joined if r[key_at] in control} == {1}
+    assert len(control) > 1
+    for bid, keys in control.items():
+        assert {r[-1] for r in joined if r[key_at] in keys} == {bid}
 
 
 def test_the_added_column_does_not_move_the_packing(queues):
@@ -315,13 +376,14 @@ GOLDEN_SPECIES = [
     (1, "a", "k17", "queue"), (1, "a", "k20", "queue"), (1, "control", "k25", "control"),
     (2, "d", "k01", "queue"), (2, "d", "k04", "queue"), (2, "d", "k15", "queue"),
     (2, "d", "k18", "queue"), (2, "d", "k21", "queue"), (2, "d", "k24", "queue"),
-    (3, "b", "k02", "queue"), (3, "b", "k05", "queue"), (3, "b", "k08", "queue"),
-    (3, "b", "k19", "queue"), (3, "b", "k22", "queue"), (3, "b", "k28", "queue"),
+    (2, "control", "k08", "control"),
+    (3, "b", "k02", "queue"), (3, "b", "k05", "queue"), (3, "b", "k19", "queue"),
+    (3, "b", "k22", "queue"), (3, "b", "k28", "queue"), (3, "control", "k07", "control"),
     (4, "e", "k03", "queue"), (4, "e", "k06", "queue"), (4, "e", "k09", "queue"),
     (4, "e", "k12", "queue"), (4, "e", "k23", "queue"), (4, "e", "k26", "queue"),
-    (4, "e", "k29", "queue"),
-    (5, "c", "k07", "queue"), (5, "c", "k10", "queue"), (5, "c", "k13", "queue"),
-    (5, "c", "k16", "queue"), (5, "c", "k27", "queue")]
+    (4, "control", "k10", "control"),
+    (5, "e", "k29", "queue"), (5, "c", "k13", "queue"), (5, "c", "k27", "queue"),
+    (5, "control", "k16", "control")]
 
 
 def test_species_mode_is_unchanged_and_the_default(queues):
@@ -333,9 +395,11 @@ def test_species_mode_is_unchanged_and_the_default(queues):
 def test_rank_mode_keeps_global_rank_order_in_fixed_chunks(queues):
     got = queues.chunk_send_batches(golden_rows(queues), batch_size=7, group_by="rank")
     queue_part = [b for b in got if b[4] == "queue"]
-    assert [b[2] for b in queue_part] == [f"k{i:02d}" for i in range(30) if i != 25]
-    assert sizes(got) == [7, 7, 7, 7, 2]       # batch 1: 6 queue rows + 1 control
-    assert [(b[0], b[2]) for b in got if b[4] == "control"] == [(1, "k25")]
+    control = [(b[0], b[2]) for b in got if b[4] == "control"]
+    assert sizes(got) == [7, 7, 7, 7, 2]       # each batch: 6 queue rows + 1 control
+    assert control == [(1, "k25"), (2, "k14"), (3, "k20"), (4, "k24"), (5, "k28")]
+    assert [b[2] for b in queue_part] == [
+        f"k{i:02d}" for i in range(30) if f"k{i:02d}" not in {k for _, k in control}]
     assert {b[1] for b in queue_part} <= set("abcde")
 
 

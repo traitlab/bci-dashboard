@@ -40,7 +40,7 @@ QL = {"long_tail": ("Species with few labelled frames, or often wrong",
                    f"more labelled frames already")}
 
 
-# Below the un-measured claim either way: a reader who meets the batch-1
+# Below the un-measured claim either way: a reader who meets the
 # control before the caveat above it would read the control as the whole
 # answer, rather than as the one thing this checkout can still measure.
 def _batch1_note(c) -> str:
@@ -48,11 +48,10 @@ def _batch1_note(c) -> str:
         return ""
     n_control = min(queues.control_size(), len(c.queue_rows))
     return (
-        f'<p class="note"><b>Batch 1 carries the comparison.</b> {n_control} of its '
-        f'{c.n_batch1} photos are drawn at random from the whole pool instead of '
-        'from the head of this order. When they come back labelled, the two groups can be '
-        'compared. This only works on the first batch: every later pool has already been '
-        'reshaped by this order.</p>')
+        f'<p class="note"><b>Every batch carries the comparison.</b> {n_control} of the '
+        f'{c.n_batch1} photos in batch 1, and the same share of every later batch, are drawn at '
+        'random from the photos not sent yet instead of from the head of this order. When they '
+        'come back labelled, the two groups can be compared batch by batch.</p>')
 
 # The fallback for a checkout with no audit file: labelfirst has measured
 # nothing yet, so the note cannot say more than that.
