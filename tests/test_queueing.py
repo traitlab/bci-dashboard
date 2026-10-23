@@ -369,3 +369,18 @@ def test_how_new_prints_three_decimals_and_blank_for_an_unranked_frame(queues):
     distance = {"comb_a": 0.4213}
     assert queues.how_new(distance, "comb_a") == "0.421"
     assert queues.how_new(distance, "comb_b") == ""
+
+
+# ---------------------------------------------------------------------------
+# the round ledgers: sent but not yet labelled is not the next thing to send
+# ---------------------------------------------------------------------------
+
+def test_a_photo_in_a_round_ledger_is_not_queued_again(queues, core, tmp_path):
+    (tmp_path / "round_1.csv").write_text("round,global_key\n1,comb_a\n", encoding="utf-8")
+    sent = core.ledger_keys(str(tmp_path))
+    predictions = {s: [("Sp x", 0.5)] for s in ("a", "b")}
+    rows, _, _ = queues.send_first_rows(predictions, set(), lambda n: n, {}, {},
+                                        key_prefix="comb_", sent=sent)
+    assert [r[1] for r in rows] == ["b"]
+    assert core.next_round(str(tmp_path)) == 2
+    assert core.ledger_keys(str(tmp_path / "none")) == set()

@@ -46,6 +46,10 @@ WAIT_QUEUE = QUEUE_ORDER[-1]
 SEND_FIRST_COLUMNS = ["queue", "global_key", "split", "predicted_species", "confidence",
                       "species_labelled_crowns", "species_top1_accuracy", "novelty_rank",
                       "how_new_it_looks", "batch_id"]
+# Written after the columns above, looked up per frame at write time like the
+# batch file's links, so the packing and its identity check do not see it.
+SEND_FIRST_LOOKUP_COLUMNS = ["data_row_id", "mission", "site"]
+SEND_FIRST_HEADER = SEND_FIRST_COLUMNS + SEND_FIRST_LOOKUP_COLUMNS
 # send_batches.csv's columns, likewise: returned in this order, written as that header.
 SEND_BATCH_COLUMNS = ["batch_id", "species_group", "global_key", "queue", "picked_by"]
 # The same distance on the batch file, since that is the file the botanist
@@ -59,7 +63,19 @@ SEND_BATCH_LOOKUP_COLUMNS = ["how_new_it_looks"]
 #
 # Both links, not one. `image_url` opens for anyone with a browser and covers
 # every row; `labelbox_url` is the only one that shows which crown is asked about.
-SEND_BATCH_LINK_COLUMNS = ["image_url", "labelbox_url"]
+#
+# `data_row_id` is the id inside `labelbox_url`, parsed by `core.data_row_id`,
+# so it is empty exactly where the link is. It is the link's id, which for a
+# legacy-mode link is the row in the project the frame was labelled in.
+#
+# `mission` and `site` say where the frame was flown, off the inventory; blank
+# for a frame it does not name.
+#
+# `group_by` is last and the same on every row: how the file was packed
+# ("species" or "rank", see `GROUP_BY`), so a batch's mode can be read off it
+# when Labelbox time per label is compared across batches.
+SEND_BATCH_LINK_COLUMNS = ["image_url", "labelbox_url", "data_row_id", "mission", "site",
+                           "group_by"]
 SEND_BATCH_HEADER = SEND_BATCH_COLUMNS + SEND_BATCH_LOOKUP_COLUMNS + SEND_BATCH_LINK_COLUMNS
 
 # No more than this many crowns per Labelbox batch, one botanist session's worth.
@@ -91,6 +107,26 @@ def _batch_size_from_env(raw: str | None, default: int = 100) -> int:
 
 
 BATCH_SIZE = _batch_size_from_env(os.environ.get("BCI_BATCH_SIZE"))
+
+# How rows are packed into batches. "species" keeps each species together at the
+# rank of its best photo; "rank" is strict queue order in fixed-size chunks.
+# Which one annotators work faster in is untested, so species stays the default.
+GROUP_BYS = ("species", "rank")
+# How each mode reads in a sentence on a page.
+GROUP_PHRASE = {"species": "each species kept together", "rank": "in strict rank order"}
+
+
+def _group_by_from_env(raw: str | None, default: str = "species") -> str:
+    """``BCI_GROUP_BY``, or the default when unset or empty. Rejected loudly,
+    like the batch size: a typo must not silently change how batches are cut."""
+    if raw is None or not raw.strip():
+        return default
+    if raw.strip() not in GROUP_BYS:
+        raise ValueError(f"BCI_GROUP_BY must be one of {GROUP_BYS}, got {raw!r}")
+    return raw.strip()
+
+
+GROUP_BY = _group_by_from_env(os.environ.get("BCI_GROUP_BY"))
 
 # The share of the first batch drawn at random from the whole unlabelled pool
 # instead of from the head of the queue. Nothing here measures whether the queue
@@ -298,11 +334,15 @@ def draw_control_slice(queue_rows: list, batch_size: int = BATCH_SIZE,
 
 
 def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
-                       control_fraction: float = CONTROL_FRACTION) -> list:
+                       control_fraction: float = CONTROL_FRACTION,
+                       group_by: str = GROUP_BY) -> list:
     """Species-grouped, priority-first batches over an already-ordered
     ``queue_rows`` (send_first_queue.csv order). Each species is visited once,
     at its highest-priority row; its rows travel together, packed whole until
     the next would overflow ``batch_size``, then split.
+
+    ``group_by="rank"`` instead cuts the queue in strict rank order into
+    fixed-size chunks, each row labelled with its own species.
 
     The first batch gives up ``control_fraction`` of its room to the control
     slice, which rides at the end of it as one block. Every other batch packs as
@@ -311,6 +351,8 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
     """
     if batch_size < 1:
         raise ValueError(f"batch_size must be at least 1, got {batch_size}")
+    if group_by not in GROUP_BYS:
+        raise ValueError(f"group_by must be one of {GROUP_BYS}, got {group_by!r}")
     queue_at = SEND_FIRST_COLUMNS.index("queue")
     key_at = SEND_FIRST_COLUMNS.index("global_key")
     species_at = SEND_FIRST_COLUMNS.index("predicted_species")
@@ -337,6 +379,10 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
     groups = [(sp, by_species[sp][i:i + batch_size])
               for sp in order
               for i in range(0, len(by_species[sp]), batch_size)]
+    if group_by == "rank":
+        # One-row groups through the same packing loop: rank order, no splitting.
+        groups = [(row[species_at], [row])
+                  for i, row in enumerate(queue_rows) if i not in control_at]
 
     batches = []
     batch_id = 0
@@ -426,7 +472,7 @@ def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> st
 
 
 def send_first_rows(predictions, joined_stems, canon, support, top1,
-                    novelty=None, key_prefix="", splits=None) -> tuple:
+                    novelty=None, key_prefix="", splits=None, sent=()) -> tuple:
     """Every unlabelled frame's queue, in the order send_first_queue.csv writes.
 
     Returns ``([(queue, stem, species, confidence, novelty_rank), ...],
@@ -451,13 +497,16 @@ def send_first_rows(predictions, joined_stems, canon, support, top1,
     vanishes from a work queue with nothing said is how a count moves and
     nobody can explain why. ``None`` holds nothing out, which is the behaviour
     a caller with no splits file gets.
+
+    ``sent`` is the keys in the round ledgers, keyed like ``novelty``: sent to
+    Labelbox and not labelled yet, so they are not the next thing to send.
     """
     novelty = novelty or {}
     splits = splits or {}
     rows, n_no_answer = [], 0
     held_out: Counter = Counter()
     for stem in sorted(predictions):
-        if stem in joined_stems:
+        if stem in joined_stems or key_prefix + stem in sent:
             continue
         split = splits.get(key_prefix + stem, "")
         if split:

@@ -23,9 +23,10 @@ import reference
 import run_log as rl
 from health import load_health
 from core import (
-    add_input_flags, add_label_source_flag, summarise,
+    add_input_flags, add_label_source_flag, summarise, ledger_keys, LEDGER_DIR, REPO,
     ratio, fmt, genus_of, normalize,
-    coverage_gate_stats, diagnose, labelbox_urls, inventory_image_urls,
+    coverage_gate_stats, data_row_id, diagnose, labelbox_urls, inventory_image_urls,
+    inventory_origins,
     adjudicated_keys,
     CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
@@ -33,8 +34,8 @@ from core import (
     GT_KEY_PREFIX, N_CANDIDATES, QUEUE_NOVELTY_CSV,
 )
 from queues import (
-    BATCH_SIZE, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_BATCH_HEADER,
-    SEND_FIRST_COLUMNS,
+    BATCH_SIZE, GROUP_BY, NO_NOVELTY, SEND_BATCH_COLUMNS, SEND_BATCH_HEADER,
+    SEND_FIRST_COLUMNS, SEND_FIRST_HEADER,
     chunk_send_batches, how_new, load_novelty, load_novelty_distance,
     novelty_provenance, send_first_rows,
     with_batch_ids,
@@ -71,6 +72,9 @@ def log(msg: str = "") -> None:
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=summarise(__doc__))
     add_input_flags(p)
+    p.add_argument("--ledger-dir", default=LEDGER_DIR,
+                   help="folder of round_<N>.csv ledgers; their photos are dropped from the "
+                        f"send queue (default: {os.path.relpath(LEDGER_DIR, REPO)})")
     p.add_argument("--out-dir", default=OUT_DIR,
                    help=f"directory to write the {len(OUTPUTS)} output files to")
     add_label_source_flag(p)
@@ -191,10 +195,14 @@ def write_coverage_gate(out_dir, sweep):
 
 def write_send_first_queue(out_dir, queue_rows):
     """The unlabelled pool in send order; send_batches must match it."""
+    boxes, origins = labelbox_urls(), inventory_origins()
+    key_at = SEND_FIRST_COLUMNS.index("global_key")
     with _csv(out_dir, "send_first_queue.csv") as f:
         w = csv.writer(f)
-        w.writerow(SEND_FIRST_COLUMNS)
-        w.writerows(queue_rows)
+        w.writerow(SEND_FIRST_HEADER)
+        for row in queue_rows:
+            w.writerow(list(row) + [data_row_id(boxes.get(row[key_at], ""))]
+                       + list(origins.get(row[key_at], ("", ""))))
 
 
 def write_send_batches(out_dir, batch_rows):
@@ -206,7 +214,7 @@ def write_send_batches(out_dir, batch_rows):
     not name leaves an empty cell: a blank is honest, a guessed URL is a 404 in
     front of a botanist.
     """
-    images, boxes = inventory_image_urls(), labelbox_urls()
+    images, boxes, origins = inventory_image_urls(), labelbox_urls(), inventory_origins()
     distance = load_novelty_distance(QUEUE_NOVELTY_CSV)
     key_at = SEND_BATCH_COLUMNS.index("global_key")
     with _csv(out_dir, "send_batches.csv") as f:
@@ -214,8 +222,9 @@ def write_send_batches(out_dir, batch_rows):
         w.writerow(SEND_BATCH_HEADER)
         for row in batch_rows:
             key = row[key_at]
-            w.writerow(list(row) + [how_new(distance, key),
-                                    images.get(key, ""), boxes.get(key, "")])
+            w.writerow(list(row) + [how_new(distance, key), images.get(key, ""),
+                                    boxes.get(key, ""), data_row_id(boxes.get(key, "")),
+                                    *origins.get(key, ("", "")), GROUP_BY])
 
 
 def top1(r, key="ranked"):
@@ -362,7 +371,7 @@ def calibration_scopes(h):
     return scopes, good, good_recs
 
 
-def send_queue(h):
+def send_queue(h, sent=()):
     """Which unlabelled frames reach the botanist first, as CSV rows.
 
     A cached response whose stem no GT row joined to is an unlabelled photo with
@@ -383,7 +392,7 @@ def send_queue(h):
     decided, n_no_answer, held_out = send_first_rows(
         h.predictions, h.labelled_stems, h.canon, support, top1_of,
         novelty=load_novelty(QUEUE_NOVELTY_CSV), key_prefix=GT_KEY_PREFIX,
-        splits=h.split_of)
+        splits=h.split_of, sent=sent)
     distance = load_novelty_distance(QUEUE_NOVELTY_CSV)
     # The `split` column stays even though the filter above guarantees it is
     # empty on every row now. It is the proof the filter ran: a non-empty value
@@ -467,12 +476,12 @@ def main() -> None:
                        gain.sw_short, gain.sw_full_unreachable)
     rl.log_calibration(log, scopes, top1, head.n, good, good_recs)
 
-    queue_rows, q_counts, n_no_answer, n_ranked, novelty_prov, held_out = send_queue(h)
+    queue_rows, q_counts, n_no_answer, n_ranked, novelty_prov, held_out = send_queue(h, ledger_keys(args.ledger_dir))
     # Send batches over the same priority order, capped at BATCH_SIZE rows:
     # priority-first globally, one species per batch, never a mixed bag.
     # Batched before the queue is written, because the queue row now carries the
     # batch it landed in and that is only known once the packing has run.
-    batch_rows = chunk_send_batches(queue_rows, batch_size=BATCH_SIZE)
+    batch_rows = chunk_send_batches(queue_rows, batch_size=BATCH_SIZE, group_by=GROUP_BY)
     write_send_first_queue(out_dir, with_batch_ids(queue_rows, batch_rows))
     write_send_batches(out_dir, batch_rows)
     rl.log_send_queue(log, q_counts, batch_rows, n_no_answer, n_ranked,

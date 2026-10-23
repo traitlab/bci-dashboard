@@ -226,3 +226,60 @@ def test_about_carries_caveats_glossary_and_no_data(build_index, tmp_path):
     (tmp_path / "crownfirst-atlas.html").write_text("<html>x</html>")
     assert 'href="crownfirst-atlas.html#view=models"' in build_index.build_about(
         build_index.available_names(str(tmp_path)))
+
+
+def _scope_tables(tmp_path):
+    (tmp_path / "per_species_health.csv").write_text(
+        "species,n_labelled_frames\na,10\nb,5\n", encoding="utf-8")
+    keys = ["DJI_20240911145743_0030_V_1zoom.JPG", "DJI_20260322092500_0001_V_2zoom.JPG",
+            "DJI_20250101000000_0002_V_3zoom.JPG"]
+    missions = ["20240911_a", "20260114_b", "20240911_a"]
+    (tmp_path / "send_batches.csv").write_text(
+        "global_key,image_url,mission\n" + "".join(f"{k},,{m}\n" for k, m in zip(keys, missions)),
+        encoding="utf-8")
+
+
+def test_scope_sentence_numbers_equal_the_table_counts(build_index, tmp_path):
+    fake_build(tmp_path)
+    _scope_tables(tmp_path)
+    (tmp_path / "embedding-atlas.html").write_text("<html>Atlas</html>")
+    s = build_index.scope_sentence(str(tmp_path))
+    assert "15 labelled frames across 2 species are scored on Model health" in s
+    assert "3 unlabelled photos from 2 missions are queued for labelling, photographed 2024-09-11 to 2026-01-14" in s
+    assert "Drone-photographed crowns only" in s
+    home = build_index.build(str(tmp_path))
+    about = build_index.build_about(build_index.available_names(str(tmp_path)), s)
+    for out in (home, about):
+        assert s in out
+        assert 'href="embedding-atlas.html#view=locations">See the map' in out
+
+
+def test_scope_sentence_omits_span_when_no_mission_has_a_date(build_index, tmp_path):
+    (tmp_path / "send_batches.csv").write_text(
+        "global_key,image_url,mission\nDJI_20260322092500_0001_V_2tele.JPG,,\nDJI_20260322092501_0002_V_3tele.JPG,,site_a\nDJI_20260322092502_0003_V_4tele.JPG,,site_b\n",
+        encoding="utf-8")
+    s = build_index.scope_sentence(str(tmp_path))
+    assert "3 unlabelled photos from 2 missions are queued for labelling." in s
+    assert "photographed" not in s.replace("Drone-photographed", "")
+
+
+def test_scope_sentence_omits_what_the_tables_cannot_give(build_index, tmp_path):
+    assert build_index.scope_sentence(str(tmp_path)) == "Drone-photographed crowns only, not every tree."
+    assert "Data scope" not in build_index.build_about({"about.html"})
+
+
+def test_intro_names_the_audience_and_the_limits(build_index, tmp_path):
+    out = build_index.build(fake_build(tmp_path))
+    intro = out[out.index('<p class="intro">'):out.index("</p>", out.index('<p class="intro">'))]
+    assert "project leads and the labelling coordinator" in intro
+    assert "Annotators work in Labelbox" in intro and "hidden on purpose" in intro
+    assert "does not yet suggest where to fly the drone" in intro
+
+
+def test_about_glossary_defines_the_data_terms(build_index):
+    about = build_index.build_about({"about.html"})
+    assert [t for t, _ in build_index.GLOSSARY] == [
+        "Close-up", "Crown", "Centre crown", "Segmentation version", "Mission"]
+    for term, meaning in build_index.GLOSSARY:
+        assert f"<dt>{term}</dt><dd>{meaning}</dd>" in about
+    assert "A frame is the same thing" in about

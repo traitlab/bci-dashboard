@@ -1,147 +1,168 @@
-"""The one line that says whether a labelling round moved the numbers.
+"""The change log: what the last Labelbox export changed.
 
-`dashboard/snapshot_delta.py` finds the newest `model-health-<date>/` folder
-dated before the page's build date and reports two things then and now: the
-species with at least `figures.WAIT_SUPPORT_MIN` labelled frames, and the
-overall test top-1 when the older snapshot recorded one.
+`dashboard/snapshot_delta.py` diffs the last two refresh-manifest lines and
+`dashboard/history_panels.py` lays the diff out on the model-health page.
 
     .venv/bin/pytest tests/test_snapshot_delta.py
 """
 
 from __future__ import annotations
 
-import pytest
+import json
+from types import SimpleNamespace
 
+import public_snapshot as fixture
+import pytest
 from conftest import REPO, _on_path
 
 
 @pytest.fixture(scope="session")
-def snapshot_delta():
+def mods():
     with _on_path(REPO / "dashboard"):
+        import history_panels
         import snapshot_delta
-        yield snapshot_delta
+        yield SimpleNamespace(delta=snapshot_delta, panels=history_panels)
 
 
-def snapshot(root, date, counts, *, column="n_labelled_frames", held_out=None):
-    d = root / f"model-health-{date}"
-    d.mkdir()
-    lines = [f"species,{column},top1_accuracy"]
-    lines += [f"sp{i},{n},0.5" for i, n in enumerate(counts)]
-    (d / "per_species_health.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    if held_out is not None:
-        n, correct = held_out
-        (d / "held_out.csv").write_text(
-            "population,n_frames,n_correct_top1,top1_accuracy\n"
-            f"test,{n},{correct},{correct / n:.4f}\n"
-            "test_unseen_flight,0,0,\ntest_unplaced,0,,\n", encoding="utf-8")
-    return d
+def line(export, counts, *, top1=0.7, n=100, version="2026-03-20 (7.5)", reference="labelbox",
+         frames=None):
+    return {"run_date": export, "export": export, "frames": frames or sum(counts.values()),
+            "labelled": sum(counts.values()), "species": len(counts), "test_n": n,
+            "test_correct": None if top1 is None else round(top1 * n), "test_top1": top1,
+            "model_version": version, "reference": reference, "species_counts": counts}
 
 
-NOW = {"n_species_floor": 12, "test_n": 200, "test_top1": 0.8}
+A = line("2026-10-01", {"hura": 20, "ceiba": 5, "old": 2}, top1=0.70)
+B = line("2026-10-08", {"hura": 25, "ceiba": 5, "swartzia": 3}, top1=0.75)
 
 
-def test_the_newest_snapshot_before_the_build_date_is_the_one_compared(snapshot_delta, tmp_path):
-    for date in ("2026-08-03", "2026-08-27", "2026-09-10", "2026-09-12"):
-        snapshot(tmp_path, date, [1])
-    assert snapshot_delta.previous_snapshot(str(tmp_path), "2026-09-10").endswith("2026-08-27")
-    assert snapshot_delta.previous_snapshot(str(tmp_path), "2026-08-25-test").endswith("2026-08-03")
-    assert snapshot_delta.previous_snapshot(str(tmp_path), "2026-08-03") is None
-
-
-def test_a_folder_that_is_not_a_snapshot_is_ignored(snapshot_delta, tmp_path):
-    (tmp_path / "model-health-latest").mkdir()
-    (tmp_path / "notes").mkdir()
-    assert snapshot_delta.previous_snapshot(str(tmp_path), "2026-09-10") is None
-
-
-def test_missing_snapshot_history_is_reported_without_claiming_no_history_exists(snapshot_delta, tmp_path):
-    d = snapshot_delta.compute(NOW, str(tmp_path), "2026-09-10", floor=10)
-    assert d["previous"] is None
-    note = snapshot_delta.note(d, floor=10)
-    assert "no earlier snapshot is available for this build" in note
-    assert "12 species" in note
-
-
-def test_species_at_the_floor_then_and_now(snapshot_delta, tmp_path):
-    snapshot(tmp_path, "2026-08-27", [9, 10, 25, 3])
-    d = snapshot_delta.compute(NOW, str(tmp_path), "2026-09-10", floor=10)
-    assert d["previous"] == "2026-08-27"
-    assert d["then"]["n_species_floor"] == 2
-    assert d["now"]["n_species_floor"] == 12
-    note = snapshot_delta.note(d, floor=10)
-    assert "2026-08-27" in note and "2 species" in note and "12 species" in note
-
-
-def test_an_older_snapshot_counts_its_frames_under_the_old_column_name(snapshot_delta, tmp_path):
-    """Snapshots up to 2026-08-27 call the column n_labelled_crowns."""
-    snapshot(tmp_path, "2026-08-27", [10, 10, 1], column="n_labelled_crowns")
-    d = snapshot_delta.compute(NOW, str(tmp_path), "2026-09-10", floor=10)
-    assert d["then"]["n_species_floor"] == 2
-
-
-def test_test_top1_is_reported_only_when_the_older_snapshot_recorded_it(snapshot_delta, tmp_path):
-    snapshot(tmp_path, "2026-08-27", [10])
-    d = snapshot_delta.compute(NOW, str(tmp_path), "2026-09-10", floor=10)
-    assert d["then"]["test_top1"] is None
-    assert "not recorded" in snapshot_delta.note(d, floor=10)
-
-    snapshot(tmp_path, "2026-09-01", [10], held_out=(100, 70))
-    d = snapshot_delta.compute(NOW, str(tmp_path), "2026-09-10", floor=10)
-    assert d["then"]["test_n"] == 100
-    assert d["then"]["test_top1"] == pytest.approx(0.7)
-    note = snapshot_delta.note(d, floor=10)
-    assert "70.0%" in note and "80.0%" in note and "n = 100" in note and "n = 200" in note
-
-
-def test_an_unchanged_count_with_no_recorded_top1_says_nothing_moved(snapshot_delta, tmp_path):
-    """The count is the same then and now, and there is no top-1 to compare, so
-    the note used to restate the same number twice and name an absent one. One
-    clause instead."""
-    snapshot(tmp_path, "2026-08-27", [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10])
-    d = snapshot_delta.compute(NOW, str(tmp_path), "2026-09-10", floor=10)
-    assert d["then"]["n_species_floor"] == 12
-    assert d["then"]["test_top1"] is None
-    note = snapshot_delta.note(d, floor=10)
-    assert note == ('<p class="note"><b>Since the last snapshot:</b> nothing has moved '
-                     'since 2026-08-27, the date the counts were last saved.</p>')
-
-
-def test_a_build_date_that_is_not_a_date_compares_against_nothing(snapshot_delta, tmp_path):
-    snapshot(tmp_path, "2026-08-27", [10])
-    d = snapshot_delta.compute(NOW, str(tmp_path), "today", floor=10)
-    assert d["previous"] is None
-    assert "not a date" in snapshot_delta.note(d, floor=10)
-
-
-def test_the_page_prints_the_line_in_the_frame_counts_panel(external_page):
-    """Beside the three frame counts, where the Chao1 line already sits."""
-    html, _ = external_page
-    assert html.index(" frame counts: ") < html.index("Since the last snapshot")
-
-
-def test_a_snapshot_scored_against_other_labels_is_not_compared(snapshot_delta, tmp_path):
-    """Snapshots before the switch have no reference.json and were scored
-    against the Labelbox labels. A reviewed-label build states the break and
-    reports no change from them."""
-    snapshot(tmp_path, "2026-08-27", [10, 10], held_out=(100, 70))
-    now = {**NOW, "reference": "publication_reviewed"}
-    d = snapshot_delta.compute(now, str(tmp_path), "2026-09-30", floor=10)
-    assert d["previous"] == "2026-08-27"
-    assert d["then"] is None
-    assert d["crossed"] == ("labelbox", "publication_reviewed")
-    note = snapshot_delta.note(d, floor=10)
-    assert "not compared with 2026-08-27" in note
-    assert "The reference labels changed on 2026-09-29" in note
-    assert "change of reference, not of the model" in note
-    assert "70.0%" not in note
-
-
-def test_two_snapshots_on_the_same_reference_are_compared(snapshot_delta, tmp_path):
-    d = snapshot(tmp_path, "2026-10-05", [10, 10], held_out=(100, 70))
-    (d / "reference.json").write_text('{"reference": "publication_reviewed"}\n',
-                                      encoding="utf-8")
-    now = {**NOW, "reference": "publication_reviewed"}
-    d = snapshot_delta.compute(now, str(tmp_path), "2026-10-20", floor=10)
+def test_the_diff_names_new_labels_new_species_and_moved_counts(mods):
+    d = mods.delta.diff(A, B)
+    assert d["new_labelled"] == 33 - 27
+    assert d["new_species"] == [("swartzia", 3)]
+    assert d["lost_species"] == ["old"]
+    assert d["moved"] == [("hura", 20, 25), ("swartzia", 0, 3), ("old", 2, 0)]
+    assert d["top1_delta"] == pytest.approx(0.05)
     assert d["crossed"] is None
-    assert d["then"]["test_top1"] == pytest.approx(0.7)
-    assert "not compared" not in snapshot_delta.note(d, floor=10)
+
+
+def test_no_change_between_two_lines_moves_nothing(mods):
+    d = mods.delta.diff(A, {**A, "export": "2026-10-08"})
+    assert d["moved"] == [] and d["new_species"] == [] and d["new_labelled"] == 0
+    assert d["top1_delta"] == 0
+
+
+def test_a_reference_break_withholds_the_top1_delta(mods):
+    d = mods.delta.diff(A, {**B, "reference": "publication_reviewed"})
+    assert d["crossed"] == ("labelbox", "publication_reviewed")
+    assert d["top1_delta"] is None
+
+
+def test_history_keeps_the_last_eight_lines_newest_first(mods):
+    lines = [line(f"2026-10-{i:02d}", {"hura": i}) for i in range(1, 12)]
+    got = mods.delta.compute(lines)
+    assert [r["export"] for r in got["runs"]] == [f"2026-10-{i:02d}" for i in range(11, 3, -1)]
+    assert got["diff"]["cur"]["export"] == "2026-10-11"
+
+
+def test_zero_and_one_line_have_no_diff(mods):
+    assert mods.delta.compute([]) == {"runs": [], "diff": None}
+    assert mods.delta.compute([A])["diff"] is None
+
+
+def render(mods, lines, built="2026-10-22"):
+    return mods.panels.p_changes(
+        SimpleNamespace(changes=mods.delta.compute(lines), generated=built))
+
+
+def test_the_panel_carries_each_rate_with_its_frame_count(mods):
+    html = render(mods, [A, B])
+    assert 'id="since-the-last-update"' in html
+    assert "70.0% of 100 test frames" in html and "75.0% of 100 test frames" in html
+    assert "+5.0 points" in html
+    assert "New species: <i>swartzia</i> (3 frames)." in html
+    assert "No longer labelled: <i>old</i>." in html
+    assert html.index("<i>hura</i></td>") < html.index("<i>swartzia</i></td>")
+    assert "—" not in html
+
+
+def test_the_panel_without_history_says_so_plainly(mods):
+    assert "No update has been recorded yet." in render(mods, [])
+    one = render(mods, [A])
+    assert "The first recorded update is the export of 2026-10-01" in one
+    assert "Export 2026-10-01" not in one
+
+
+def test_the_panel_caps_the_moved_table(mods):
+    big = line("2026-10-08", {f"sp{i:02d}": 1 for i in range(20)})
+    html = render(mods, [line("2026-10-01", {}), big])
+    assert "And 5 more species moved." in html
+
+
+@pytest.mark.parametrize("version, built, words", [
+    ("2026-03-20 (7.5)", "2026-10-22", "7 months old"),
+    ("2026-03-20 (7.5)", "2026-10-19", "6 months old"),
+    ("2026-03-20 (7.5)", "2026-04-20", "1 month old"),
+    ("2026-03-20 (7.5)", "2026-04-19", "under a month old"),
+    ("2026-03-20 (7.5)", "2026-03-01", None),
+    ("2026-03-20 (7.5)", "not a date", None),
+    ("2026-03-20 (7.5)", "2026-10-22-test", "7 months old"),
+    ("unknown", "2026-10-22", None),
+])
+def test_the_model_age_is_whole_months_on_the_build_date(mods, version, built, words):
+    assert mods.delta.model_age_words(version, built) == words
+
+
+def test_the_panel_states_the_model_date_and_age(mods):
+    html = render(mods, [A])
+    assert "20 March 2026 (release 7.5), 7 months old on the day this page was built" in html
+
+
+def test_a_model_version_change_is_flagged_in_the_summary_and_the_history(mods):
+    new = {**B, "model_version": "2026-10-01 (8.0)"}
+    d = mods.delta.diff(A, new)
+    assert d["version_changed"] == ("2026-03-20 (7.5)", "2026-10-01 (8.0)")
+    html = render(mods, [A, new])
+    assert ">changed</td>" in html
+    assert html.count("(new model)") == 1
+    assert "2026-10-01 (8.0) (new model)" in html
+    same = render(mods, [A, B])
+    assert ">same</td>" in same and "(new model)" not in same
+
+
+@pytest.fixture(scope="module")
+def synthetic_root(tmp_path_factory):
+    root = fixture.write_inputs(tmp_path_factory.mktemp("delta-snapshot"))
+    proc = fixture.measure(root)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    return root
+
+
+def test_the_model_health_page_prints_the_panel_from_the_manifest(synthetic_root):
+    path = synthetic_root / "history" / "manifest.jsonl"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text("".join(json.dumps(e) + "\n" for e in (A, B)), encoding="utf-8")
+    proc = fixture.build(synthetic_root, "build_external.py", "model_health_dashboard.html")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    html = (synthetic_root / "pages" / "model_health_dashboard.html").read_text(encoding="utf-8")
+    assert "Since the last update" in html and "swartzia" in html
+    # The old single line is gone, not printed beside the table.
+    assert "Since the last snapshot" not in html
+    path.unlink()
+    proc = fixture.build(synthetic_root, "build_external.py", "model_health_dashboard.html")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    html = (synthetic_root / "pages" / "model_health_dashboard.html").read_text(encoding="utf-8")
+    assert "No update has been recorded yet." in html
+
+
+def test_the_diff_is_between_the_two_newest_exports_whatever_the_file_order(mods):
+    c = mods.delta.compute([B, A])
+    assert c["diff"]["prev"] is A and c["diff"]["cur"] is B
+    assert [r["export"] for r in c["runs"]] == ["2026-10-08", "2026-10-01"]
+
+
+def test_the_model_note_gives_the_version_and_the_date_it_was_checked(mods):
+    html = render(mods, [A, B])
+    assert "still what the endpoint reported on" in html
+    assert "changes when the recorded model version is updated" in html
+    assert "A new model would show" not in html

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import datetime as _dt
+import glob
 import json
 import os
 import re
@@ -53,6 +54,9 @@ PUBLICATION_WORKBOOK = os.path.join(BASE, "publication_final_list.xlsx")
 HEADLINE_LABEL_SOURCE = LABEL_SOURCE_REVIEWED
 REFERENCE_SWITCHED_ON = "2026-09-29"
 SPLITS_CSV = os.path.join(BASE, "splits.csv")
+# One round_<N>.csv per round sent, written by labelling/dispatch_round.py. The
+# queue drops what is in them: sent to Labelbox, not labelled yet.
+LEDGER_DIR = os.path.join(REPO, "input", "rounds")
 CACHE_DIR = os.path.join(BASE, "predictions", "cache")
 
 # The flight holdout labelling/draw_holdout.py drew: whole flights, tracked and
@@ -107,6 +111,17 @@ LABELBOX_URL = "https://app.labelbox.com/projects/{project_id}/data-rows/{data_r
 _LABELBOX_URL_RE = re.compile(
     r"https://app\.labelbox\.com/projects/([^/]+)/data-rows/([^/?#\s]+)")
 
+
+def data_row_id(url: str) -> str:
+    """The data row id inside a Labelbox deep link, or "" for no link.
+
+    The one place a link is taken apart, beside the one that builds it, so the
+    ``data_row_id`` column in the send CSVs cannot disagree with ``labelbox_url``.
+    """
+    m = _LABELBOX_URL_RE.fullmatch((url or "").strip())
+    return m.group(2) if m else ""
+
+
 # The read-only dataset inventory labelling/fetch_dataset.py pages. Every row
 # migrated into the dispatch dataset kept the URL it had in the project it was
 # labelled in, as ``metadata.original_labelbox_url``, so this file is a second,
@@ -154,6 +169,11 @@ LABEL_CONFIRMED = "label_confirmed_prediction_wrong"
 
 # Dated model-health-<date>/ folders: the trend history. Gitignored.
 SNAPSHOT_DIR = os.environ.get("BCI_DASHBOARD_SNAPSHOTS") or os.path.join(REPO, "snapshots")
+
+# One JSON line per Labelbox export the weekly refresh saw (manifest.py). Gitignored;
+# CI carries it between runs as a workflow artifact.
+MANIFEST = os.environ.get("BCI_DASHBOARD_MANIFEST") or os.path.join(
+    REPO, "history", "manifest.jsonl")
 
 # Where measure.py writes the tables, and what a page cross-checks against. A
 # snapshot is dated by the botanist's labels, so it goes stale the moment the
@@ -463,6 +483,21 @@ def add_label_source_flag(p) -> None:
                         f"(default: {HEADLINE_LABEL_SOURCE})")
 
 
+def ledger_keys(ledger_dir: str = LEDGER_DIR) -> set[str]:
+    """Every global_key in any round_*.csv ledger; no ledger is an empty set."""
+    keys = set()
+    for path in sorted(glob.glob(os.path.join(ledger_dir, "round_*.csv"))):
+        keys |= {(r.get("global_key") or "").strip() for r in read_csv_rows(path)}
+    return keys - {""}
+
+
+def next_round(ledger_dir: str = LEDGER_DIR) -> int:
+    """The highest ledger round plus one; 1 when nothing has been sent."""
+    nums = [int(m.group(1)) for p in glob.glob(os.path.join(ledger_dir, "round_*.csv"))
+            if (m := re.fullmatch(r"round_(\d+)\.csv", os.path.basename(p)))]
+    return max(nums, default=0) + 1
+
+
 def read_csv_rows(path: str) -> list[dict]:
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
@@ -534,6 +569,36 @@ def _inventory_pairs(paths):
                 key = row.get("global_key")
                 if key and url and _LABELBOX_URL_RE.fullmatch(str(url).strip()):
                     yield key, str(url).strip()
+
+
+_MISSION_FOLDER_RE = re.compile(r"(?:^|/)(\d{8}_([a-z0-9]+)_[^/]*)")
+
+
+def inventory_origins(path=LEGACY_INVENTORIES) -> dict[str, tuple[str, str]]:
+    """global_key -> (mission, site), off the inventory.
+
+    The mission is ``metadata.mission``, else the mission folder in ``row_data``
+    (``<yyyymmdd>_<site>_<waypoint>_<aircraft>``); the site is that folder's
+    second part, as labelling/draw_field_sample.py reads it. A frame with
+    neither gets no entry, so the cell is blank rather than guessed.
+    """
+    out = {}
+    for path_ in ((path,) if isinstance(path, str) else path):
+        if not os.path.exists(path_):
+            continue
+        with open(path_, encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                key = row.get("global_key")
+                mission = str((row.get("metadata") or {}).get("mission") or "")
+                m = _MISSION_FOLDER_RE.search(mission) or _MISSION_FOLDER_RE.search(
+                    str(row.get("row_data") or ""))
+                if key and m:
+                    out.setdefault(key, (mission or m.group(1), m.group(2)))
+    return out
 
 
 def inventory_image_urls(path=LEGACY_INVENTORIES) -> dict[str, str]:

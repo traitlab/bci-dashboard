@@ -1,124 +1,78 @@
-"""Then and now: did the last labelling round move the numbers.
+"""Then and now: what the last labelling export changed.
 
-Every page reports the latest state, and the snapshot store keeps one dated
-folder per merge. Nothing compared two of them, so "did that round help" was
-answered by opening two CSVs by hand. This finds the newest snapshot dated
-before the build date and reports two things then and now: the species with at
-least the shared floor of labelled frames, and the overall test top-1 when the
-older snapshot recorded one (held_out.csv is newer than most snapshots).
+Every page reports the latest state. The refresh manifest (``manifest.py``) keeps
+one line per Labelbox export, and this compares the last two: new labelled
+frames, new species, the species whose count moved, and the test top-1 with the
+frame count behind it. It also keeps the last few lines as a short history.
 
-A snapshot scored against other reference labels is not compared at all: the
-note names the break instead, since a change across it is the labels', not the
-model's. ``reference.read`` says which labels a snapshot was scored against.
+A pair of lines scored against other reference labels is not compared on top-1:
+a change across it is the labels', not the model's. ``reference.break_sentence``
+names the break.
 
 Read with the standard library only, like everything under dashboard/.
 """
 
 from __future__ import annotations
 
-import glob
-import os
 import re
+from datetime import date
 
-import core as hc
-import reference
-from assets import pctf
-from history import SNAPSHOT_DIR, SNAPSHOT_GLOB
-
-# The build date is free text on the command line ("2026-08-25-test" in the
-# test suite), so only a leading date is read out of it.
-DATE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})")
-# Snapshots up to 2026-08-27 call the labelled-frame column by its old name.
-FRAME_COLUMNS = ("n_labelled_frames", "n_labelled_crowns")
+HISTORY_RUNS = 8
+# Build dates are free text on the command line ("2026-08-25-test" in the tests),
+# and a model version starts with its date, so only a leading date is read.
+DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})")
 
 
-def previous_snapshot(snapshots_dir: str, generated: str):
-    """Path of the newest model-health-<date>/ folder dated strictly before
-    the build date, or None when there is none or the build date is not one."""
-    m = DATE_RE.match(generated or "")
-    if not m:
+def _date(text: str):
+    m = DATE_RE.match(text or "")
+    try:
+        return date(*map(int, m.groups())) if m else None
+    except ValueError:
         return None
-    dated = []
-    for d in glob.glob(os.path.join(snapshots_dir, SNAPSHOT_GLOB)):
-        s = SNAPSHOT_DIR.search(d)
-        if s and s.group(1) < m.group(1):
-            dated.append((s.group(1), d))
-    return max(dated)[1] if dated else None
 
 
-def species_at_floor(per_species_csv: str, floor: int) -> int:
-    rows = hc.read_csv_rows(per_species_csv)
-    if not rows:
-        return 0
-    col = next((c for c in FRAME_COLUMNS if c in rows[0]), None)
-    if col is None:
-        raise SystemExit(f"{per_species_csv} has none of {FRAME_COLUMNS}")
-    return sum(1 for r in rows if int(r[col]) >= floor)
-
-
-def test_top1_of(snap_dir: str):
-    """(n, top1) from the snapshot's held_out.csv, or None when it has none."""
-    path = os.path.join(snap_dir, "held_out.csv")
-    if not os.path.exists(path):
+def model_age_words(version: str, built: str) -> str | None:
+    """How old the model was on the build date, in whole months, or None when
+    either date cannot be read or the model is dated after the build."""
+    then, now = _date(version), _date(built)
+    if then is None or now is None or then > now:
         return None
-    row = next(r for r in hc.read_csv_rows(path) if r["population"] == "test")
-    return int(row["n_frames"]), float(row["top1_accuracy"]) if row["top1_accuracy"] else None
+    months = (now.year - then.year) * 12 + now.month - then.month - (now.day < then.day)
+    if months < 1:
+        return "under a month old"
+    return f"{months} month{'' if months == 1 else 's'} old"
 
 
-def compute(now: dict, snapshots_dir: str, generated: str, *, floor: int) -> dict:
-    """``now`` carries n_species_floor, test_n, test_top1 and the reference
-    this build is scored against. ``then`` stays None across a reference break,
-    and ``crossed`` names the two references instead."""
-    prev = previous_snapshot(snapshots_dir, generated)
-    out = {"generated": generated, "previous": None, "now": dict(now),
-           "then": None, "date_readable": bool(DATE_RE.match(generated or "")),
-           "crossed": None}
-    if prev is None:
-        return out
-    then_ref = reference.read(prev)
-    now_ref = now.get("reference", reference.LABELBOX)
-    if then_ref != now_ref:
-        out["previous"] = SNAPSHOT_DIR.search(prev).group(1)
-        out["crossed"] = (then_ref, now_ref)
-        return out
-    top1 = test_top1_of(prev)
-    out["previous"] = SNAPSHOT_DIR.search(prev).group(1)
-    out["then"] = {
-        "n_species_floor": species_at_floor(
-            os.path.join(prev, "per_species_health.csv"), floor),
-        "test_n": top1[0] if top1 else None,
-        "test_top1": top1[1] if top1 else None}
-    return out
+def diff(prev: dict, cur: dict) -> dict:
+    """What changed from manifest line ``prev`` to the later line ``cur``."""
+    before, after = prev["species_counts"], cur["species_counts"]
+    moved = [(sp, before.get(sp, 0), after.get(sp, 0))
+             for sp in sorted(set(before) | set(after))
+             if before.get(sp, 0) != after.get(sp, 0)]
+    # Biggest gain first, then biggest loss, so the rows that matter lead.
+    moved.sort(key=lambda m: (-(m[2] - m[1]), m[0]))
+    crossed = ((prev.get("reference"), cur.get("reference"))
+               if prev.get("reference") != cur.get("reference") else None)
+    top1 = (None if crossed or prev["test_top1"] is None or cur["test_top1"] is None
+            else cur["test_top1"] - prev["test_top1"])
+    return {
+        "prev": prev, "cur": cur,
+        "new_labelled": cur["labelled"] - prev["labelled"],
+        "new_frames": cur["frames"] - prev["frames"],
+        "new_species": [(sp, after[sp]) for sp in sorted(set(after) - set(before))],
+        "lost_species": sorted(set(before) - set(after)),
+        "moved": moved,
+        "top1_delta": top1,
+        "crossed": crossed,
+        "version_changed": ((prev["model_version"], cur["model_version"])
+                            if prev["model_version"] != cur["model_version"] else None),
+    }
 
 
-def note(d: dict, *, floor: int) -> str:
-    """One paragraph for the frame-counts panel."""
-    now = d["now"]
-    head = ('<p class="note"><b>Since the last snapshot:</b> ')
-    if d.get("crossed"):
-        then_ref, now_ref = d["crossed"]
-        return (head + f'not compared with {d["previous"]}, the date the counts were '
-                f'last saved. Today {now["n_species_floor"]} species carry at least '
-                f'{floor} labelled frames, and the first guess is right on '
-                f'{pctf(now["test_top1"])} of the {now["test_n"]:,} test frames.</p>'
-                f'<p class="note">{reference.break_sentence(then_ref, now_ref)}</p>')
-    if d["then"] is None:
-        why = ("the build date is not a date, so no earlier snapshot was looked for"
-               if not d["date_readable"] else "no earlier snapshot is available for this build")
-        return (head + f'{why}. Today {now["n_species_floor"]} species carry at least '
-                f'{floor} labelled frames, and the first guess is right on '
-                f'{pctf(now["test_top1"])} of the {now["test_n"]:,} test frames.</p>')
-    then = d["then"]
-    if then["n_species_floor"] == now["n_species_floor"] and then["test_top1"] is None:
-        return (head + f'nothing has moved since {d["previous"]}, the date the '
-                f'counts were last saved.</p>')
-    line = (head + f'on {d["previous"]} {then["n_species_floor"]} species carried at least '
-            f'{floor} labelled frames, now {now["n_species_floor"]} species do. ')
-    if then["test_top1"] is None:
-        line += (f'The overall test top-1 was not recorded then. Now the first guess is '
-                 f'right on {pctf(now["test_top1"])} of the {now["test_n"]:,} test frames.')
-    else:
-        line += (f'The first guess was right on {pctf(then["test_top1"])} of the test '
-                 f'frames then (n = {then["test_n"]:,}). Now it is right on '
-                 f'{pctf(now["test_top1"])} (n = {now["test_n"]:,}).')
-    return line + "</p>"
+def compute(lines: list[dict]) -> dict:
+    """``lines`` are manifest lines. ``diff`` is None until there are two, and
+    ``runs`` is the last HISTORY_RUNS, newest first. Order is by export, not by
+    file position."""
+    lines = sorted(lines, key=lambda e: e["export"])
+    return {"runs": lines[-HISTORY_RUNS:][::-1],
+            "diff": diff(lines[-2], lines[-1]) if len(lines) >= 2 else None}

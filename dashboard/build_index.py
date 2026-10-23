@@ -8,6 +8,7 @@ built, so an operational-only build remains a useful, honest landing page.
 from __future__ import annotations
 
 import argparse
+import csv
 import html
 import os
 import re
@@ -61,6 +62,16 @@ CAVEATS = ("Photo counts do not measure tree abundance.",
            "Each page describes its own snapshot, so the dates differ from page to page.")
 
 
+GLOSSARY = (
+    ("Close-up", "One drone photo, aimed at one tree crown. A frame is the same thing. It can show more crowns than the one it is aimed at."),
+    ("Crown", "The top of one tree, as seen from the drone."),
+    ("Centre crown", "The crown the frame is aimed at. Pl@ntNet is sent the centre crop, the middle square of the frame, which should hold this crown. "
+                     "The label of the frame is the species with the most crown area in the whole frame, usually this crown but not always."),
+    ("Segmentation version", "A run of the tool that outlines crowns in the mission map. The version can differ from mission to mission."),
+    ("Mission", "One drone flight session over a site. Each frame belongs to one mission."),
+)
+
+
 def build_stamp(text: str) -> str:
     """Keep label and page dates distinct, without copying evaluation figures."""
     found = re.search(r'<div class="subtitle">(.*?)</div>', text, re.S)
@@ -76,6 +87,34 @@ def build_figure(text: str) -> str:
     """The one figure a page puts on its hero for the index tile, or ''."""
     found = re.search(r'<div class="hero[^"]*" data-tile="([^"]*)"', text)
     return html.unescape(found.group(1)).strip() if found else ""
+
+
+def scope_sentence(build_dir: str) -> str:
+    """What the data covers, counted off the published tables. A figure whose
+    table is absent is left out, never typed. Other pages' bylines can import this."""
+    def rows(name):
+        try:
+            with open(os.path.join(build_dir, name), encoding="utf-8", newline="") as fh:
+                return list(csv.DictReader(fh))
+        except OSError:
+            return []
+
+    parts = ["Drone-photographed crowns only, not every tree"]
+    health = rows("per_species_health.csv")
+    if health:
+        n = sum(int(r["n_labelled_frames"]) for r in health)
+        parts.append(f"{n:,} labelled frames across {len(health)} species are scored on Model health")
+    queue = rows("send_batches.csv")
+    if queue:
+        # mission is blank where the inventory does not name it; it starts with the flight date.
+        # The date in a file name is when it was written, not flown, so it is not used.
+        missions = {r["mission"] for r in queue if r.get("mission")}
+        dates = sorted(m.group(1) for r in queue if (m := re.match(r"(\d{8})", r.get("mission") or "")))
+        first, last = (f"{d[:4]}-{d[4:6]}-{d[6:]}" for d in (dates[0], dates[-1])) if dates else ("", "")
+        span = f", photographed {first} to {last}" if dates else ""
+        source = f" from {len(missions)} missions" if missions else ""
+        parts.append(f"{len(queue):,} unlabelled photos{source} are queued for labelling{span}")
+    return ". ".join(parts) + "."
 
 
 def available_names(build_dir: str) -> set:
@@ -110,14 +149,24 @@ def build(build_dir: str) -> str:
                   "Drone photos of the Panama canopy with Pl@ntNet guesses and recorded labels: browse photos, choose the next labelling batch, check model health.", "index.html", present)
             + '<main id="main-content" tabindex="-1"><h1>Panama canopy</h1>'
             + '<p class="intro">Drone photos of the canopy on Barro Colorado Island and other Panama field sites. '
-              'Pl@ntNet suggests a name for each photo and botanists confirm it. <a href="about.html">About</a></p>'
+              'Pl@ntNet suggests a name for each photo and botanists confirm it. '
+              'This site is a window into the current data for the project leads and the labelling coordinator. '
+              'Annotators work in Labelbox, where model guesses are hidden on purpose so they do not bias identifications. '
+              'It does not yet suggest where to fly the drone. <a href="about.html">About</a></p>'
             + '<div class="tasks">' + "".join(card(*tile) for tile in tiles) + '</div>'
             + (f'<p class="more">{more}</p>' if more else "")
             + (f'<p class="scope">{html.escape(shared)}</p>' if shared else "")
+            + _scope_html(scope_sentence(build_dir), present)
             + "</main></body></html>\n")
 
 
-def build_about(available) -> str:
+def _scope_html(sentence: str, present) -> str:
+    link = (' <a href="embedding-atlas.html#view=locations">See the map</a>.'
+            if "embedding-atlas.html" in present else "")
+    return f'<p class="scope">{html.escape(sentence)}{link}</p>'
+
+
+def build_about(available, scope: str = "") -> str:
     """What each page is for, the caveats, and a glossary. Carries no data."""
     pages = "".join(
         f'<li><a href="{name}{fragment}">{html.escape(title)}</a>. {html.escape(purpose)}</li>'
@@ -128,12 +177,15 @@ def build_about(available) -> str:
     return (_head("About Panama canopy", "What each page of the Panama canopy site is for, how to read its numbers, and a glossary.", "about.html", available)
             + '<main id="main-content" tabindex="-1" class="about"><h1>About</h1>'
             + '<h2>What each page is for</h2><ul>' + pages + '</ul>'
+            + ('<h2>Data scope</h2>' + _scope_html(scope, available) if scope else "")
             + '<h2>Read the numbers with care</h2>' + "".join(f"<p>{c}</p>" for c in CAVEATS)
             + experiment
             + '<h2>Glossary</h2><dl>'
               '<dt>Recorded label</dt><dd>The species name a botanist has recorded for a photo.</dd>'
               '<dt>Pl@ntNet first guess</dt><dd>The species Pl@ntNet ranks first for a photo.</dd>'
-              '<dt>Labelled frame</dt><dd>A drone photo that carries a recorded label.</dd></dl>'
+              '<dt>Labelled frame</dt><dd>A drone photo that carries a recorded label.</dd>'
+              + "".join(f"<dt>{term}</dt><dd>{html.escape(meaning)}</dd>" for term, meaning in GLOSSARY)
+              + '</dl>'
             + "</main></body></html>\n")
 
 
@@ -152,7 +204,7 @@ def main() -> None:
     ap.add_argument("--about-out", default=os.path.join("docs", "about.html"))
     args = ap.parse_args()
     for path, out in ((args.out, build(args.build)),
-                      (args.about_out, build_about(available_names(args.build)))):
+                      (args.about_out, build_about(available_names(args.build), scope_sentence(args.build)))):
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(out)

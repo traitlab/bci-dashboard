@@ -92,7 +92,13 @@ def test_a_command_printed_on_a_page_runs(internal_page, queue_panels):
     opens = f'<details class="more" id="{queue_panels.TEAM_BLOCK_ID}">'
     assert html.count(opens) == 1, "the queue page lost its closed team block"
     block = html.split(opens, 1)[1].split("</details>", 1)[0]
-    outside = html.replace(block, "")
+    # The primary next-batch block repeats the dry-run command above the filters,
+    # so it is the one other place a command may appear, and is checked the same way.
+    first = '<div class="rec" id="next-batch">'
+    assert html.count(first) == 1, "the queue page lost its next-batch block"
+    primary = html.split(first, 1)[1].split("</div>", 1)[0]
+    outside = html.replace(primary, "").replace(block, "")
+    block += primary
     assert not COMMAND.findall(outside.replace("<code>", " ").replace("</code>", " ")), (
         "the queue page prints a command outside the team block")
     text = block.replace("<code>", " ").replace("</code>", " ")

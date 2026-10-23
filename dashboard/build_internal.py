@@ -31,6 +31,8 @@ import page as pg
 import queues
 import reference
 from assets import esc, hero, pctf
+from build_index import scope_sentence
+from queue_filters import next_batch_block, send_filters
 from queue_panels import TEAM_BLOCK_ID
 from queues import BATCH_SIZE
 from selection_panels import selection_complaint
@@ -62,6 +64,7 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     """
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
     c.available_pages = pg.OPERATIONAL_PAGES | frozenset(available_pages or ())
+    c.verify_dir = verify_dir  # the send CSVs the filter block embeds
 
     # Before anything is rendered. This page's leading claim is that inside each
     # queue the photo least like anything labelled, or already ranked, comes
@@ -104,6 +107,12 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
          f'{anchor_clause}&middot; {c.n:,} frames scored against '
          f'{reference.WORDS[c.reference]} behind the species statuses that sort the '
          f'queues</div>',
+         # Second, never first: build_index.build_stamp reads the first subtitle.
+         f'<div class="subtitle">{esc(scope_sentence(verify_dir))}</div>',
+         # The answer to "what do I send next" is the first thing on the page,
+         # then the filters; the numbers behind it follow.
+         next_batch_block(c),
+         send_filters(c),
          # Batch 1 leads, not the pool. A botanist works through a few hundred
          # a month, so leading with the pool prices the whole queue as the
          # next task and it is many months of them. The number a
@@ -147,7 +156,7 @@ def batches_note(c):
     return (f'<p class="note"><strong>The prioritised batches are in '
             f'<a href="send_batches.csv">send_batches.csv</a>.</strong> '
             f'Send from that file: it holds {c.n_batches} batches of at most '
-            f'{BATCH_SIZE} photos, each species group kept together. '
+            f'{BATCH_SIZE} photos, {queues.GROUP_PHRASE[queues.GROUP_BY]}. '
             f'How Pl@ntNet scores against the labels is a separate page, '
             f'<a href="model_health_dashboard.html">Model health</a>.</p>')
 

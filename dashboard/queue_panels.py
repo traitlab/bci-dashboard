@@ -5,12 +5,14 @@ closed half that argues for the order is ``queue_why_panels.py``, and
 
 from __future__ import annotations
 
+import os
 from urllib.parse import quote
 
 import core as hc
 import queues
 from assets import cap, esc, explorer_link, more, panel, pctf, table
 from panels import NAMING_IS, NAMING_NOTE
+from queue_filters import DISPATCH_CMD
 from selection_panels import _fmt_pct as sel_pct
 from status_words import STATUS
 
@@ -60,6 +62,58 @@ _UNMEASURED_NOTE = (
     'measured.</p>')
 
 
+READOUT_FILE = "round_readout.csv"
+
+
+# read_round.py arm names, as CONTEXT.md says a page words them
+PICKED_BY = {"prioritised": "prioritised", "control": "random control"}
+
+
+def readout_rows(c) -> list:
+    """Closed rows of the round read-out, or [] when the file or any closed row
+    is absent. Intervals must be rates in [0, 1]; anything else aborts the build
+    rather than printing a number that cannot be one."""
+    verify_dir = getattr(c, "verify_dir", None)
+    path = os.path.join(verify_dir or "", READOUT_FILE)
+    if not verify_dir or not os.path.exists(path):
+        return []
+    closed = [r for r in hc.read_csv_rows(path) if r["status"] == "closed"]
+    for r in closed:
+        if not r["corrections_lo"]:  # no labelled row had a first guess, so no interval
+            continue
+        lo, hi = float(r["corrections_lo"]), float(r["corrections_hi"])
+        if not 0 <= lo <= hi <= 1 or int(r["corrections"]) > int(r["n_with_guess"]):
+            raise SystemExit(f"VERIFY FAIL: {READOUT_FILE} row {r['scope']}/{r['arm']} has an "
+                             f"interval or count that is not a rate: {lo}, {hi}")
+    return closed
+
+
+def readout_block(c) -> str:
+    """Prioritised photos against the random control, once a round has closed.
+    Until then it says pending. Each row carries how many photos were sent and
+    labelled, so a rate is never read without its support."""
+    closed = readout_rows(c)
+    if not closed:
+        return ('<p class="note"><b>Prioritised vs random control:</b> pending, no round '
+                'closed yet.</p>')
+    rows = []
+    for r in closed:
+        # read_round scores corrections over labelled rows that had a first guess
+        g = int(r["n_with_guess"])
+        rate = (f'{pctf(int(r["corrections"]) / g)} ({pctf(float(r["corrections_lo"]))} to '
+                f'{pctf(float(r["corrections_hi"]))})') if g else "n/a"
+        rows.append([esc(r["scope"]), esc(PICKED_BY.get(r["arm"], r["arm"])), f'{int(r["n_sent"]):,}',
+                     f'{int(r["n_labelled"]):,}', f'{int(r["corrections"]):,}', rate,
+                     f'{int(r["new_rows"]):,}', f'{int(r["long_tail_rows"]):,}'])
+    return ('<p class="note"><b>Prioritised vs random control.</b> For each closed round, the '
+            'share of labelled photos where the botanist corrected the model, with its '
+            'interval. A small number of labelled photos gives a wide interval; read the '
+            'counts first.</p>'
+            + table([("round", False), ("picked by", False), ("sent", True), ("labelled", True),
+                     ("corrections", True), ("correction rate (interval)", True),
+                     ("new rows", True), ("long-tail rows", True)], rows))
+
+
 # Above the 25 filenames, not below them: a reader who meets the list first has
 # already accepted it as instructions by the time the caveat arrives.
 def ungraded_note(c) -> str:
@@ -75,17 +129,19 @@ def ungraded_note(c) -> str:
     """
     a = getattr(c, "selection_audit", None)
     if not a:
-        return _UNMEASURED_NOTE + _batch1_note(c)
+        # A closed round is a measurement, so the "not measured" line goes.
+        return ("" if readout_rows(c) else _UNMEASURED_NOTE) + readout_block(c) + _batch1_note(c)
     saved = ""
     if a["passed"] and a["labels_saved_pct"] is not None:
         saved = (f' It needs {sel_pct(a["labels_saved_pct"])} fewer labels for the same '
                  'rare species.')
     return (f'<p class="note"><b>What this order is measured against.</b> On the '
             f'{a["n_frames"] or 0:,} labelled frames that already carry a name, this '
-            f'ordering finds rare species faster than a random order.{saved} This pool is '
-            'not: it carries no label yet, so nothing here checks whether this order '
-            'fills gaps faster than a random one on it.</p>'
-            + _batch1_note(c))
+            f'ordering finds rare species faster than a random order.{saved} '
+            + ('This pool is measured by the closed rounds below.</p>' if readout_rows(c) else
+               'This pool is not: it carries no label yet, so nothing here checks whether this '
+               'order fills gaps faster than a random one on it.</p>')
+            + readout_block(c) + _batch1_note(c))
 
 
 # The page's own hand-off: the queue is only worth building if a batch reaches
@@ -99,13 +155,14 @@ TEAM_BLOCK_ID = "sending-a-batch"
 DISPATCH = more(
     "For the labelling team: send a batch",
     f'<p class="note"><a href="send_batches.csv">send_batches.csv</a> is this same queue '
-    f'packed into batches of {queues.BATCH_SIZE}, each species kept whole. To send a '
-    'batch, after checking its status in Labelbox, use this command with the chosen '
-    'round and batch numbers. This example selects batch 1 of round 1:</p>'
-    '<pre class="cmd">python3 labelling/dispatch_round.py --round 1 --csv build/tables/send_batches.csv --batch 1 --test</pre>'
-    '<p class="note"><strong>This creates a live five-photo batch and updates metadata '
-    'in Labelbox.</strong> <code>--test</code> limits the send to five photos; it is not '
-    'an offline preview. Omit it to send the full selected batch.</p>'
+    f'packed into batches of {queues.BATCH_SIZE}, {queues.GROUP_PHRASE[queues.GROUP_BY]}. To send a '
+    'batch, after checking its status in Labelbox, run this first with the chosen '
+    f'round and batch numbers. This example selects batch 1 of round {hc.next_round()}:</p>'
+    f'<pre class="cmd">{DISPATCH_CMD.format(round=hc.next_round(), batch=1)}</pre>'
+    '<p class="note"><code>--dry-run</code> writes nothing and calls no API: it reports '
+    'how many photos it would send and skips any sent in an earlier round. Drop it to send the full batch. '
+    '<strong>Adding <code>--test</code> instead creates a live five-photo batch and '
+    'updates metadata in Labelbox</strong>; it is not an offline preview.</p>'
     '<p class="note">One batch there is one Labelbox '
     'batch, and <code>global_key</code> is the column Labelbox is given.</p>',
     anchor=TEAM_BLOCK_ID)
@@ -186,6 +243,41 @@ def send_pool_table(c):
     body += ('<p class="note">Rows are tried top to bottom. The first one that fits '
              'wins, so a weak guess on a rare species stays in the first queue.</p>')
     return body
+
+
+CALIBRATION_FILE = "confidence_calibration.csv"
+# The calibration scope this note reads: every frame with a species-level label.
+CALIBRATION_SCOPE = "all_species_level_gt"
+
+
+def threshold_evidence(c) -> str:
+    """How often the first guess was right at each queue cut-off, off the
+    calibration table the build verified. Empty when the table or either row is
+    absent, rather than a number from somewhere else. The two values are not
+    changed here: the table says what each separates."""
+    verify_dir = getattr(c, "verify_dir", None)
+    path = os.path.join(verify_dir or "", CALIBRATION_FILE)
+    if not verify_dir or not os.path.exists(path):
+        return ""
+    rows = [r for r in hc.read_csv_rows(path) if r["scope"] == CALIBRATION_SCOPE]
+    pick = lambda kind, band: next(
+        (r for r in rows if r["row_type"] == kind and r["band"] == band), None)
+    high = pick("threshold", f">={hc.WAIT_CONF}")
+    low = pick("bin", f"[0.0,{hc.LOW_CONF})")
+    # An empty band has no accuracy to quote.
+    if not high or not low or not int(high["n_crowns"]) or not int(low["n_crowns"]):
+        return ""
+    total = sum(int(r["n_crowns"]) for r in rows if r["row_type"] == "bin")
+    say = lambda r: (f'right on {int(r["n_correct"]):,} of {int(r["n_crowns"]):,} frames '
+                     f'({pctf(float(r["top1_accuracy"]))})')
+    return (f'<p class="note"><strong>How often the first guess was right.</strong> On the '
+            f'{total:,} labelled frames with a species-level label, at confidence '
+            f'{hc.WAIT_CONF:.2f} or more it was {say(high)}; under {hc.LOW_CONF:.2f} it was '
+            f'{say(low)}. A confident guess can still be wrong: '
+            f'{int(high["n_wrong"]):,} frames at {hc.WAIT_CONF:.2f} or more were. '
+            f'{hc.WAIT_CONF:.2f} is the confidence line; {hc.LOW_CONF:.2f} marks low confidence. '
+            f'Both values were set by judgement, not fitted to this table; the table shows what each separates. '
+            f'<a href="{CALIBRATION_FILE}">{CALIBRATION_FILE}</a></p>')
 
 
 def send_preview_table(c):
@@ -283,8 +375,11 @@ def held_out_note(c) -> str:
 def p_send(c):
     """The page's answer to "what do I label next": queue sizes, the head of
     the queue, then the caveats that qualify both."""
-    body = (send_pool_table(c) + send_preview_table(c) + DISPATCH + links_note(c)
-            + held_out_note(c) + send_notes(c))
+    # The queue itself first; sizes, link coverage and caveats are checks on it,
+    # so they sit closed beneath it.
+    body = (send_preview_table(c) + DISPATCH
+            + more("Queue sizes, link coverage and caveats",
+                   send_pool_table(c) + threshold_evidence(c) + links_note(c) + held_out_note(c) + send_notes(c)))
     # The same two queues the hero counts, added the same way, so both agree.
     send_now = (c.queue_counts.get("long_tail", 0)
                 + c.queue_counts.get("low_conf_known", 0))
