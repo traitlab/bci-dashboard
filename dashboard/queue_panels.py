@@ -183,9 +183,13 @@ def links_note(c) -> str:
     box = hc.labelbox_link_coverage(keys)
     images = hc.inventory_image_urls()
     n_img = sum(1 for k in keys if images.get(k))
+    urls, row_ids = hc.labelbox_urls(), hc.inventory_row_ids()
+    n_gone = sum(1 for k in keys if not hc.send_row_id(k, urls, row_ids))
+    gone = (f'<p class="note">{n_gone:,} queued photos are not in Labelbox yet.</p>'
+            if n_gone else "")
     if not n_img and not box["n_linked"]:
         return ('<p class="note">No frame links to its photo or its Labelbox row '
-                'yet.</p>')
+                'yet.</p>' + gone)
     return (f'<p class="note"><strong>Two link columns, filled where we have one.</strong> '
             f'The first opens the whole frame in any browser, no Labelbox '
             f'seat and no login, and it is filled on {n_img:,} of {len(keys):,} rows. '
@@ -193,7 +197,7 @@ def links_note(c) -> str:
             f'in, which is the only view that draws the crown being asked about, and it '
             f'is filled on {box["n_linked"]:,}. The {box["n_unlinked"]:,} rows without one '
             f'are frames no Labelbox export names. Those cells are empty rather '
-            f'than guessed.</p>')
+            f'than guessed.</p>' + gone)
 
 
 def p_todo(c):

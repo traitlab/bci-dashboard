@@ -20,6 +20,7 @@ def test_both_send_csvs_carry_ids_mission_and_site(core, queues, measure, tmp_pa
     urls = {"k1": URL, "k2": "https://app.labelbox.com/projects/projB/data-rows/rowB"}
     monkeypatch.setattr(measure, "labelbox_urls", lambda: urls)
     monkeypatch.setattr(measure, "inventory_image_urls", lambda: {})
+    monkeypatch.setattr(measure, "inventory_row_ids", lambda: {"k3": "rowC"})
     monkeypatch.setattr(measure, "load_novelty_distance", lambda path: {})
     monkeypatch.setattr(measure, "inventory_origins",
                         lambda: {"k1": ("20260114_bciarmour_wptne01_m3e", "bciarmour")})
@@ -34,9 +35,10 @@ def test_both_send_csvs_carry_ids_mission_and_site(core, queues, measure, tmp_pa
     batches = _read(tmp_path / "send_batches.csv")
     assert len(first) == len(batches) == 3
     for r in batches:
-        assert r["data_row_id"] == core.data_row_id(r["labelbox_url"])
+        assert r["data_row_id"] == (core.data_row_id(r["labelbox_url"]) or "rowC")
     assert {r["global_key"]: r["data_row_id"] for r in first} == {
-        "k1": "rowA", "k2": "rowB", "k3": ""}  # k3 has no link, so no id
+        "k1": "rowA", "k2": "rowB", "k3": "rowC"}  # k3 has no link, only a dispatch row
+    assert [r["labelbox_url"] for r in batches if r["global_key"] == "k3"] == [""]
     assert list(first[0]) == queues.SEND_FIRST_HEADER
     for rows in (first, batches):
         by_key = {r["global_key"]: (r["mission"], r["site"]) for r in rows}
@@ -59,3 +61,13 @@ def test_inventory_origins_reads_metadata_then_the_url_folder(core, tmp_path):
     assert "c" not in got
     assert got["d"] == ("20240911_bcifairchild_wpt_m3e", "bcifairchild")
     assert core.inventory_origins(str(tmp_path / "absent.jsonl")) == {}
+
+
+def test_inventory_row_ids_reads_the_dispatch_uid_and_skips_what_is_unnamed(core, tmp_path):
+    inv = tmp_path / "inv.jsonl"
+    inv.write_text('{"global_key": "comb_a.JPG", "uid": "u1"}\n{"global_key": "comb_b.JPG"}\nnot json\n')
+    assert core.inventory_row_ids(str(inv)) == {"comb_a.JPG": "u1"}
+    assert core.inventory_row_ids(str(tmp_path / "absent.jsonl")) == {}
+    assert core.send_row_id("comb_a.JPG", {"comb_a.JPG": URL}, {"comb_a.JPG": "u1"}) == "rowA"
+    assert core.send_row_id("comb_a.JPG", {}, {"comb_a.JPG": "u1"}) == "u1"
+    assert core.send_row_id("comb_z.JPG", {}, {}) == ""

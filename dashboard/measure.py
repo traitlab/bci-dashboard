@@ -28,8 +28,8 @@ from health import load_health
 from core import (
     add_input_flags, add_label_source_flag, summarise, ledger_keys, LEDGER_DIR, REPO,
     ratio, fmt, genus_of, normalize,
-    coverage_gate_stats, data_row_id, diagnose, labelbox_urls, inventory_image_urls,
-    inventory_origins,
+    coverage_gate_stats, diagnose, labelbox_urls, inventory_image_urls,
+    inventory_origins, inventory_row_ids, send_row_id,
     adjudicated_keys,
     CONF_THRESHOLDS, BUCKET_ORDER, WELL_SAMPLED_MIN_N,
     RELIABLE_MIN_TOP1,
@@ -199,13 +199,13 @@ def write_coverage_gate(out_dir, sweep):
 
 def write_send_first_queue(out_dir, queue_rows):
     """The unlabelled pool in send order; send_batches must match it."""
-    boxes, origins = labelbox_urls(), inventory_origins()
+    boxes, origins, ids = labelbox_urls(), inventory_origins(), inventory_row_ids()
     key_at = SEND_FIRST_COLUMNS.index("global_key")
     with _csv(out_dir, "send_first_queue.csv") as f:
         w = csv.writer(f)
         w.writerow(SEND_FIRST_HEADER)
         for row in queue_rows:
-            w.writerow(list(row) + [data_row_id(boxes.get(row[key_at], ""))]
+            w.writerow(list(row) + [send_row_id(row[key_at], boxes, ids)]
                        + list(origins.get(row[key_at], ("", ""))))
 
 
@@ -219,6 +219,7 @@ def write_send_batches(out_dir, batch_rows, queue_rows):
     front of a botanist.
     """
     images, boxes, origins = inventory_image_urls(), labelbox_urls(), inventory_origins()
+    ids = inventory_row_ids()
     distance = load_novelty_distance(QUEUE_NOVELTY_CSV)
     forms = growth_form.load()
     # A control row's species_group is not a species, so the form is the prediction's.
@@ -231,7 +232,7 @@ def write_send_batches(out_dir, batch_rows, queue_rows):
         for row in batch_rows:
             key = row[key_at]
             w.writerow(list(row) + [how_new(distance, key), images.get(key, ""),
-                                    boxes.get(key, ""), data_row_id(boxes.get(key, "")),
+                                    boxes.get(key, ""), send_row_id(key, boxes, ids),
                                     *origins.get(key, ("", "")),
                                     forms.get(predicted.get(key), growth_form.UNKNOWN), GROUP_BY])
 

@@ -82,7 +82,7 @@ def load_selection_csv(csv_path: Path, batch_id: str | None = None,
     empty send. A file missing a column in `REQUIRED_COLUMNS` is a stop too:
     it is not a queue-page download.
     """
-    global_keys, seen, n_control = [], set(), 0
+    global_keys, seen, n_control, no_id = [], set(), 0, []
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         have = reader.fieldnames or []
@@ -99,7 +99,14 @@ def load_selection_csv(csv_path: Path, batch_id: str | None = None,
             gk = row["global_key"].strip()
             if gk:
                 global_keys.append(gk)
+                if not (row.get("data_row_id") or "").strip():
+                    no_id.append(gk)
                 n_control += (row.get("picked_by") or "").strip() == "control"
+    if no_id:
+        # Not in the dispatch dataset, so Labelbox would only report them missing.
+        sys.exit(f"ERROR: {len(no_id)} of the {len(global_keys)} selected rows have no data_row_id, "
+                 f"so they are not in Labelbox and cannot be sent (first 5: {no_id[:5]}). "
+                 f"Re-run measure.py, or drop them from the CSV.")
     # The full send_batches.csv sent whole would be every batch as one Labelbox batch.
     if batch_id is None and not whole and len(seen - {""}) > 1:
         sys.exit(f"ERROR: {csv_path} holds {len(seen - {''})} batches. Pick one with "

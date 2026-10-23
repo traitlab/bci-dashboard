@@ -65,8 +65,9 @@ SEND_BATCH_LOOKUP_COLUMNS = ["how_new_it_looks"]
 # every row; `labelbox_url` is the only one that shows which crown is asked about.
 #
 # `data_row_id` is the id inside `labelbox_url`, parsed by `core.data_row_id`,
-# so it is empty exactly where the link is. It is the link's id, which for a
-# legacy-mode link is the row in the project the frame was labelled in.
+# which for a legacy-mode link is the row in the project the frame was labelled
+# in. A frame with no link takes its id from the dispatch dataset inventory
+# (`core.send_row_id`), so it is empty only for a photo that dataset lacks.
 #
 # `mission` and `site` say where the frame was flown, off the inventory; blank
 # for a frame it does not name.
