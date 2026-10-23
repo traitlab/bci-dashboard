@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 import public_snapshot as fixture
 import pytest
 import test_pages as contracts
-from conftest import PAGES, species_rows
+from conftest import DASHBOARD, PAGES, _on_path, species_rows
 
 
 @pytest.fixture(scope="module")
@@ -240,7 +240,26 @@ def test_both_data_pages_carry_the_scope_sentence_after_the_stamp(synthetic_page
     subtitles = re.findall(r'<div class="subtitle">(.*?)</div>', html)
     if "What to label next" in html or "How well does Pl@ntNet" in html:
         assert any(
-            s.startswith("Drone-photographed crowns only, not every tree")
+            re.sub(r"<[^>]+>", "", s).startswith(
+                "Drone-photographed crowns only, not every tree"
+            )
             for s in subtitles
         )
         assert subtitles[0].startswith("refreshed")
+
+
+def test_each_glossary_term_is_defined_once_at_its_first_use(synthetic_page):
+    html, _, _ = synthetic_page
+    if "What to label next" not in html and "How well does Pl@ntNet" not in html:
+        return
+    with _on_path(DASHBOARD):
+        from build_index import GLOSSARY
+        from page import FIRST_USE
+    main = html.split('<main id="main-content" tabindex="-1">', 1)[1]
+    visible = re.sub(r"<[^>]+>", " ", main.split("<script>")[0])
+    for term, words in FIRST_USE:
+        meaning = re.escape(html_lib.escape(dict(GLOSSARY)[term]))
+        marked = re.findall(rf'<abbr title="{meaning}">([^<]*)</abbr>', main)
+        first = re.search(rf"\b(?:{words})\b", visible, re.IGNORECASE)
+        assert len(marked) == (1 if first else 0), (term, marked)
+        assert first is None or first.group(0) == marked[0]
