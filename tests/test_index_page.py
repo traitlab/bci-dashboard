@@ -289,6 +289,15 @@ def test_scope_sentence_singular_and_undated(build_index, tmp_path):
     assert "photographed" not in s.replace("Drone-photographed", "")
 
 
+def test_scope_sentence_dates_come_from_capture_stamps_not_folder_names(build_index, tmp_path):
+    # A 2025 mission holds March 2026 photos; a row with no stamp falls back to its folder date.
+    (tmp_path / "scope.csv").write_text(
+        "mission,site,n_frames,n_labelled,first_capture,last_capture\n"
+        "20250811_sitea_w_m3e,sitea,2,1,20250811,20260322\n20240911_siteb_w_m3e,siteb,1,0,,\n",
+        encoding="utf-8")
+    assert "photographed 2024-09-11 to 2026-03-22" in build_index.scope_sentence(str(tmp_path))
+
+
 def test_scope_sentence_omits_what_the_tables_cannot_give(build_index, tmp_path):
     assert build_index.scope_sentence(str(tmp_path)) == "Drone-photographed crowns only, not every tree."
     assert "Data scope" not in build_index.build_about({"about.html"})

@@ -55,3 +55,12 @@ def test_committed_csv_covers_each_species_once():
         "shrub",
         "unknown",
     }
+
+
+def test_seed_adds_queue_predicted_species_once(tmp_path):
+    health = tmp_path / "h.csv"
+    health.write_text("species\na b\nc d\n")
+    queue = tmp_path / "q.csv"
+    queue.write_text("predicted_species\nc d\ne f\ne f\n\n")
+    assert gf.seed(health, queue) == ["a b", "c d", "e f"]
+    assert gf.seed(health, None) == ["a b", "c d"]

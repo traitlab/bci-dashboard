@@ -2,7 +2,7 @@
 """Regenerate input/growth_form.csv, the growth form of each species in the build.
 
 Reads the WCVP names file (wcvp_names.csv from the Kew bulk download, '|'
-separated) and the species of the last build, and writes one row per species:
+separated) and the species of the last build (labelled, plus every species the send queue predicts), and writes one row per species:
 tree, liana, palm, shrub or unknown. Palms come from the family Arecaceae;
 climbers (liana, climbing, scrambling, vine) are lianas. A lifeform that is
 missing, mixed ("shrub or tree") or not listed below is unknown, never guessed.
@@ -25,6 +25,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 SPECIES_CSV = REPO / "build" / "tables" / "per_species_health.csv"
+QUEUE_CSV = REPO / "build" / "tables" / "send_first_queue.csv"
 OUT = REPO / "input" / "growth_form.csv"
 REVIEW = REPO / "input" / "growth_form_review.csv"
 FIELDS = ("species", "growth_form", "source")
@@ -85,6 +86,17 @@ def rows_for(
     return out
 
 
+def seed(health: Path, queue: Path | None) -> list[str]:
+    """Labelled species first, then queue-predicted ones not already there."""
+    names = []
+    for path, col in ((health, "species"), (queue, "predicted_species")):
+        if path is None:
+            continue
+        with open(path, newline="", encoding="utf-8") as f:
+            names += [r[col] for r in csv.DictReader(f) if r[col]]
+    return list(dict.fromkeys(names))
+
+
 def write(path: Path, rows: list[dict[str, str]]) -> None:
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, FIELDS, lineterminator="\n")
@@ -96,9 +108,10 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("wcvp_names", type=Path)
     ap.add_argument("--species", type=Path, default=SPECIES_CSV)
+    ap.add_argument("--queue", type=Path, default=QUEUE_CSV, help="send queue whose predicted species are seeded too")
+    ap.add_argument("--no-queue", action="store_true", help="seed from labelled species only")
     args = ap.parse_args(argv)
-    with open(args.species, newline="", encoding="utf-8") as f:
-        species = [r["species"] for r in csv.DictReader(f)]
+    species = seed(args.species, None if args.no_queue else args.queue)
     if not species:
         sys.exit(f"no species in {args.species}")
     rows = rows_for(species, read_wcvp(args.wcvp_names, set(species)))

@@ -116,10 +116,14 @@ def scope_sentence(build_dir: str) -> str:
     if scope:
         # Every frame with a cached answer, labelled or not. Mission and site are
         # blank where the inventory does not name them; a mission starts with the
-        # flight date. The date in a file name is when it was written, not flown.
+        # flight date, but a mission folder can hold later photos, so the capture
+        # stamps in the frame names set the range and the folder date fills in
+        # for a row without one. The date in a file name is when it was written, not flown.
         missions = {r["mission"] for r in scope if r["mission"]}
         sites = {r["site"] for r in scope if r["site"]}
-        dates = sorted(m.group(1) for r in scope if (m := re.match(r"(\d{8})", r["mission"])))
+        dates = sorted(d for r in scope for d in (
+            (r.get("first_capture"), r.get("last_capture")) if r.get("first_capture")
+            else re.findall(r"^\d{8}", r["mission"])))
         first, last = (f"{d[:4]}-{d[4:6]}-{d[6:]}" for d in (dates[0], dates[-1])) if dates else ("", "")
         span = (f", photographed {first} to {last}" if first != last
                 else f", photographed on {first}" if dates else "")
