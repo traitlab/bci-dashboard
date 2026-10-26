@@ -15,7 +15,7 @@ import sys
 import pytest
 
 HEADER = ["batch_id", "species_group", "global_key", "queue", "picked_by",
-          "how_new_it_looks", "image_url", "labelbox_url", "data_row_id", "mission",
+          "how_new_it_looks", "s3_uri", "labelbox_url", "data_row_id", "mission",
           "site", "group_by"]
 
 

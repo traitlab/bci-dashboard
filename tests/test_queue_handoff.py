@@ -1,6 +1,8 @@
 """Queue handoffs preserve the producer's photo keys and live-action boundary."""
 from types import SimpleNamespace
 
+import pytest
+
 
 def test_queue_coverage_uses_full_photo_keys(queue_panels, monkeypatch):
     rows = [("long_tail", "DJI_a.JPG", "species a", 0.1, 1, "0.500")]
@@ -17,6 +19,8 @@ def test_queue_coverage_uses_full_photo_keys(queue_panels, monkeypatch):
 
 def test_queue_preview_opens_exact_photo_and_recorded_annotation(queue_panels, monkeypatch):
     url = "https://app.labelbox.com/projects/projectA/data-rows/rowA"
+    monkeypatch.setattr(queue_panels.hc, "inventory_image_urls",
+                        lambda: pytest.fail("the preview must not read inventory image URLs"))
     monkeypatch.setattr(queue_panels.hc, "labelbox_urls",
                         lambda: {"comb_DJI_a.JPG": url})
     c = SimpleNamespace(
@@ -34,11 +38,10 @@ def test_queue_preview_opens_exact_photo_and_recorded_annotation(queue_panels, m
     assert "0.500" in html and "0.400" in html
 
 
-def test_queue_preview_without_explorer_keeps_exact_available_links(queue_panels, monkeypatch):
-    image = "https://example.com/a.jpg?token=recorded&size=full"
+def test_queue_preview_without_explorer_is_plain_text_keys_never_a_photo_url(queue_panels, monkeypatch):
     annotation = "https://app.labelbox.com/projects/projectA/data-rows/rowB"
     monkeypatch.setattr(queue_panels.hc, "inventory_image_urls",
-                        lambda: {"comb_DJI_a.JPG": image})
+                        lambda: pytest.fail("the preview must not read inventory image URLs"))
     monkeypatch.setattr(queue_panels.hc, "labelbox_urls",
                         lambda: {"comb_DJI_b.JPG": annotation})
     c = SimpleNamespace(
@@ -47,9 +50,10 @@ def test_queue_preview_without_explorer_keeps_exact_available_links(queue_panels
         support={}, selection_audit=None, n_batch1=2)
     html = queue_panels.send_preview_table(c)
     assert "explorer.html" not in html
-    assert 'href="https://example.com/a.jpg?token=recorded&amp;size=full"' in html
+    assert '<td><code class="key">DJI_a.JPG</code>' in html
     assert '<td><code class="key">DJI_b.JPG</code>' in html
     assert f'href="{annotation}"' in html
+    assert html.count('href="https://') == 1  # the annotation, no photo URL
     assert html.count("No Labelbox item link recorded") == 1
 
 

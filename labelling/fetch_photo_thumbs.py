@@ -8,11 +8,16 @@ with the ARBUTUS_S3_* credentials (predict/photo.py) and writes one small WebP
 per photo, resumably: a thumbnail that exists is skipped. It makes network
 calls, so like fetch_thumbs.py it is out of bin/refresh.sh.
 
+With --pages DOCS only the photos the built pages in DOCS show are fetched, and
+the run fails if any of them still has no thumbnail afterwards. CI uses this to
+fill what the thumbs-480 release lacks, so a thumbnail gap never ships silently.
+
 File name is urllib.parse.quote(key, safe="!'()*") + '.webp', the same as
 encodeURIComponent(key) + '.webp' in the page JS.
 
   .venv/bin/python labelling/fetch_photo_thumbs.py --limit 20
   .venv/bin/python labelling/fetch_photo_thumbs.py --workers 6
+  python labelling/fetch_photo_thumbs.py --out docs/thumbs/480 --pages docs
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ import argparse
 import io
 import json
 import os
+import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -30,12 +36,18 @@ from urllib.parse import quote, urlsplit
 REPO = Path(__file__).resolve().parents[1]
 # predict/ on the path, so the download is the one predict/embed.py makes.
 sys.path.insert(0, str(REPO / "predict"))
+sys.path.insert(0, str(REPO / "dashboard"))
 
-from photo import LEGACY_HOST as HOST
+from mission_buckets import LEGACY_HOST as HOST
+from mission_buckets import UnknownMission
 from photo import MissingStorageCredentials, download_image
 from PIL import Image, ImageOps
 
 ROWS = REPO / "data" / "dataset_rows_combined.jsonl"
+# (page, script id, list name) of the data each built page embeds.
+PAGES = (("explorer.html", "explorer-data", "photos"),
+         ("embedding-atlas.html", "atlas-data", "points"),
+         ("crownfirst-atlas.html", "atlas-data", "points"))
 RETRIES = 4
 TIMEOUT = 60
 MAX_FAIL_FRACTION = 0.01
@@ -68,11 +80,26 @@ def read_photos(path: Path) -> tuple[dict[str, str], int]:
     return photos, bad
 
 
+def page_keys(docs: Path) -> set[str]:
+    """Every key a built page in ``docs`` shows a thumbnail for."""
+    keys: set[str] = set()
+    for name, script_id, field in PAGES:
+        path = docs / name
+        if not path.exists():
+            continue
+        m = re.search(f'<script id="{script_id}" type="application/json">(.*?)</script>',
+                      path.read_text(encoding="utf-8"), re.DOTALL)
+        if not m:
+            raise SystemExit(f"{path}: no <script id=\"{script_id}\"> block")
+        keys.update(r["key"] for r in json.loads(m.group(1))[field] if r.get("key"))
+    return keys
+
+
 def download(url: str) -> bytes:
     for attempt in range(RETRIES):
         try:
             return download_image(url, timeout=TIMEOUT)
-        except MissingStorageCredentials:
+        except (MissingStorageCredentials, UnknownMission):  # retrying cannot fix either
             raise
         except Exception:
             if attempt == RETRIES - 1:
@@ -112,12 +139,18 @@ def parse_args(argv=None):
     p.add_argument("--quality", type=int, default=65)
     p.add_argument("--workers", type=int, default=6)
     p.add_argument("--limit", type=int, help="only the first N photos")
+    p.add_argument("--failures", type=Path, help="where to list failed photos (default: beside --out)")
+    p.add_argument("--pages", type=Path, metavar="DOCS",
+                   help="only photos the built pages in DOCS show; fail if any lacks a thumbnail after")
     return p.parse_args(argv)
 
 
 def main(argv=None) -> int:
     args = parse_args(argv)
     photos, bad = read_photos(args.rows)
+    wanted = page_keys(args.pages) if args.pages else None
+    if wanted is not None:
+        photos = {k: u for k, u in photos.items() if k in wanted}
     items = list(photos.items())[: args.limit]
     args.out.mkdir(parents=True, exist_ok=True)
     print(f"{len(items)} photos, {bad} skipped for a non-https or non-arbutus URL", flush=True)
@@ -141,11 +174,15 @@ def main(argv=None) -> int:
                 print(f"  [{i}/{len(items)}] {fetched} fetched, {skipped} skipped, "
                       f"{len(failures)} failed", flush=True)
 
-    failures_path = args.out.parent / f"failures-{args.out.name}.txt"
+    failures_path = args.failures or args.out.parent / f"failures-{args.out.name}.txt"
     failures_path.write_text("\n".join(failures) + ("\n" if failures else ""), encoding="utf-8")
     mean = total / fetched / 1024 if fetched else 0
     print(f"{fetched} fetched, {skipped} skipped, {len(failures)} failed, "
           f"{total / 1e6:.1f} MB written, mean {mean:.1f} KB; failures in {failures_path}")
+    if wanted is not None:
+        gaps = sorted(k for k in wanted if not (args.out / thumb_name(k)).exists())
+        print(f"{len(gaps)} of {len(wanted)} page photos have no thumbnail")
+        return 1 if gaps else 0
     return 1 if len(failures) > MAX_FAIL_FRACTION * max(len(items), 1) else 0
 
 

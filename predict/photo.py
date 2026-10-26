@@ -40,7 +40,7 @@ import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
-from urllib.parse import quote, unquote, urlsplit
+from urllib.parse import quote, urlsplit
 
 import requests
 import yaml
@@ -142,28 +142,18 @@ def center_crop_jpeg(image_bytes: bytes) -> tuple[bytes, int, int, int | None]:
 
 
 # The photos moved from a public legacy host to private buckets on new Arbutus.
-# Frame URLs in the data still carry the legacy form, so they are mapped to a
-# key and fetched with S3 credentials. The legacy host is never contacted.
-LEGACY_HOST = "object-arbutus.cloud.computecanada.ca"
-LEGACY_PREFIX = "lefolab_drone_missions_wpt/"
-# No rule names the bucket from the mission, so each is tried in turn on 404.
-S3_BUCKETS = ("2024-bci", "2024-panama")
+# Frame URLs in the data still carry the legacy form, so dashboard/mission_buckets
+# maps each to its bucket and key and it is fetched with S3 credentials. The
+# legacy host is never contacted.
+sys.path.insert(0, str(REPO / "dashboard"))
+from mission_buckets import locate
+
 S3_ENV = ("ARBUTUS_S3_ENDPOINT", "ARBUTUS_S3_ACCESS_KEY", "ARBUTUS_S3_SECRET_KEY")
 S3_REGION = "us-east-1"
 
 
 class MissingStorageCredentials(Exception):
     """Not a RuntimeError or OSError, so embed.fetch_all stops instead of counting every photo as failed."""
-
-
-def legacy_key(url: str) -> str | None:
-    """Object key on new Arbutus for a legacy-host URL, None for any other URL."""
-    parts = urlsplit(url)
-    if parts.hostname != LEGACY_HOST:
-        return None
-    path = unquote(parts.path).lstrip("/")
-    path = path.removeprefix(LEGACY_PREFIX)
-    return f"drone_missions/{path.split('/')[0][:4]}/{path}"
 
 
 def sigv4_headers(endpoint: str, bucket: str, key: str, access_key: str,
@@ -192,8 +182,8 @@ def sigv4_headers(endpoint: str, bucket: str, key: str, access_key: str,
 
 
 def download_image(url: str, timeout: int = 30) -> bytes:
-    key = legacy_key(url)
-    if key is None:
+    where = locate(url)
+    if where is None:
         resp = requests.get(url, timeout=timeout)
         resp.raise_for_status()
         return resp.content
@@ -202,13 +192,11 @@ def download_image(url: str, timeout: int = 30) -> bytes:
         raise MissingStorageCredentials(f"Photo {url} is on private Arbutus storage; "
                            f"set {', '.join(missing)} to download it")
     endpoint, access, secret = (os.environ[n] for n in S3_ENV)
-    for bucket in S3_BUCKETS:
-        full, headers = sigv4_headers(endpoint, bucket, key, access, secret,
-                                      datetime.datetime.now(datetime.timezone.utc))
-        resp = requests.get(full, headers=headers, timeout=timeout)
-        if resp.status_code != 404 or bucket == S3_BUCKETS[-1]:
-            resp.raise_for_status()
-            return resp.content
+    full, headers = sigv4_headers(endpoint, *where, access, secret,
+                                  datetime.datetime.now(datetime.timezone.utc))
+    resp = requests.get(full, headers=headers, timeout=timeout)
+    resp.raise_for_status()
+    return resp.content
 
 
 def post_image(url: str, field: str, jpeg_bytes: bytes, filename: str,

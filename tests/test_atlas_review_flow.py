@@ -42,7 +42,7 @@ key('E',{shiftKey:true});assert.notEqual($('photoComparison').open,true);
 key('e');assert.equal($('photoComparison').open,true);assert.equal(photoComparison,photoPair);
 key('ArrowRight');assert.equal(photoComparison.rank,1);assert.match($('photoComparisonRank').textContent,/Candidate 2 of 3/);
 key('e');assert.equal(photoComparison.rank,1);
-imageDetails.get('comparisonCandidate').mode='actual';key('ArrowRight',{target:$('comparisonCandidateViewport')});assert.equal(photoComparison.rank,1);
+imageDetails.get('comparisonCandidate').mode='crop';key('ArrowRight',{target:$('comparisonCandidateViewport')});assert.equal(photoComparison.rank,1);
 imageDetails.get('comparisonCandidate').mode='fit';key('ArrowRight',{target:$('comparisonCandidateViewport')});assert.equal(photoComparison.rank,2);
 $('closePhotoComparison').onclick();assert.equal($('photoComparison').open,false);
 showAtlasView('locations');key('ArrowLeft');key('e');assert.equal(photoPair.rank,2);assert.equal($('photoComparison').open,false);showAtlasView('photos');

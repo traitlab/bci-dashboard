@@ -171,6 +171,9 @@ DISPATCH = more(
 def links_note(c) -> str:
     """What the two link columns in the send file reach, and what they do not.
 
+    ``s3_uri`` is a storage address, not a link: it opens only with credentials
+    for the private bucket, so the note says that and points to the explorer.
+
     The standing rule is that a link column is never shipped silently half
     empty. The file has nowhere to say so, so the page says it for both columns
     at once, next to the link to the file.
@@ -191,8 +194,9 @@ def links_note(c) -> str:
         return ('<p class="note">No frame links to its photo or its Labelbox row '
                 'yet.</p>' + gone)
     return (f'<p class="note"><strong>Two link columns, filled where we have one.</strong> '
-            f'The first opens the whole frame in any browser, no Labelbox '
-            f'seat and no login, and it is filled on {n_img:,} of {len(keys):,} rows. '
+            f'The first, s3_uri, names where the whole frame sits on private storage '
+            f'(it needs storage access; the explorer shows the photo), and it is '
+            f'filled on {n_img:,} of {len(keys):,} rows. '
             f'The second opens the frame in the project it was labelled '
             f'in, which is the only view that draws the crown being asked about, and it '
             f'is filled on {box["n_linked"]:,}. The {box["n_unlinked"]:,} rows without one '
@@ -305,7 +309,6 @@ def send_preview_table(c):
     head = c.queue_rows[:SEND_PREVIEW]
     urls = hc.labelbox_urls()
     explorer_available = "explorer.html" in getattr(c, "available_pages", ())
-    images = {} if explorer_available else hc.inventory_image_urls()
 
     def photo_links(stem):
         key = hc.GT_KEY_PREFIX + stem
@@ -313,9 +316,6 @@ def send_preview_table(c):
         if explorer_available:
             browse = f'explorer.html#frame={quote(key, safe="")}'
             photo = f'<a href="{esc(browse)}">{photo}</a>'
-        elif key in images:
-            photo = (f'<a href="{esc(images[key])}" target="_blank" '
-                     f'rel="noopener noreferrer">{photo}</a>')
         if key in urls:
             return (photo + f'<br><a href="{esc(urls[key])}" target="_blank" '
                     'rel="noopener noreferrer">Suggest label / correction in Labelbox</a>')

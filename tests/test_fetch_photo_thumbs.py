@@ -63,3 +63,49 @@ def test_second_run_skips(tmp_path, monkeypatch):
     assert (tmp_path / "k%2F1.webp").exists() and not list(tmp_path.glob("*.tmp"))
     assert fpt.fetch_one("k/1", GOOD, tmp_path, 480, 75) == 0
     assert len(calls) == 1
+
+
+PAGE = '<script id="{id}" type="application/json">{data}</script>'
+
+
+def write_pages(docs, explorer_keys, atlas_keys=()):
+    docs.mkdir(exist_ok=True)
+    (docs / "explorer.html").write_text(PAGE.format(
+        id="explorer-data", data=json.dumps({"photos": [{"key": k} for k in explorer_keys]})))
+    (docs / "embedding-atlas.html").write_text(PAGE.format(
+        id="atlas-data", data=json.dumps({"points": [{"key": k} for k in atlas_keys]})))
+
+
+def rows_file(tmp_path, keys):
+    path = tmp_path / "rows.jsonl"
+    path.write_text("\n".join(json.dumps({"global_key": k, "row_data": GOOD}) for k in keys))
+    return path
+
+
+def test_page_keys_reads_every_page_present(tmp_path):
+    write_pages(tmp_path / "docs", ["a", "b"], ["b", "c"])
+    assert fpt.page_keys(tmp_path / "docs") == {"a", "b", "c"}
+    assert fpt.page_keys(tmp_path / "nothing") == set()
+
+
+def test_pages_run_fills_only_the_gaps_and_passes_when_none_remain(tmp_path, monkeypatch):
+    write_pages(tmp_path / "docs", ["have", "gap"])
+    out = tmp_path / "docs" / "thumbs"
+    out.mkdir(parents=True)
+    (out / "have.webp").write_bytes(b"x")
+    calls = []
+    monkeypatch.setattr(fpt, "download", lambda url: calls.append(url) or jpeg(40, 30))
+    args = ["--rows", str(rows_file(tmp_path, ["have", "gap", "unshown"])), "--out", str(out),
+            "--pages", str(tmp_path / "docs"), "--failures", str(tmp_path / "f.txt"), "--workers", "1"]
+    assert fpt.main(args) == 0
+    assert len(calls) == 1 and (out / "gap.webp").exists() and not (out / "unshown.webp").exists()
+
+
+def test_pages_run_fails_while_a_page_photo_has_no_thumbnail(tmp_path, monkeypatch):
+    write_pages(tmp_path / "docs", ["gap", "not-in-rows"])
+    out = tmp_path / "thumbs"
+    monkeypatch.setattr(fpt, "download", lambda url: jpeg(40, 30))
+    args = ["--rows", str(rows_file(tmp_path, ["gap"])), "--out", str(out),
+            "--pages", str(tmp_path / "docs"), "--failures", str(tmp_path / "f.txt"), "--workers", "1"]
+    assert fpt.main(args) == 1
+    assert (out / "gap.webp").exists() and not (out / "not-in-rows.webp").exists()

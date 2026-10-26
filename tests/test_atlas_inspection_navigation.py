@@ -29,16 +29,17 @@ assert.equal($('comparisonCandidateModelCrop').disabled,true);assert.equal(setIm
 """)
     html = runpy.run_path(ROOT / "dashboard/embedding_atlas_assets.py")["HTML"]
     assert 'id="comparisonQueryActual"' not in html and 'id="comparisonCandidateActual"' not in html
-    assert 'id="sharedQueryActual"' in html and 'id="sharedQueryModelCrop"' not in html
+    assert 'id="sharedQueryActual"' not in html and 'id="sharedCandidateActual"' not in html
+    assert "Actual pixels" not in html
+    assert 'id="sharedQueryModelCrop"' not in html
 
 
-def test_shared_panels_without_a_crop_zoom_to_actual_pixels_of_the_thumbnail():
+def test_shared_panels_without_a_crop_only_fit_the_thumbnail():
     run_atlas([photo("query", "flight-a")], r"""
-renderSharedFrame('sharedQuery','query','Fabaceae',{labels_available:true});const image=$('sharedQueryImage'),viewport=$('sharedQueryViewport');
+renderSharedFrame('sharedQuery','query','Fabaceae',{labels_available:true});const image=$('sharedQueryImage');
 image.naturalWidth=480;image.naturalHeight=360;image.onload();assert.equal(image.src,'thumbs/480/query.webp');
-$('sharedQueryActual').onclick();assert.equal(image.src,'thumbs/480/query.webp');
-assert.equal($('sharedQueryStage').style.width,'480px');assert.equal(viewport.scrollLeft,Math.max(0,(480-viewport.clientWidth)/2));assert.equal(viewport.scrollTop,Math.max(0,(360-viewport.clientHeight)/2));
-assert.match($('sharedQueryDetailStatus').textContent,/^Actual pixels, one image pixel per CSS pixel\. 480 × 360 loaded pixels\./);
+assert.equal(setImageDetailMode('sharedQuery','actual'),false);assert.equal(setImageDetailMode('sharedQuery','crop'),false);
+assert.equal($('sharedQueryStage').style.width,'100%');assert.match($('sharedQueryDetailStatus').textContent,/^Fit\. 480 × 360 loaded pixels\.$/);
 """)
 
 

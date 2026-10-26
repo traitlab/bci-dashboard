@@ -260,13 +260,15 @@ setState({frame:'b'});$('enlarge').focus();$('enlarge').onclick();assert.equal($
 """.replace("__EVENT__", event))
 
 
-def test_detail_uses_loaded_pixels_and_does_not_change_photo_or_recorded_geometry():
+def test_detail_shows_the_loaded_thumbnail_size_and_does_not_change_photo_or_recorded_geometry():
     run_browser(r"""
-const original=JSON.stringify(photos[0]),hash=location.hash;$('enlarge').focus();$('enlarge').onclick();assert.equal($('photoDialog').open,true);assert.equal($('actualImage').disabled,true);
-$('detailImage').naturalWidth=2000;$('detailImage').naturalHeight=1500;$('detailImage').onload();$('actualImage').onclick();assert.equal($('detailStage').style.width,'2000px');assert.equal($('detailStage').style.height,'1500px');assert.equal($('detailViewport').scrollLeft,700);assert.equal($('detailViewport').scrollTop,525);assert.equal($('detailViewport').style.overscrollBehavior,'contain');
-$('closeDialog').onclick();assert.equal(document.activeElement,$('enlarge'));assert.equal(JSON.stringify(photos[0]),original);assert.equal(location.hash,hash);$('photoDialog').scrollTop=900;$('enlarge').onclick();assert.equal($('photoDialog').scrollTop,0);assert.equal(detail.mode,'actual');$('fitImage').onclick();assert.equal($('detailViewport').style.overscrollBehavior,'auto');assert.equal($('detailStage').style.width,'100%');
-$('detailImage').onerror();assert.equal($('actualImage').disabled,true);assert.equal(JSON.stringify(photos[0]),original);
+const original=JSON.stringify(photos[0]),hash=location.hash;$('enlarge').focus();$('enlarge').onclick();assert.equal($('photoDialog').open,true);assert.equal($('detailStatus').textContent,'Loading image.');
+$('detailImage').naturalWidth=480;$('detailImage').naturalHeight=360;$('detailImage').onload();assert.equal($('detailStatus').textContent,'480 × 360 loaded pixels.');
+$('closeDialog').onclick();assert.equal(document.activeElement,$('enlarge'));assert.equal(JSON.stringify(photos[0]),original);assert.equal(location.hash,hash);$('photoDialog').scrollTop=900;$('enlarge').onclick();assert.equal($('photoDialog').scrollTop,0);
+$('detailImage').onerror();assert.equal($('detailStatus').textContent,'Image detail unavailable.');assert.equal(JSON.stringify(photos[0]),original);
 """)
+    html = runpy.run_path(ROOT / "dashboard/explorer_assets.py")["HTML"]
+    assert 'id="actualImage"' not in html and "Actual pixels" not in html
 
 
 def test_paging_keeps_the_selection_in_place_instead_of_pinning_it():

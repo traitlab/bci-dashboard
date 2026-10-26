@@ -3,6 +3,7 @@ import csv
 import json
 
 URL = "https://app.labelbox.com/projects/projA/data-rows/rowA"
+LEGACY = "https://object-arbutus.cloud.computecanada.ca/"
 
 
 def test_data_row_id_parses_the_link_and_is_blank_without_one(core):
@@ -19,7 +20,7 @@ def _read(path):
 def test_both_send_csvs_carry_ids_mission_and_site(core, queues, measure, tmp_path, monkeypatch):
     urls = {"k1": URL, "k2": "https://app.labelbox.com/projects/projB/data-rows/rowB"}
     monkeypatch.setattr(measure, "labelbox_urls", lambda: urls)
-    monkeypatch.setattr(measure, "inventory_image_urls", lambda: {})
+    monkeypatch.setattr(measure, "inventory_image_urls", lambda: {"k1": LEGACY + "20260114_bciarmour_wptne01_m3e/DJI_x/a.JPG"})
     monkeypatch.setattr(measure, "inventory_row_ids", lambda: {"k3": "rowC"})
     monkeypatch.setattr(measure, "load_novelty_distance", lambda path: {})
     monkeypatch.setattr(measure, "inventory_origins",
@@ -45,6 +46,9 @@ def test_both_send_csvs_carry_ids_mission_and_site(core, queues, measure, tmp_pa
         assert by_key["k1"] == ("20260114_bciarmour_wptne01_m3e", "bciarmour")
         assert by_key["k2"] == by_key["k3"] == ("", "")  # inventory does not name them
     assert {r["growth_form"] for r in batches} == {"liana"}
+    assert "image_url" not in batches[0]
+    assert {r["global_key"]: r["s3_uri"] for r in batches} == {
+        "k1": "s3://2024-bci/drone_missions/2026/20260114_bciarmour_wptne01_m3e/DJI_x/a.JPG", "k2": "", "k3": ""}
     assert list(batches[0]) == queues.SEND_BATCH_HEADER
 
 
@@ -71,3 +75,16 @@ def test_inventory_row_ids_reads_the_dispatch_uid_and_skips_what_is_unnamed(core
     assert core.send_row_id("comb_a.JPG", {"comb_a.JPG": URL}, {"comb_a.JPG": "u1"}) == "rowA"
     assert core.send_row_id("comb_a.JPG", {}, {"comb_a.JPG": "u1"}) == "u1"
     assert core.send_row_id("comb_z.JPG", {}, {}) == ""
+
+
+def test_send_batches_stop_on_a_mission_the_bucket_table_lacks(measure, tmp_path, monkeypatch):
+    import pytest
+    monkeypatch.setattr(measure, "inventory_image_urls", lambda: {"k1": LEGACY + "20990101_nowhere_m3e/DJI_x/a.JPG"})
+    monkeypatch.setattr(measure, "labelbox_urls", dict)
+    monkeypatch.setattr(measure, "inventory_row_ids", dict)
+    monkeypatch.setattr(measure, "inventory_origins", dict)
+    monkeypatch.setattr(measure, "load_novelty_distance", lambda path: {})
+    monkeypatch.setattr(measure.growth_form, "load", dict)
+    qrows = [["long_tail", "k1", "train", "sp", 0.5, 0, 0.0, 1, "", ""]]
+    with pytest.raises(LookupError, match="20990101_nowhere_m3e"):
+        measure.write_send_batches(str(tmp_path), [["1", "sp", "k1", "long_tail", "queue"]], qrows)
