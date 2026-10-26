@@ -30,7 +30,6 @@ import sys
 import time
 from pathlib import Path
 
-import requests
 from dotenv import load_dotenv
 from photo import (
     API_TIMEOUT,
@@ -38,6 +37,7 @@ from photo import (
     QuotaExceededError,
     api_and_project,
     center_crop_jpeg_box,
+    download_image,
     load_config,
     post_image,
     with_retry,
@@ -66,9 +66,7 @@ def load_csv_urls(csv_path: Path) -> list[tuple[str, str]]:
 
 
 def download_image_bytes(url: str) -> bytes:
-    resp = requests.get(url, timeout=API_TIMEOUT)
-    resp.raise_for_status()
-    return resp.content
+    return download_image(url, timeout=API_TIMEOUT)
 
 
 # The crop lives in photo.py, so both fetch paths send the model the same

@@ -9,7 +9,7 @@ def test_consecutive_matches_cross_pages_in_both_directions_and_keep_exact_evide
     data = catalogue()
     sample = data['photos'][0]
     data['photos'] = [
-        {**sample, 'key': f'photo-{index}', 'image': f'https://example.org/{index}.jpg',
+        {**sample, 'key': f'photo-{index}',
          'label': f'Recorded {index}', 'annotation_url': f'https://example.org/annotation/{index}',
          'prediction': {**sample['prediction'], 'name': f'Guess {index}', 'score': index / 100}}
         for index in range(60)
@@ -105,14 +105,12 @@ def test_sequence_controls_have_real_keyboard_and_status_targets(published):
     assert page.targets['photoPosition'][1]['role'] == 'status'
 
 
-def test_missing_selection_image_or_annotation_does_not_borrow_another_photos_evidence():
+def test_missing_selection_annotation_does_not_borrow_another_photos_evidence():
     data = catalogue()
-    data['photos'][1]['image'] = None
     run_browser(r"""
 assert.equal($('annotation').hidden,true);
 $('nextPhoto').onclick();assert.equal(state.frame,'b');assert.equal($('annotation').href,'https://example.org/annotation/b');
-assert.equal($('selectedImage').src,undefined);assert.equal($('enlarge').disabled,true);
-assert.equal($('selectedImageStatus').textContent,'Photo URL unavailable.');
+assert.equal($('selectedImage').src,'thumbs/480/b.webp');
 $('nextPhoto').onclick();assert.equal(state.frame,'c');assert.equal($('annotation').hidden,true);assert.equal($('annotation').href,undefined);
 assert.equal($('selectedImage').src,'thumbs/480/c.webp');
 setState({frame:''});assert.equal($('selectedUnavailable').textContent,'Choose a photo from the gallery.');

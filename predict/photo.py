@@ -30,6 +30,9 @@ Usage:
 
 import argparse
 import csv
+import datetime
+import hashlib
+import hmac
 import io
 import json
 import os
@@ -37,6 +40,7 @@ import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import quote, unquote, urlsplit
 
 import requests
 import yaml
@@ -137,10 +141,74 @@ def center_crop_jpeg(image_bytes: bytes) -> tuple[bytes, int, int, int | None]:
     return jpeg, w, h, CROP_SIZE if cropped else None
 
 
+# The photos moved from a public legacy host to private buckets on new Arbutus.
+# Frame URLs in the data still carry the legacy form, so they are mapped to a
+# key and fetched with S3 credentials. The legacy host is never contacted.
+LEGACY_HOST = "object-arbutus.cloud.computecanada.ca"
+LEGACY_PREFIX = "lefolab_drone_missions_wpt/"
+# No rule names the bucket from the mission, so each is tried in turn on 404.
+S3_BUCKETS = ("2024-bci", "2024-panama")
+S3_ENV = ("ARBUTUS_S3_ENDPOINT", "ARBUTUS_S3_ACCESS_KEY", "ARBUTUS_S3_SECRET_KEY")
+S3_REGION = "us-east-1"
+
+
+class MissingStorageCredentials(Exception):
+    """Not a RuntimeError or OSError, so embed.fetch_all stops instead of counting every photo as failed."""
+
+
+def legacy_key(url: str) -> str | None:
+    """Object key on new Arbutus for a legacy-host URL, None for any other URL."""
+    parts = urlsplit(url)
+    if parts.hostname != LEGACY_HOST:
+        return None
+    path = unquote(parts.path).lstrip("/")
+    path = path.removeprefix(LEGACY_PREFIX)
+    return f"drone_missions/{path.split('/')[0][:4]}/{path}"
+
+
+def sigv4_headers(endpoint: str, bucket: str, key: str, access_key: str,
+                  secret_key: str, now: datetime.datetime) -> tuple[str, dict]:
+    """URL and signed headers for a path-style S3 GET (AWS Signature Version 4)."""
+    host = urlsplit(endpoint).netloc
+    path = f"/{bucket}/{quote(key, safe='/-_.~')}"
+    stamp, day = now.strftime("%Y%m%dT%H%M%SZ"), now.strftime("%Y%m%d")
+    payload = hashlib.sha256(b"").hexdigest()  # a GET has no body
+    signed = "host;x-amz-content-sha256;x-amz-date"
+    canonical = (f"GET\n{path}\n\nhost:{host}\nx-amz-content-sha256:{payload}\n"
+                 f"x-amz-date:{stamp}\n\n{signed}\n{payload}")
+    scope = f"{day}/{S3_REGION}/s3/aws4_request"
+    to_sign = (f"AWS4-HMAC-SHA256\n{stamp}\n{scope}\n"
+               + hashlib.sha256(canonical.encode()).hexdigest())
+    sig = ("AWS4" + secret_key).encode()
+    for part in (day, S3_REGION, "s3", "aws4_request"):
+        sig = hmac.new(sig, part.encode(), hashlib.sha256).digest()
+    sig = hmac.new(sig, to_sign.encode(), hashlib.sha256).hexdigest()
+    return endpoint.rstrip("/") + path, {
+        "x-amz-date": stamp,
+        "x-amz-content-sha256": payload,
+        "Authorization": (f"AWS4-HMAC-SHA256 Credential={access_key}/{scope}, "
+                          f"SignedHeaders={signed}, Signature={sig}"),
+    }
+
+
 def download_image(url: str, timeout: int = 30) -> bytes:
-    resp = requests.get(url, timeout=timeout)
-    resp.raise_for_status()
-    return resp.content
+    key = legacy_key(url)
+    if key is None:
+        resp = requests.get(url, timeout=timeout)
+        resp.raise_for_status()
+        return resp.content
+    missing = [n for n in S3_ENV if not os.environ.get(n)]
+    if missing:
+        raise MissingStorageCredentials(f"Photo {url} is on private Arbutus storage; "
+                           f"set {', '.join(missing)} to download it")
+    endpoint, access, secret = (os.environ[n] for n in S3_ENV)
+    for bucket in S3_BUCKETS:
+        full, headers = sigv4_headers(endpoint, bucket, key, access, secret,
+                                      datetime.datetime.now(datetime.timezone.utc))
+        resp = requests.get(full, headers=headers, timeout=timeout)
+        if resp.status_code != 404 or bucket == S3_BUCKETS[-1]:
+            resp.raise_for_status()
+            return resp.content
 
 
 def post_image(url: str, field: str, jpeg_bytes: bytes, filename: str,

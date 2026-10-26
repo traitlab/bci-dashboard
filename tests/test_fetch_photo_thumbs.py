@@ -1,4 +1,4 @@
-"""labelling/fetch_photo_thumbs.py: file names, URL check, resize, resume."""
+"""labelling/fetch_photo_thumbs.py: file names, URL check, inventory rows, resize, resume."""
 
 from __future__ import annotations
 
@@ -49,15 +49,11 @@ def test_make_thumb_480x360_webp():
 
 
 def test_read_photos_dedupes_and_counts_bad(tmp_path):
-    rows = [{"key": "k1", "image": GOOD}, {"key": "k2", "image": "http://x/y"}]
-    paths = []
-    for name, sid, field in fpt.PAGES:
-        p = tmp_path / name
-        body = json.dumps({field: rows})
-        p.write_text(f'<script id="{sid}" type="application/json">{body}</script>')
-        paths.append(p)
-    photos, bad = fpt.read_photos(paths)
-    assert photos == {"k1": GOOD} and bad == 3  # k2 is bad on each page
+    rows = [{"global_key": "k1", "row_data": GOOD}, {"global_key": "k1", "row_data": GOOD},
+            {"global_key": "k2", "row_data": "http://x/y"}, {"global_key": "", "row_data": GOOD}]
+    path = tmp_path / "rows.jsonl"
+    path.write_text("\n".join(json.dumps(r) for r in rows))
+    assert fpt.read_photos(path) == ({"k1": GOOD}, 1)
 
 
 def test_second_run_skips(tmp_path, monkeypatch):

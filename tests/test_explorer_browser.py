@@ -36,7 +36,7 @@ def catalogue():
         ("z", "Elseaceae", "other", "Elseaceae", "other"),
     ]:
         photos.append({
-            "key": key, "image": "https://example.org/" + key + ".jpg",
+            "key": key,
             "mission": "flight-a", "label": label, "recorded_taxon": recorded,
             "recorded_status": "ok" if recorded else "unresolved" if label else "missing",
             "prediction": {"status": "ok" if predicted else "empty" if key == "e" else "missing", "name": guess, "taxon": predicted, "score": .812345 if predicted else None, "version": None, "project": "bcnm", "project_source": "recorded", "tied": key == "b"},
@@ -216,7 +216,7 @@ setState({source:'recorded',taxon:'root-genus'});assert.deepEqual(matchingPhotoK
 
 def test_gallery_loading_and_failure_states_keep_photo_identity():
     run_browser(r"""
-const card=$('gallery').children[0],preview=card.children[0],message=preview.children[0],image=preview.children[1];assert.equal(message.hidden,false);assert.equal(message.textContent,'Loading photo…');assert.equal(image.hidden,false);assert.equal(image.loading,'lazy');image.onload();assert.equal(message.hidden,true);assert.equal(image.hidden,false);image.onerror();assert.equal(image.hidden,false);image.onerror();assert.equal(message.hidden,false);assert.equal(message.textContent,'Photo unavailable');assert.equal(image.hidden,true);assert.equal(card.getAttribute('data-frame'),'a & ä /?.JPG');assert.match(card.children[1].children.at(-1).textContent,/a & ä/);
+const card=$('gallery').children[0],preview=card.children[0],message=preview.children[0],image=preview.children[1];assert.equal(message.hidden,false);assert.equal(message.textContent,'Loading photo…');assert.equal(image.hidden,false);assert.equal(image.loading,'lazy');image.onload();assert.equal(message.hidden,true);assert.equal(image.hidden,false);image.onerror();assert.equal(message.hidden,false);assert.equal(message.textContent,'Photo unavailable');assert.equal(image.hidden,true);assert.equal(card.getAttribute('data-frame'),'a & ä /?.JPG');assert.match(card.children[1].children.at(-1).textContent,/a & ä/);
 """)
 
 
@@ -265,7 +265,7 @@ def test_detail_uses_loaded_pixels_and_does_not_change_photo_or_recorded_geometr
 const original=JSON.stringify(photos[0]),hash=location.hash;$('enlarge').focus();$('enlarge').onclick();assert.equal($('photoDialog').open,true);assert.equal($('actualImage').disabled,true);
 $('detailImage').naturalWidth=2000;$('detailImage').naturalHeight=1500;$('detailImage').onload();$('actualImage').onclick();assert.equal($('detailStage').style.width,'2000px');assert.equal($('detailStage').style.height,'1500px');assert.equal($('detailViewport').scrollLeft,700);assert.equal($('detailViewport').scrollTop,525);assert.equal($('detailViewport').style.overscrollBehavior,'contain');
 $('closeDialog').onclick();assert.equal(document.activeElement,$('enlarge'));assert.equal(JSON.stringify(photos[0]),original);assert.equal(location.hash,hash);$('photoDialog').scrollTop=900;$('enlarge').onclick();assert.equal($('photoDialog').scrollTop,0);assert.equal(detail.mode,'actual');$('fitImage').onclick();assert.equal($('detailViewport').style.overscrollBehavior,'auto');assert.equal($('detailStage').style.width,'100%');
-$('detailImage').onerror();assert.equal($('actualImage').disabled,true);assert.equal($('detailOriginal').href,photos[0].image);assert.equal(JSON.stringify(photos[0]),original);
+$('detailImage').onerror();assert.equal($('actualImage').disabled,true);assert.equal(JSON.stringify(photos[0]),original);
 """)
 
 

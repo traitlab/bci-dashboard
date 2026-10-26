@@ -1,11 +1,12 @@
 """
 Fetch a 480px-wide WebP thumbnail of every photo the photo pages show.
 
-The explorer and atlas pages embed the full 4000x3000 JPEG URL (about 7.8 MB)
-for cards a few hundred pixels wide. This reads those URLs out of the built
-pages and writes one small WebP per photo, resumably: a thumbnail that exists
-is skipped. It makes network calls, so like fetch_thumbs.py it is out of
-bin/refresh.sh.
+The pages show only these thumbnails: they carry no full-resolution URL, and
+the 4000x3000 JPEGs (about 7.8 MB) sit in private Arbutus buckets. This reads
+every frame's key and URL from data/dataset_rows_combined.jsonl, downloads it
+with the ARBUTUS_S3_* credentials (predict/photo.py) and writes one small WebP
+per photo, resumably: a thumbnail that exists is skipped. It makes network
+calls, so like fetch_thumbs.py it is out of bin/refresh.sh.
 
 File name is urllib.parse.quote(key, safe="!'()*") + '.webp', the same as
 encodeURIComponent(key) + '.webp' in the page JS.
@@ -20,24 +21,21 @@ import argparse
 import io
 import json
 import os
-import re
 import sys
 import time
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
+REPO = Path(__file__).resolve().parents[1]
+# predict/ on the path, so the download is the one predict/embed.py makes.
+sys.path.insert(0, str(REPO / "predict"))
+
+from photo import LEGACY_HOST as HOST
+from photo import MissingStorageCredentials, download_image
 from PIL import Image, ImageOps
 
-REPO = Path(__file__).resolve().parents[1]
-DOCS = REPO / "docs"
-# (page, script id, list name)
-PAGES = [("explorer.html", "explorer-data", "photos"),
-         ("embedding-atlas.html", "atlas-data", "points"),
-         ("crownfirst-atlas.html", "atlas-data", "points")]
-HOST = "object-arbutus.cloud.computecanada.ca"
-USER_AGENT = "bci-dashboard-thumbnails (traitlab)"
+ROWS = REPO / "data" / "dataset_rows_combined.jsonl"
 RETRIES = 4
 TIMEOUT = 60
 MAX_FAIL_FRACTION = 0.01
@@ -54,33 +52,28 @@ def valid_url(url) -> bool:
     return u.scheme == "https" and u.hostname == HOST
 
 
-def read_photos(paths: list[Path]) -> tuple[dict[str, str], int]:
-    """Unique key to URL across the pages, and the count of rows skipped for a bad URL."""
+def read_photos(path: Path) -> tuple[dict[str, str], int]:
+    """Unique global_key to row_data URL, and the count of rows skipped for a bad URL."""
     photos: dict[str, str] = {}
     bad = 0
-    for path, (_, script_id, field) in zip(paths, PAGES):
-        html = path.read_text(encoding="utf-8")
-        m = re.search(f'<script id="{script_id}" type="application/json">(.*?)</script>',
-                      html, re.DOTALL)
-        if not m:
-            raise SystemExit(f"{path}: no <script id=\"{script_id}\"> block")
-        for row in json.loads(m.group(1))[field]:
-            key, url = row.get("key"), row.get("image")
-            if not key or key in photos:
-                continue
-            if valid_url(url):
-                photos[key] = url
-            else:
-                bad += 1
+    for line in path.read_text(encoding="utf-8").splitlines():
+        row = json.loads(line)
+        key, url = row.get("global_key"), row.get("row_data")
+        if not key or key in photos:
+            continue
+        if valid_url(url):
+            photos[key] = url
+        else:
+            bad += 1
     return photos, bad
 
 
 def download(url: str) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     for attempt in range(RETRIES):
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-                return r.read()
+            return download_image(url, timeout=TIMEOUT)
+        except MissingStorageCredentials:
+            raise
         except Exception:
             if attempt == RETRIES - 1:
                 raise
@@ -113,8 +106,7 @@ def fetch_one(key: str, url: str, out: Path, width: int, quality: int) -> int:
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--pages", type=Path, nargs=3, default=[DOCS / n for n, _, _ in PAGES],
-                   metavar=("EXPLORER", "ATLAS", "CROWNFIRST"))
+    p.add_argument("--rows", type=Path, default=ROWS)
     p.add_argument("--out", type=Path, default=REPO / "data" / "thumbs" / "480")
     p.add_argument("--width", type=int, default=480)
     p.add_argument("--quality", type=int, default=65)
@@ -125,7 +117,7 @@ def parse_args(argv=None):
 
 def main(argv=None) -> int:
     args = parse_args(argv)
-    photos, bad = read_photos(args.pages)
+    photos, bad = read_photos(args.rows)
     items = list(photos.items())[: args.limit]
     args.out.mkdir(parents=True, exist_ok=True)
     print(f"{len(items)} photos, {bad} skipped for a non-https or non-arbutus URL", flush=True)
