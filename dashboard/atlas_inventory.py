@@ -148,7 +148,6 @@ def join_photo_inventory(
                 field: photo.get(field)
                 for field in (
                     "key",
-                    "image",
                     "label",
                     "mission",
                     "lat",

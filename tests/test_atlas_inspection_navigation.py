@@ -9,38 +9,37 @@ def cropped(key, mission, neighbours=None, **extra):
     return photo(key, mission, neighbours, source_width=4000, source_height=3000, crop=1281, **extra)
 
 
-def test_model_crop_swaps_in_the_original_and_fills_the_viewport_with_the_outlined_square():
+def test_model_crop_zooms_the_thumbnail_and_fills_the_viewport_with_the_outlined_square():
     points = [cropped("query", "flight-a", [[1, .9]]), photo("candidate", "flight-b", [[0, .9]])]
     run_atlas(points, r"""
 $('workspaceEnlarge').onclick();const image=$('comparisonQueryImage'),viewport=$('comparisonQueryViewport'),crop=recordedCrop(P[0]),button=$('comparisonQueryModelCrop');
-// The panels open on the 480px thumbnail; zooming must not scale that, it swaps in the original first.
+// The panels hold only the 480px thumbnail; zooming works on it and never loads a full-resolution photo.
 image.naturalWidth=480;image.naturalHeight=360;image.onload();
 assert.equal(image.src,'thumbs/480/query.webp');assert.match($('comparisonQueryDetailStatus').textContent,/^Fit\. 480 × 360 loaded pixels\.$/);assert.equal(button.disabled,false);
-button.onclick();button.onclick();assert.equal(image.src,P[0].image);assert.equal($('comparisonQueryStage').style.width,'100%');assert.equal(button.getAttribute('aria-pressed'),'false');assert.equal($('comparisonQueryDetailStatus').textContent,'Loading the original image…');
-image.naturalWidth=4000;image.naturalHeight=3000;image.onload();
+button.onclick();assert.equal(image.src,'thumbs/480/query.webp');
 assert.equal($('comparisonQueryOverlay').getAttribute('hidden'),null);assert.equal($('comparisonQueryOverlay').getAttribute('viewBox'),'0 0 4000 3000');assert.equal($('comparisonQueryOutline').getAttribute('width'),1281);
 const width=parseFloat($('comparisonQueryStage').style.width),scale=width/4000;
 assert.ok(Math.abs(crop.side*scale-Math.min(viewport.clientWidth,viewport.clientHeight))<1);assert.equal($('comparisonQueryStage').style.height,Math.round(width*3/4)+'px');
 assert.ok(Math.abs(viewport.scrollLeft+viewport.clientWidth/2-(crop.x+crop.side/2)*scale)<1e-6);assert.ok(Math.abs(viewport.scrollTop+viewport.clientHeight/2-(crop.y+crop.side/2)*scale)<1e-6);
 assert.equal(button.getAttribute('aria-pressed'),'true');assert.equal($('comparisonQueryFit').getAttribute('aria-pressed'),'false');
-assert.match($('comparisonQueryDetailStatus').textContent,/^Model crop, the outlined 1281 px square fills the image area\. 4000 × 3000 loaded pixels\. Focus the image area/);
+assert.match($('comparisonQueryDetailStatus').textContent,/^Model crop, the outlined 1281 px square fills the image area\. 480 × 360 loaded pixels\. Focus the image area/);
 $('comparisonQueryFit').onclick();assert.equal($('comparisonQueryStage').style.width,'100%');assert.equal(viewport.scrollLeft,0);assert.equal(viewport.scrollTop,0);
 const other=$('comparisonCandidateImage');other.naturalWidth=480;other.naturalHeight=360;other.onload();
 assert.equal($('comparisonCandidateModelCrop').disabled,true);assert.equal(setImageDetailMode('comparisonCandidate','crop'),false);
 """)
     html = runpy.run_path(ROOT / "dashboard/embedding_atlas_assets.py")["HTML"]
     assert 'id="comparisonQueryActual"' not in html and 'id="comparisonCandidateActual"' not in html
-    assert 'id="sharedQueryActual"' in html and 'id="sharedQueryModelCrop"' not in html
+    assert 'id="sharedQueryActual"' not in html and 'id="sharedCandidateActual"' not in html
+    assert "Actual pixels" not in html
+    assert 'id="sharedQueryModelCrop"' not in html
 
 
-def test_shared_panels_without_a_crop_zoom_to_actual_pixels_of_the_original():
+def test_shared_panels_without_a_crop_only_fit_the_thumbnail():
     run_atlas([photo("query", "flight-a")], r"""
-renderSharedFrame('sharedQuery','query','Fabaceae',{labels_available:true});const image=$('sharedQueryImage'),viewport=$('sharedQueryViewport');
+renderSharedFrame('sharedQuery','query','Fabaceae',{labels_available:true});const image=$('sharedQueryImage');
 image.naturalWidth=480;image.naturalHeight=360;image.onload();assert.equal(image.src,'thumbs/480/query.webp');
-$('sharedQueryActual').onclick();assert.equal(image.src,P[0].image);assert.equal($('sharedQueryStage').style.width,'100%');
-image.naturalWidth=4000;image.naturalHeight=3000;image.onload();
-assert.equal($('sharedQueryStage').style.width,'4000px');assert.equal(viewport.scrollLeft,(4000-viewport.clientWidth)/2);assert.equal(viewport.scrollTop,(3000-viewport.clientHeight)/2);
-assert.match($('sharedQueryDetailStatus').textContent,/^Actual pixels, one image pixel per CSS pixel\. 4000 × 3000 loaded pixels\./);
+assert.equal(setImageDetailMode('sharedQuery','actual'),false);assert.equal(setImageDetailMode('sharedQuery','crop'),false);
+assert.equal($('sharedQueryStage').style.width,'100%');assert.match($('sharedQueryDetailStatus').textContent,/^Fit\. 480 × 360 loaded pixels\.$/);
 """)
 
 

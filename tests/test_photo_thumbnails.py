@@ -1,4 +1,4 @@
-"""Card, strip and pane images load the small WebP and fall back to the original once; only the enlarge dialog loads the original."""
+"""Card, strip and pane images load the small WebP; a miss is Photo unavailable, with no fall back to a full-resolution URL."""
 
 import re
 import runpy
@@ -19,55 +19,59 @@ def thumb_fn(page):
     return re.search(r"function thumbSrc\(p\)\{[^\n]*\}", html).group()
 
 
-def test_explorer_cards_use_thumbnail_lazily_and_fall_back_once():
+def test_explorer_cards_use_thumbnail_lazily_and_report_a_miss():
     run_browser(r"""
-const grid=$('gallery').children[0].children[0].children[1],url='https://example.org/a & ä /?.JPG.jpg';
+const grid=$('gallery').children[0].children[0].children[1];
 assert.equal(grid.src,'thumbs/480/'+encodeURIComponent('a & ä /?.JPG')+'.webp');
 assert.equal(grid.loading,'lazy');assert.equal(grid.decoding,'async');assert.equal(grid.width,480);assert.equal(grid.height,360);
-grid.onerror();assert.equal(grid.src,url);assert.equal(grid.hidden,false);
-grid.onerror();assert.equal(grid.hidden,true);assert.equal(grid.src,url);
+grid.onerror();assert.equal(grid.hidden,true);assert.equal(grid.src,'thumbs/480/'+encodeURIComponent('a & ä /?.JPG')+'.webp');
 setState({frame:'b'});const sel=$('selectedImage');assert.equal(sel.src,'thumbs/480/b.webp');
-sel.onerror();assert.equal(sel.src,'https://example.org/b.jpg');assert.equal(sel.hidden,true);sel.onerror();assert.equal($('selectedImageStatus').textContent,'Photo unavailable. Open full image to retry.');
+sel.onerror();assert.equal(sel.hidden,true);assert.equal($('selectedImageStatus').textContent,'Photo unavailable');
 
 """)
 
 
-def test_explorer_table_thumbnail_uses_thumbnail_and_falls_back_once():
+def test_explorer_table_thumbnail_uses_thumbnail_and_reports_a_miss():
     run_browser(r"""
 const t=$('evidenceRows').children[0].children[0].children[0].children[1];
 assert.equal(t.src,'thumbs/480/'+encodeURIComponent('a & ä /?.JPG')+'.webp');assert.equal(t.loading,'lazy');assert.equal(t.height,360);
-t.onerror();assert.match(t.src,/^https:/);t.onerror();assert.equal(t.hidden,true);
+t.onerror();assert.equal(t.hidden,true);
 """, initial_hash='#layout=table')
 
 
-def test_explorer_only_the_enlarge_dialog_loads_the_original():
+def test_explorer_loads_no_full_resolution_photo():
     html = runpy.run_path(ROOT / "dashboard/explorer_assets.py")["HTML"]
-    assert html.count("src=thumbSrc(p)") == 4
-    assert "image.src=p.image}" not in html and "image.src=p.image;$('detailViewport')" in html
+    assert html.count("src=thumbSrc(p)") == 5
+    assert "p.image" not in html and "Open full" not in html
 
 
-def test_atlas_cards_strip_and_shared_use_thumbnail_and_fall_back_once():
+def test_atlas_cards_strip_and_shared_use_thumbnail_and_report_a_miss():
     run_atlas([photo("query", "flight-a", [[1, .9]]), photo("one", "flight-b")], r"""
-const p=P[1],url=p.image;
+const p=P[1];
 const card=browsePhotoButton(p,false,false,()=>{}).children[0].children[0];
 assert.equal(card.src,'thumbs/480/one.webp');assert.equal(card.loading,'lazy');assert.equal(card.decoding,'async');assert.equal(card.width,400);
-card.onerror();assert.equal(card.src,url);assert.equal(card.hidden,undefined);card.onerror();assert.equal(card.hidden,true);
+card.onerror();assert.equal(card.hidden,true);
 const strip=similarPhotoButton(p,.9,()=>{}).children[0];
 assert.equal(strip.getAttribute('data-src'),'thumbs/480/one.webp');assert.equal(strip.loading,'lazy');assert.equal(strip.width,64);
-strip.onerror();assert.equal(strip.src,url);strip.onerror();assert.equal(strip.hidden,true);
+strip.onerror();assert.equal(strip.hidden,true);
 """)
 
 
-def test_atlas_panes_use_thumbnail_and_fall_back_once():
+def test_atlas_panes_use_thumbnail_and_report_a_miss():
     html = runpy.run_path(ROOT / "dashboard/embedding_atlas_assets.py")["HTML"]
     assert html.count("src=thumbSrc(") == 5 and html.count("thumbSrc(photo));") == 1
-    # every site falls back once to the original; nothing loads the 8 MB original first.
-    assert html.count("image.fb=1;image.src=") == 5 and "pendingMainImages.add(prefix);image.src=thumbSrc(p);" in html
+    # nothing falls back to, or links, the full-resolution photo.
+    assert ".fb=1" not in html and "Open full" not in html and "pendingMainImages.add(prefix);image.src=thumbSrc(p);" in html
     run_atlas([photo("query", "flight-a", [[1, .9]]), photo("one", "flight-b")], r"""
-const main=$('photo');assert.equal(main.src,'thumbs/480/query.webp');main.onerror();assert.equal(main.src,P[0].image);main.onerror();assert.equal(main.hidden,true);
+const main=$('photo');assert.equal(main.src,'thumbs/480/query.webp');main.onerror();assert.equal(main.hidden,true);
 assert.deepEqual(cropImageFootprint({width:4000,height:3000,side:600,x:1,y:1},480,360).show,true);
 assert.deepEqual(cropImageFootprint({width:4000,height:3000,side:600,x:1,y:1},480,300).show,false);
 """)
+
+
+@pytest.mark.parametrize("page", ["explorer_assets.py", "embedding_atlas_assets.py"])
+def test_page_templates_name_no_legacy_photo_host(page):
+    assert "computecanada" not in runpy.run_path(ROOT / "dashboard" / page)["HTML"]
 
 
 @pytest.mark.parametrize("page", ["explorer_assets.py", "embedding_atlas_assets.py"])

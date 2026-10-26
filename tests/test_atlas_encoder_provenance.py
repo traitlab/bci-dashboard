@@ -98,6 +98,9 @@ def test_api_versions_remain_recorded_cache_values(encoder_pool):
         "version_source": "cached_response",
     }
     assert result["provenance"]["versions"] == ["recorded-api-v7"]
+    # The atlas carries no photo URL: private storage, thumbnails only.
+    assert all("image" not in point for point in result["points"])
+    assert "example.org" not in json.dumps(result)
     assert {point["version"] for point in result["points"]} == {"recorded-api-v7"}
     assert all(point["crop"] == 1280 for point in result["points"])
     assert all(point["source_width"] == 4000 for point in result["points"])

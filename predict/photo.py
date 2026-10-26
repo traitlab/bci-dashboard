@@ -30,6 +30,9 @@ Usage:
 
 import argparse
 import csv
+import datetime
+import hashlib
+import hmac
 import io
 import json
 import os
@@ -37,6 +40,7 @@ import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import quote, urlsplit
 
 import requests
 import yaml
@@ -137,8 +141,60 @@ def center_crop_jpeg(image_bytes: bytes) -> tuple[bytes, int, int, int | None]:
     return jpeg, w, h, CROP_SIZE if cropped else None
 
 
+# The photos moved from a public legacy host to private buckets on new Arbutus.
+# Frame URLs in the data still carry the legacy form, so dashboard/mission_buckets
+# maps each to its bucket and key and it is fetched with S3 credentials. The
+# legacy host is never contacted.
+sys.path.insert(0, str(REPO / "dashboard"))
+from mission_buckets import locate
+
+S3_ENV = ("ARBUTUS_S3_ENDPOINT", "ARBUTUS_S3_ACCESS_KEY", "ARBUTUS_S3_SECRET_KEY")
+S3_REGION = "us-east-1"
+
+
+class MissingStorageCredentials(Exception):
+    """Not a RuntimeError or OSError, so embed.fetch_all stops instead of counting every photo as failed."""
+
+
+def sigv4_headers(endpoint: str, bucket: str, key: str, access_key: str,
+                  secret_key: str, now: datetime.datetime) -> tuple[str, dict]:
+    """URL and signed headers for a path-style S3 GET (AWS Signature Version 4)."""
+    host = urlsplit(endpoint).netloc
+    path = f"/{bucket}/{quote(key, safe='/-_.~')}"
+    stamp, day = now.strftime("%Y%m%dT%H%M%SZ"), now.strftime("%Y%m%d")
+    payload = hashlib.sha256(b"").hexdigest()  # a GET has no body
+    signed = "host;x-amz-content-sha256;x-amz-date"
+    canonical = (f"GET\n{path}\n\nhost:{host}\nx-amz-content-sha256:{payload}\n"
+                 f"x-amz-date:{stamp}\n\n{signed}\n{payload}")
+    scope = f"{day}/{S3_REGION}/s3/aws4_request"
+    to_sign = (f"AWS4-HMAC-SHA256\n{stamp}\n{scope}\n"
+               + hashlib.sha256(canonical.encode()).hexdigest())
+    sig = ("AWS4" + secret_key).encode()
+    for part in (day, S3_REGION, "s3", "aws4_request"):
+        sig = hmac.new(sig, part.encode(), hashlib.sha256).digest()
+    sig = hmac.new(sig, to_sign.encode(), hashlib.sha256).hexdigest()
+    return endpoint.rstrip("/") + path, {
+        "x-amz-date": stamp,
+        "x-amz-content-sha256": payload,
+        "Authorization": (f"AWS4-HMAC-SHA256 Credential={access_key}/{scope}, "
+                          f"SignedHeaders={signed}, Signature={sig}"),
+    }
+
+
 def download_image(url: str, timeout: int = 30) -> bytes:
-    resp = requests.get(url, timeout=timeout)
+    where = locate(url)
+    if where is None:
+        resp = requests.get(url, timeout=timeout)
+        resp.raise_for_status()
+        return resp.content
+    missing = [n for n in S3_ENV if not os.environ.get(n)]
+    if missing:
+        raise MissingStorageCredentials(f"Photo {url} is on private Arbutus storage; "
+                           f"set {', '.join(missing)} to download it")
+    endpoint, access, secret = (os.environ[n] for n in S3_ENV)
+    full, headers = sigv4_headers(endpoint, *where, access, secret,
+                                  datetime.datetime.now(datetime.timezone.utc))
+    resp = requests.get(full, headers=headers, timeout=timeout)
     resp.raise_for_status()
     return resp.content
 

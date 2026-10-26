@@ -136,7 +136,6 @@ def export(
                     "lon": lon,
                     "group": group,
                     "label": labels.get(key),
-                    "image": row.get("row_data", ""),
                     "mission": row.get("metadata", {}).get("mission", ""),
                     "crop": meta.get("crop_size"),
                     "source_width": meta.get("orig_width"),

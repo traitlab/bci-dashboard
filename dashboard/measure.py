@@ -24,6 +24,7 @@ import held_out as ho
 import reference
 import run_log as rl
 import mission_scope
+from mission_buckets import s3_uri
 from health import load_health
 from core import (
     add_input_flags, add_label_source_flag, summarise, ledger_keys, LEDGER_DIR, REPO,
@@ -216,7 +217,8 @@ def write_send_batches(out_dir, batch_rows, queue_rows):
     stays a pure function of the queue and the build's identity check keeps
     comparing that function's output to this file. A frame the inventory does
     not name leaves an empty cell: a blank is honest, a guessed URL is a 404 in
-    front of a botanist.
+    front of a botanist. A frame it names in a mission `mission_buckets.csv`
+    lacks stops the build (UnknownMission) rather than shipping a guessed bucket.
     """
     images, boxes, origins = inventory_image_urls(), labelbox_urls(), inventory_origins()
     ids = inventory_row_ids()
@@ -231,7 +233,7 @@ def write_send_batches(out_dir, batch_rows, queue_rows):
         w.writerow(SEND_BATCH_HEADER)
         for row in batch_rows:
             key = row[key_at]
-            w.writerow(list(row) + [how_new(distance, key), images.get(key, ""),
+            w.writerow(list(row) + [how_new(distance, key), s3_uri(images.get(key, "")),
                                     boxes.get(key, ""), send_row_id(key, boxes, ids),
                                     *origins.get(key, ("", "")),
                                     forms.get(predicted.get(key), growth_form.UNKNOWN), GROUP_BY])

@@ -33,13 +33,12 @@ def group_catalogue():
 
     def photo(key, recorded, predicted, score):
         p = copy.deepcopy(sample)
-        p.update(key=key, image='https://example.org/' + key + '.jpg', label=names[recorded], recorded_taxon=recorded, recorded_status='ok', representation=None)
+        p.update(key=key, label=names[recorded], recorded_taxon=recorded, recorded_status='ok', representation=None)
         p['prediction'].update(status='ok' if predicted else 'missing', name=names.get(predicted), taxon=predicted, score=score, tied=False)
         return p
 
     # Listed so the expected pick is never simply the first match in catalogue order.
     data['photos'] = [photo('no-score', 'g', 't', None), photo('unscored', 't', None, None), photo('t-guess', 't', 's', .3), photo('disagrees', 's', 't', .9), photo('agrees', 's', 's', .5), photo('genus-agrees', 'g', 's', .6), photo('lonely', 'other', None, None)]
-    data['photos'][-1]['image'] = 'javascript:alert(1)'
     return data
 
 
@@ -154,10 +153,10 @@ def test_group_photo_prefers_agreeing_guesses_for_labels_and_top_scores_for_gues
     run_browser(RADIAL + r"""
 const pick=()=>Object.fromEntries([...groupPhotos()].map(([id,best])=>[id,best.p.key]));
 assert.deepEqual(pick(),{any:'genus-agrees',f:'genus-agrees',g:'genus-agrees',s:'agrees',t:'t-guess',other:'lonely'});
-assert.deepEqual($('treeKids').children.map(b=>b.children[0].tagName+':'+(b.children[0].src??'')),['span:','img:thumbs/480/genus-agrees.webp']);
-assert.equal(find(dot('s'),'image').getAttribute('href'),'thumbs/480/agrees.webp');assert.equal(find(dot('other'),'image'),null);
-const img=$('treeKids').children[1].children[0];img.onerror();assert.equal(img.src,'https://example.org/genus-agrees.jpg');img.onerror();assert.equal(img.hidden,true);
-const image=find(dot('t'),'image');image.onerror();assert.equal(image.getAttribute('href'),'https://example.org/t-guess.jpg');image.onerror();assert.equal(image.removed,true);
+assert.deepEqual($('treeKids').children.map(b=>b.children[0].tagName+':'+(b.children[0].src??'')),['img:thumbs/480/lonely.webp','img:thumbs/480/genus-agrees.webp']);
+assert.equal(find(dot('s'),'image').getAttribute('href'),'thumbs/480/agrees.webp');assert.equal(find(dot('other'),'image').getAttribute('href'),'thumbs/480/lonely.webp');
+const img=$('treeKids').children[1].children[0];img.onerror();assert.equal(img.hidden,true);
+const image=find(dot('t'),'image');image.onerror();assert.equal(image.removed,true);
 setState({source:'prediction'});
 assert.deepEqual(pick(),{any:'disagrees',f:'disagrees',g:'disagrees',s:'genus-agrees',t:'disagrees'});
 assert.equal(find(dot('t'),'image').getAttribute('href'),'thumbs/480/disagrees.webp');

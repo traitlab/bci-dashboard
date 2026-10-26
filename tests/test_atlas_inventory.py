@@ -52,7 +52,6 @@ def fixture():
         "photos": [
             {
                 "key": "missing.JPG",
-                "image": "recorded-image",
                 "lat": 9.4,
                 "lon": -79.2,
                 "label": "B beta",
@@ -103,7 +102,6 @@ def test_missing_model_photo_has_no_invented_representation_and_join_is_idempote
     first = JOIN(atlas, catalogue, SOURCE)
     assert first["points"][0] == {
         "key": "missing.JPG",
-        "image": "recorded-image",
         "lat": 9.4,
         "lon": -79.2,
         "label": "B beta",

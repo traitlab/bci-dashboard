@@ -225,6 +225,8 @@ def test_missing_optional_sources_keep_every_inventory_photo(exporter, tmp_path)
     assert photo["representation"] is None
     assert result["provenance"]["predictions"]["available"] is False
     assert result["taxa"] == []
+    # The page carries no photo URL: private storage, thumbnails only.
+    assert "image" not in photo and "example.org" not in json.dumps(result)
 
 
 def test_missing_checklist_does_not_invent_parent_hierarchy(

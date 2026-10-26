@@ -61,8 +61,10 @@ SEND_BATCH_LOOKUP_COLUMNS = ["how_new_it_looks"]
 # function of the queue and `history.check_send_batches` can keep comparing its
 # output to the file column by column. The header is the two lists joined.
 #
-# Both links, not one. `image_url` opens for anyone with a browser and covers
-# every row; `labelbox_url` is the only one that shows which crown is asked about.
+# `s3_uri` names where the whole frame sits on private Arbutus (built from the
+# inventory URL by `mission_buckets`); it opens only with storage credentials,
+# the photo page for anyone else is the explorer. `labelbox_url` is the only
+# link that shows which crown is asked about.
 #
 # `data_row_id` is the id inside `labelbox_url`, parsed by `core.data_row_id`,
 # which for a legacy-mode link is the row in the project the frame was labelled
@@ -78,7 +80,7 @@ SEND_BATCH_LOOKUP_COLUMNS = ["how_new_it_looks"]
 # `group_by` is last and the same on every row: how the file was packed
 # ("species" or "rank", see `GROUP_BY`), so a batch's mode can be read off it
 # when Labelbox time per label is compared across batches.
-SEND_BATCH_LINK_COLUMNS = ["image_url", "labelbox_url", "data_row_id", "mission", "site",
+SEND_BATCH_LINK_COLUMNS = ["s3_uri", "labelbox_url", "data_row_id", "mission", "site",
                            "growth_form", "group_by"]
 SEND_BATCH_HEADER = SEND_BATCH_COLUMNS + SEND_BATCH_LOOKUP_COLUMNS + SEND_BATCH_LINK_COLUMNS
 

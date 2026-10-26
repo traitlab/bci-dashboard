@@ -195,7 +195,6 @@ def export_catalogue(data_root, plantnet_atlas=None):
         photos.append(
             {
                 "key": key,
-                "image": text(row.get("row_data"), "image URL"),
                 "mission": text(metadata.get("mission"), "mission"),
                 "lat": lat,
                 "lon": lon,

@@ -61,7 +61,7 @@ assert.equal($('photoPosition').textContent,position);assert.equal($('resultCoun
 const row=$('evidenceRows').children[1],key=row.getAttribute('data-frame');row.children[0].children[0].onclick();
 assert.equal(state.frame,key);assert.equal(document.activeElement,$('selectedTitle'));
 assert.deepEqual($('evidenceRows').children.map(row=>row.getAttribute('data-frame')),savedCards);assert.equal($('evidenceRows').children[1].className,'selected-row');
-assert.equal($('enlarge').disabled,false);$('enlarge').onclick();assert.equal($('photoDialog').open,true);$('closeDialog').onclick();
+assert.ok(!$('enlarge').disabled);$('enlarge').onclick();assert.equal($('photoDialog').open,true);$('closeDialog').onclick();
 $('showPhotos').onclick();assert.equal(state.layout,'photos');assert.equal(state.page,1);assert.equal(state.frame,key);
 assert.equal($('gallery').hidden,false);assert.equal($('evidenceScroll').hidden,true);
 assert.equal($('gallery').children[1].getAttribute('data-frame'),key);assert.equal(JSON.stringify(photos),evidence);

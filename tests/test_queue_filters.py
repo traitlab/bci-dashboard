@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 HEADER = ["batch_id", "species_group", "global_key", "queue", "picked_by",
-          "how_new_it_looks", "image_url", "labelbox_url", "data_row_id", "mission", "site", "growth_form"]
+          "how_new_it_looks", "s3_uri", "labelbox_url", "data_row_id", "mission", "site", "growth_form"]
 # A comma, a quote, a line break and a non-ASCII name: every case the serializer quotes.
 ROWS = [
     ["1", "persicaria a", "k1", "long_tail", "queue", "0.700", "u1", "l1", "r1", "m1", "s1", "tree"],
