@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import numpy as np
+import requests
 from conftest import REPO, _on_path, load
 
 embed_input = load("_embed_input_under_test", REPO / "labelling" / "embed_input.py")
@@ -61,7 +62,35 @@ def test_existing_matrix_is_empty_without_an_npz(tmp_path):
 def test_fetch_all_stops_once_the_time_budget_is_spent(tmp_path):
     rows = [{"global_key": "k", "image_url": "https://x/1.jpg"}]
     assert embed.fetch_all(rows, "key", "url", tmp_path, delay=0, test=False,
-                           deadline=0) == (0, 0)
+                           deadline=0) == (0, 0, 0)
+
+
+def test_main_fails_when_most_fetches_fail_and_passes_when_few_do(tmp_path, monkeypatch):
+    monkeypatch.setenv("PLANTNET_API_KEY", "key")
+    csv = tmp_path / "in.csv"
+    csv.write_text("global_key,image_url\nk1,https://x/1.jpg\nk2,https://x/2.jpg\nk3,https://x/3.jpg\n")
+    args = ["--input", str(csv), "--out-dir", str(tmp_path / "out"), "--delay", "0"]
+    monkeypatch.setattr(embed, "fetch_all", lambda *a, **k: (1, 2, 0))
+    assert embed.main(args) == 1
+    monkeypatch.setattr(embed, "fetch_all", lambda *a, **k: (2, 1, 0))
+    assert embed.main(args) == 0
+    # Photos storage no longer holds never fail the run, even when nothing else was fetched.
+    monkeypatch.setattr(embed, "fetch_all", lambda *a, **k: (0, 0, 3))
+    assert embed.main(args) == 0
+
+
+def test_only_a_missing_or_undecodable_photo_is_a_photo_fault():
+    def http(status):
+        response = requests.Response()
+        response.status_code = status
+        return requests.HTTPError(response=response)
+
+    assert embed.photo_fault(http(404))
+    assert embed.photo_fault(OSError("image file is truncated"))
+    assert not embed.photo_fault(http(403))
+    assert not embed.photo_fault(http(503))
+    assert not embed.photo_fault(requests.ConnectionError("host down"))
+    assert not embed.photo_fault(ValueError("no embedding in response"))
 
 
 def test_an_export_fills_urls_the_inventory_predates_and_never_overrides_it(tmp_path):
