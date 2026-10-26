@@ -118,6 +118,19 @@ def test_refresh_uses_shared_inventory_without_changing_model_support_or_retry_o
     assert (output / "embedding-atlas.html").read_bytes() == first
 
 
+def test_refresh_drops_recorded_full_resolution_links(tmp_path):
+    source, output = tmp_path / "recorded", tmp_path / "preview"
+    atlas = atlas_site(source)
+    atlas["points"][0]["image"] = "https://object-arbutus.cloud.computecanada.ca/m/a.JPG"
+    (source / "crownfirst-atlas.html").write_text(
+        '<script id="atlas-data" type="application/json">' + json.dumps(atlas) + '</script>')
+    result = refresh(source, output)
+    assert result.returncode == 0, result.stderr
+    page = (output / "crownfirst-atlas.html").read_text()
+    assert "computecanada" not in page and "Actual pixels" not in page
+    assert '"key":"a.JPG"' in page
+
+
 def test_refresh_rejects_cross_inventory_join_before_writing_any_page(tmp_path):
     source, output = tmp_path / "recorded", tmp_path / "preview"
     atlas_site(source)
