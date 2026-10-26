@@ -520,3 +520,29 @@ def test_publisher_adding_a_private_file_blocks_promotion(tmp_path):
 
 def test_the_allowlist_accepts_the_published_docs_tree():
     refresh.validate_public_output(REPO / "docs")
+
+
+H = "https://object-arbutus.cloud.computecanada.ca/"
+KNOWN = "20240911_bcifairchild_wptsendero_m3e"
+
+
+def photo_inventory(root, *missions):
+    (root / "data").mkdir(exist_ok=True)
+    rows = [{"global_key": f"k{i}", "row_data": f"{H}{m}/DJI_x/DJI_{i}.JPG"} for i, m in enumerate(missions)]
+    (root / "data/dataset_rows.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+
+
+def test_preflight_passes_when_every_mission_is_mapped_or_nothing_is_listed(tmp_path):
+    refresh.validate_photo_missions(tmp_path, [])
+    photo_inventory(tmp_path, KNOWN, KNOWN)
+    refresh.validate_photo_missions(tmp_path, [])
+
+
+def test_preflight_names_every_unmapped_mission_in_one_error(tmp_path):
+    export = tmp_path / "export.ndjson"
+    export.write_text(json.dumps({"data_row": {"row_data": f"{H}20990102_b_m3e/f/a.JPG"}}) + "\n")
+    photo_inventory(tmp_path, KNOWN, "20990101_a_m3e")
+    with pytest.raises(ValueError) as error:
+        refresh.validate_photo_missions(tmp_path, [export])
+    assert "20990101_a_m3e, 20990102_b_m3e" in str(error.value)
+    assert KNOWN not in str(error.value)

@@ -35,18 +35,32 @@ def load_table(path: Path = TABLE) -> dict[str, str]:
         return {r["mission"]: r["bucket"] for r in csv.DictReader(f)}
 
 
-def locate(url: str, path: Path = TABLE) -> tuple[str, str] | None:
-    """(bucket, key) of a legacy-host URL's photo, None for any other URL."""
+def _mission_rel(url: str) -> tuple[str, str] | None:
+    """(mission, path below the legacy prefix) of a legacy-host URL, None for any other."""
     parts = urlsplit(url)
     if parts.hostname != LEGACY_HOST:
         return None
     rel = unquote(parts.path).lstrip("/").removeprefix(LEGACY_PREFIX)
-    mission = rel.split("/")[0]
+    return rel.split("/")[0], rel
+
+
+def locate(url: str, path: Path = TABLE) -> tuple[str, str] | None:
+    """(bucket, key) of a legacy-host URL's photo, None for any other URL."""
+    found = _mission_rel(url)
+    if found is None:
+        return None
+    mission, rel = found
     bucket = load_table(path).get(mission)
     if bucket is None:
         raise UnknownMission(f"mission {mission!r} (from {url}) is not in {Path(path).name}; "
                              "run bin/refresh_mission_buckets.py")
     return bucket, f"drone_missions/{mission[:4]}/{rel}"
+
+
+def unknown_missions(urls, path: Path = TABLE) -> list[str]:
+    """Sorted missions of the legacy-host URLs that the table does not name."""
+    table = load_table(path)
+    return sorted({f[0] for u in urls if (f := _mission_rel(u)) and f[0] not in table})
 
 
 def s3_uri(url: str, path: Path = TABLE) -> str:

@@ -241,6 +241,34 @@ def validate_export_labels(repo: Path, exports: list[Path]) -> None:
         raise ValueError("explicit Labelbox exports contain no usable in-corpus labels")
 
 
+def validate_photo_missions(repo: Path, exports: list[Path]) -> None:
+    """Name every photo mission missing from mission_buckets.csv before any build step.
+
+    Covers the URLs the run resolves: the inventories behind the send batches and
+    the embedding fetch, and the explicit exports that fill frames they predate.
+    """
+    sys.path.insert(0, str(REPO / "dashboard"))
+    from mission_buckets import unknown_missions
+
+    urls = []
+    for name in ("dataset_rows.jsonl", "dataset_rows_combined.jsonl"):
+        path = repo / "data" / name
+        if path.is_file():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                try:  # an unparsable line is skipped, as dashboard/core.py does
+                    urls.append(json.loads(line).get("row_data") or "")
+                except json.JSONDecodeError:
+                    pass
+    for export in exports:
+        with export.open(encoding="utf-8") as source:
+            urls += [json.loads(line)["data_row"].get("row_data") or "" for line in source if line.strip()]
+    if missing := unknown_missions(urls):
+        raise ValueError(
+            "missions missing from input/mission_buckets.csv (run bin/refresh_mission_buckets.py): "
+            + ", ".join(missing)
+        )
+
+
 def validate_public_output(directory: Path) -> None:
     """Fail closed without deleting unrecognized files or following links."""
     if directory.is_symlink() or not directory.is_dir():
@@ -324,6 +352,7 @@ def refresh(
             raise ValueError("--export-date requires at least one explicit --export")
     validate_inputs(repo, exports)
     validate_export_labels(repo, exports)
+    validate_photo_missions(repo, exports)
     validate_public_output(repo / "docs")
     data = repo / "data"
     build = repo / "build"
