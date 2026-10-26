@@ -49,8 +49,11 @@ def refresh_page(
         if not isinstance(data, dict) or not isinstance(data.get(population), list):
             raise ValueError(f"{name}: recorded {population} must be a list")
         recorded_payload = payload.group(1)
+        # Full-resolution photos are in private storage, so a page records no link to one.
+        linked = [row.pop("image") for row in data[population] if "image" in row]
         if population == "points" and catalogue is not None:
             data = join_photo_inventory(data, catalogue, catalogue_source or {})
+        if linked or (population == "points" and catalogue is not None):
             recorded_payload = json.dumps(data, separators=(",", ":"), allow_nan=False).replace("<", "\\u003c")
         if population == "points" and not data["points"]:
             raise ValueError(f"{name}: atlas requires at least one positioned photo; recorded pages retained")

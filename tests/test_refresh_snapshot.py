@@ -162,6 +162,18 @@ def invoke(repo, *args):
     )
 
 
+def recorded_page(data_id, population):
+    """A published photo page whose one photo still links legacy storage."""
+    photo = {"key": "comb_one.JPG", "image": "https://object-arbutus.cloud.computecanada.ca/m/one.JPG"}
+    return f'<script id="{data_id}" type="application/json">{json.dumps({population: [photo]})}</script>'
+
+
+def assert_retemplated(page):
+    text = page.read_text()
+    assert '"key": "comb_one.JPG"' in text or '"key":"comb_one.JPG"' in text
+    assert "computecanada" not in text and 'class="site-shell"' in text
+
+
 def fixture_repo(root, *, fail_builder=False, fail_atlas=False):
     """Small subprocess stand-ins exercise publication orchestration, not metric formulas."""
     for name in refresh.REQUIRED_FILES:
@@ -180,10 +192,8 @@ def fixture_repo(root, *, fail_builder=False, fail_atlas=False):
     for folder in ("bin", "dashboard", "labelling", "predict", "docs"):
         (root / folder).mkdir()
     (root / "docs/index.html").write_text("last verified public snapshot")
-    (root / "docs/crownfirst-atlas.html").write_text(
-        "old model catalogue, do not restamp"
-    )
-    (root / "docs/explorer.html").write_text("old photo catalogue, do not restamp")
+    (root / "docs/crownfirst-atlas.html").write_text(recorded_page("atlas-data", "points"))
+    (root / "docs/explorer.html").write_text(recorded_page("explorer-data", "photos"))
     shutil.copy2(REPO / "bin/publish_pages.sh", root / "bin/publish_pages.sh")
     (root / "labelling/gt_from_publication.py").write_text(
         "from pathlib import Path\nimport sys\n"
@@ -291,9 +301,7 @@ def test_success_rebuilds_and_keeps_source_dates_and_standalone_catalogues(tmp_p
     assert (
         tmp_path / "docs/embedding-atlas.html"
     ).read_text() == "rebuilt embedding-atlas"
-    assert (
-        tmp_path / "docs/crownfirst-atlas.html"
-    ).read_text() == "old model catalogue, do not restamp"
+    assert_retemplated(tmp_path / "docs/crownfirst-atlas.html")
     assert (tmp_path / "docs/send_batches.csv").is_file()
     status = json.loads((tmp_path / "docs/refresh_status.json").read_text())
     assert status["snapshot_refreshed"] == "2026-10-16"
@@ -323,14 +331,12 @@ def test_success_rebuilds_and_keeps_source_dates_and_standalone_catalogues(tmp_p
 
 def test_failed_atlas_chain_keeps_docs_pages_and_warns(tmp_path):
     fixture_repo(tmp_path, fail_atlas=True)
-    (tmp_path / "docs/embedding-atlas.html").write_text("old atlas")
+    (tmp_path / "docs/embedding-atlas.html").write_text(recorded_page("atlas-data", "points"))
     result = invoke(tmp_path)
     assert result.returncode == 0, result.stderr
     assert "::warning::atlas pages kept from docs" in result.stdout
-    assert (
-        tmp_path / "docs/explorer.html"
-    ).read_text() == "old photo catalogue, do not restamp"
-    assert (tmp_path / "docs/embedding-atlas.html").read_text() == "old atlas"
+    for name in ("explorer.html", "embedding-atlas.html", "crownfirst-atlas.html"):
+        assert_retemplated(tmp_path / "docs" / name)
 
 
 def test_explicit_exports_require_a_source_date(tmp_path):

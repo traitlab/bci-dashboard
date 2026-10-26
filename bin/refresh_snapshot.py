@@ -464,6 +464,23 @@ def refresh(
         for name in names:
             if (published / name).is_file():
                 shutil.copy2(published / name, rendered / name)
+        # A copied page gets the current template, and its recorded photos lose
+        # the full-resolution links the private buckets no longer serve.
+        from build_index import available_names
+        from refresh_site_ui import refresh_page
+
+        for name in names:
+            page = rendered / name
+            if page.is_file():
+                page.write_text(
+                    refresh_page(
+                        name,
+                        page.read_text(encoding="utf-8"),
+                        available_names(str(rendered)),
+                        scope_dir=str(tables),
+                    ),
+                    encoding="utf-8",
+                )
         for script, name in zip(("build_external.py", "build_internal.py"), PAGES):
             run(
                 repo,
