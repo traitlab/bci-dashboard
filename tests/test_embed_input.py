@@ -64,6 +64,17 @@ def test_fetch_all_stops_once_the_time_budget_is_spent(tmp_path):
                            deadline=0) == (0, 0)
 
 
+def test_main_fails_when_most_fetches_fail_and_passes_when_few_do(tmp_path, monkeypatch):
+    monkeypatch.setenv("PLANTNET_API_KEY", "key")
+    csv = tmp_path / "in.csv"
+    csv.write_text("global_key,image_url\nk1,https://x/1.jpg\nk2,https://x/2.jpg\nk3,https://x/3.jpg\n")
+    args = ["--input", str(csv), "--out-dir", str(tmp_path / "out"), "--delay", "0"]
+    monkeypatch.setattr(embed, "fetch_all", lambda *a, **k: (1, 2))
+    assert embed.main(args) == 1
+    monkeypatch.setattr(embed, "fetch_all", lambda *a, **k: (2, 1))
+    assert embed.main(args) == 0
+
+
 def test_an_export_fills_urls_the_inventory_predates_and_never_overrides_it(tmp_path):
     labels = tmp_path / "labels.csv"
     labels.write_text("global_key,taxon\ncomb_old.JPG,A\ncomb_new.JPG,B\n")

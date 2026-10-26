@@ -213,6 +213,13 @@ def main(argv=None) -> int:
                            delay=args.delay, test=args.test, deadline=deadline)
     npz_path, n = write_matrix(cache_dir, out_dir, existing)
     print(f"fetched {ok}, errors {errors}, wrote {n} vectors to {npz_path}")
+    # Most fetches failing means the photo host or the API is down, not one bad
+    # JPEG. Exit nonzero so the scheduled refresh fails loudly and the live site
+    # is retained, instead of publishing without the new vectors.
+    if errors > ok:
+        print(f"{errors} of {ok + errors} fetches failed. Is the photo host reachable?",
+              file=sys.stderr)
+        return 1
     return 0
 
 
