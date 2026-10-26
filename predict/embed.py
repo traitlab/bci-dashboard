@@ -98,14 +98,23 @@ def parse_args(argv=None):
     return p.parse_args(argv)
 
 
+def photo_fault(error: Exception) -> bool:
+    """A photo storage does not hold (404) or that does not decode, as opposed to
+    a host, a key or the API failing, which every other photo would hit too."""
+    if isinstance(error, requests.RequestException):
+        return getattr(error.response, "status_code", None) == 404
+    return isinstance(error, OSError)
+
+
 def fetch_all(todo, api_key, api_url, cache_dir, *, delay, test, deadline=None):
     """One embedding call per photo, each answer cached as it lands.
+    -> (fetched, errors, missing): ``missing`` counts ``photo_fault`` photos.
 
     The narrow except is deliberate. One unreachable URL or undecodable JPEG
     must not end a 3,000-image run, and anything outside that set is a bug that
     should propagate rather than be counted as an error and skipped.
     """
-    ok = errors = 0
+    ok = errors = missing = 0
     for i, row in enumerate(todo):
         if deadline is not None and time.monotonic() > deadline:
             print(f"time budget spent after {i} of {len(todo)}. Re-run to resume.")
@@ -135,11 +144,14 @@ def fetch_all(todo, api_key, api_url, cache_dir, *, delay, test, deadline=None):
             print(f"QUOTA EXCEEDED: {e}. Re-run to resume.", file=sys.stderr)
             break
         except (requests.RequestException, OSError, ValueError, RuntimeError) as e:
-            errors += 1
+            if photo_fault(e):
+                missing += 1
+            else:
+                errors += 1
             print(f"  [{i+1}/{len(todo)}] ERROR {gk}: {e}", file=sys.stderr)
         if i < len(todo) - 1:
             time.sleep(delay)
-    return ok, errors
+    return ok, errors, missing
 
 
 def existing_matrix(out_dir) -> dict[str, list[float]]:
@@ -209,13 +221,15 @@ def main(argv=None) -> int:
 
     deadline = (None if args.budget_minutes is None
                 else time.monotonic() + 60 * args.budget_minutes)
-    ok, errors = fetch_all(todo, api_key, api_url, cache_dir,
+    ok, errors, missing = fetch_all(todo, api_key, api_url, cache_dir,
                            delay=args.delay, test=args.test, deadline=deadline)
     npz_path, n = write_matrix(cache_dir, out_dir, existing)
-    print(f"fetched {ok}, errors {errors}, wrote {n} vectors to {npz_path}")
-    # Most fetches failing means the photo host or the API is down, not one bad
-    # JPEG. Exit nonzero so the scheduled refresh fails loudly and the live site
-    # is retained, instead of publishing without the new vectors.
+    print(f"fetched {ok}, errors {errors}, missing or undecodable {missing}, "
+          f"wrote {n} vectors to {npz_path}")
+    # Errors outnumbering successes means the photo host, its key or the API is
+    # down. Exit nonzero so the scheduled refresh fails loudly and the live site
+    # is retained, instead of publishing without the new vectors. A missing photo
+    # never counts, so one that is gone for good cannot block every later run.
     if errors > ok:
         print(f"{errors} of {ok + errors} fetches failed. Is the photo host reachable?",
               file=sys.stderr)
