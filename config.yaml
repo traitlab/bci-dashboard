@@ -13,11 +13,14 @@ plantnet:
 labelbox:
   # Which workspace a run points at. No key here; that is .env only.
   # Each id is overridable by the environment variable named beside it.
-  # Two different Labelbox datasets, on purpose: the frames go out from the
-  # combined one and the labelled history is read from the other. They share no
-  # global key, so nothing here should be made to agree with anything below.
-  combined_dataset_name: BCI Workshop - Drone Photos       # dispatch_round
-  project_b_name: BCI Workshop - Botanist Labelling        # dispatch_round, close_round
+  # Since 2026-10 (the project lead's call) a round is a batch in the project
+  # `2024_bci`, cut from the dataset `2024_bci`. That dataset is the one
+  # `dataset_id` below pages for the labelled history, so the frames go out from
+  # the dataset the labels came from. Before then these two named a separate
+  # combined dataset and project; `data/dataset_rows_combined.jsonl` is still
+  # that old inventory, so its ids no longer open in the dispatch project.
+  combined_dataset_name: 2024_bci                          # dispatch_round
+  project_b_name: 2024_bci                                 # dispatch_round, close_round, verify_round
   dataset_id: cmon3zoss00wu0705ertl0vd7                    # fetch_dataset  LABELBOX_DATASET_ID
   project_id: cmp375mkq0dhr07w92diwbmuh                    # next_batch     LABELBOX_PROJECT_ID
   # Which project a deep link on the pages opens in: `legacy` (the project a

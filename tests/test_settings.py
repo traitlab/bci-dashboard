@@ -49,22 +49,18 @@ def test_the_shipped_config_carries_both_ids(settings):
     assert labelbox["dataset_id"] and labelbox["project_id"]
 
 
-def test_the_config_says_the_two_datasets_are_meant_to_differ():
-    """`combined_dataset_name` and `dataset_id` name different datasets.
-
-    They share no global key, so a reader who assumes they should agree
-    "fixes" the file by pointing `dataset_id` at the dispatch dataset. That
-    re-paged inventory has identical row counts and every deep link on the
-    pages silently changes project, which no gate here can see. The comment is
-    the only thing that stops the edit, so it is asserted.
-    """
+def test_the_dispatch_dataset_is_the_one_the_history_is_paged_from():
+    """`combined_dataset_name` and `dataset_id` name the same dataset, `2024_bci`,
+    since the 2026-10 decision. The comment says so, because the old comment said
+    they differ and a reader who trusts either would edit the other."""
     config = (REPO / "config.yaml").read_text(encoding="utf-8")
     block = config[config.index("labelbox:"):]
     block = block[:block.index("\nfolders:")]
+    assert "combined_dataset_name: 2024_bci" in block
+    assert "project_b_name: 2024_bci" in block
     said = " ".join(line.strip(" #") for line in block.splitlines()
                     if line.strip().startswith("#"))
-    assert "different Labelbox datasets" in said, (
-        "the labelbox block no longer says the two datasets differ on purpose")
+    assert "different Labelbox datasets" not in said
 
 
 def test_the_api_key_has_no_config_default(settings, monkeypatch):
