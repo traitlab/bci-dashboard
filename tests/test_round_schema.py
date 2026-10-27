@@ -1,4 +1,4 @@
-"""Creating the `selection_round` field the first time a round goes out.
+"""Creating the `batch_id` field the first time a round goes out.
 
 `DataRowMetadataOntology.get_by_name` raises `KeyError` for a field that does
 not exist yet. `get_or_create_round_schema` read it as a falsy return, so on a
@@ -50,15 +50,15 @@ def test_a_project_that_has_never_dispatched_gets_the_field_made(dispatch_round)
     assert [n for n, _ in mdo.created] == [dispatch_round.METADATA_SCHEMA_NAME]
 
 
-def test_the_field_is_made_as_a_number_because_the_round_is_upserted_as_one(
+def test_the_field_is_made_as_a_string_because_the_batch_name_is_upserted_as_one(
         dispatch_round):
-    """`rounds.py` says a round number is a number in Labelbox. A field created
+    """`rounds.py` says the batch name is a string in Labelbox. A field created
     with the other kind cannot be written to afterwards."""
     from labelbox.schema.data_row_metadata import DataRowMetadataKind
 
     mdo = _Absent()
     dispatch_round.get_or_create_round_schema(mdo)
-    assert [k for _, k in mdo.created] == [DataRowMetadataKind.number]
+    assert [k for _, k in mdo.created] == [DataRowMetadataKind.string]
 
 
 def test_a_project_that_already_has_the_field_reuses_it(dispatch_round):

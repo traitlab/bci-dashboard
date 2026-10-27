@@ -56,7 +56,7 @@ def run(dispatch_round, tmp_path, monkeypatch):
     def create_batch(c, p, keys, r, pri):
         # the ledger must already hold the rows when Labelbox is called
         calls.append(("batch", list(keys), (ledger / "round_2.csv").exists()))
-        return SimpleNamespace(name="Round 2 - x", failed_data_row_ids=iter(failed))
+        return SimpleNamespace(name="batch0002_2026-10", failed_data_row_ids=iter(failed))
 
     monkeypatch.setattr(d, "create_batch", create_batch)
 

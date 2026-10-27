@@ -3,7 +3,7 @@
 `dispatch_round.py` builds a round correctly by construction. A batch built by
 hand in the Labelbox interface does not, and the two things it usually misses
 are invisible until months later: a name nothing can match, and no
-``selection_round`` tag. This reads the round back and says which of the three
+``batch_id`` tag. This reads the round back and says which of the three
 checks failed.
 
 Read-only on Labelbox: one project export. It writes nothing and creates
@@ -47,19 +47,15 @@ def selection_keys(csv_path: Path) -> list[str]:
                 if r["global_key"].strip()]
 
 
-def round_tag(row: dict) -> float | None:
-    """The `selection_round` value on one exported row, or None if it carries none.
+def round_tag(row: dict) -> int | None:
+    """The round a row's `batch_id` value names, or None if it carries none.
 
     Read defensively: the field is absent on an untagged row, and the export
     names it by schema name in a list rather than by key.
     """
     for field in row.get("metadata_fields") or []:
         if field.get("schema_name") == rounds.METADATA_SCHEMA_NAME:
-            value = field.get("value")
-            try:
-                return float(value)
-            except (TypeError, ValueError):
-                return None
+            return rounds.round_of(str(field.get("value") or ""))
     return None
 
 
@@ -73,19 +69,19 @@ def check_name(name: str, round_no: int) -> list[str]:
 
 
 def check_tags(rows: list[dict], round_no: int) -> list[str]:
-    """Every row in the batch carries this round's number, or the round is not
+    """Every row in the batch carries this round's batch name, or the round is not
     findable once the batch is renamed or a second batch is added."""
     untagged = [r.get("data_row", {}).get("global_key", "?")
                 for r in rows if round_tag(r) is None]
     wrong = {r.get("data_row", {}).get("global_key", "?"): round_tag(r)
-             for r in rows if round_tag(r) not in (None, float(round_no))}
+             for r in rows if round_tag(r) not in (None, round_no)}
     problems = []
     if untagged:
         problems.append(f"{len(untagged)} of {len(rows)} rows carry no "
                         f"'{rounds.METADATA_SCHEMA_NAME}' (first 5: {untagged[:5]}). "
-                        f"Upsert it as a number = {round_no}.")
+                        f"Upsert it as the batch name, '{rounds.batch_name(round_no)}'.")
     if wrong:
-        problems.append(f"{len(wrong)} rows carry another round's number "
+        problems.append(f"{len(wrong)} rows carry another round's batch name "
                         f"(first 5: {list(wrong.items())[:5]}).")
     return problems
 
@@ -153,7 +149,7 @@ def main() -> None:
     print(f"\n{rule}\nROUND {args.round} CHECKS OUT\n{rule}")
     print(f"  Batch:          {batch.name}")
     print(f"  Data rows:      {len(rows)}")
-    print(f"  Metadata field: {rounds.METADATA_SCHEMA_NAME} = {args.round} on every row")
+    print(f"  Metadata field: {rounds.METADATA_SCHEMA_NAME} = {batch.name} on every row")
     if args.csv:
         print(f"  Membership:     the same {len(rows)} frames as {args.csv}")
     print(rule)
