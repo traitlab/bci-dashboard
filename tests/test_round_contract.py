@@ -135,3 +135,15 @@ def test_the_dispatcher_and_the_verifier_name_the_same_metadata_field(
     them or none, which is the point of the module."""
     assert dispatch_round.METADATA_SCHEMA_NAME == rounds.METADATA_SCHEMA_NAME
     assert verify_round.rounds.METADATA_SCHEMA_NAME == rounds.METADATA_SCHEMA_NAME
+
+
+def test_unparseable_rows_are_kept_by_key_and_split_by_arm(close_round, tmp_path):
+    rows = [{"data_row": {"global_key": k},
+             "projects": {"p": {"labels": [{"annotations": {"objects": []}}]}}}
+            for k in ("a", "b", "c")]
+    entries, skipped = close_round.new_gt_entries(rows, "p", set())
+    assert entries == [] and skipped.no_species_keys == ["a", "b", "c"]
+    ledger = tmp_path / "round_1.csv"
+    ledger.write_text("round,global_key,picked_by\n1,a,control\n1,b,queue\n1,c,queue\n")
+    assert close_round.arm_counts(skipped.no_species_keys, 1, tmp_path) == "prioritised 2, control 1"
+    assert close_round.arm_counts(["a"], 9, tmp_path) == "no ledger, arms unknown"

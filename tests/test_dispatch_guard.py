@@ -33,8 +33,9 @@ def run(dispatch_round, tmp_path, monkeypatch):
     gt = tmp_path / "gt.csv"
     _write(gt, ["global_key", "wcvp_canonical_name"], [["old.JPG", "x"]])
     ledger = tmp_path / "rounds"
-    _write(tmp_path / "send_first_queue.csv", ["global_key", "predicted_species", "confidence"],
-           [["new1.JPG", "sp a", "0.9"], ["new2.JPG", "sp b", "0.4"]])
+    _write(tmp_path / "send_first_queue.csv", ["global_key", "predicted_species", "confidence",
+                                               "species_labelled_crowns", "species_top1_accuracy"],
+           [["new1.JPG", "sp a", "0.9", "12", "0.95"], ["new2.JPG", "sp b", "0.4", "3", ""]])
     monkeypatch.setattr(d, "GT_CSV", gt)
     monkeypatch.setattr(d, "LEDGER_DIR", ledger)
     monkeypatch.setattr(d.settings, "load_config", lambda: {"labelbox": {
@@ -83,8 +84,12 @@ def test_a_dispatched_batch_lands_in_the_round_ledger_and_is_skipped_next_time(r
         rows = list(csv.DictReader(f))
     assert [r["global_key"] for r in rows] == ["new1.JPG", "new2.JPG"]
     assert list(rows[0]) == ["round", "batch_id", "global_key", "data_row_id", "picked_by",
-                             "queue", "predicted_species", "confidence", "mission", "site",
+                             "queue", "predicted_species", "confidence",
+                             "species_labelled_crowns", "species_top1_accuracy", "mission", "site",
                              "dispatched_at"]
+    # the species state at dispatch, so a later read-out does not re-derive the queue
+    assert [(r["species_labelled_crowns"], r["species_top1_accuracy"]) for r in rows] == [
+        ("12", "0.95"), ("3", "")]
     assert [(r["round"], r["batch_id"], r["picked_by"], r["data_row_id"],
              r["predicted_species"], r["confidence"]) for r in rows] == [
         ("2", "1", "queue", "id_new1.JPG", "sp a", "0.9"),
@@ -138,3 +143,39 @@ def test_a_zero_byte_ledger_gets_its_header(dispatch_round, tmp_path):
     (tmp_path / "round_3.csv").write_bytes(b"")
     path = dispatch_round.record_sent(["k"], 3, tmp_path / "none.csv", None, {"k": "id"}, tmp_path)
     assert path.read_text().splitlines()[0].startswith("round,batch_id,global_key")
+
+
+def test_the_ledger_is_committed_in_a_repo_and_only_warned_about_outside_one(
+        dispatch_round, tmp_path, capsys):
+    import subprocess
+    d = dispatch_round
+    repo = tmp_path / "repo"
+    (repo / "input" / "rounds").mkdir(parents=True)
+    ledger = repo / "input" / "rounds" / "round_1.csv"
+    ledger.write_text("round,global_key\n1,a.JPG\n")
+    git = ["git", "-C", str(repo)]
+    subprocess.run([*git, "init", "-q"], check=True)
+    subprocess.run([*git, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q",
+                    "--allow-empty", "-m", "root"], check=True,
+                   env={"GIT_CONFIG_GLOBAL": "/dev/null", "PATH": "/usr/bin:/bin:/opt/homebrew/bin"})
+    subprocess.run([*git, "config", "user.name", "t"], check=True)
+    subprocess.run([*git, "config", "user.email", "t@t"], check=True)
+    assert d.commit_ledger(ledger, 1) is True
+    log = subprocess.run([*git, "log", "--format=%s", "-1"], capture_output=True, text=True,
+                         check=True)
+    assert log.stdout.strip() == "data(rounds): round 1 ledger"
+    assert subprocess.run([*git, "status", "--porcelain"], capture_output=True,
+                          text=True, check=True).stdout == ""
+    outside = tmp_path / "loose" / "round_1.csv"
+    outside.parent.mkdir()
+    outside.write_text("round,global_key\n")
+    assert d.commit_ledger(outside, 1) is False
+    assert "git add" in capsys.readouterr().out
+
+
+def test_species_with_one_or_two_photos_are_counted(dispatch_round, tmp_path):
+    csv_path = tmp_path / "send_batches.csv"
+    _write(csv_path, ["batch_id", "global_key", "predicted_species"],
+           [["1", "a", "x"], ["1", "b", "x"], ["1", "c", "x"], ["1", "d", "y"], ["1", "e", ""]])
+    _write(tmp_path / "send_first_queue.csv", ["global_key", "predicted_species"], [["e", "z"]])
+    assert dispatch_round.fragment_species(["a", "b", "c", "d", "e"], csv_path, "1") == (2, 3)
