@@ -12,8 +12,8 @@ reads them (`health.load_health`). Nothing here decides a queue rule.
 
 Two things differ from the main queue. The catalog frames have no embedding
 vectors, so nothing ranks them by novelty and each queue runs in confidence
-order. And missions listed in `input/priority_missions.txt` (ground data on
-their crowns) sort first inside each queue.
+order. And every frame of a mission listed in `input/priority_missions.txt`
+(ground data on its crowns) goes out first, in its own batches, whatever its queue.
 
 Writes to --out:
   send_batches.csv      what `dispatch_round.py --batch N` sends. data_row_id is
@@ -85,6 +85,27 @@ def site_of(mission: str) -> str:
     return parts[1] if len(parts) > 2 else ""
 
 
+def pack_priority_first(queue_rows: list, priority: set) -> list:
+    """Every priority-mission frame in the first batches, then the 65/20/15 batches.
+
+    Ground data makes these frames a double verification of the botanists, so all
+    of them are wanted, whatever their queue: as a census of the transect, not the
+    queue's pick of it. They split evenly into as few batches as fit `BATCH_SIZE`
+    (203 frames: 68, 68, 67), with no control, since nothing in them was chosen.
+    The rest are packed as before and numbered on from there.
+    """
+    key_at = SEND_FIRST_COLUMNS.index("global_key")
+    first = [r for r in queue_rows if r[key_at] in priority]
+    rest = [r for r in queue_rows if r[key_at] not in priority]
+    if not first:
+        return chunk_send_batches(rest)
+    n = -(-len(first) // BATCH_SIZE)
+    head = chunk_send_batches(first, batch_size=-(-len(first) // n), control_fraction=0,
+                              share=0)
+    offset = max(b[0] for b in head)
+    return head + [[b[0] + offset, *b[1:]] for b in chunk_send_batches(rest)]
+
+
 def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missions) -> dict:
     """Queue, batch and tracking rows for the frames that have an answer.
 
@@ -104,7 +125,7 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
                    fmt(top1_of.get(pred)) if pred in top1_of else "",
                    "" if rank == NO_NOVELTY else rank, ""]
                   for q, key, pred, conf, rank in decided]
-    batch_rows = chunk_send_batches(queue_rows, priority=frozenset(priority))
+    batch_rows = pack_priority_first(queue_rows, priority)
     return {"queue_rows": with_batch_ids(queue_rows, batch_rows), "batch_rows": batch_rows,
             "missing": missing, "n_no_answer": n_no_answer, "mission": mission,
             "priority": priority, "already_sent": [k for k in pool if k in sent]}

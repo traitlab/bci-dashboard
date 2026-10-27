@@ -1,6 +1,7 @@
 """Priority missions in the queue order, and the catalog pool packed into batches.
 
-Missions with ground data on their crowns go first inside each queue. The random
+Missions with ground data on their crowns go first inside each queue, and the
+catalog builder sends all their frames in their own first batches. The random
 control stays a uniform draw over the whole pool, so the priority list must not
 tilt it. The builder calls the real queue and packing code, so a tiny synthetic
 pool with deep enough queues has to come out as the 65 / 20 / 15 mix.
@@ -92,7 +93,7 @@ def test_the_priority_list_does_not_steer_the_control_toward_priority_frames(que
 
 def test_a_synthetic_pool_comes_out_65_20_15(catalog_batches):
     pool, predictions, per_species = synthetic_pool()
-    built = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY})
+    built = catalog_batches.build(pool, predictions, health(per_species), set(), set())
     first = [b for b in built["batch_rows"] if b[0] == 1]
     assert len(first) == 100
     assert sum(b[4] == "control" for b in first) == 15
@@ -101,11 +102,21 @@ def test_a_synthetic_pool_comes_out_65_20_15(catalog_batches):
     assert queued.count("long_tail") == 65
 
 
-def test_priority_frames_fill_the_first_batch_first(catalog_batches):
-    pool, predictions, per_species = synthetic_pool(n_priority_rare=40)
+def test_every_priority_frame_goes_first_whatever_its_queue(catalog_batches):
+    """A census of the ground-data transects: low-confidence priority frames ride
+    with the long-tail ones, no control is drawn into them, and the 65/20/15
+    batches follow, numbered on."""
+    pool, predictions, per_species = synthetic_pool(n_priority_rare=150)
+    for i in range(10):
+        pool[f"known{i:03d}.JPG"] = url(PRIORITY, f"known{i:03d}.JPG")
     built = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY})
-    first = {b[2] for b in built["batch_rows"] if b[0] == 1 and b[4] == "queue"}
-    assert built["priority"] <= first | {b[2] for b in built["batch_rows"] if b[4] == "control"}
+    rows = built["batch_rows"]
+    head = [b for b in rows if b[0] <= 2]
+    assert {b[2] for b in head} == built["priority"]
+    assert [sum(b[0] == n for b in head) for n in (1, 2)] == [80, 80]
+    assert all(b[4] == "queue" for b in head)
+    third = [b for b in rows if b[0] == 3]
+    assert any(b[4] == "control" for b in third)
 
 
 def test_frames_with_no_cached_answer_are_reported_not_dropped(catalog_batches):
