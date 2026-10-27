@@ -653,3 +653,10 @@ def page(request):
     """
     html, stdout = request.getfixturevalue(request.param)
     return html, stdout, PAGES[request.param][2]
+
+
+@pytest.fixture(scope="session")
+def catalog_batches():
+    """`labelling/catalog_batches.py`, loaded for `build` and `summary`. It puts
+    `dashboard/` on the path itself and reads no Labelbox, key or network."""
+    return load("_catalog_batches_under_test", REPO / "labelling" / "catalog_batches.py")

@@ -106,8 +106,14 @@ def load_selection_csv(csv_path: Path, batch_id: str | None = None,
                 if not (row.get("data_row_id") or "").strip():
                     no_id.append(gk)
                 n_control += (row.get("picked_by") or "").strip() == "control"
-    if no_id:
-        # Not in the dispatch dataset, so Labelbox would only report them missing.
+    if no_id and len(no_id) == len(global_keys):
+        # Every id blank is a file nobody could resolve offline: the catalog pool
+        # (`catalog_batches.py`) is in no local inventory. Step 2 looks each key up
+        # in the dataset, and a key it lacks is reported there as missing.
+        print("  No data_row_id in this file: Labelbox is asked for them by global key.")
+    elif no_id:
+        # Some rows have one and some do not: the missing ones are not in the
+        # dispatch dataset, so Labelbox would only report them missing.
         sys.exit(f"ERROR: {len(no_id)} of the {len(global_keys)} selected rows have no data_row_id, "
                  f"so they are not in Labelbox and cannot be sent (first 5: {no_id[:5]}). "
                  f"Re-run measure.py, or drop them from the CSV.")
