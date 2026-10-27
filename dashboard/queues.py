@@ -23,6 +23,7 @@ from core import (
     HARD_MAX_TOP1,
     LOW_CONF,
     RELIABLE_MIN_TOP1,
+    REPO,
     WAIT_CONF,
     WELL_SAMPLED_MIN_N,
 )
@@ -160,6 +161,21 @@ def _share_from_env(raw: str | None, default: int = 20) -> int:
 
 
 QUEUE2_SHARE = _share_from_env(os.environ.get("BCI_QUEUE2_SHARE"))
+
+
+# One mission per line, `#` starts a comment. Missions with ground data on the
+# crowns (a second, independent identification) go first inside every queue.
+PRIORITY_MISSIONS_TXT = os.path.join(REPO, "input", "priority_missions.txt")
+
+
+def load_priority_missions(path: str = PRIORITY_MISSIONS_TXT) -> frozenset:
+    """The mission names to send first. An absent file is an empty set, and a
+    listed mission with no frame in the pool changes nothing."""
+    if not os.path.exists(path):
+        return frozenset()
+    with open(path, encoding="utf-8") as f:
+        lines = (line.split("#", 1)[0].strip() for line in f)
+        return frozenset(line for line in lines if line)
 
 
 def share_rows(queue_rows: list, taken: set, share: int) -> list:
@@ -542,7 +558,8 @@ def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> st
 
 
 def send_first_rows(predictions, joined_stems, canon, support, top1,
-                    novelty=None, key_prefix="", splits=None, sent=()) -> tuple:
+                    novelty=None, key_prefix="", splits=None, sent=(),
+                    priority=frozenset()) -> tuple:
     """Every unlabelled frame's queue, in the order send_first_queue.csv writes.
 
     Returns ``([(queue, stem, species, confidence, novelty_rank), ...],
@@ -570,6 +587,11 @@ def send_first_rows(predictions, joined_stems, canon, support, top1,
 
     ``sent`` is the keys in the round ledgers, keyed like ``novelty``: sent to
     Labelbox and not labelled yet, so they are not the next thing to send.
+
+    ``priority`` is a set of keys (keyed like ``novelty``) that sort first inside
+    their queue, ahead of novelty and confidence: the frames of missions that
+    have ground data. It reorders inside a queue and never moves a frame between
+    queues. Empty, which is the default, changes nothing.
     """
     novelty = novelty or {}
     splits = splits or {}
@@ -589,5 +611,6 @@ def send_first_rows(predictions, joined_stems, canon, support, top1,
         pred, conf = ranked[0]
         rows.append((queue_of_prediction(pred, conf, support, top1), stem, pred, conf,
                      novelty.get(key_prefix + stem, NO_NOVELTY)))
-    rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), r[4], r[3], r[1]))
+    rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), key_prefix + r[1] not in priority,
+                             r[4], r[3], r[1]))
     return rows, n_no_answer, held_out
