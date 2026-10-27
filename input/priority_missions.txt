@@ -2,7 +2,7 @@
 # A frame from one of these gets a second, independent identification, so it is
 # sent first inside each queue (ahead of novelty and confidence). A mission
 # that is not in the pool yet changes nothing. The random control ignores this
-# list: it is a uniform draw over the whole pool.
+# list: it is a uniform draw over the frames not picked yet.
 20260423_bcipearson_wptsendero_m3e
 20260424_bcishannon_wptsendero_m3e
 20260424_bcihood_wptsendero_m3e

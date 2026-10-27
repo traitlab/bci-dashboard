@@ -104,7 +104,7 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
                    fmt(top1_of.get(pred)) if pred in top1_of else "",
                    "" if rank == NO_NOVELTY else rank, ""]
                   for q, key, pred, conf, rank in decided]
-    batch_rows = chunk_send_batches(queue_rows)
+    batch_rows = chunk_send_batches(queue_rows, priority=frozenset(priority))
     return {"queue_rows": with_batch_ids(queue_rows, batch_rows), "batch_rows": batch_rows,
             "missing": missing, "n_no_answer": n_no_answer, "mission": mission,
             "priority": priority, "already_sent": [k for k in pool if k in sent]}

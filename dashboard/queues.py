@@ -382,7 +382,8 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
                        control_fraction: float = CONTROL_FRACTION,
                        group_by: str = GROUP_BY, seed: int = CONTROL_SEED,
                        species_cap: int = SPECIES_CAP,
-                       share: int = QUEUE2_SHARE) -> list:
+                       share: int = QUEUE2_SHARE,
+                       priority: frozenset = frozenset()) -> list:
     """Species-grouped, priority-first batches over an already-ordered
     ``queue_rows`` (send_first_queue.csv order). Each species is visited once,
     at its highest-priority row; its rows travel together. Every batch is filled
@@ -412,6 +413,10 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
     batch's own rows, and a batch always keeps one queue photo. The result is
     still a repartition of the queue: control photos move forward, are never
     added, and no photo is sent twice.
+
+    ``priority`` is a set of global keys whose rows form their own group per
+    species, so a priority frame does not pull the rest of its species into the
+    batch with it. The species cap still counts both groups together.
     """
     if batch_size < 1:
         raise ValueError(f"batch_size must be at least 1, got {batch_size}")
@@ -425,14 +430,14 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
     n_control = control_size(batch_size, control_fraction)
     cap = batch_size - n_control  # room each batch keeps for queue rows
 
-    order: list[str] = []
-    by_species: dict[str, list[int]] = defaultdict(list)
+    order: list[tuple[str, bool]] = []
+    by_species: dict[tuple[str, bool], list[int]] = defaultdict(list)
     for i, row in enumerate(queue_rows):
-        sp = row[species_at]
-        if sp not in by_species:
-            order.append(sp)
-        by_species[sp].append(i)
-    groups = [(sp, by_species[sp]) for sp in order]
+        group = (row[species_at], row[key_at] in priority)
+        if group not in by_species:
+            order.append(group)
+        by_species[group].append(i)
+    groups = [(g[0], by_species[g]) for g in order]
     if group_by == "rank":
         # One-row groups through the same packing loop: rank order, no splitting.
         groups = [(row[species_at], [i]) for i, row in enumerate(queue_rows)]
