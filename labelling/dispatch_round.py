@@ -377,6 +377,19 @@ def priority_for_batch(batch_id, explicit=None):
     return min(max(n, 1), MAX_PRIORITY)
 
 
+def with_basename_aliases(key_to_id: dict[str, str]) -> dict[str, str]:
+    """Also answer to each photo's bare file name when exactly one key ends in it.
+
+    The 2024_bci dataset keys photos as `<flight folder>/<file name>` while the
+    catalog pool names them by file name alone. A name two keys share stays
+    unmatched and is reported missing, never guessed.
+    """
+    by_name: dict[str, list[str]] = {}
+    for key, uid in key_to_id.items():
+        by_name.setdefault(key.rsplit("/", 1)[-1], []).append(uid)
+    return {n: ids[0] for n, ids in by_name.items() if len(ids) == 1} | key_to_id
+
+
 def match_keys(global_keys, key_to_id):
     """The selected photos that Labelbox actually has, and a warning for the rest.
 
@@ -423,7 +436,7 @@ def tag_round(client, matched_keys, key_to_id, name):
         print(f"  Batch {i // UPSERT_CHUNK + 1}: {len(batch)} rows tagged")
 
 
-def create_batch(client, project_name, matched_keys, round_no, priority):
+def create_batch(client, project_name, data_row_ids, round_no, priority):
     """Put the round in front of the botanists, named so a human can find it.
 
     The name carries the round number and the day it went out, which is what
@@ -436,10 +449,10 @@ def create_batch(client, project_name, matched_keys, round_no, priority):
 
     batch = project.create_batch(
         name=rounds.batch_name(round_no),
-        global_keys=matched_keys,
+        data_rows=data_row_ids,
         priority=priority,
     )
-    print(f"  Created batch: {batch.name} ({len(matched_keys)} data rows, priority={priority})")
+    print(f"  Created batch: {batch.name} ({len(data_row_ids)} data rows, priority={priority})")
     return batch
 
 
@@ -490,6 +503,7 @@ def main() -> None:
     print(f"\nStep 2 - Fetching data row IDs from '{combined_dataset_name}'...")
     key_to_id = fetch_data_row_ids(client, combined_dataset_name)
     print(f"  Exported {len(key_to_id)} data rows")
+    key_to_id = with_basename_aliases(key_to_id)
     matched_keys, missing = match_keys(global_keys, key_to_id)
 
     name = rounds.batch_name(args.round)
@@ -501,7 +515,8 @@ def main() -> None:
     # Ledger first: a crash after the batch exists must not let a rerun send again.
     ledger = record_sent(matched_keys, args.round, args.csv, args.batch, key_to_id, LEDGER_DIR)
     try:
-        batch = create_batch(client, project_b_name, matched_keys, args.round, priority)
+        batch = create_batch(client, project_b_name, [key_to_id[k] for k in matched_keys],
+                             args.round, priority)
     except (Exception, SystemExit):
         print(f"  Ledger rows kept in {ledger}. If Labelbox made no batch, delete them "
               f"there before re-running, or they are skipped as sent.")
