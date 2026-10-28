@@ -139,6 +139,20 @@ def test_a_rarity_reorder_moves_no_priority_frame_between_its_batches(catalog_ba
     assert head(ranked) == head(plain)
 
 
+def test_the_control_does_not_move_when_the_queue_is_reordered(catalog_batches):
+    """The control is drawn from the whole pool before packing, so a rarity table
+    that reorders every queue leaves the same frames in the control."""
+    pool, predictions, per_species = synthetic_pool()
+    plain = catalog_batches.build(pool, predictions, health(per_species), set(), set(),
+                                  census={}, iucn={}, wcvp_range={})
+    rare = {predictions[k][0][0].lower(): i for i, k in enumerate(sorted(pool)[::3])}
+    ranked = catalog_batches.build(pool, predictions, health(per_species), set(), set(),
+                                   census=rare, iucn={}, wcvp_range={})
+    control = lambda built: {b[2] for b in built["batch_rows"] if b[4] == "control"}
+    assert control(ranked) == control(plain)
+    assert sum(b[0] == 1 and b[4] == "control" for b in ranked["batch_rows"]) == 15
+
+
 def test_frames_with_no_cached_answer_are_reported_not_dropped(catalog_batches):
     pool, predictions, per_species = synthetic_pool(n_rare=30, n_known=0)
     del predictions["rare003.JPG"]

@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import random
 import re
 import sys
 from collections import Counter
@@ -55,6 +56,8 @@ from core import (
 from health import load_health, scan_cache
 from queues import (
     BATCH_SIZE,
+    CONTROL_GROUP,
+    CONTROL_SEED,
     GROUP_BY,
     QUEUE_ORDER,
     SEND_BATCH_COLUMNS,
@@ -62,6 +65,7 @@ from queues import (
     SEND_FIRST_COLUMNS,
     SEND_FIRST_HEADER,
     chunk_send_batches,
+    control_size,
     load_priority_missions,
     send_first_rows,
     with_batch_ids,
@@ -196,12 +200,39 @@ def pack_priority_first(queue_rows: list, priority: set, mission: dict | None = 
     rest = [r for r in queue_rows if r[key_at] not in priority]
     cap = {"group_caps": spread_caps(mission) if mission else ()}
     if not first:
-        return chunk_send_batches(rest, **cap)
+        return pack_with_reserved_control(rest, **cap)
     n = -(-len(first) // BATCH_SIZE)
     head = chunk_send_batches(first, batch_size=-(-len(first) // n), control_fraction=0,
                               share=0)
     offset = max(b[0] for b in head)
-    return head + [[b[0] + offset, *b[1:]] for b in chunk_send_batches(rest, **cap)]
+    return head + [[b[0] + offset, *b[1:]] for b in pack_with_reserved_control(rest, **cap)]
+
+
+def pack_with_reserved_control(rows: list, seed: int = CONTROL_SEED, **cap) -> list:
+    """The 65/20/15 batches with the control drawn once from the whole pool.
+
+    The main queue draws each batch's control from what its queue picks leave,
+    so a reorder of the queue (a rarity table, the margin rule) moves the control
+    too. Here the control is a seeded draw from the pool in key order, reserved
+    before packing: only the pool and the seed decide it. The queue packs the
+    rest into batches of `BATCH_SIZE` minus the control, and each batch takes the
+    next `control_size()` of the draw; the last batch takes what is left. The draw
+    is the control's share of the pool, so a small pool keeps queue work.
+    """
+    key_at, queue_at = (SEND_FIRST_COLUMNS.index(c) for c in ("global_key", "queue"))
+    per = control_size()
+    by_key = sorted(rows, key=lambda r: r[key_at])
+    n_control = round(len(rows) * per / BATCH_SIZE)  # the control's share of the pool
+    control = random.Random(seed).sample(by_key, n_control) if per else []
+    drawn = {r[key_at] for r in control}
+    queued = chunk_send_batches([r for r in rows if r[key_at] not in drawn],
+                                batch_size=BATCH_SIZE - per, control_fraction=0, **cap)
+    n = max((b[0] for b in queued), default=1 if control else 0)
+    for b in range(1, n + 1):
+        chunk = control[(b - 1) * per:b * per] if b < n else control[(b - 1) * per:]
+        queued.extend([b, CONTROL_GROUP, r[key_at], r[queue_at], "control"]
+                      for r in sorted(chunk, key=lambda r: r[key_at]))
+    return queued
 
 
 def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missions,
