@@ -316,15 +316,17 @@ def _queue(h, support, per_species):
     # the number on the page is the number of batches in send_batches.csv.
     # chunk_send_batches reads send_first_queue.csv rows by position, and these
     # rows are the decision before measure.py gives them their columns, so the
-    # three fields it reads are placed by name and the rest left empty.
+    # four fields it reads are placed by name and the rest left empty. The
+    # confidence spreads the low-confidence share over its bands.
     at = {c: queues.SEND_FIRST_COLUMNS.index(c)
-          for c in ("queue", "global_key", "predicted_species")}
+          for c in ("queue", "global_key", "predicted_species", "confidence")}
     packable = []
-    for q, stem, pred, _conf, _rank, _how_new in rows:
+    for q, stem, pred, conf, _rank, _how_new in rows:
         row = [""] * len(queues.SEND_FIRST_COLUMNS)
         row[at["queue"]] = q
         row[at["global_key"]] = hc.GT_KEY_PREFIX + stem
         row[at["predicted_species"]] = pred
+        row[at["confidence"]] = f"{conf:.6f}"
         packable.append(row)
     batch_rows = queues.chunk_send_batches(packable)
     return {

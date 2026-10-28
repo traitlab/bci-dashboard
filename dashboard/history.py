@@ -208,8 +208,11 @@ def check_send_batches(directory, queue_path, n_unlab, page_group_by=None):
                  f"rows of one species, {over}")
         if group_by == "rank":
             continue
-        runs = [r["species_group"] for i, r in enumerate(rows)
-                if i == 0 or r["species_group"] != rows[i - 1]["species_group"]]
+        # The low-confidence share is picked one per confidence band ahead of the
+        # species groups, so its rows sit apart from their species by design.
+        grouped = [r for r in rows if r["queue"] != queues.SHARE_QUEUE]
+        runs = [r["species_group"] for i, r in enumerate(grouped)
+                if i == 0 or r["species_group"] != grouped[i - 1]["species_group"]]
         if len(runs) != len(set(runs)):
             fail(f"send_batches.csv batch {bid}: species group is not "
                  f"contiguous, {runs}")
