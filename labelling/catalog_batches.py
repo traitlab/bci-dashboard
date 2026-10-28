@@ -11,8 +11,9 @@ name canonicaliser, come from the labelled history exactly as `measure.send_queu
 reads them (`health.load_health`). Nothing here decides a queue rule.
 
 Two things differ from the main queue. The catalog frames have no embedding
-vectors, so inside each queue they run in ecological rarity order instead of
-novelty order (`rarity_rank`): IUCN threatened species first, then by stems in
+vectors, so inside each queue they run in confidence order instead of novelty
+order. With `--rarity` (off by default: lefolab wants no rarity order before a
+model trained on BCI labels) the order is ecological rarity (`rarity_rank`): IUCN threatened species first, then by stems in
 the BCI 50-ha census (`input/bci_census.csv`, fewest first), then the species
 the census does not list by WCVP range size (`input/species_range.csv`, fewest
 botanical regions first, the endemism proxy), confidence breaking ties. Label scarcity decides the
@@ -354,11 +355,12 @@ def summary(pool: dict, built: dict) -> str:
             + ", ".join(f"{q} {by_q[q]}" for q in QUEUE_ORDER if by_q[q])
             + f", control {sum(r[pick_at] == 'control' for r in rows)}, "
             f"priority mission {sum(r[key_at] in built['priority'] for r in rows)} "
-            f"(of the control {sum(r[key_at] in built['priority'] for r in rows if r[pick_at] == 'control')}), "
-            f"IUCN-listed {sum(bool(c) for _, c, _ in rarity)}, "
-            f"census stems <= 10: {sum(bool(n) and int(n) <= 10 for n, _, _ in rarity)}, "
-            f"not in census {sum(not n for n, _, _ in rarity)}, "
-            f"WCVP regions <= 5: {sum(bool(r) and int(r) <= 5 for _, _, r in rarity)}")
+            f"(of the control {sum(r[key_at] in built['priority'] for r in rows if r[pick_at] == 'control')})"
+            + (f", IUCN-listed {sum(bool(c) for _, c, _ in rarity)}, "
+               f"census stems <= 10: {sum(bool(n) and int(n) <= 10 for n, _, _ in rarity)}, "
+               f"not in census {sum(not n for n, _, _ in rarity)}, "
+               f"WCVP regions <= 5: {sum(bool(r) and int(r) <= 5 for _, _, r in rarity)}"
+               if any(any(v) for v in built["rarity"].values()) else ""))
     return "\n".join(lines)
 
 
@@ -372,6 +374,9 @@ def parse_args():
     ap.add_argument("--out", type=Path, required=True, help="folder to write the files to")
     ap.add_argument("--priority-missions", type=Path, default=None,
                     help="missions to sort first (default: input/priority_missions.txt)")
+    ap.add_argument("--rarity", action="store_true",
+                    help="order inside each queue by IUCN, census and WCVP range (off: "
+                         "lefolab wants no rarity order before a model trained on BCI labels)")
     add_input_flags(ap)
     add_label_source_flag(ap)
     return ap.parse_args()
@@ -386,8 +391,10 @@ def main() -> None:
                          if args.priority_missions else load_priority_missions())
     with open(args.gt, encoding="utf-8") as f:
         labels = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
+    off = {} if not args.rarity else None  # None reads the input/ tables
     built = build(pool, scan_cache(str(args.cache)).predictions, h,
-                  ledger_keys(LEDGER_DIR), priority_missions, labels=labels)
+                  ledger_keys(LEDGER_DIR), priority_missions, census=off, iucn=off,
+                  wcvp_range=off, labels=labels)
     write_files(args.out, built, pool)
     print(summary(pool, built))
     print(f"wrote send_batches.csv, send_first_queue.csv, frames.csv, propagated_labels.csv"
