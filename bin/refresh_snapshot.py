@@ -342,7 +342,11 @@ def label_dates(provenance: str) -> tuple[str | None, str | None]:
 
 
 def refresh(
-    repo: Path, generated: str, exports: list[Path], export_date: str | None
+    repo: Path,
+    generated: str,
+    exports: list[Path],
+    export_date: str | None,
+    hand_out: int = 0,
 ) -> None:
     date.fromisoformat(generated)
     if exports and not export_date:
@@ -445,7 +449,8 @@ def refresh(
         catalog = data / CATALOG_POOL
         if (catalog / "input.csv").is_file() and (catalog / "cache").is_dir():
             run(repo, "labelling/catalog_batches.py", "--pool", str(catalog / "input.csv"),
-                "--cache", str(catalog / "cache"), "--out", str(tables), env=env)
+                "--cache", str(catalog / "cache"), "--out", str(tables),
+                "--hand-out", str(hand_out), env=env)
         else:
             print(f"catalog batches: skipped, no {CATALOG_POOL}/input.csv and cache/ "
                   "under data/; the queue page shows the main pool")
@@ -646,6 +651,7 @@ def main(argv: list[str] | None = None) -> int:
     build.add_argument("--date", default=datetime.now(timezone.utc).date().isoformat())
     build.add_argument("--export", type=Path, action="append", default=[])
     build.add_argument("--export-date")
+    build.add_argument("--hand-out", type=int, default=0)
     args = parser.parse_args(argv)
     try:
         if args.command == "unpack":
@@ -658,6 +664,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.date,
                 [p.resolve() for p in args.export],
                 args.export_date,
+                args.hand_out,
             )
     except (
         ValueError,

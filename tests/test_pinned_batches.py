@@ -1,8 +1,8 @@
 """Batches handed to the collaborator keep their frames and numbers across rebuilds.
 
 The catalog batches are rebuilt from the latest labels every refresh, and the
-collaborator sends them by hand. The pin file holds the next four unsent batches,
-the send record (round ledgers) is written from the Labelbox export, and a sent
+collaborator sends them by hand. The pin file holds exactly the batches handed out
+(`--hand-out K` adds the next K), the send record (round ledgers) is written from the Labelbox export, and a sent
 number is never reused.
 
     .venv/bin/pytest tests/test_pinned_batches.py
@@ -13,16 +13,18 @@ from __future__ import annotations
 import csv
 import json
 
-from test_catalog_batches import health, synthetic_pool
+from test_catalog_batches import PRIORITY, health, synthetic_pool
 
 
-def run(cb, per_species, pins_path, ledger, sent=frozenset()):
+def run(cb, per_species, pins_path, ledger, sent=frozenset(), hand_out=0, priority=frozenset(),
+        n_rare=200):
     """One build as `main` does it: read the pins and the record, build, rewrite the pins."""
-    pool, predictions, _ = synthetic_pool()
+    pool, predictions, _ = synthetic_pool(n_rare)
     sent_nums = cb.sent_rounds(str(ledger))
-    built = cb.build(pool, predictions, health(per_species), set(sent), set(),
-                     pins=cb.read_pins(pins_path), sent_nums=sent_nums)
-    cb.write_pins(pins_path, built["batch_rows"], sent_nums)
+    pins = cb.read_pins(pins_path)
+    built = cb.build(pool, predictions, health(per_species), set(sent), set(priority),
+                     pins=pins, sent_nums=sent_nums)
+    cb.write_pins(pins_path, built["batch_rows"], pins, sent_nums, hand_out)
     return built
 
 
@@ -43,7 +45,7 @@ def test_batch_1_keeps_its_frames_when_the_labels_move_frames_between_queues(
         catalog_batches, tmp_path):
     pins = tmp_path / "pins.csv"
     _, _, per_species = synthetic_pool()
-    first = run(catalog_batches, per_species, pins, tmp_path)
+    first = run(catalog_batches, per_species, pins, tmp_path, hand_out=1)
     # New labels make 60 rare species well sampled: they move to the low-confidence queue.
     labels_changed = per_species + [
         {"species": f"Rare sp{i}", "n_labelled_frames": 100, "top1_accuracy": 0.95}
@@ -58,22 +60,82 @@ def test_batch_1_keeps_its_frames_when_the_labels_move_frames_between_queues(
     assert batch(loose, 1) != batch(first, 1)
 
 
-def test_after_batch_1_is_recorded_as_sent_the_window_starts_at_2_and_1_is_not_reused(
+def send(ledger, number, keys):
+    ledger.mkdir(exist_ok=True)
+    with open(ledger / f"round_{number}.csv", "w", newline="") as f:
+        csv.writer(f).writerows([["round", "global_key"], *[[number, k] for k in keys]])
+
+
+def pinned_numbers(path):
+    return sorted({int(r["batch_id"]) for r in read(path)})
+
+
+def test_after_batch_1_is_recorded_as_sent_its_pin_leaves_and_1_is_not_reused(
         catalog_batches, tmp_path):
     pins, ledger = tmp_path / "pins.csv", tmp_path / "rounds"
     _, _, per_species = synthetic_pool()
-    first = run(catalog_batches, per_species, pins, ledger)
+    first = run(catalog_batches, per_species, pins, ledger, hand_out=2)
     sent = batch(first, 1)
-    ledger.mkdir()
-    with open(ledger / "round_1.csv", "w", newline="") as f:
-        csv.writer(f).writerows([["round", "global_key"], *[[1, k] for k in sent]])
+    send(ledger, 1, sent)
     second = run(catalog_batches, per_species, pins, ledger, sent=set(sent))
     numbers = {b[0] for b in second["batch_rows"]}
     assert 1 not in numbers and min(numbers) == 2
     assert not set(sent) & {b[2] for b in second["batch_rows"]}
     assert batch(second, 2) == batch(first, 2)
-    assert {r["batch_id"] for r in read(pins)} <= {"2", "3", "4", "5"}
+    assert pinned_numbers(pins) == [2]
     assert second["pins_dropped"] == {"recorded as sent": len(sent)}
+
+
+def test_pins_do_not_refill_after_a_send_and_hand_out_adds_exactly_the_next_batch(
+        catalog_batches, tmp_path):
+    pins, ledger = tmp_path / "pins.csv", tmp_path / "rounds"
+    _, _, per_species = synthetic_pool(500)
+    first = run(catalog_batches, per_species, pins, ledger, hand_out=4, n_rare=500)
+    assert pinned_numbers(pins) == [1, 2, 3, 4]
+    assert max(b[0] for b in first["batch_rows"]) >= 5
+    send(ledger, 1, batch(first, 1))
+    again = run(catalog_batches, per_species, pins, ledger, sent=set(batch(first, 1)), n_rare=500)
+    assert pinned_numbers(pins) == [2, 3, 4]
+    assert batch(again, 5) and not [r for r in read(pins) if r["batch_id"] == "5"]
+    run(catalog_batches, per_species, pins, ledger, sent=set(batch(first, 1)), hand_out=1,
+        n_rare=500)
+    assert pinned_numbers(pins) == [2, 3, 4, 5]
+
+
+def test_hand_out_never_reuses_a_sent_or_pinned_number(catalog_batches, tmp_path):
+    pins, ledger = tmp_path / "pins.csv", tmp_path / "rounds"
+    _, _, per_species = synthetic_pool(500)
+    first = run(catalog_batches, per_species, pins, ledger, hand_out=2, n_rare=500)
+    send(ledger, 1, batch(first, 1))
+    sent = set(batch(first, 1))
+    run(catalog_batches, per_species, pins, ledger, sent=sent, hand_out=2, n_rare=500)
+    assert pinned_numbers(pins) == [2, 3, 4]
+    send(ledger, 2, batch(first, 2))
+    run(catalog_batches, per_species, pins, ledger, sent=sent | set(batch(first, 2)),
+        hand_out=1, n_rare=500)
+    assert pinned_numbers(pins) == [3, 4, 5]
+
+
+def test_a_new_priority_mission_goes_into_the_first_batch_not_handed_out(
+        catalog_batches, tmp_path):
+    pins, ledger = tmp_path / "pins.csv", tmp_path / "rounds"
+    _, _, per_species = synthetic_pool()
+    run(catalog_batches, per_species, pins, ledger, hand_out=2)
+    held = {r["global_key"] for r in read(pins)}
+    built = run(catalog_batches, per_species, pins, ledger, priority={PRIORITY})
+    assert {r["global_key"] for r in read(pins)} == held
+    pool, _, _ = synthetic_pool()
+    priority = {k for k, u in pool.items() if PRIORITY in u} - held
+    assert priority and {b[0] for b in built["batch_rows"] if b[2] in priority} == {3}
+    run(catalog_batches, per_species, pins, ledger, priority={PRIORITY}, hand_out=1)
+    assert pinned_numbers(pins) == [1, 2, 3]
+
+
+def test_an_empty_pin_file_with_no_hand_out_pins_nothing(catalog_batches, tmp_path):
+    pins = tmp_path / "pins.csv"
+    pins.write_text("batch_id,global_key,picked_by\n")
+    built = run(catalog_batches, synthetic_pool()[2], pins, tmp_path)
+    assert built["batch_rows"] and read(pins) == []
 
 
 def test_a_sent_number_is_not_reused_when_nothing_is_pinned(catalog_batches, tmp_path):
@@ -84,21 +146,19 @@ def test_a_sent_number_is_not_reused_when_nothing_is_pinned(catalog_batches, tmp
     assert min(b[0] for b in built["batch_rows"]) == 8
 
 
-def test_a_missing_pin_file_gives_the_old_output_and_writes_the_file(catalog_batches, tmp_path):
+def test_a_missing_pin_file_gives_the_old_output_and_pins_nothing(catalog_batches, tmp_path):
     pool, predictions, per_species = synthetic_pool()
     old = catalog_batches.build(pool, predictions, health(per_species), set(), set())
     pins = tmp_path / "input" / "pinned_batches.csv"
     new = run(catalog_batches, per_species, pins, tmp_path)
     assert new["batch_rows"] == old["batch_rows"]
-    rows = read(pins)
-    assert {int(r["batch_id"]) for r in rows} == {b[0] for b in old["batch_rows"]}
-    assert len(rows) == len(new["batch_rows"])
+    assert read(pins) == []
 
 
 def test_a_pinned_frame_gone_from_the_pool_is_dropped_and_said(catalog_batches, tmp_path):
     pins = tmp_path / "pins.csv"
     _, _, per_species = synthetic_pool()
-    first = run(catalog_batches, per_species, pins, tmp_path)
+    first = run(catalog_batches, per_species, pins, tmp_path, hand_out=1)
     gone = batch(first, 1)[0]
     pool, predictions, _ = synthetic_pool()
     del pool[gone]
