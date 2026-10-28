@@ -81,13 +81,21 @@ def photo_links_note(verify_dir) -> str:
     if got.get("status") != "checked":
         return (f'<p class="note">Labelbox photo links not checked: '
                 f'{esc(got.get("reason", "no reason recorded"))}.</p>')
-    n = int(got["old_host_rows"])
-    if not n:
+    old, broken = int(got["old_host_rows"]), int(got.get("broken_rows", 0))
+    if not old and not broken:
         return ""
-    return (f'<div class="warn"><strong>{n:,} of {int(got["total_rows"]):,} Labelbox data rows '
-            f'load their photo from the suspended Arbutus host</strong> '
-            f'({esc(got["old_host"])}, checked {esc(got["checked"])}). Labellers see blank '
-            f'frames on them. Their <code>row_data</code> must point at new Arbutus.</div>')
+    why = []
+    if old:
+        why.append(f'{old:,} still point at the suspended host ({esc(got["old_host"])}); '
+                   f'their <code>row_data</code> must point at new Arbutus')
+    if broken:
+        codes = ", ".join(f"{esc(k)}: {int(v):,}" for k, v in got.get("status_codes", {}).items()
+                          if k != "200")
+        why.append(f'{broken:,} do not answer a photo request ({codes}), for example a '
+                   f'folder that does not exist on the host')
+    return (f'<div class="warn"><strong>Labellers see blank frames on '
+            f'{max(old, broken):,} of {int(got["total_rows"]):,} Labelbox data rows</strong> '
+            f'(checked {esc(got["checked"])}): ' + "; ".join(why) + '.</div>')
 
 
 # read_round.py arm names, as CONTEXT.md says a page words them
