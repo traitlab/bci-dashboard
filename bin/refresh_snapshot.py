@@ -39,10 +39,13 @@ REQUIRED_FILES = (
     "embeddings_labelled/embeddings.npz",
     "embeddings_queue/embeddings.npz",
 )
+# The 2026 catalog pool: Labelbox dataset rows in no project, with their cached answers.
+CATALOG_POOL = "predictions_catalog_2026"
 # Beyond REQUIRED_FILES: globs under data/ that the offline build also reads.
 # The atlas exporter checks encoder provenance against each per-photo cache.
 BUNDLE_EXTRA_GLOBS = ("predictions/cache/*.json", "embeddings_labelled/cache/*.json",
-                      "embeddings_queue/cache/*.json", "crownfirst/*.json")
+                      "embeddings_queue/cache/*.json", "crownfirst/*.json",
+                      f"{CATALOG_POOL}/input.csv", f"{CATALOG_POOL}/cache/*.json")
 CROWNFIRST_EMBEDDINGS = "crownfirst/plantclef2024_tile2x2_max.json"
 PAGES = ("model_health_dashboard.html", "label_queue_dashboard.html")
 # Explicit public artifact membership. Adding a public file requires review here.
@@ -432,6 +435,15 @@ def refresh(
         tables = rendered / "tables"
         env["BCI_DASHBOARD_TABLES"] = str(tables)
         run(repo, "dashboard/measure.py", "--out-dir", str(tables), env=env)
+        # With the catalog pool on hand, its batches replace the queue measure.py
+        # wrote, and the queue page shows them. Without it the page is the main pool's.
+        catalog = data / CATALOG_POOL
+        if (catalog / "input.csv").is_file() and (catalog / "cache").is_dir():
+            run(repo, "labelling/catalog_batches.py", "--pool", str(catalog / "input.csv"),
+                "--cache", str(catalog / "cache"), "--out", str(tables), env=env)
+        else:
+            print(f"catalog batches: skipped, no {CATALOG_POOL}/input.csv and cache/ "
+                  "under data/; the queue page shows the main pool")
         # The queue page reads this from the tables it verifies against. No ledger
         # yet writes nothing and the page says pending. It is not linked, so not published.
         run(repo, "labelling/read_round.py", "--all", "--out", str(tables / "round_readout.csv"), env=env)

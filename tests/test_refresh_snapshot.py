@@ -101,7 +101,8 @@ def test_bundle_rejects_unlisted_extra_or_corrupted_data_before_extracting(
 
 def test_pack_round_trips_through_unpack_and_skips_unused_data(tmp_path):
     data = tmp_path / "data"
-    for name in (*refresh.REQUIRED_FILES, "predictions/cache/a.json", "thumbs/t.webp"):
+    for name in (*refresh.REQUIRED_FILES, "predictions/cache/a.json", "thumbs/t.webp",
+                 "predictions_catalog_2026/input.csv", "predictions_catalog_2026/cache/k.json"):
         (data / name).parent.mkdir(parents=True, exist_ok=True)
         (data / name).write_text(name)
     (data / "gt_dominant_taxon.provenance.txt").write_text(" export of 2026-08-27 \n")
@@ -111,6 +112,8 @@ def test_pack_round_trips_through_unpack_and_skips_unused_data(tmp_path):
     manifest = json.loads((destination / "input-manifest.json").read_text())
     assert manifest["label_source"] == "export of 2026-08-27"
     assert "data/predictions/cache/a.json" in manifest["files"]
+    assert "data/predictions_catalog_2026/input.csv" in manifest["files"]
+    assert "data/predictions_catalog_2026/cache/k.json" in manifest["files"]
     assert not (destination / "data/thumbs").exists()
     for name, checksum in manifest["files"].items():
         assert refresh.digest(destination / name) == checksum
@@ -229,6 +232,12 @@ def fixture_repo(root, *, fail_builder=False, fail_atlas=False):
         "(out/'held_out.csv').write_text('population,n_frames,n_correct_top1,top1_accuracy\\ntest,1,1,1.0\\n')\n"
         "(out/'run_log.txt').write_text('Recorded source provenance\\nOutput: '+str(out/'reference.json')+'\\n')\n"
     )
+    (root / "labelling/catalog_batches.py").write_text(
+        "from pathlib import Path\nimport sys\n"
+        "out=Path(sys.argv[sys.argv.index('--out')+1])\n"
+        "assert (out/'reference.json').is_file()\n"
+        "(out/'frames.csv').write_text('global_key,status\\n')\n"
+    )
     (root / "labelling/read_round.py").write_text(
         "from pathlib import Path\nimport sys\n"
         "assert '--all' in sys.argv and (Path(sys.argv[sys.argv.index('--out')+1]).parent/'reference.json').is_file()\n"
@@ -317,6 +326,9 @@ def test_success_rebuilds_and_keeps_source_dates_and_standalone_catalogues(tmp_p
     # The readout ran into the verified tables, but is not linked, so not published.
     assert (snapshot / "round_readout.csv").is_file()
     assert not (tmp_path / "docs/round_readout.csv").exists()
+    # No catalog pool under data/: the step says so and writes nothing.
+    assert "catalog batches: skipped" in result.stdout
+    assert not (snapshot / "frames.csv").exists()
     # No same-day early exit leaves stale published output behind.
     (tmp_path / "docs/index.html").write_text("corrupted copy")
     repeated = invoke(tmp_path)
@@ -327,6 +339,19 @@ def test_success_rebuilds_and_keeps_source_dates_and_standalone_catalogues(tmp_p
     assert (
         tmp_path / "docs/index.html"
     ).read_text() == "freshly verified public snapshot"
+
+
+def test_the_catalog_pool_writes_its_batches_into_the_verified_tables(tmp_path):
+    fixture_repo(tmp_path)
+    (tmp_path / "data/predictions_catalog_2026/cache").mkdir(parents=True)
+    (tmp_path / "data/predictions_catalog_2026/input.csv").write_text("global_key,image_url\n")
+    result = invoke(tmp_path)
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert "catalog batches: skipped" not in result.stdout
+    snapshot = tmp_path / "snapshots/model-health-2026-10-16"
+    assert (snapshot / "frames.csv").is_file()
+    # frames.csv is not linked, so not published.
+    assert not (tmp_path / "docs/frames.csv").exists()
 
 
 def test_failed_atlas_chain_keeps_docs_pages_and_warns(tmp_path):
