@@ -91,3 +91,17 @@ def test_cached_photos_are_not_asked_again(tmp_path):
     cached, todo = photo.outstanding(photo.load_image_list(tmp_path / "input.csv"),
                                      tmp_path / "cache", 10)
     assert [r["global_key"] for r in todo] == ["b.JPG"] and len(cached) == 1
+
+
+def test_logged_photo_errors_name_no_url_or_key():
+    """The pool's Pl@ntNet run logs in public CI: an error keeps its type and status only."""
+    import requests
+    from conftest import REPO, _on_path, load
+    with _on_path(REPO / "predict"):
+        photo = load("_photo_under_test", REPO / "predict" / "photo.py")
+    gone = requests.ConnectionError("HTTPSConnectionPool(host='h', port=443): Max retries "
+                                    "exceeded with url: /v2/identify/all?api-key=SECRET")
+    answer = requests.Response()
+    answer.status_code = 404
+    missing = requests.HTTPError("404 for url: https://h/bucket/f.JPG", response=answer)
+    assert (photo.log_reason(gone), photo.log_reason(missing)) == ("ConnectionError", "HTTPError 404")
