@@ -226,6 +226,14 @@ def post_image(url: str, field: str, jpeg_bytes: bytes, filename: str,
     return resp.json()
 
 
+def log_reason(e: BaseException) -> str:
+    """The error type and HTTP status only. A requests message names the photo's private
+    bucket path (with or without a scheme) and the query, which carries the API key,
+    and CI logs are public."""
+    status = getattr(getattr(e, "response", None), "status_code", None)
+    return type(e).__name__ + (f" {status}" if status else "")
+
+
 def with_retry(fn, *args, **kwargs):
     """`fn` again after a wait, up to MAX_RETRIES, except when the key is out.
 
@@ -243,7 +251,7 @@ def with_retry(fn, *args, **kwargs):
             if attempt == MAX_RETRIES - 1:
                 raise
             wait = BACKOFF[attempt]
-            print(f"    Attempt {attempt + 1} failed ({e}), retrying in {wait}s...")
+            print(f"    Attempt {attempt + 1} failed ({log_reason(e)}), retrying in {wait}s...")
             time.sleep(wait)
 
 
@@ -448,7 +456,7 @@ def fetch_all(to_process, api, api_key, cache_dir, *, delay, test):
             break
         except Exception as e:
             errors += 1
-            print(f"  [{i+1}/{len(to_process)}] ERROR {gk}: {e}")
+            print(f"  [{i+1}/{len(to_process)}] ERROR {gk}: {log_reason(e)}")
 
         if i < len(to_process) - 1:
             time.sleep(delay)
