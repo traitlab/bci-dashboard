@@ -30,12 +30,15 @@ Writes to --out:
                         support for the round ledger from there.
   frames.csv            every pool frame: its queue and batch, or why it has none.
 
-Batches already handed out stay put. `input/pinned_batches.csv` holds the next
-`PIN_WINDOW` unsent batches (N..N+3, N the lowest number with no round ledger):
-those frames keep their batch and number across rebuilds, whatever the labels do,
-and only a frame since recorded as sent, or gone from the pool, drops out. The
-rest of the pool is packed after them, numbered past the highest pinned or sent
-number, so a number is never reused. The pin file is rewritten from the output.
+Batches already handed out stay put. `input/pinned_batches.csv` holds exactly the
+batches handed to the collaborator: those frames keep their batch and number across
+rebuilds, whatever the labels do, and only a frame since recorded as sent, or gone
+from the pool, drops out. A sent batch leaves the file and an absent file pins
+nothing; pins never grow on their own. `--hand-out K` pins the next K batches of
+this build (the lowest numbers neither pinned nor sent). The rest of the pool is
+packed after the pinned batches, priority missions first, numbered past the highest
+pinned or sent number, so a number is never reused. The pin file is rewritten from
+the output.
 
     python labelling/catalog_batches.py --pool data/predictions_catalog_2026/input.csv \\
         --cache data/predictions_catalog_2026/cache --out build/catalog_batches
@@ -44,7 +47,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import itertools
 import random
 import re
 import sys
@@ -99,8 +101,7 @@ SEASON_CAP = 68
 # (DJI_..._V_7524tele.JPG is crown 7524 of its mission). Numbers restart per
 # mission, so the crown is the pair. A key without one is its own crown.
 CROWN_SUFFIX = re.compile(r"_(\d+)tele\.JPG$", re.IGNORECASE)
-# The batches kept as handed out: the next PIN_WINDOW unsent numbers.
-PIN_WINDOW = 4
+# The batches kept as handed out to the collaborator.
 PINS_CSV = Path(__file__).resolve().parents[1] / "input" / "pinned_batches.csv"
 PIN_FIELDS = ["batch_id", "global_key", "picked_by"]
 # How many batches the summary spells out. The first are the ones sent first.
@@ -250,11 +251,6 @@ def pack_with_reserved_control(rows: list, seed: int = CONTROL_SEED, **cap) -> l
     return queued
 
 
-def first_unsent(sent_nums: set) -> int:
-    """The lowest batch number with no round ledger."""
-    return next(n for n in itertools.count(1) if n not in sent_nums)
-
-
 def read_pins(path: Path) -> list[tuple[int, str, str]]:
     """(batch number, global_key, picked_by) of the pin file; absent is empty.
     A blank picked_by reads as a queue pick."""
@@ -265,16 +261,20 @@ def read_pins(path: Path) -> list[tuple[int, str, str]]:
                  (r.get("picked_by") or "queue").strip()) for r in csv.DictReader(f)]
 
 
-def write_pins(path: Path, batch_rows: list, sent_nums: set) -> int:
-    """Pin the batches N..N+PIN_WINDOW-1 of the output; returns how many rows."""
-    first = first_unsent(sent_nums)
-    rows = [(b[0], b[2], b[4]) for b in batch_rows if first <= b[0] < first + PIN_WINDOW]
+def write_pins(path: Path, batch_rows: list, pins: list, sent_nums: set,
+               hand_out: int = 0) -> list[int]:
+    """Write the pinned batches of the output, plus the next ``hand_out`` batches
+    (the lowest numbers neither pinned nor sent); returns the pinned numbers."""
+    pinned = {b for b, _, _ in pins} - sent_nums
+    free = sorted({b[0] for b in batch_rows} - pinned - sent_nums)
+    pinned |= set(free[:hand_out])
+    rows = [(b[0], b[2], b[4]) for b in batch_rows if b[0] in pinned]
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(PIN_FIELDS)
         w.writerows(sorted(rows))
-    return len(rows)
+    return sorted({r[0] for r in rows})
 
 
 def pack_pinned(queue_rows: list, pins: list, sent: set, sent_nums: set, priority: set,
@@ -456,12 +456,18 @@ def parse_args():
     ap.add_argument("--pins", type=Path, default=PINS_CSV,
                     help="batches kept as handed out, read first and rewritten from the "
                          "output (default: input/pinned_batches.csv)")
+    ap.add_argument("--hand-out", type=int, default=0, metavar="K",
+                    help="also pin the next K batches of this build, the ones handed to the "
+                         "collaborator (default: 0, pins only what is already pinned)")
     ap.add_argument("--rarity", action="store_true",
                     help="order inside each queue by IUCN, census and WCVP range (off: "
                          "lefolab wants no rarity order before a model trained on BCI labels)")
     add_input_flags(ap)
     add_label_source_flag(ap)
-    return ap.parse_args()
+    args = ap.parse_args()
+    if args.hand_out < 0:
+        ap.error("--hand-out must be 0 or more")
+    return args
 
 
 def main() -> None:
@@ -475,15 +481,14 @@ def main() -> None:
         labels = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
     off = {} if not args.rarity else None  # None reads the input/ tables
     sent_nums = sent_rounds(LEDGER_DIR)
+    pins = read_pins(args.pins)
     built = build(pool, scan_cache(str(args.cache)).predictions, h,
                   ledger_keys(LEDGER_DIR), priority_missions, census=off, iucn=off,
-                  wcvp_range=off, labels=labels, pins=read_pins(args.pins),
-                  sent_nums=sent_nums)
+                  wcvp_range=off, labels=labels, pins=pins, sent_nums=sent_nums)
     write_files(args.out, built, pool)
-    n_pinned = write_pins(args.pins, built["batch_rows"], sent_nums)
+    pinned = write_pins(args.pins, built["batch_rows"], pins, sent_nums, args.hand_out)
     print(summary(pool, built))
-    print(f"pinned {n_pinned} frames of batches {first_unsent(sent_nums)} to "
-          f"{first_unsent(sent_nums) + PIN_WINDOW - 1} in {args.pins}")
+    print(f"pinned batches {', '.join(map(str, pinned)) or 'none'} in {args.pins}")
     print(f"wrote send_batches.csv, send_first_queue.csv, frames.csv, propagated_labels.csv"
           f" to {args.out}")
 

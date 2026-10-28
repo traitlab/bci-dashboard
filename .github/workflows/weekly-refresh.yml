@@ -12,6 +12,10 @@ on:
         description: Download the latest Labelbox export from Arbutus. Disable only to rebuild the explicitly dated cached inputs.
         type: boolean
         default: true
+      hand_out:
+        description: Batches to hand to the collaborator, pinned from the lowest unpinned number so they keep their frames. Scheduled runs hand out none.
+        type: number
+        default: 0
       deploy:
         description: Deploy the verified public site after building. Disable for a validation-only run.
         type: boolean
@@ -188,6 +192,8 @@ jobs:
       - name: Recompute, verify, and stage the public snapshot offline
         env:
           FETCH_LABELS: ${{ github.event_name == 'schedule' || inputs.refresh_labels }}
+          # Empty on a scheduled run, which hands out nothing.
+          HAND_OUT: ${{ inputs.hand_out }}
           PLANTNET_API_KEY: ${{ secrets.PLANTNET_API_KEY }}
           # predict/embed.py downloads the photos from private Arbutus buckets.
           ARBUTUS_S3_ENDPOINT: ${{ vars.ARBUTUS_S3_ENDPOINT }}
@@ -198,7 +204,8 @@ jobs:
           from datetime import date
           import os, subprocess, sys
           from pathlib import Path
-          command = [sys.executable, 'bin/refresh_snapshot.py', 'build', '--date', date.today().isoformat()]
+          command = [sys.executable, 'bin/refresh_snapshot.py', 'build', '--date', date.today().isoformat(),
+                     '--hand-out', str(int(float(os.environ['HAND_OUT'] or 0)))]
           if os.environ['FETCH_LABELS'] == 'true':
               exports_dir = Path(os.environ['RUNNER_TEMP']) / 'bci-private/exports'
               exports = sorted(exports_dir.glob('*.ndjson'))
@@ -287,7 +294,7 @@ jobs:
             echo "send record and pinned batches unchanged"
           else
             git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-              commit -m 'chore(rounds): record sends and pin batches N..N+3'
+              commit -m 'chore(rounds): record sends and pinned batches'
             git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/main
           fi
       - name: Remove all private baseline and export files
