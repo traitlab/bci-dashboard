@@ -61,7 +61,7 @@ def collect(
 
 
 @pytest.mark.parametrize(
-    "expression", ["not private_data", "not private_data and not unknown"]
+    "expression", ["not private_data", "not private_data and not skip"]
 )
 def test_excluding_private_checks_needs_no_flag(expression):
     proc = collect("-m", expression, PUBLIC_NODE, *PRIVATE_NODES)
@@ -69,7 +69,7 @@ def test_excluding_private_checks_needs_no_flag(expression):
     assert "SELECTED_NODEIDS=" + json.dumps([PUBLIC_NODE]) in proc.stdout
 
 
-@pytest.mark.parametrize("expression", ["private_data", "private_data or unknown"])
+@pytest.mark.parametrize("expression", ["private_data", "private_data or skip"])
 def test_matching_private_checks_requires_explicit_flag(expression):
     proc = collect("-m", expression, *PRIVATE_NODES)
     assert proc.returncode == 4, proc.stdout + proc.stderr
