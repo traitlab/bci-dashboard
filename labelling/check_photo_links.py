@@ -58,11 +58,16 @@ def count(rows, probe=head) -> dict:
             "status_codes": dict(sorted(tally.items()))}
 
 
-def check(client, probe=head) -> dict:
+def dataset_rows(client):
+    """The rows of the one dataset named `2024_bci`, paged by the SDK."""
     datasets = [d for d in client.get_datasets() if d.name == DATASET_NAME]
     if len(datasets) != 1:
         raise LookupError(f"{len(datasets)} datasets named {DATASET_NAME}, expected 1")
-    return count(datasets[0].data_rows(), probe)
+    return datasets[0].data_rows()
+
+
+def check(client, probe=head) -> dict:
+    return count(dataset_rows(client), probe)
 
 
 def make_client(key):
