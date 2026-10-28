@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 PROJECT_ID = "cmp375mkq0dhr07w92diwbmuh"  # 2024_bci
 OUT_PATH = "data/live_batches.json"
@@ -46,7 +46,7 @@ def run(out: str, client_factory=make_client) -> dict:
         # The class name only: SDK messages can carry signed URLs or the key.
         reason = str(exc) if isinstance(exc, RuntimeError) else type(exc).__name__
         result = {"status": "not checked", "reason": reason}
-    result["checked"] = datetime.now(UTC).date().isoformat()
+    result["checked"] = datetime.now(timezone.utc).date().isoformat()
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with open(out, "w", encoding="utf-8") as fh:
         json.dump(result, fh, indent=1)
