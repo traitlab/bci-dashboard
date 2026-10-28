@@ -149,7 +149,7 @@ def test_the_written_files_have_the_dispatch_columns_and_blank_row_ids(
     catalog_batches.write_files(tmp_path, built, pool)
     lines = (tmp_path / "send_batches.csv").read_text(encoding="utf-8").splitlines()
     assert lines[0].split(",") == queues.SEND_BATCH_HEADER
-    assert len(list(tmp_path.glob("*.csv"))) == 3
+    assert len(list(tmp_path.glob("*.csv"))) == 4
     frames = (tmp_path / "frames.csv").read_text(encoding="utf-8").splitlines()
     assert len(frames) == len(pool) + 1
 
@@ -221,19 +221,60 @@ def test_the_low_confidence_rule_reads_the_margin_in_the_catalog(queues):
     assert margin[0][3] == 0.55  # the confidence column stays the top-1 score
 
 
-def test_no_batch_holds_more_than_the_mission_cap(queues, catalog_batches):
-    """120 frames of one mission, 120 species, and a second mission with 60: the
-    first batches each take at most MISSION_CAP of the big mission, the capped
-    rows keep their rank and nothing is lost."""
+def test_every_mission_gets_its_cap_before_any_mission_gets_more(queues, catalog_batches):
+    """120 frames of one mission, 120 species, and a second mission with 60 ranked
+    after them: batch 1 holds the first MISSION_CAP of each before the fill pass
+    tops it up from the capped rows, in rank order, and nothing is lost."""
     rows = [["long_tail", f"m1_{i:03d}", "", f"Sp {i}", "0.300000", 0, "", "", ""] for i in range(120)]
     rows += [["long_tail", f"m2_{i:03d}", "", f"Sq {i}", "0.400000", 0, "", "", ""] for i in range(60)]
     mission = {r[1]: r[1][:2] for r in rows}
-    batches = queues.chunk_send_batches(rows, group_of=mission, group_cap=catalog_batches.MISSION_CAP)
-    per = {}
-    for b in batches:
-        if b[4] == "queue":
-            per.setdefault(b[0], []).append(mission[b[2]])
-    assert max(v.count("m1") for v in per.values()) == catalog_batches.MISSION_CAP
+    cap = catalog_batches.MISSION_CAP
+    batches = queues.chunk_send_batches(rows, group_caps=((mission, cap),))
+    first = [b[2] for b in batches if b[0] == 1 and b[4] == "queue"]
+    assert len(first) == 85
+    assert [k for k in first if mission[k] == "m2"] == [f"m2_{i:03d}" for i in range(cap)]
+    assert [k for k in first if mission[k] == "m1"] == [f"m1_{i:03d}" for i in range(85 - cap)]
     assert sorted(b[2] for b in batches) == sorted(r[1] for r in rows)
-    first = [b[2] for b in batches if b[0] == 1 and b[4] == "queue" and mission[b[2]] == "m1"]
-    assert first == [f"m1_{i:03d}" for i in range(catalog_batches.MISSION_CAP)]
+
+
+def test_a_cap_never_shortens_a_batch_when_only_capped_rows_are_left(queues):
+    """One mission of 150 frames: the cap cannot be met, so each batch still fills."""
+    rows = [["long_tail", f"m1_{i:03d}", "", f"Sp {i}", "0.300000", 0, "", "", ""] for i in range(150)]
+    batches = queues.chunk_send_batches(rows, group_caps=(({r[1]: "m1" for r in rows}, 20),))
+    sizes = [sum(b[0] == n for b in batches) for n in range(1, 3)]
+    assert sizes == [100, 50]
+
+
+def test_site_and_season_caps_mix_a_batch_while_the_other_site_and_season_have_frames(
+        queues, catalog_batches):
+    """200 dry-season frames at one site, 50 wet-season at another: batch 1 takes at
+    most SITE_CAP of the first and the rest from the second, in rank order."""
+    dry, wet = "20260402_bcione_wpt01_m3e", "20260513_bcitwo_wpt01_m3e"
+    rows = [["long_tail", f"d_{i:03d}", "", f"Sp {i}", "0.300000", 0, "", "", ""] for i in range(200)]
+    rows += [["long_tail", f"w_{i:03d}", "", f"Sq {i}", "0.300000", 0, "", "", ""] for i in range(50)]
+    mission = {r[1]: dry if r[1][0] == "d" else wet for r in rows}
+    caps = catalog_batches.spread_caps(mission)
+    assert [c for _, c in caps] == [catalog_batches.MISSION_CAP, catalog_batches.SITE_CAP,
+                                    catalog_batches.SEASON_CAP]
+    assert (catalog_batches.season_of(dry), catalog_batches.season_of(wet)) == ("2026-dry", "2026-wet")
+    batches = queues.chunk_send_batches(rows, group_caps=caps[1:])
+    first = [b[2] for b in batches if b[0] == 1 and b[4] == "queue"]
+    assert sum(k[0] == "d" for k in first) == catalog_batches.SITE_CAP
+    assert [k for k in first if k[0] == "w"] == [f"w_{i:03d}" for i in range(85 - catalog_batches.SITE_CAP)]
+
+
+def test_a_held_frame_takes_the_label_of_the_frame_it_was_held_behind(catalog_batches, tmp_path):
+    pool = {"DJI_1_V_7524tele.JPG": url(OTHER, "DJI_1_V_7524tele.JPG"),
+            "DJI_2_V_7524tele.JPG": url(OTHER, "DJI_2_V_7524tele.JPG")}
+    predictions = {k: [("Sp", 0.3)] for k in pool}
+    labels = {"DJI_1_V_7524tele.JPG": "Ceiba pentandra"}
+    built = catalog_batches.build(pool, predictions, health([]), set(), set(), census={}, iucn={},
+                                  labels=labels)
+    assert built["propagated"] == {"DJI_2_V_7524tele.JPG": "Ceiba pentandra"}
+    catalog_batches.write_files(tmp_path, built, pool)
+    out = list(csv.DictReader((tmp_path / "propagated_labels.csv").open(encoding="utf-8")))
+    assert out == [{"global_key": "DJI_2_V_7524tele.JPG", "wcvp_canonical_name": "Ceiba pentandra",
+                    "label_from": "DJI_1_V_7524tele.JPG"}]
+    frames = {f["global_key"]: f for f in csv.DictReader((tmp_path / "frames.csv").open(encoding="utf-8"))}
+    assert frames["DJI_2_V_7524tele.JPG"]["propagated_label"] == "Ceiba pentandra"
+    assert "labelled through it: 1" in catalog_batches.summary(pool, built)

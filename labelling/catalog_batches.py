@@ -68,12 +68,17 @@ from queues import (
 
 FRAME_FIELDS = ["global_key", "status", "queue", "batch_id", "picked_by", "mission",
                 "priority_mission", "predicted_species", "confidence", "census_stems",
-                "iucn_category", "crown_id", "label_from"]
+                "iucn_category", "crown_id", "label_from", "propagated_label"]
 RARITY_COLUMNS = ["census_stems", "iucn_category"]
-# At most this many queue frames of one mission in a batch, so a sitting spreads
-# over sites. Same size as the species cap; the pool's species-grouped packing
-# already lands at most 14 per mission, so this binds only on a lopsided pool.
+# Spread caps on the queue places of a batch (85 of 100): at most this many
+# frames of one mission, one site, one season. The site and season caps leave a
+# fifth of the places to the other sites and seasons while they have frames; the
+# packer fills from capped rows only when nothing else is left, so no batch
+# comes out short. The pool's species-grouped packing already lands at most 14
+# per mission, so that cap binds only on a lopsided pool.
 MISSION_CAP = 20
+SITE_CAP = 68
+SEASON_CAP = 68
 # The crown a frame shows: the number before "tele" in a waypoint-mission key
 # (DJI_..._V_7524tele.JPG is crown 7524 of its mission). Numbers restart per
 # mission, so the crown is the pair. A key without one is its own crown.
@@ -147,6 +152,29 @@ def site_of(mission: str) -> str:
     return parts[1] if len(parts) > 2 else ""
 
 
+def season_of(mission: str) -> str:
+    """BCI's dry season (December to April) or wet season (May to November) of
+    the mission date, as `<year>-dry` or `<year>-wet`; blank without a date."""
+    m = re.match(r"(\d{4})(\d{2})\d{2}_", mission)
+    if not m:
+        return ""
+    year, month = m.group(1), int(m.group(2))
+    return f"{year}-dry" if month <= 4 or month == 12 else f"{year}-wet"
+
+
+def spread_caps(mission: dict) -> tuple:
+    """The `group_caps` of `chunk_send_batches` for the pool: mission, site, season."""
+    return ((mission, MISSION_CAP),
+            ({k: site_of(m) for k, m in mission.items()}, SITE_CAP),
+            ({k: season_of(m) for k, m in mission.items()}, SEASON_CAP))
+
+
+def propagate_crown_labels(same_crown: dict, labels: dict) -> dict:
+    """Labels for the frames not sent because another frame of their crown was:
+    key -> the label of the frame it was held behind, where that one is labelled."""
+    return {k: labels[src] for k, src in same_crown.items() if src in labels}
+
+
 def pack_priority_first(queue_rows: list, priority: set, mission: dict | None = None) -> list:
     """Every priority-mission frame in the first batches, then the 65/20/15 batches.
 
@@ -159,7 +187,7 @@ def pack_priority_first(queue_rows: list, priority: set, mission: dict | None = 
     key_at = SEND_FIRST_COLUMNS.index("global_key")
     first = [r for r in queue_rows if r[key_at] in priority]
     rest = [r for r in queue_rows if r[key_at] not in priority]
-    cap = {"group_of": mission, "group_cap": MISSION_CAP if mission else None}
+    cap = {"group_caps": spread_caps(mission) if mission else ()}
     if not first:
         return chunk_send_batches(rest, **cap)
     n = -(-len(first) // BATCH_SIZE)
@@ -170,7 +198,8 @@ def pack_priority_first(queue_rows: list, priority: set, mission: dict | None = 
 
 
 def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missions,
-          census: dict | None = None, iucn: dict | None = None) -> dict:
+          census: dict | None = None, iucn: dict | None = None,
+          labels: dict | None = None) -> dict:
     """Queue, batch and tracking rows for the frames that have an answer.
 
     ``h`` supplies support, top-1 accuracy and the canonicaliser, the same three
@@ -179,7 +208,9 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
     ``census`` (species -> stems) and ``iucn`` (species -> category) order each
     queue through `rarity_rank`; None reads the `input/` files. The low-confidence
     rule reads the top-1 minus top-2 margin (``by_margin``), a batch holds at most
-    `MISSION_CAP` queue frames of one mission, and one frame per crown is queued.
+    `MISSION_CAP` queue frames of one mission, `SITE_CAP` of one site and `SEASON_CAP`
+    of one season, and one frame per crown is queued; the others take the label of
+    the queued frame once it is in ``labels`` (key -> species).
     """
     census = read_species_column(CENSUS_CSV, "n") if census is None else census
     iucn = read_species_column(IUCN_CSV, "iucn_category") if iucn is None else iucn
@@ -204,7 +235,8 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
     return {"queue_rows": with_batch_ids(queue_rows, batch_rows), "batch_rows": batch_rows,
             "missing": missing, "n_no_answer": n_no_answer, "mission": mission,
             "priority": priority, "already_sent": [k for k in pool if k in sent],
-            "rarity": rarity, "crown": crown, "same_crown": same_crown}
+            "rarity": rarity, "crown": crown, "same_crown": same_crown,
+            "propagated": propagate_crown_labels(same_crown, labels or {})}
 
 
 def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
@@ -241,7 +273,15 @@ def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
                         mission[k], k in built["priority"],
                         row[species_at] if row else "", row[4] if row else ""]
                        + built["rarity"].get(k, ["", ""])
-                       + [built["crown"][k], built["same_crown"].get(k, "")])
+                       + [built["crown"][k], built["same_crown"].get(k, ""),
+                          built["propagated"].get(k, "")])
+    # Same columns as gt_dominant_taxon.csv plus the frame the label came from,
+    # so the propagated labels merge into the ground truth like any other.
+    with open(out / "propagated_labels.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["global_key", "wcvp_canonical_name", "label_from"])
+        for k, name in built["propagated"].items():
+            w.writerow([k, name, built["same_crown"][k]])
 
 
 def summary(pool: dict, built: dict) -> str:
@@ -259,7 +299,8 @@ def summary(pool: dict, built: dict) -> str:
              f"left out, no cached prediction: {len(built['missing'])}"
              + (f" (first 5: {built['missing'][:5]})" if built["missing"] else ""),
              f"left out, already in a round ledger: {len(built['already_sent'])}",
-             f"left out, another frame of the same crown is queued: {len(built['same_crown'])}",
+             (f"left out, another frame of the same crown is queued: {len(built['same_crown'])}"
+              f" (labelled through it: {len(built['propagated'])})"),
              "queue sizes: " + ", ".join(f"{q} {queues[q]}" for q in QUEUE_ORDER),
              f"batches: {len(batches)} of up to {BATCH_SIZE}"]
     for bid in sorted(batches)[:SUMMARY_BATCHES]:
@@ -300,11 +341,14 @@ def main() -> None:
                     wcvp_cache=args.wcvp_cache, label_source=args.label_source)
     priority_missions = (load_priority_missions(str(args.priority_missions))
                          if args.priority_missions else load_priority_missions())
+    with open(args.gt, encoding="utf-8") as f:
+        labels = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
     built = build(pool, scan_cache(str(args.cache)).predictions, h,
-                  ledger_keys(LEDGER_DIR), priority_missions)
+                  ledger_keys(LEDGER_DIR), priority_missions, labels=labels)
     write_files(args.out, built, pool)
     print(summary(pool, built))
-    print(f"wrote send_batches.csv, send_first_queue.csv, frames.csv to {args.out}")
+    print(f"wrote send_batches.csv, send_first_queue.csv, frames.csv, propagated_labels.csv"
+          f" to {args.out}")
 
 
 if __name__ == "__main__":
