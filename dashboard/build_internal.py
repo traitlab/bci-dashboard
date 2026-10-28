@@ -25,6 +25,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import catalog_queue
 import core as hc
 import figures
 import page as pg
@@ -65,6 +66,10 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     c = figures.prepare(h, verify_dir=verify_dir, fallback_tag=fallback_tag)
     c.available_pages = pg.OPERATIONAL_PAGES | frozenset(available_pages or ())
     c.verify_dir = verify_dir  # the send CSVs the filter block embeds
+    # The catalog batches, when catalog_batches.py wrote them into these tables,
+    # replace the main pool's queue: its counts, its rows and its wording.
+    catalog = catalog_queue.load(verify_dir)
+    vars(c).update(catalog or {"catalog": None})
 
     # Before anything is rendered. This page's leading claim is that inside each
     # queue the photo least like anything labelled, or already ranked, comes
@@ -72,23 +77,28 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     # write. Missing, the loader falls back to confidence order without a word
     # and the sentence above becomes false. Refuse the build instead: nobody reads a page for the
     # ordering it quietly stopped using.
-    complaint = queues.novelty_complaint(hc.QUEUE_NOVELTY_CSV, c.n_ranked, c.n_unlab)
+    # The catalog queue is not ordered by look, so neither gate applies to it.
+    complaint = (not catalog and queues.novelty_complaint(hc.QUEUE_NOVELTY_CSV, c.n_ranked,
+                                                          c.n_unlab))
     if complaint:
         fail(complaint)
     # Same refusal for the evidence beside the ordering: an audit or confound
     # file run against a different pool, or different labelled photos, from
     # the ones the ordering file names is stale evidence under a fresh order.
-    complaint = selection_complaint(c.selection_audit, c.selection_confound,
-                                    queues.novelty_provenance(hc.QUEUE_NOVELTY_CSV))
+    complaint = not catalog and selection_complaint(
+        c.selection_audit, c.selection_confound,
+        queues.novelty_provenance(hc.QUEUE_NOVELTY_CSV))
     if complaint:
         fail(complaint)
 
+    main_queue = {} if catalog else {"queue_counts": c.queue_counts,
+                                     "n_no_answer": c.n_no_answer, "queue_keys": c.queue_keys}
     c.checks = verify_snapshot(
         verify_dir, per_species=c.per_species, buckets=c.buckets, bins_all=c.bins_all,
         never_all=c.never_all, unscoreable=c.unscoreable, strict_hits=c.strict1,
-        queue_counts=c.queue_counts, n_no_answer=c.n_no_answer,
-        queue_keys=c.queue_keys, scored_against=c.reference, populations=c.populations,
-        scope=c.scope)
+        scored_against=c.reference, populations=c.populations, scope=c.scope, **main_queue)
+    if catalog:
+        c.checks.append(catalog_queue.check(verify_dir))
 
     # Two counts and one line: the reasoning lives in the panels that state it.
     send_now = c.queue_counts.get("long_tail", 0) + c.queue_counts.get("low_conf_known", 0)
@@ -97,7 +107,7 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     # labelled frames that have an embedding, a smaller and differently-selected
     # set. Both are named, each against its own work.
     prov = queues.novelty_provenance(hc.QUEUE_NOVELTY_CSV)
-    anchors, unembedded = prov["anchors"], prov["unembedded"]
+    anchors, unembedded = (0, 0) if catalog else (prov["anchors"], prov["unembedded"])
     anchor_clause = (f"&middot; {anchors:,} labelled frames with an embedding anchor the ranking "
                      if anchors else "")
     if anchors and unembedded:
@@ -124,6 +134,9 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
          # the pool in queue order, which is send_first_queue.csv.
          hero([("First saved batch", f"{c.n_batch1:,}", "photos in batch 1",
                 "", "send_batches.csv"),
+               # Every catalog photo is in a batch, so the batches are the work.
+               ("Batches", f"{c.n_batches:,}", f"of at most {BATCH_SIZE} photos",
+                "", "send_batches.csv") if catalog else
                ("Worth sending first", f"{send_now:,}", "unlabelled photos",
                 "", "send_first_queue.csv"),
                ("Queued", f"{c.n_unlab:,}", "unlabelled photos",
@@ -136,7 +149,7 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
                 'browser page does not refresh the data. '
                 'Sending status is not recorded here. Check the batch in Labelbox '
                 'before sending it.</p>'),
-         pg.render(c, pg.INTERNAL_PANELS),
+         pg.render(c, pg.CATALOG_PANELS if catalog else pg.INTERNAL_PANELS),
          pg.footer(c)]
 
     return pg.document(TITLE, "\n".join(P), current=OUT_NAME,

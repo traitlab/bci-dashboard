@@ -17,6 +17,7 @@ from collections import Counter
 
 import queues
 from assets import esc, more
+from catalog_queue import batch_rule
 
 SEND_FILE = "send_batches.csv"
 QUEUE_FILE = "send_first_queue.csv"
@@ -123,7 +124,9 @@ def next_batch_block(c):
     # holds its per-species cap in this one.
     later = [r for r in data["rows"] if int(r[at["batch_id"]]) > int(first) and r[at["picked_by"]] != "control"]
     short = ""
-    if later and len(rows) < queues.BATCH_SIZE:
+    # A short catalog batch is a priority batch, split evenly; the rule says so.
+    cat = getattr(c, "catalog", None)
+    if later and len(rows) < queues.BATCH_SIZE and not cat:
         held = Counter(r[at["species_group"]] for r in rows if r[at["picked_by"]] != "control")
         if all(held[r[at["species_group"]]] >= queues.SPECIES_CAP for r in later):
             short = (f'It stops at {len(rows):,} because every species still waiting already has '
@@ -135,13 +138,14 @@ def next_batch_block(c):
         f'<p>Batch {first} holds {len(rows):,} photos in {spread}{control}. '
         f'The file has {len(data["rows"]):,} photos in {n_batches:,} batches of at most '
         f'{queues.BATCH_SIZE}. {short}'
-        f'About {queues.CONTROL_FRACTION:.0%} of every batch is random control. '
+        + (batch_rule(cat) + ' ' if cat else
+           f'About {queues.CONTROL_FRACTION:.0%} of every batch is random control. ') +
         f'<button type="button" class="primary" id="f-next" data-batch="{first}">'
         f'Download batch {first} as CSV</button></p>'
         '<p class="note">Then check the batch in Labelbox and run this first. '
         '<code>--dry-run</code> writes nothing and calls no API; drop it to send. '
         'Annotators find the batch in the Labelbox labelling project as one batch named '
-        '"Round &lt;n&gt; - &lt;date&gt;".</p>'
+        '"batch&lt;nnnn&gt;_&lt;yyyy-mm&gt;", its round number and the month it is sent.</p>'
         f'<pre class="cmd">{esc(DISPATCH_CMD.format(batch=first))}</pre></div>')
 
 
