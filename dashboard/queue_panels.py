@@ -5,6 +5,7 @@ closed half that argues for the order is ``queue_why_panels.py``, and
 
 from __future__ import annotations
 
+import json
 import os
 from urllib.parse import quote
 
@@ -63,6 +64,30 @@ _UNMEASURED_NOTE = (
 
 
 READOUT_FILE = "round_readout.csv"
+PHOTO_LINKS_FILE = "photo_links.json"
+
+
+def photo_links_note(verify_dir) -> str:
+    """Warn when Labelbox rows still load their photo from the suspended host.
+
+    Read from the file labelling/check_photo_links.py wrote in its own refresh
+    step; this build makes no call. No file says nothing, none on the old host
+    says nothing, a check that did not run says so in one muted line."""
+    path = os.path.join(verify_dir or "", PHOTO_LINKS_FILE)
+    if not verify_dir or not os.path.exists(path):
+        return ""
+    with open(path, encoding="utf-8") as fh:
+        got = json.load(fh)
+    if got.get("status") != "checked":
+        return (f'<p class="note">Labelbox photo links not checked: '
+                f'{esc(got.get("reason", "no reason recorded"))}.</p>')
+    n = int(got["old_host_rows"])
+    if not n:
+        return ""
+    return (f'<div class="warn"><strong>{n:,} of {int(got["total_rows"]):,} Labelbox data rows '
+            f'load their photo from the suspended Arbutus host</strong> '
+            f'({esc(got["old_host"])}, checked {esc(got["checked"])}). Labellers see blank '
+            f'frames on them. Their <code>row_data</code> must point at new Arbutus.</div>')
 
 
 # read_round.py arm names, as CONTEXT.md says a page words them

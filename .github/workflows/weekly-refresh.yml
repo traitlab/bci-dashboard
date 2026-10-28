@@ -179,6 +179,12 @@ jobs:
             gh run download --repo "$GITHUB_REPOSITORY" --name refresh-manifest --dir history \
               || { sleep 10; gh run download --repo "$GITHUB_REPOSITORY" --name refresh-manifest --dir history; }
           fi
+      - name: Check that Labelbox photo links are on the live host
+        # Read-only, and never fails the refresh: with no key or an API error the
+        # file says "not checked". The offline build below only reads the file.
+        env:
+          LABELBOX_API_KEY: ${{ secrets.LABELBOX_API_KEY }}
+        run: python labelling/check_photo_links.py
       - name: Recompute, verify, and stage the public snapshot offline
         env:
           FETCH_LABELS: ${{ github.event_name == 'schedule' || inputs.refresh_labels }}
