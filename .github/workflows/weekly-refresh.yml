@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
-      contents: read
+      contents: write
       actions: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -265,6 +265,25 @@ jobs:
         with:
           path: docs
           retention-days: 1
+      - name: Commit the send record and the pinned batches
+        # The build records batches sent by hand from the export (input/rounds/) and
+        # rewrites the pin file. Both must reach main or the next run starts from the
+        # old record. Only when they changed, and only on a run that deploys, so the
+        # pins match the live list. A rejected push must not hold back the site: the
+        # next run derives the same rows again from the export.
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.deploy)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add input/rounds input/pinned_batches.csv
+          if git diff --cached --quiet; then
+            echo "send record and pinned batches unchanged"
+          else
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'chore(rounds): record sends and pin batches N..N+3'
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/main
+          fi
       - name: Remove all private baseline and export files
         if: always()
         run: |

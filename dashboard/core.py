@@ -491,11 +491,15 @@ def ledger_keys(ledger_dir: str = LEDGER_DIR) -> set[str]:
     return keys - {""}
 
 
+def sent_rounds(ledger_dir: str = LEDGER_DIR) -> set[int]:
+    """The round numbers that have a ledger file; none is an empty set."""
+    return {int(m.group(1)) for p in glob.glob(os.path.join(ledger_dir, "round_*.csv"))
+            if (m := re.fullmatch(r"round_(\d+)\.csv", os.path.basename(p)))}
+
+
 def next_round(ledger_dir: str = LEDGER_DIR) -> int:
     """The highest ledger round plus one; 1 when nothing has been sent."""
-    nums = [int(m.group(1)) for p in glob.glob(os.path.join(ledger_dir, "round_*.csv"))
-            if (m := re.fullmatch(r"round_(\d+)\.csv", os.path.basename(p)))]
-    return max(nums, default=0) + 1
+    return max(sent_rounds(ledger_dir), default=0) + 1
 
 
 def read_csv_rows(path: str) -> list[dict]:

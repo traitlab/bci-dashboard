@@ -437,6 +437,11 @@ def refresh(
         run(repo, "dashboard/measure.py", "--out-dir", str(tables), env=env)
         # With the catalog pool on hand, its batches replace the queue measure.py
         # wrote, and the queue page shows them. Without it the page is the main pool's.
+        # Batches the collaborator sent by hand reach the send record from the export,
+        # so the build below leaves those frames out and never reuses their numbers.
+        if exports:
+            run(repo, "labelling/record_sends.py", *flags, "--sent", str(repo / "docs/send_batches.csv"),
+                "--ledger-dir", str(repo / "input/rounds"), research=True, env=env)
         catalog = data / CATALOG_POOL
         if (catalog / "input.csv").is_file() and (catalog / "cache").is_dir():
             run(repo, "labelling/catalog_batches.py", "--pool", str(catalog / "input.csv"),
