@@ -34,7 +34,7 @@ import reference
 from assets import esc, hero, more
 from build_index import scope_byline
 from queue_filters import next_batch_block, send_filters
-from queue_panels import TEAM_BLOCK_ID
+from queue_panels import TEAM_BLOCK_ID, photo_links_note
 from queues import BATCH_SIZE
 from selection_panels import selection_complaint
 from history import fail, verify_snapshot
@@ -122,6 +122,7 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
          scope_byline(verify_dir, c.available_pages),
          # The answer to "what do I send next" is the first thing on the page,
          # then the filters; the numbers behind it follow.
+         photo_links_note(verify_dir),
          next_batch_block(c),
          send_filters(c),
          # Batch 1 leads, not the pool. A botanist works through a few hundred

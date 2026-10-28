@@ -452,6 +452,10 @@ def refresh(
         # The queue page reads this from the tables it verifies against. No ledger
         # yet writes nothing and the page says pending. It is not linked, so not published.
         run(repo, "labelling/read_round.py", "--all", "--out", str(tables / "round_readout.csv"), env=env)
+        # The photo-link check ran in its own workflow step. Absent (a local build)
+        # the queue page says nothing about photo links.
+        if (data / "photo_links.json").is_file():
+            shutil.copy2(data / "photo_links.json", tables / "photo_links.json")
         # Temporary output paths are presentation details, not source provenance.
         # Canonicalize those paths so an identical retry keeps the dated snapshot.
         run_log = tables / "run_log.txt"
