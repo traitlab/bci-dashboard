@@ -188,7 +188,11 @@ def pack_priority_first(queue_rows: list, priority: set, mission: dict | None = 
     The rest are packed as before and numbered on from there.
     """
     key_at = SEND_FIRST_COLUMNS.index("global_key")
-    first = [r for r in queue_rows if r[key_at] in priority]
+    queue_at, conf_at = (SEND_FIRST_COLUMNS.index(c) for c in ("queue", "confidence"))
+    # The queue's order, without rarity: a reorder of the queue never moves a
+    # priority frame between batches 1 to 3.
+    first = sorted((r for r in queue_rows if r[key_at] in priority),
+                   key=lambda r: (QUEUE_ORDER.index(r[queue_at]), float(r[conf_at]), r[key_at]))
     rest = [r for r in queue_rows if r[key_at] not in priority]
     cap = {"group_caps": spread_caps(mission) if mission else ()}
     if not first:

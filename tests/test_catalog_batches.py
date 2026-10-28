@@ -126,6 +126,19 @@ def test_every_priority_frame_goes_first_whatever_its_queue(catalog_batches):
     assert any(b[4] == "control" for b in third)
 
 
+def test_a_rarity_reorder_moves_no_priority_frame_between_its_batches(catalog_batches):
+    """Batches 1 to 3 are a census of the transects in the queue's own order; a
+    rarity table that reorders the queue leaves them as they were."""
+    pool, predictions, per_species = synthetic_pool(n_priority_rare=150)
+    plain = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY},
+                                  census={}, iucn={}, wcvp_range={})
+    rare = {predictions[k][0][0].lower(): 1 for k in sorted(plain["priority"])[::2]}
+    ranked = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY},
+                                   census=rare, iucn={}, wcvp_range={})
+    head = lambda built: {(b[0], b[2]) for b in built["batch_rows"] if b[0] <= 2}
+    assert head(ranked) == head(plain)
+
+
 def test_frames_with_no_cached_answer_are_reported_not_dropped(catalog_batches):
     pool, predictions, per_species = synthetic_pool(n_rare=30, n_known=0)
     del predictions["rare003.JPG"]
