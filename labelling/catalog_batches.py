@@ -55,6 +55,7 @@ from core import (
     mission_of_url,
 )
 from health import load_health, scan_cache
+from mission_buckets import s3_uri
 from queues import (
     BATCH_SIZE,
     CONTROL_GROUP,
@@ -298,9 +299,8 @@ def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
         w.writerow(SEND_BATCH_HEADER)
         for b in built["batch_rows"]:
             m = mission[b[key_at]]
-            # s3_uri and labelbox_url stay blank: the first needs a bucket row per
-            # mission, the second is a link for a frame that has a data row id.
-            w.writerow(b + ["", "", "", "", m, site_of(m),
+            # labelbox_url stays blank: it is a link for a frame that has a data row id.
+            w.writerow(b + ["", s3_uri(pool[b[key_at]]), "", "", m, site_of(m),
                             forms.get(q[b[key_at]][species_at], growth_form.UNKNOWN), GROUP_BY])
     why = ({k: "no_prediction" for k in built["missing"]}
            | {k: "already_sent" for k in built["already_sent"]}

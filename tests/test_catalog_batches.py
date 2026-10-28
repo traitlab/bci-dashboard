@@ -12,6 +12,7 @@ pool with deep enough queues has to come out as the 65 / 20 / 15 mix.
 from __future__ import annotations
 
 import csv
+import re
 from types import SimpleNamespace
 
 PRIORITY = "20260424_bcishannon_wptsendero_m3e"
@@ -179,6 +180,20 @@ def test_the_written_files_have_the_dispatch_columns_and_blank_row_ids(
     assert len(list(tmp_path.glob("*.csv"))) == 4
     frames = (tmp_path / "frames.csv").read_text(encoding="utf-8").splitlines()
     assert len(frames) == len(pool) + 1
+
+
+def test_each_sent_frame_names_its_private_arbutus_location(catalog_batches, tmp_path):
+    pool, predictions, per_species = synthetic_pool(n_rare=130, n_known=40)
+    legacy = "https://object-arbutus.cloud.computecanada.ca/lefolab_drone_missions_wpt/"
+    # every synthetic mission folds into OTHER, the one jaco mission in the bucket table
+    pool = {k: re.sub(r"wptjaco75\d\d", "wptjaco7524", u.replace(BASE, legacy)) for k, u in pool.items()}
+    built = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY})
+    catalog_batches.write_files(tmp_path, built, pool)
+    with open(tmp_path / "send_batches.csv", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    first = next(r for r in rows if r["global_key"] == "rare000.JPG")
+    assert first["s3_uri"] == f"s3://2024-bci/drone_missions/2026/{PRIORITY}/rare000.JPG"
+    assert all(r["s3_uri"].startswith("s3://2024-bci/drone_missions/2026/") for r in rows)
 
 
 def test_a_file_with_every_row_id_blank_is_sent_for_lookup_not_refused(dispatch_round, tmp_path):
