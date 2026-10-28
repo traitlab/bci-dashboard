@@ -200,6 +200,14 @@ jobs:
         env:
           LABELBOX_API_KEY: ${{ secrets.LABELBOX_API_KEY }}
         run: python labelling/check_photo_links.py
+      - name: List the live Labelbox batches
+        # Read-only. A batch sent by hand is recorded on this refresh instead of
+        # a week later, when the export carries it. Without the file the build
+        # records from the export alone.
+        continue-on-error: true
+        env:
+          LABELBOX_API_KEY: ${{ secrets.LABELBOX_API_KEY }}
+        run: python labelling/fetch_live_batches.py
       - name: Recompute, verify, and stage the public snapshot offline
         env:
           FETCH_LABELS: ${{ github.event_name == 'schedule' || inputs.refresh_labels }}
@@ -304,11 +312,11 @@ jobs:
           path: docs
           retention-days: 1
       - name: Commit the send record and the pinned batches
-        # The build records batches sent by hand from the export (input/rounds/) and
-        # rewrites the pin file. Both must reach main or the next run starts from the
-        # old record. Only when they changed, and only on a run that deploys, so the
-        # pins match the live list. A rejected push must not hold back the site: the
-        # next run derives the same rows again from the export.
+        # The build records batches sent by hand from the export or the live batch
+        # list (input/rounds/) and rewrites the pin file. Both must reach main or the
+        # next run starts from the old record. Only when they changed, and only on a
+        # run that deploys, so the pins match the live list. A rejected push must not
+        # hold back the site: the next run derives the same rows again.
         if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.deploy)
         continue-on-error: true
         env:

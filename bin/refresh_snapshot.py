@@ -443,9 +443,12 @@ def refresh(
         # wrote, and the queue page shows them. Without it the page is the main pool's.
         # Batches the collaborator sent by hand reach the send record from the export,
         # so the build below leaves those frames out and never reuses their numbers.
-        if exports:
+        # The live batch list (its own fetch step) records a batch before the export has it.
+        live = data / "live_batches.json"
+        if exports or live.is_file():
             run(repo, "labelling/record_sends.py", *flags, "--sent", str(repo / "docs/send_batches.csv"),
-                "--ledger-dir", str(repo / "input/rounds"), research=True, env=env)
+                "--ledger-dir", str(repo / "input/rounds"),
+                *(["--live", str(live)] if live.is_file() else []), research=True, env=env)
         catalog = data / CATALOG_POOL
         if (catalog / "input.csv").is_file() and (catalog / "cache").is_dir():
             run(repo, "labelling/catalog_batches.py", "--pool", str(catalog / "input.csv"),
