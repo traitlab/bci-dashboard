@@ -23,6 +23,8 @@ from urllib.parse import unquote, urlsplit
 LEGACY_HOST = "object-arbutus.cloud.computecanada.ca"
 LEGACY_PREFIX = "lefolab_drone_missions_wpt/"
 TABLE = Path(__file__).resolve().parents[1] / "input" / "mission_buckets.csv"
+# Legacy mission folders copied under another name; the flights inside are dated the new day.
+RENAMED = {"20260420_bci25haplot_wptne01_m3e": "20260421_bci25haplot_wptne01_m3e"}
 
 
 class UnknownMission(LookupError):
@@ -36,12 +38,13 @@ def load_table(path: Path = TABLE) -> dict[str, str]:
 
 
 def _mission_rel(url: str) -> tuple[str, str] | None:
-    """(mission, path below the legacy prefix) of a legacy-host URL, None for any other."""
+    """(mission folder, path below the legacy prefix) of a legacy-host URL, None for any other."""
     parts = urlsplit(url)
     if parts.hostname != LEGACY_HOST:
         return None
-    rel = unquote(parts.path).lstrip("/").removeprefix(LEGACY_PREFIX)
-    return rel.split("/")[0], rel
+    mission, _, below = unquote(parts.path).lstrip("/").removeprefix(LEGACY_PREFIX).partition("/")
+    mission = RENAMED.get(mission, mission)
+    return mission, f"{mission}/{below}"
 
 
 def locate(url: str, path: Path = TABLE) -> tuple[str, str] | None:

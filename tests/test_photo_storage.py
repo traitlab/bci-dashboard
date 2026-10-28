@@ -29,6 +29,13 @@ def test_locate(url, where):
     assert mission_buckets.locate(url) == where
 
 
+def test_a_renamed_mission_resolves_to_the_folder_it_was_copied_to():
+    rel = "/DJI_202604210828_112_x/DJI_20260421083942_0001_V_656tele.JPG"
+    assert mission_buckets.s3_uri(H + "20260420_bci25haplot_wptne01_m3e" + rel) == \
+        "s3://2024-bci/drone_missions/2026/20260421_bci25haplot_wptne01_m3e" + rel
+    assert set(mission_buckets.RENAMED.values()) <= set(mission_buckets.load_table())
+
+
 def test_s3_uri_and_other_urls():
     assert mission_buckets.s3_uri(H + PANAMA) == "s3://2024-panama/drone_missions/2025/" + PANAMA
     assert mission_buckets.s3_uri("https://example.org/a.jpg") == mission_buckets.s3_uri("") == ""
