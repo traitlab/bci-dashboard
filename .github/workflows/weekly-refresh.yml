@@ -374,7 +374,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          git add input/rounds input/pinned_batches.csv
+          # input/rounds/ appears only with the first recorded send.
+          git add input/pinned_batches.csv
+          if [ -d input/rounds ]; then git add input/rounds; fi
           if git diff --cached --quiet; then
             echo "send record and pinned batches unchanged"
           else
