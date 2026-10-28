@@ -34,8 +34,10 @@ Batches already handed out stay put. `input/pinned_batches.csv` holds exactly th
 batches handed to the collaborator: those frames keep their batch and number across
 rebuilds, whatever the labels do, and only a frame since recorded as sent, or gone
 from the pool, drops out. A sent batch leaves the file and an absent file pins
-nothing; pins never grow on their own. `--hand-out K` pins the next K batches of
-this build (the lowest numbers neither pinned nor sent). The rest of the pool is
+nothing. Each build tops the pins up to `--keep-ahead` unsent batches (default
+4), so a send is followed by the next batch with no one asking; the held batches
+never change. `--hand-out K` pins K more on top (the lowest numbers neither pinned
+nor sent). The rest of the pool is
 packed after the pinned batches, priority missions first, numbered past the highest
 pinned or sent number, so a number is never reused. The pin file is rewritten from
 the output.
@@ -105,6 +107,7 @@ CROWN_SUFFIX = re.compile(r"_(\d+)tele\.JPG$", re.IGNORECASE)
 # The batches kept as handed out to the collaborator.
 PINS_CSV = Path(__file__).resolve().parents[1] / "input" / "pinned_batches.csv"
 PIN_FIELDS = ["batch_id", "global_key", "picked_by"]
+KEEP_AHEAD = 4  # unsent batches the collaborator holds; 4 is what was handed out first
 PACKING_INPUTS = "packing_inputs.json"
 # How many batches the summary spells out. The first are the ones sent first.
 SUMMARY_BATCHES = 3
@@ -264,12 +267,13 @@ def read_pins(path: Path) -> list[tuple[int, str, str]]:
 
 
 def write_pins(path: Path, batch_rows: list, pins: list, sent_nums: set,
-               hand_out: int = 0) -> list[int]:
-    """Write the pinned batches of the output, plus the next ``hand_out`` batches
-    (the lowest numbers neither pinned nor sent); returns the pinned numbers."""
+               hand_out: int = 0, ahead: int = 0) -> list[int]:
+    """Write the pinned batches of the output, topped up to ``ahead`` unsent ones,
+    plus ``hand_out`` more (the lowest numbers neither pinned nor sent); returns
+    the pinned numbers."""
     pinned = {b for b, _, _ in pins} - sent_nums
     free = sorted({b[0] for b in batch_rows} - pinned - sent_nums)
-    pinned |= set(free[:hand_out])
+    pinned |= set(free[:max(0, ahead - len(pinned)) + hand_out])
     rows = [(b[0], b[2], b[4]) for b in batch_rows if b[0] in pinned]
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as f:
@@ -463,17 +467,19 @@ def parse_args():
     ap.add_argument("--pins", type=Path, default=PINS_CSV,
                     help="batches kept as handed out, read first and rewritten from the "
                          "output (default: input/pinned_batches.csv)")
+    ap.add_argument("--keep-ahead", type=int, default=KEEP_AHEAD, metavar="N",
+                    help="top the pins up to N unsent batches, the ones the collaborator "
+                         f"holds (default: {KEEP_AHEAD})")
     ap.add_argument("--hand-out", type=int, default=0, metavar="K",
-                    help="also pin the next K batches of this build, the ones handed to the "
-                         "collaborator (default: 0, pins only what is already pinned)")
+                    help="pin K more batches on top of --keep-ahead (default: 0)")
     ap.add_argument("--rarity", action="store_true",
                     help="order inside each queue by IUCN, census and WCVP range (off: "
                          "lefolab wants no rarity order before a model trained on BCI labels)")
     add_input_flags(ap)
     add_label_source_flag(ap)
     args = ap.parse_args()
-    if args.hand_out < 0:
-        ap.error("--hand-out must be 0 or more")
+    if args.hand_out < 0 or args.keep_ahead < 0:
+        ap.error("--hand-out and --keep-ahead must be 0 or more")
     return args
 
 
@@ -493,7 +499,8 @@ def main() -> None:
                   ledger_keys(LEDGER_DIR), priority_missions, census=off, iucn=off,
                   wcvp_range=off, labels=labels, pins=pins, sent_nums=sent_nums)
     write_files(args.out, built, pool)
-    pinned = write_pins(args.pins, built["batch_rows"], pins, sent_nums, args.hand_out)
+    pinned = write_pins(args.pins, built["batch_rows"], pins, sent_nums, args.hand_out,
+                        args.keep_ahead)
     print(summary(pool, built))
     print(f"pinned batches {', '.join(map(str, pinned)) or 'none'} in {args.pins}")
     print(f"wrote send_batches.csv, send_first_queue.csv, frames.csv, propagated_labels.csv"
