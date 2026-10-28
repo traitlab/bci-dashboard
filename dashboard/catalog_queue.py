@@ -10,6 +10,7 @@ here applies and the page is the main pool's.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from collections import Counter, defaultdict
@@ -74,14 +75,23 @@ def packer():
 
 def check(verify_dir) -> str:
     """send_batches.csv is the packing catalog_batches.py makes from
-    send_first_queue.csv and frames.csv, row for row, or the build stops."""
+    send_first_queue.csv and frames.csv, with the pins and sent rounds in
+    packing_inputs.json, row for row, or the build stops."""
     frames = _read(verify_dir, FRAMES_FILE)
     qrows = _read(verify_dir, "send_first_queue.csv")
     brows = _read(verify_dir, "send_batches.csv")
     priority = {r["global_key"] for r in frames if r["priority_mission"] == "True"}
     mission = {r["global_key"]: r["mission"] for r in frames}
-    want = packer().pack_priority_first(
-        [[r[c] for c in queues.SEND_FIRST_COLUMNS] for r in qrows], priority, mission)
+    cb = packer()
+    path = os.path.join(verify_dir, cb.PACKING_INPUTS)
+    used = {"pins": [], "sent": [], "sent_nums": []}
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            used = json.load(f)
+    want, _ = cb.pack_pinned(
+        [[r[c] for c in queues.SEND_FIRST_COLUMNS] for r in qrows],
+        [tuple(p) for p in used["pins"]], set(used["sent"]), set(used["sent_nums"]),
+        priority, mission)
     got = [[r[c] for c in queues.SEND_BATCH_COLUMNS] for r in brows]
     if [[str(v) for v in row] for row in want] != got:
         fail("send_batches.csv is not the packing labelling/catalog_batches.py makes from "

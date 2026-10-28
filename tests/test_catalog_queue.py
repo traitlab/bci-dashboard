@@ -91,3 +91,20 @@ def test_the_panel_says_nothing_of_the_main_pools_order(catalog_queue, tables):
     for gone in ("how new it looks", "least like anything labelled", "<img",
                  "About 15% of every batch", "ground truth", "—"):
         assert gone not in html
+
+
+def test_the_check_replays_the_pins_the_batches_were_packed_with(catalog_batches,
+                                                                 catalog_queue, tables):
+    """A pinned batch sits where it was handed out, not where a fresh packing puts it."""
+    frames = catalog_queue.queue._read(str(tables), "frames.csv")
+    pool = {r["global_key"]: f"https://example.org/lefolab_drone_missions_wpt/{r['mission']}/"
+            f"{r['global_key']}" for r in frames}
+    preds = {k: [(f"Rare sp{k[4:7]}", 0.4) if k.startswith("rare") else ("Good sp", 0.1)]
+             for k in pool}
+    h = SimpleNamespace(canon=lambda n: n, per_species=[
+        {"species": "Good sp", "n_labelled_frames": 100, "top1_accuracy": 0.95}])
+    pins = [(2, f"known{i:03d}.JPG", "queue") for i in range(5)]
+    built = catalog_batches.build(pool, preds, h, set(), {PRIORITY}, pins=pins,
+                                  sent_nums={1})
+    catalog_batches.write_files(tables, built, pool)
+    assert "catalog rows" in catalog_queue.queue.check(str(tables))

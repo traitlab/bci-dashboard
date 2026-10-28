@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import random
 import re
 import sys
@@ -104,6 +105,7 @@ CROWN_SUFFIX = re.compile(r"_(\d+)tele\.JPG$", re.IGNORECASE)
 # The batches kept as handed out to the collaborator.
 PINS_CSV = Path(__file__).resolve().parents[1] / "input" / "pinned_batches.csv"
 PIN_FIELDS = ["batch_id", "global_key", "picked_by"]
+PACKING_INPUTS = "packing_inputs.json"
 # How many batches the summary spells out. The first are the ones sent first.
 SUMMARY_BATCHES = 3
 INPUT = Path(__file__).resolve().parents[1] / "input"
@@ -356,6 +358,8 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
             "missing": missing, "n_no_answer": n_no_answer, "mission": mission,
             "priority": priority, "already_sent": [k for k in pool if k in sent],
             "pins_dropped": pins_dropped, "n_pins": len(pins or []),
+            "packing_inputs": {"pins": pins or [], "sent_nums": sorted(sent_nums or ()),
+                               "sent": sorted(k for _, k, _ in pins or [] if k in sent)},
             "rarity": rarity, "crown": crown, "same_crown": same_crown,
             "propagated": propagate_crown_labels(same_crown, labels or {})}
 
@@ -395,6 +399,9 @@ def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
                        + built["rarity"].get(k, ["", "", ""])
                        + [built["crown"][k], built["same_crown"].get(k, ""),
                           built["propagated"].get(k, "")])
+    # What pack_pinned read besides the queue, so the page check can replay it.
+    with open(out / PACKING_INPUTS, "w", encoding="utf-8") as f:
+        json.dump(built["packing_inputs"], f)
     # Same columns as gt_dominant_taxon.csv plus the frame the label came from,
     # so the propagated labels merge into the ground truth like any other.
     with open(out / "propagated_labels.csv", "w", newline="", encoding="utf-8") as f:
