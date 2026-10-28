@@ -36,6 +36,7 @@ import hmac
 import io
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -448,7 +449,8 @@ def fetch_all(to_process, api, api_key, cache_dir, *, delay, test):
             break
         except Exception as e:
             errors += 1
-            print(f"  [{i+1}/{len(to_process)}] ERROR {gk}: {e}")
+            # A requests error names the photo URL, a private bucket path, and CI logs are public.
+            print(f"  [{i+1}/{len(to_process)}] ERROR {gk}: {re.sub(r'https?://\S+', '<url>', str(e))}")
 
         if i < len(to_process) - 1:
             time.sleep(delay)

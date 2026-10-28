@@ -92,10 +92,22 @@ def fetch_answers(pool_dir: Path) -> None:
         print(f"catalog pool: photo.py exited {done.returncode}; the answers cached so far stay")
 
 
+def listing_failures() -> tuple[type[BaseException], ...]:
+    """What a live listing can raise: a missing SDK, the network (requests errors are
+    OSError), a bad export line, our own checks, and the SDK's API errors."""
+    known: tuple[type[BaseException], ...] = (ImportError, OSError, ValueError, KeyError,
+                                              RuntimeError, LookupError)
+    try:
+        from lbox.exceptions import LabelboxError
+    except ImportError:
+        return known
+    return (*known, LabelboxError)
+
+
 def run(pool_dir: Path, exports, client_factory=make_client, fetch=fetch_answers) -> bool:
     try:
         n = rebuild(pool_dir, exports, client_factory)
-    except Exception as exc:  # never fail the refresh
+    except listing_failures() as exc:  # never fail the refresh
         # The class name only: SDK messages can carry signed URLs or the key.
         reason = str(exc) if isinstance(exc, (RuntimeError, LookupError)) else type(exc).__name__
         print(f"catalog pool: kept the bundled snapshot, live listing failed: {reason}")
