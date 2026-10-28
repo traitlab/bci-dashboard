@@ -1,8 +1,8 @@
 """Batches handed to the collaborator keep their frames and numbers across rebuilds.
 
 The catalog batches are rebuilt from the latest labels every refresh, and the
-collaborator sends them by hand. The pin file holds exactly the batches handed out
-(`--hand-out K` adds the next K), the send record (round ledgers) is written from the Labelbox export, and a sent
+collaborator sends them by hand. The pin file holds the batches handed out, topped
+up to `--keep-ahead` unsent ones (`--hand-out K` adds K more), the send record (round ledgers) is written from the Labelbox export, and a sent
 number is never reused.
 
     .venv/bin/pytest tests/test_pinned_batches.py
@@ -17,14 +17,14 @@ from test_catalog_batches import PRIORITY, health, synthetic_pool
 
 
 def run(cb, per_species, pins_path, ledger, sent=frozenset(), hand_out=0, priority=frozenset(),
-        n_rare=200):
+        n_rare=200, ahead=0):
     """One build as `main` does it: read the pins and the record, build, rewrite the pins."""
     pool, predictions, _ = synthetic_pool(n_rare)
     sent_nums = cb.sent_rounds(str(ledger))
     pins = cb.read_pins(pins_path)
     built = cb.build(pool, predictions, health(per_species), set(sent), set(priority),
                      pins=pins, sent_nums=sent_nums)
-    cb.write_pins(pins_path, built["batch_rows"], pins, sent_nums, hand_out)
+    cb.write_pins(pins_path, built["batch_rows"], pins, sent_nums, hand_out, ahead)
     return built
 
 
@@ -58,6 +58,25 @@ def test_batch_1_keeps_its_frames_when_the_labels_move_frames_between_queues(
     pool, predictions, _ = synthetic_pool()
     loose = catalog_batches.build(pool, predictions, health(labels_changed), set(), set())
     assert batch(loose, 1) != batch(first, 1)
+
+
+def test_a_pinned_batch_stays_whole_while_the_rest_regroups_by_growth_form(
+        catalog_batches, tmp_path):
+    """A batch handed out before the tree and liana split keeps its mixed frames
+    and number; the rest of the pool repacks into single-form batches after it."""
+    pins = tmp_path / "pins.csv"
+    pool, predictions, per_species = synthetic_pool()
+    first = run(catalog_batches, per_species, pins, tmp_path, hand_out=1)
+    for i in range(0, 200, 2):
+        predictions[f"rare{i:03d}.JPG"] = [(f"Vine sp{i}", 0.4)]
+    forms = {f"Vine sp{i}": "liana" for i in range(200)}
+    second = catalog_batches.build(pool, predictions, health(per_species), set(), set(),
+                                   pins=catalog_batches.read_pins(pins), forms=forms)
+    assert batch(second, 1) == batch(first, 1)
+    group = second["group"]
+    assert {group[k] for k in batch(second, 1)} == {"tree", "liana"}
+    rest = {b[0] for b in second["batch_rows"]} - {1}
+    assert all(len({group[k] for k in batch(second, n)}) == 1 for n in rest)
 
 
 def send(ledger, number, keys):
@@ -210,3 +229,20 @@ def test_an_empty_export_or_one_without_batch_names_records_nothing(record_sends
                                                      export_row("b.JPG", "Batch1")])
     assert record_sends.record([empty, plain], tmp_path / "none.csv", ledger, "P1") == {}
     assert not ledger.exists()
+
+
+def test_keep_ahead_tops_up_after_a_send_and_leaves_the_held_batches_alone(
+        catalog_batches, tmp_path):
+    """The refresh keeps four unsent batches handed out with no one asking."""
+    pins, ledger = tmp_path / "pins.csv", tmp_path / "rounds"
+    _, _, per_species = synthetic_pool(500)
+    first = run(catalog_batches, per_species, pins, ledger, n_rare=500, ahead=4)
+    assert pinned_numbers(pins) == [1, 2, 3, 4]
+    send(ledger, 1, batch(first, 1))
+    again = run(catalog_batches, per_species, pins, ledger, sent=set(batch(first, 1)),
+                n_rare=500, ahead=4)
+    assert pinned_numbers(pins) == [2, 3, 4, 5]
+    assert all(batch(again, n) == batch(first, n) for n in (2, 3, 4))
+    run(catalog_batches, per_species, pins, ledger, sent=set(batch(first, 1)), n_rare=500,
+        ahead=4, hand_out=1)
+    assert pinned_numbers(pins) == [2, 3, 4, 5, 6]

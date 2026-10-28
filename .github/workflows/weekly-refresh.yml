@@ -13,7 +13,7 @@ on:
         type: boolean
         default: true
       hand_out:
-        description: Batches to hand to the collaborator, pinned from the lowest unpinned number so they keep their frames. Scheduled runs hand out none.
+        description: Extra batches to hand to the collaborator on top of the four every run keeps handed out, pinned from the lowest unpinned number so they keep their frames.
         type: number
         default: 0
       deploy:

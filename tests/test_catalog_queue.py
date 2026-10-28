@@ -57,7 +57,7 @@ def test_the_figures_come_off_the_catalog_files(catalog_queue, tables):
     got = catalog_queue.queue.load(str(tables))
     cat = got["catalog"]
     assert got["n_unlab"] == 210 and cat["n_pool"] == 210
-    assert got["n_batch1"] == 40 and cat["priority_batches"] == [1]
+    assert got["n_batch1"] == 100 and cat["priority_batches"] == {1: 40}
     assert got["n_batches"] == max(cat["batches"])
     assert got["thumbs"] == {} and got["selection_audit"] is None
     # example.org is no Arbutus host, so no s3_uri is filled.
@@ -79,8 +79,9 @@ def test_a_batch_file_edited_by_hand_stops_the_build(catalog_queue, tables):
 
 def test_the_rule_names_the_priority_batch_and_the_mix(catalog_queue, tables):
     rule = catalog_queue.queue.batch_rule(catalog_queue.queue.load(str(tables))["catalog"])
-    assert rule.startswith("Batch 1 holds the 40 queued frames of the priority missions")
-    assert "From batch 2, each batch of at most 100 carries 15 random control" in rule
+    assert rule.startswith("Trees and lianas go in separate batches: tree batches 1 to 3")
+    assert "The 40 queued frames of the priority missions" in rule and "(batch 1)" in rule
+    assert "Each batch of at most 100 carries 15 random control" in rule
     assert "up to 20 photos from the low-confidence queue" in rule
 
 

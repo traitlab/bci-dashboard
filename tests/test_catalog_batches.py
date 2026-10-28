@@ -112,19 +112,19 @@ def test_a_synthetic_pool_comes_out_65_20_15(catalog_batches):
 
 def test_every_priority_frame_goes_first_whatever_its_queue(catalog_batches):
     """A census of the ground-data transects: low-confidence priority frames ride
-    with the long-tail ones, no control is drawn into them, and the 65/20/15
-    batches follow, numbered on."""
+    with the long-tail ones in the first batches, the queue tops the last of them
+    up to 100, and every batch carries its control, none of it a priority frame."""
     pool, predictions, per_species = synthetic_pool(n_priority_rare=150)
     for i in range(10):
         pool[f"known{i:03d}.JPG"] = url(PRIORITY, f"known{i:03d}.JPG")
     built = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY})
     rows = built["batch_rows"]
     head = [b for b in rows if b[0] <= 2]
-    assert {b[2] for b in head} == built["priority"]
-    assert [sum(b[0] == n for b in head) for n in (1, 2)] == [80, 80]
-    assert all(b[4] == "queue" for b in head)
-    third = [b for b in rows if b[0] == 3]
-    assert any(b[4] == "control" for b in third)
+    assert {b[2] for b in rows if b[2] in built["priority"] and b[0] <= 2} == built["priority"]
+    assert [sum(b[0] == n for b in head) for n in (1, 2)] == [100, 100]
+    assert [sum(b[0] == n and b[2] in built["priority"] for b in head) for n in (1, 2)] == [85, 75]
+    control = [b for b in head if b[4] == "control"]
+    assert len(control) == 30 and not {b[2] for b in control} & built["priority"]
 
 
 def test_a_rarity_reorder_moves_no_priority_frame_between_its_batches(catalog_batches):
@@ -136,7 +136,7 @@ def test_a_rarity_reorder_moves_no_priority_frame_between_its_batches(catalog_ba
     rare = {predictions[k][0][0].lower(): 1 for k in sorted(plain["priority"])[::2]}
     ranked = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY},
                                    census=rare, iucn={}, wcvp_range={})
-    head = lambda built: {(b[0], b[2]) for b in built["batch_rows"] if b[0] <= 2}
+    head = lambda built: {(b[0], b[2]) for b in built["batch_rows"] if b[2] in built["priority"]}
     assert head(ranked) == head(plain)
 
 
@@ -152,6 +152,42 @@ def test_the_control_does_not_move_when_the_queue_is_reordered(catalog_batches):
     control = lambda built: {b[2] for b in built["batch_rows"] if b[4] == "control"}
     assert control(ranked) == control(plain)
     assert sum(b[0] == 1 and b[4] == "control" for b in ranked["batch_rows"]) == 15
+
+
+def test_the_liana_share_is_the_top_5_score_on_liana_species(catalog_batches):
+    forms = {"Vine a": "liana", "Vine b": "liana", "Tree a": "tree"}.get
+    ranked = [("Tree a", 0.4), ("Vine a", 0.3), ("Shrub", 0.1), ("Vine b", 0.2),
+              ("Tree a", 0.0), ("Vine a", 9.0)]  # the sixth is past the top 5
+    assert catalog_batches.liana_share(ranked, forms) == 0.5
+    assert catalog_batches.growth_group(0.5) == "liana"
+    assert catalog_batches.growth_group(0.499999) == "tree"
+    assert catalog_batches.liana_share([], forms) == 0.0
+
+
+def test_trees_then_lianas_each_100_a_batch_with_its_own_control(catalog_batches):
+    """One growth form per batch, tree batches numbered first, every batch but the
+    last of its form full, the priority frames first in their form, and the
+    control of a batch drawn from its own form."""
+    pool, predictions, per_species = synthetic_pool(n_rare=400, n_priority_rare=60)
+    for i in range(0, 400, 3):  # a third of the frames, priority ones too, guess a liana
+        predictions[f"rare{i:03d}.JPG"] = [(f"Vine sp{i}", 0.3), (f"Rare sp{i}", 0.1)]
+    forms = {f"Vine sp{i}": "liana" for i in range(400)}
+    built = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY},
+                                  forms=forms)
+    rows, group = built["batch_rows"], built["group"]
+    groups = {}
+    for b in rows:
+        groups.setdefault(b[0], set()).add(group[b[2]])
+    assert all(len(g) == 1 for g in groups.values())
+    order = [groups[n].pop() for n in sorted(groups)]
+    assert order == sorted(order, key=["tree", "liana"].index) and "liana" in order
+    for g in ("tree", "liana"):
+        ids = [n for n in sorted(groups) if order[n - 1] == g]
+        sizes = [sum(b[0] == n for b in rows) for n in ids]
+        assert all(n == 100 for n in sizes[:-1]) and sizes[-1] <= 100
+        prio = {b[0] for b in rows if b[2] in built["priority"] and group[b[2]] == g}
+        assert prio == {ids[0]}
+        assert all(sum(b[0] == n and b[4] == "control" for b in rows) == 15 for n in ids[:-1])
 
 
 def test_frames_with_no_cached_answer_are_reported_not_dropped(catalog_batches):
@@ -176,7 +212,7 @@ def test_the_written_files_have_the_dispatch_columns_and_blank_row_ids(
     built = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY})
     catalog_batches.write_files(tmp_path, built, pool)
     lines = (tmp_path / "send_batches.csv").read_text(encoding="utf-8").splitlines()
-    assert lines[0].split(",") == queues.SEND_BATCH_HEADER
+    assert lines[0].split(",") == queues.SEND_BATCH_HEADER + ["growth_group"]
     assert len(list(tmp_path.glob("*.csv"))) == 4
     frames = (tmp_path / "frames.csv").read_text(encoding="utf-8").splitlines()
     assert len(frames) == len(pool) + 1

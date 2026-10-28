@@ -399,7 +399,7 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
                        species_cap: int = SPECIES_CAP,
                        share: int = QUEUE2_SHARE,
                        priority: frozenset = frozenset(),
-                       group_caps: tuple = ()) -> list:
+                       group_caps: tuple = (), soft_species_cap: bool = False) -> list:
     """Species-grouped, priority-first batches over an already-ordered
     ``queue_rows`` (send_first_queue.csv order). Each species is visited once,
     at its highest-priority row; its rows travel together. Every batch is filled
@@ -440,6 +440,7 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
     species: a capped row keeps its place and opens a later batch. Share rows
     are counted but not capped. The caps are soft: when every row left is capped
     the batch fills from them anyway, so no batch comes out short for a cap.
+    ``soft_species_cap`` makes ``species_cap`` soft the same way.
     """
     if batch_size < 1:
         raise ValueError(f"batch_size must be at least 1, got {batch_size}")
@@ -497,7 +498,8 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
                 if not rows:
                     pending.pop(j)
                     continue
-                room_sp = species_cap - held_by[sp]
+                room_sp = (species_cap - held_by[sp] if capped or not soft_species_cap
+                           else cap - held)
                 if room_sp <= 0:
                     j += 1
                     continue

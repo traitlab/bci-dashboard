@@ -57,9 +57,12 @@ def load(verify_dir) -> dict | None:
         "catalog": {
             "n_pool": len(frames), "status": status, "batches": dict(sorted(batches.items())),
             "queue_of": {r["global_key"]: r for r in qrows},
-            # The leading batches that hold priority-mission frames only.
-            "priority_batches": [b for b, rows in sorted(batches.items())
-                                 if all(r["global_key"] in priority for r in rows)],
+            # Priority-mission frames per batch, where it holds any.
+            "priority_batches": {b: n for b, rows in sorted(batches.items())
+                                 if (n := sum(r["global_key"] in priority for r in rows))},
+            # The growth group of each batch: one per batch, the first row's.
+            "growth_group": {b: rows[0].get("growth_group") or "tree"
+                             for b, rows in batches.items()},
             "rarity": any(r.get(c) for r in qrows for c in RARITY_COLUMNS),
             "n_s3": sum(1 for r in brows if r["s3_uri"])}}
 
@@ -88,10 +91,13 @@ def check(verify_dir) -> str:
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             used = json.load(f)
+    threshold = used.get("liana_share", cb.LIANA_SHARE)
+    group = {r["global_key"]: cb.growth_group(float(r["liana_share"]), threshold)
+             for r in frames if r.get("liana_share")}
     want, _ = cb.pack_pinned(
         [[r[c] for c in queues.SEND_FIRST_COLUMNS] for r in qrows],
         [tuple(p) for p in used["pins"]], set(used["sent"]), set(used["sent_nums"]),
-        priority, mission)
+        priority, mission, group)
     got = [[r[c] for c in queues.SEND_BATCH_COLUMNS] for r in brows]
     if [[str(v) for v in row] for row in want] != got:
         fail("send_batches.csv is not the packing labelling/catalog_batches.py makes from "
@@ -105,18 +111,28 @@ def check(verify_dir) -> str:
 
 
 def batch_rule(cat) -> str:
-    """How the catalog batches are made up, in one or two sentences."""
+    """How the catalog batches are made up, in a few sentences."""
+    groups = cat["growth_group"]
+    piles = []
+    for g in packer().GROWTH_GROUPS:
+        ids = [b for b in sorted(groups) if groups[b] == g]
+        if ids:
+            n = sum(len(cat["batches"][b]) for b in ids)
+            piles.append(f"{g} batches {ids[0]} to {ids[-1]} ({n:,} photos)" if len(ids) > 1
+                         else f"{g} batch {ids[0]} ({n:,} photos)")
+    head = ("Trees and lianas go in separate batches: " + ", then ".join(piles) + ". A photo "
+            f"is liana when lianas hold at least {packer().LIANA_SHARE:.0%} of the score of "
+            "its top 5 Pl@ntNet answers, a model guess, not a label; every other photo, "
+            "shrubs and unknowns too, is tree. ") if piles else ""
     prio = cat["priority_batches"]
-    n_prio = sum(len(cat["batches"][b]) for b in prio)
-    head = ""
     if prio:
-        which = f"Batch {prio[0]} holds" if len(prio) == 1 else f"Batches {prio[0]} to {prio[-1]} hold"
-        head = (f"{which} the {n_prio:,} queued frames of the priority missions, the ones "
-                f"with ground data on their crowns, and no random control. ")
-    first = (prio[-1] + 1) if prio else 1
+        head += (f"The {sum(prio.values()):,} queued frames of the priority missions, the "
+                 f"ones with ground data on their crowns, come first in their growth form "
+                 f"(batch{'es' if len(prio) > 1 else ''} "
+                 f"{', '.join(map(str, prio))}). ")
     per = queues.control_size()
-    control = (f"{per} random control photos, drawn once from the whole pool up front "
+    control = (f"{per} random control photos, drawn once from its growth form up front "
                f"(the last batch carries what is left of that draw), " if per else "")
-    return (head + f"From batch {first}, each batch of at most {queues.BATCH_SIZE} carries "
+    return (head + f"Each batch of at most {queues.BATCH_SIZE} carries "
             f"{control}up to {queues.QUEUE2_SHARE} photos from the low-confidence queue, "
             f"one per confidence band in turn, and fills the rest in queue order.")
