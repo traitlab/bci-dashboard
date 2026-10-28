@@ -165,23 +165,29 @@ def test_a_file_with_every_row_id_blank_is_sent_for_lookup_not_refused(dispatch_
 
 def test_rarity_orders_inside_a_queue_threatened_then_fewest_stems_then_unlisted(catalog_batches):
     """Three one-species frames, all long tail, confidence pointing the other way."""
-    pool = {k: url(OTHER, k) for k in ("common.JPG", "rare.JPG", "listed.JPG", "unknown.JPG")}
+    pool = {k: url(OTHER, k) for k in ("common.JPG", "rare.JPG", "listed.JPG", "wide.JPG",
+                                        "endemic.JPG", "unknown.JPG")}
     predictions = {"common.JPG": [("Common sp", 0.1)], "rare.JPG": [("Rare sp", 0.2)],
-                   "listed.JPG": [("Listed sp", 0.3)], "unknown.JPG": [("Unknown sp", 0.05)]}
+                   "listed.JPG": [("Listed sp", 0.3)], "wide.JPG": [("Wide sp", 0.9)],
+                   "endemic.JPG": [("Endemic sp", 0.04)], "unknown.JPG": [("Unknown sp", 0.05)]}
     built = catalog_batches.build(pool, predictions, health([]), set(), set(),
                                   census={"common sp": "900", "rare sp": "2", "listed sp": "400"},
-                                  iucn={"listed sp": "EN"})
-    assert [r[1] for r in built["queue_rows"]] == ["listed.JPG", "rare.JPG", "common.JPG", "unknown.JPG"]
-    assert built["rarity"]["listed.JPG"] == ["400", "EN"]
-    assert built["rarity"]["unknown.JPG"] == ["", ""]
+                                  iucn={"listed sp": "EN"},
+                                  wcvp_range={"wide sp": "40", "endemic sp": "1", "common sp": "3"})
+    assert [r[1] for r in built["queue_rows"]] == ["listed.JPG", "rare.JPG", "common.JPG",
+                                                   "endemic.JPG", "wide.JPG", "unknown.JPG"]
+    assert built["rarity"]["listed.JPG"] == ["400", "EN", ""]
+    assert built["rarity"]["endemic.JPG"] == ["", "", "1"]
+    assert built["rarity"]["unknown.JPG"] == ["", "", ""]
 
 
 def test_rarity_never_moves_a_frame_between_queues(catalog_batches):
     pool, predictions, per_species = synthetic_pool(n_rare=5, n_known=5)
     with_rarity = catalog_batches.build(pool, predictions, health(per_species), set(), set(),
-                                        census={"good sp": "1"}, iucn={"good sp": "CR"})
+                                        census={"good sp": "1"}, iucn={"good sp": "CR"},
+                                        wcvp_range={"good sp": "1"})
     plain = catalog_batches.build(pool, predictions, health(per_species), set(), set(),
-                                  census={}, iucn={})
+                                  census={}, iucn={}, wcvp_range={})
     def queue_of(b):
         return {r[1]: r[0] for r in b["queue_rows"]}
     assert queue_of(with_rarity) == queue_of(plain)
@@ -191,8 +197,10 @@ def test_the_input_rarity_files_read_and_an_absent_file_is_empty(catalog_batches
     assert catalog_batches.read_species_column(tmp_path / "none.csv", "n") == {}
     census = catalog_batches.read_species_column(catalog_batches.CENSUS_CSV, "n")
     iucn = catalog_batches.read_species_column(catalog_batches.IUCN_CSV, "iucn_category")
+    wcvp_range = catalog_batches.read_species_column(catalog_batches.RANGE_CSV, "wcvp_regions")
     assert census["faramea occidentalis"] == "1717"
     assert "LC" not in set(iucn.values())
+    assert wcvp_range["tachigali panamensis"] == "1"
 
 
 def test_a_second_frame_of_a_crown_is_not_queued_and_names_the_frame_its_label_comes_from(
@@ -201,7 +209,7 @@ def test_a_second_frame_of_a_crown_is_not_queued_and_names_the_frame_its_label_c
             "DJI_2_V_7524tele.JPG": url(OTHER, "DJI_2_V_7524tele.JPG"),
             "DJI_3_V_7524tele.JPG": url(PRIORITY, "DJI_3_V_7524tele.JPG")}
     predictions = {k: [("Sp", 0.3)] for k in pool}
-    built = catalog_batches.build(pool, predictions, health([]), set(), set(), census={}, iucn={})
+    built = catalog_batches.build(pool, predictions, health([]), set(), set(), census={}, iucn={}, wcvp_range={})
     assert built["same_crown"] == {"DJI_2_V_7524tele.JPG": "DJI_1_V_7524tele.JPG"}
     assert [r[1] for r in built["queue_rows"]] == ["DJI_1_V_7524tele.JPG", "DJI_3_V_7524tele.JPG"]
     catalog_batches.write_files(tmp_path, built, pool)
@@ -269,7 +277,7 @@ def test_a_held_frame_takes_the_label_of_the_frame_it_was_held_behind(catalog_ba
     predictions = {k: [("Sp", 0.3)] for k in pool}
     labels = {"DJI_1_V_7524tele.JPG": "Ceiba pentandra"}
     built = catalog_batches.build(pool, predictions, health([]), set(), set(), census={}, iucn={},
-                                  labels=labels)
+                                  wcvp_range={}, labels=labels)
     assert built["propagated"] == {"DJI_2_V_7524tele.JPG": "Ceiba pentandra"}
     catalog_batches.write_files(tmp_path, built, pool)
     out = list(csv.DictReader((tmp_path / "propagated_labels.csv").open(encoding="utf-8")))

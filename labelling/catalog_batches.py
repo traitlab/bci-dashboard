@@ -14,7 +14,8 @@ Two things differ from the main queue. The catalog frames have no embedding
 vectors, so inside each queue they run in ecological rarity order instead of
 novelty order (`rarity_rank`): IUCN threatened species first, then by stems in
 the BCI 50-ha census (`input/bci_census.csv`, fewest first), then the species
-the census does not list, confidence breaking ties. Label scarcity decides the
+the census does not list by WCVP range size (`input/species_range.csv`, fewest
+botanical regions first, the endemism proxy), confidence breaking ties. Label scarcity decides the
 queue, rarity decides the order inside it. And every frame of a mission listed
 in `input/priority_missions.txt` (ground data on its crowns) goes out first, in
 its own batches, whatever its queue.
@@ -68,8 +69,8 @@ from queues import (
 
 FRAME_FIELDS = ["global_key", "status", "queue", "batch_id", "picked_by", "mission",
                 "priority_mission", "predicted_species", "confidence", "census_stems",
-                "iucn_category", "crown_id", "label_from", "propagated_label"]
-RARITY_COLUMNS = ["census_stems", "iucn_category"]
+                "iucn_category", "wcvp_regions", "crown_id", "label_from", "propagated_label"]
+RARITY_COLUMNS = ["census_stems", "iucn_category", "wcvp_regions"]
 # Spread caps on the queue places of a batch (85 of 100): at most this many
 # frames of one mission, one site, one season. The site and season caps leave a
 # fifth of the places to the other sites and seasons while they have frames; the
@@ -88,6 +89,7 @@ SUMMARY_BATCHES = 3
 INPUT = Path(__file__).resolve().parents[1] / "input"
 CENSUS_CSV = INPUT / "bci_census.csv"       # species,n: stems in the BCI 50-ha census
 IUCN_CSV = INPUT / "species_iucn.csv"       # species,iucn_category: every non-LC category
+RANGE_CSV = INPUT / "species_range.csv"     # species,wcvp_regions: WGSRPD regions in WCVP
 # IUCN categories in the order a label serves conservation. Anything else, or no
 # category (which includes LC: the file lists only non-LC), sorts after them.
 IUCN_ORDER = ["EW", "CR", "EN", "VU", "NT", "LR/nt", "DD"]
@@ -101,15 +103,16 @@ def read_species_column(path: Path, column: str) -> dict:
         return {r["species"].strip().lower(): r[column].strip() for r in csv.DictReader(f)}
 
 
-def rarity_rank(species_of_key: dict, census: dict, iucn: dict) -> dict:
+def rarity_rank(species_of_key: dict, census: dict, iucn: dict, wcvp_range: dict) -> dict:
     """global_key -> rank, lower first: threatened (IUCN_ORDER), then fewest census
-    stems, then species the census does not list. Ties keep the queue's own order."""
+    stems, then (among species the census does not list, or with equal stems) the
+    fewest WCVP regions, then no range data. Ties keep the queue's own order."""
     def key(sp):
         sp = sp.lower()
         cat = iucn.get(sp)
-        n = census.get(sp)
+        n, regions = census.get(sp), wcvp_range.get(sp)
         return (IUCN_ORDER.index(cat) if cat in IUCN_ORDER else len(IUCN_ORDER),
-                int(n) if n else float("inf"))
+                int(n) if n else float("inf"), int(regions) if regions else float("inf"))
     order = sorted({key(sp) for sp in species_of_key.values()})
     rank_of = {k: i for i, k in enumerate(order)}
     return {k: rank_of[key(sp)] for k, sp in species_of_key.items()}
@@ -199,14 +202,15 @@ def pack_priority_first(queue_rows: list, priority: set, mission: dict | None = 
 
 def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missions,
           census: dict | None = None, iucn: dict | None = None,
-          labels: dict | None = None) -> dict:
+          wcvp_range: dict | None = None, labels: dict | None = None) -> dict:
     """Queue, batch and tracking rows for the frames that have an answer.
 
     ``h`` supplies support, top-1 accuracy and the canonicaliser, the same three
     things `measure.send_queue` hands `send_first_rows`. Frames without a cached
     answer are left out and returned by key, never dropped without a word.
-    ``census`` (species -> stems) and ``iucn`` (species -> category) order each
-    queue through `rarity_rank`; None reads the `input/` files. The low-confidence
+    ``census`` (species -> stems), ``iucn`` (species -> category) and ``wcvp_range``
+    (species -> regions) order each queue through `rarity_rank`; None reads the
+    `input/` files. The low-confidence
     rule reads the top-1 minus top-2 margin (``by_margin``), a batch holds at most
     `MISSION_CAP` queue frames of one mission, `SITE_CAP` of one site and `SEASON_CAP`
     of one season, and one frame per crown is queued; the others take the label of
@@ -214,6 +218,8 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
     """
     census = read_species_column(CENSUS_CSV, "n") if census is None else census
     iucn = read_species_column(IUCN_CSV, "iucn_category") if iucn is None else iucn
+    wcvp_range = (read_species_column(RANGE_CSV, "wcvp_regions") if wcvp_range is None
+                  else wcvp_range)
     support = {d["species"]: d["n_labelled_frames"] for d in h.per_species}
     top1_of = {d["species"]: d["top1_accuracy"] for d in h.per_species}
     missing = [k for k in pool if k not in predictions]
@@ -225,12 +231,13 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
     # The rarity rank rides in the novelty slot: same in-queue ordering, no vectors.
     decided, n_no_answer, _ = send_first_rows(
         answered, set(), h.canon, support, top1_of, sent=sent, priority=priority,
-        novelty=rarity_rank(species, census, iucn), by_margin=True)
+        novelty=rarity_rank(species, census, iucn, wcvp_range), by_margin=True)
     queue_rows = [[q, key, "", pred, f"{conf:.6f}", support.get(pred, 0),
                    fmt(top1_of.get(pred)) if pred in top1_of else "", "", ""]
                   for q, key, pred, conf, _ in decided]
     batch_rows = pack_priority_first(queue_rows, priority, mission)
-    rarity = {k: [census.get(sp.lower(), ""), iucn.get(sp.lower(), "")]
+    rarity = {k: [census.get(sp.lower(), ""), iucn.get(sp.lower(), ""),
+                  wcvp_range.get(sp.lower(), "")]
               for k, sp in species.items()}
     return {"queue_rows": with_batch_ids(queue_rows, batch_rows), "batch_rows": batch_rows,
             "missing": missing, "n_no_answer": n_no_answer, "mission": mission,
@@ -272,7 +279,7 @@ def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
             w.writerow([k, status, b[3] if b else "", b[0] if b else "", b[4] if b else "",
                         mission[k], k in built["priority"],
                         row[species_at] if row else "", row[4] if row else ""]
-                       + built["rarity"].get(k, ["", ""])
+                       + built["rarity"].get(k, ["", "", ""])
                        + [built["crown"][k], built["same_crown"].get(k, ""),
                           built["propagated"].get(k, "")])
     # Same columns as gt_dominant_taxon.csv plus the frame the label came from,
@@ -313,9 +320,10 @@ def summary(pool: dict, built: dict) -> str:
             + f", control {sum(r[pick_at] == 'control' for r in rows)}, "
             f"priority mission {sum(r[key_at] in built['priority'] for r in rows)} "
             f"(of the control {sum(r[key_at] in built['priority'] for r in rows if r[pick_at] == 'control')}), "
-            f"IUCN-listed {sum(bool(c) for _, c in rarity)}, "
-            f"census stems <= 10: {sum(bool(n) and int(n) <= 10 for n, _ in rarity)}, "
-            f"not in census {sum(not n for n, _ in rarity)}")
+            f"IUCN-listed {sum(bool(c) for _, c, _ in rarity)}, "
+            f"census stems <= 10: {sum(bool(n) and int(n) <= 10 for n, _, _ in rarity)}, "
+            f"not in census {sum(not n for n, _, _ in rarity)}, "
+            f"WCVP regions <= 5: {sum(bool(r) and int(r) <= 5 for _, _, r in rarity)}")
     return "\n".join(lines)
 
 
