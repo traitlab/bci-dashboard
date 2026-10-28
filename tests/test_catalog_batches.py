@@ -154,3 +154,35 @@ def test_a_file_with_every_row_id_blank_is_sent_for_lookup_not_refused(dispatch_
     path.write_text("batch_id,global_key,data_row_id,picked_by\n1,a.JPG,,queue\n1,b.JPG,,control\n",
                     encoding="utf-8")
     assert dispatch_round.load_selection_csv(path, "1") == ["a.JPG", "b.JPG"]
+
+
+def test_rarity_orders_inside_a_queue_threatened_then_fewest_stems_then_unlisted(catalog_batches):
+    """Three one-species frames, all long tail, confidence pointing the other way."""
+    pool = {k: url(OTHER, k) for k in ("common.JPG", "rare.JPG", "listed.JPG", "unknown.JPG")}
+    predictions = {"common.JPG": [("Common sp", 0.1)], "rare.JPG": [("Rare sp", 0.2)],
+                   "listed.JPG": [("Listed sp", 0.3)], "unknown.JPG": [("Unknown sp", 0.05)]}
+    built = catalog_batches.build(pool, predictions, health([]), set(), set(),
+                                  census={"common sp": "900", "rare sp": "2", "listed sp": "400"},
+                                  iucn={"listed sp": "EN"})
+    assert [r[1] for r in built["queue_rows"]] == ["listed.JPG", "rare.JPG", "common.JPG", "unknown.JPG"]
+    assert built["rarity"]["listed.JPG"] == ["400", "EN"]
+    assert built["rarity"]["unknown.JPG"] == ["", ""]
+
+
+def test_rarity_never_moves_a_frame_between_queues(catalog_batches):
+    pool, predictions, per_species = synthetic_pool(n_rare=5, n_known=5)
+    with_rarity = catalog_batches.build(pool, predictions, health(per_species), set(), set(),
+                                        census={"good sp": "1"}, iucn={"good sp": "CR"})
+    plain = catalog_batches.build(pool, predictions, health(per_species), set(), set(),
+                                  census={}, iucn={})
+    def queue_of(b):
+        return {r[1]: r[0] for r in b["queue_rows"]}
+    assert queue_of(with_rarity) == queue_of(plain)
+
+
+def test_the_input_rarity_files_read_and_an_absent_file_is_empty(catalog_batches, tmp_path):
+    assert catalog_batches.read_species_column(tmp_path / "none.csv", "n") == {}
+    census = catalog_batches.read_species_column(catalog_batches.CENSUS_CSV, "n")
+    iucn = catalog_batches.read_species_column(catalog_batches.IUCN_CSV, "iucn_category")
+    assert census["faramea occidentalis"] == "1717"
+    assert "LC" not in set(iucn.values())

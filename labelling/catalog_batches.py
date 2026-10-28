@@ -11,9 +11,13 @@ name canonicaliser, come from the labelled history exactly as `measure.send_queu
 reads them (`health.load_health`). Nothing here decides a queue rule.
 
 Two things differ from the main queue. The catalog frames have no embedding
-vectors, so nothing ranks them by novelty and each queue runs in confidence
-order. And every frame of a mission listed in `input/priority_missions.txt`
-(ground data on its crowns) goes out first, in its own batches, whatever its queue.
+vectors, so inside each queue they run in ecological rarity order instead of
+novelty order (`rarity_rank`): IUCN threatened species first, then by stems in
+the BCI 50-ha census (`input/bci_census.csv`, fewest first), then the species
+the census does not list, confidence breaking ties. Label scarcity decides the
+queue, rarity decides the order inside it. And every frame of a mission listed
+in `input/priority_missions.txt` (ground data on its crowns) goes out first, in
+its own batches, whatever its queue.
 
 Writes to --out:
   send_batches.csv      what `dispatch_round.py --batch N` sends. data_row_id is
@@ -50,7 +54,6 @@ from health import load_health, scan_cache
 from queues import (
     BATCH_SIZE,
     GROUP_BY,
-    NO_NOVELTY,
     QUEUE_ORDER,
     SEND_BATCH_COLUMNS,
     SEND_BATCH_HEADER,
@@ -63,9 +66,39 @@ from queues import (
 )
 
 FRAME_FIELDS = ["global_key", "status", "queue", "batch_id", "picked_by", "mission",
-                "priority_mission", "predicted_species", "confidence"]
+                "priority_mission", "predicted_species", "confidence", "census_stems",
+                "iucn_category"]
+RARITY_COLUMNS = ["census_stems", "iucn_category"]
 # How many batches the summary spells out. The first are the ones sent first.
 SUMMARY_BATCHES = 3
+INPUT = Path(__file__).resolve().parents[1] / "input"
+CENSUS_CSV = INPUT / "bci_census.csv"       # species,n: stems in the BCI 50-ha census
+IUCN_CSV = INPUT / "species_iucn.csv"       # species,iucn_category: every non-LC category
+# IUCN categories in the order a label serves conservation. Anything else, or no
+# category (which includes LC: the file lists only non-LC), sorts after them.
+IUCN_ORDER = ["EW", "CR", "EN", "VU", "NT", "LR/nt", "DD"]
+
+
+def read_species_column(path: Path, column: str) -> dict:
+    """species (lower-cased) -> column value, or empty when the file is absent."""
+    if not path.exists():
+        return {}
+    with open(path, newline="", encoding="utf-8") as f:
+        return {r["species"].strip().lower(): r[column].strip() for r in csv.DictReader(f)}
+
+
+def rarity_rank(species_of_key: dict, census: dict, iucn: dict) -> dict:
+    """global_key -> rank, lower first: threatened (IUCN_ORDER), then fewest census
+    stems, then species the census does not list. Ties keep the queue's own order."""
+    def key(sp):
+        sp = sp.lower()
+        cat = iucn.get(sp)
+        n = census.get(sp)
+        return (IUCN_ORDER.index(cat) if cat in IUCN_ORDER else len(IUCN_ORDER),
+                int(n) if n else float("inf"))
+    order = sorted({key(sp) for sp in species_of_key.values()})
+    rank_of = {k: i for i, k in enumerate(order)}
+    return {k: rank_of[key(sp)] for k, sp in species_of_key.items()}
 
 
 def read_pool(path: Path) -> dict[str, str]:
@@ -106,29 +139,39 @@ def pack_priority_first(queue_rows: list, priority: set) -> list:
     return head + [[b[0] + offset, *b[1:]] for b in chunk_send_batches(rest)]
 
 
-def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missions) -> dict:
+def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missions,
+          census: dict | None = None, iucn: dict | None = None) -> dict:
     """Queue, batch and tracking rows for the frames that have an answer.
 
     ``h`` supplies support, top-1 accuracy and the canonicaliser, the same three
     things `measure.send_queue` hands `send_first_rows`. Frames without a cached
     answer are left out and returned by key, never dropped without a word.
+    ``census`` (species -> stems) and ``iucn`` (species -> category) order each
+    queue through `rarity_rank`; None reads the `input/` files.
     """
+    census = read_species_column(CENSUS_CSV, "n") if census is None else census
+    iucn = read_species_column(IUCN_CSV, "iucn_category") if iucn is None else iucn
     support = {d["species"]: d["n_labelled_frames"] for d in h.per_species}
     top1_of = {d["species"]: d["top1_accuracy"] for d in h.per_species}
     missing = [k for k in pool if k not in predictions]
     mission = {k: mission_of_url(u) for k, u in pool.items()}
     priority = {k for k, m in mission.items() if m in priority_missions}
+    answered = {k: predictions[k] for k in pool if k in predictions}
+    species = {k: h.canon(r[0][0]) for k, r in answered.items() if r}
+    # The rarity rank rides in the novelty slot: same in-queue ordering, no vectors.
     decided, n_no_answer, _ = send_first_rows(
-        {k: predictions[k] for k in pool if k in predictions}, set(), h.canon, support,
-        top1_of, sent=sent, priority=priority)
+        answered, set(), h.canon, support, top1_of, sent=sent, priority=priority,
+        novelty=rarity_rank(species, census, iucn))
     queue_rows = [[q, key, "", pred, f"{conf:.6f}", support.get(pred, 0),
-                   fmt(top1_of.get(pred)) if pred in top1_of else "",
-                   "" if rank == NO_NOVELTY else rank, ""]
-                  for q, key, pred, conf, rank in decided]
+                   fmt(top1_of.get(pred)) if pred in top1_of else "", "", ""]
+                  for q, key, pred, conf, _ in decided]
     batch_rows = pack_priority_first(queue_rows, priority)
+    rarity = {k: [census.get(sp.lower(), ""), iucn.get(sp.lower(), "")]
+              for k, sp in species.items()}
     return {"queue_rows": with_batch_ids(queue_rows, batch_rows), "batch_rows": batch_rows,
             "missing": missing, "n_no_answer": n_no_answer, "mission": mission,
-            "priority": priority, "already_sent": [k for k in pool if k in sent]}
+            "priority": priority, "already_sent": [k for k in pool if k in sent],
+            "rarity": rarity}
 
 
 def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
@@ -138,9 +181,9 @@ def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
     species_at = SEND_FIRST_COLUMNS.index("predicted_species")
     with open(out / "send_first_queue.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(SEND_FIRST_HEADER)
+        w.writerow(SEND_FIRST_HEADER + RARITY_COLUMNS)
         for r in built["queue_rows"]:
-            w.writerow(r + ["", mission[r[1]], site_of(mission[r[1]])])
+            w.writerow(r + ["", mission[r[1]], site_of(mission[r[1]])] + built["rarity"][r[1]])
     key_at = SEND_BATCH_COLUMNS.index("global_key")
     with open(out / "send_batches.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
@@ -161,7 +204,8 @@ def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
             status = "batched" if b else why.get(k, "no_answer")
             w.writerow([k, status, b[3] if b else "", b[0] if b else "", b[4] if b else "",
                         mission[k], k in built["priority"],
-                        row[species_at] if row else "", row[4] if row else ""])
+                        row[species_at] if row else "", row[4] if row else ""]
+                       + built["rarity"].get(k, ["", ""]))
 
 
 def summary(pool: dict, built: dict) -> str:
@@ -184,12 +228,16 @@ def summary(pool: dict, built: dict) -> str:
     for bid in sorted(batches)[:SUMMARY_BATCHES]:
         rows = batches[bid]
         by_q = Counter(r[queue_at] for r in rows if r[pick_at] == "queue")
+        rarity = [built["rarity"][r[key_at]] for r in rows]
         lines.append(
             f"  batch {bid}: {len(rows)} frames, "
             + ", ".join(f"{q} {by_q[q]}" for q in QUEUE_ORDER if by_q[q])
             + f", control {sum(r[pick_at] == 'control' for r in rows)}, "
             f"priority mission {sum(r[key_at] in built['priority'] for r in rows)} "
-            f"(of the control {sum(r[key_at] in built['priority'] for r in rows if r[pick_at] == 'control')})")
+            f"(of the control {sum(r[key_at] in built['priority'] for r in rows if r[pick_at] == 'control')}), "
+            f"IUCN-listed {sum(bool(c) for _, c in rarity)}, "
+            f"census stems <= 10: {sum(bool(n) and int(n) <= 10 for n, _ in rarity)}, "
+            f"not in census {sum(not n for n, _ in rarity)}")
     return "\n".join(lines)
 
 
