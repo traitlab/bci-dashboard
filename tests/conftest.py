@@ -441,6 +441,14 @@ def dispatch_round():
 
 
 @pytest.fixture(scope="session")
+def record_sends():
+    """`labelling/record_sends.py`: reads an export file and writes a ledger, no client."""
+    _require("labelbox", "yaml", "dotenv", who="labelling")
+    with _on_path(REPO / "labelling"):
+        return load("_record_sends_under_test", REPO / "labelling" / "record_sends.py")
+
+
+@pytest.fixture(scope="session")
 def fetch_dataset():
     """`labelling/fetch_dataset.py`, loaded for the checks that run before it
     reaches Labelbox. Nothing here builds a client or needs a key."""

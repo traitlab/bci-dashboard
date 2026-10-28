@@ -198,6 +198,7 @@ def fixture_repo(root, *, fail_builder=False, fail_atlas=False):
     (root / "docs/crownfirst-atlas.html").write_text(recorded_page("atlas-data", "points"))
     (root / "docs/explorer.html").write_text(recorded_page("explorer-data", "photos"))
     shutil.copy2(REPO / "bin/publish_pages.sh", root / "bin/publish_pages.sh")
+    (root / "labelling/record_sends.py").write_text("print('recorded nothing new')\n")
     (root / "labelling/gt_from_publication.py").write_text(
         "from pathlib import Path\nimport sys\n"
         "if '--check' not in sys.argv: Path('data/gt_publication_reviewed.csv').write_text('reviewed input')\n"

@@ -30,6 +30,13 @@ Writes to --out:
                         support for the round ledger from there.
   frames.csv            every pool frame: its queue and batch, or why it has none.
 
+Batches already handed out stay put. `input/pinned_batches.csv` holds the next
+`PIN_WINDOW` unsent batches (N..N+3, N the lowest number with no round ledger):
+those frames keep their batch and number across rebuilds, whatever the labels do,
+and only a frame since recorded as sent, or gone from the pool, drops out. The
+rest of the pool is packed after them, numbered past the highest pinned or sent
+number, so a number is never reused. The pin file is rewritten from the output.
+
     python labelling/catalog_batches.py --pool data/predictions_catalog_2026/input.csv \\
         --cache data/predictions_catalog_2026/cache --out build/catalog_batches
 """
@@ -37,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import itertools
 import random
 import re
 import sys
@@ -53,6 +61,7 @@ from core import (
     fmt,
     ledger_keys,
     mission_of_url,
+    sent_rounds,
 )
 from health import load_health, scan_cache
 from mission_buckets import s3_uri
@@ -90,6 +99,10 @@ SEASON_CAP = 68
 # (DJI_..._V_7524tele.JPG is crown 7524 of its mission). Numbers restart per
 # mission, so the crown is the pair. A key without one is its own crown.
 CROWN_SUFFIX = re.compile(r"_(\d+)tele\.JPG$", re.IGNORECASE)
+# The batches kept as handed out: the next PIN_WINDOW unsent numbers.
+PIN_WINDOW = 4
+PINS_CSV = Path(__file__).resolve().parents[1] / "input" / "pinned_batches.csv"
+PIN_FIELDS = ["batch_id", "global_key", "picked_by"]
 # How many batches the summary spells out. The first are the ones sent first.
 SUMMARY_BATCHES = 3
 INPUT = Path(__file__).resolve().parents[1] / "input"
@@ -237,9 +250,69 @@ def pack_with_reserved_control(rows: list, seed: int = CONTROL_SEED, **cap) -> l
     return queued
 
 
+def first_unsent(sent_nums: set) -> int:
+    """The lowest batch number with no round ledger."""
+    return next(n for n in itertools.count(1) if n not in sent_nums)
+
+
+def read_pins(path: Path) -> list[tuple[int, str, str]]:
+    """(batch number, global_key, picked_by) of the pin file; absent is empty.
+    A blank picked_by reads as a queue pick."""
+    if not path.exists():
+        return []
+    with open(path, newline="", encoding="utf-8") as f:
+        return [(int(r["batch_id"]), r["global_key"].strip(),
+                 (r.get("picked_by") or "queue").strip()) for r in csv.DictReader(f)]
+
+
+def write_pins(path: Path, batch_rows: list, sent_nums: set) -> int:
+    """Pin the batches N..N+PIN_WINDOW-1 of the output; returns how many rows."""
+    first = first_unsent(sent_nums)
+    rows = [(b[0], b[2], b[4]) for b in batch_rows if first <= b[0] < first + PIN_WINDOW]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(PIN_FIELDS)
+        w.writerows(sorted(rows))
+    return len(rows)
+
+
+def pack_pinned(queue_rows: list, pins: list, sent: set, sent_nums: set, priority: set,
+                mission: dict) -> tuple[list, dict]:
+    """(batch rows, dropped counts): pinned frames where they were, the rest after.
+
+    A pinned frame is dropped only when it has been recorded as sent, its batch
+    number has been sent (the rest of that batch returns to the pool), or it is no
+    longer queued. The rest of the pool is packed as before and numbered past the
+    highest pinned or sent number, so no number is reused or restarted at 1.
+    """
+    key_at, pred_at, queue_at = (SEND_FIRST_COLUMNS.index(c)
+                                 for c in ("global_key", "predicted_species", "queue"))
+    by_key = {r[key_at]: r for r in queue_rows}
+    kept, dropped = {}, Counter()
+    for b, key, picked in pins:
+        if key in kept:
+            continue
+        if key in sent:
+            dropped["recorded as sent"] += 1
+        elif b in sent_nums:
+            dropped["its batch number was sent"] += 1
+        elif key not in by_key:
+            dropped["no longer in the pool or queued"] += 1
+        else:
+            kept[key] = (b, picked)
+    head = [[b, CONTROL_GROUP if picked == "control" else by_key[k][pred_at], k,
+             by_key[k][queue_at], picked] for k, (b, picked) in kept.items()]
+    head.sort(key=lambda r: (r[0], r[2]))
+    offset = max(sent_nums | {b for b, _, _ in pins}, default=0)
+    rest = pack_priority_first([r for r in queue_rows if r[key_at] not in kept], priority, mission)
+    return head + [[b[0] + offset, *b[1:]] for b in rest], dict(dropped)
+
+
 def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missions,
           census: dict | None = None, iucn: dict | None = None,
-          wcvp_range: dict | None = None, labels: dict | None = None) -> dict:
+          wcvp_range: dict | None = None, labels: dict | None = None,
+          pins: list | None = None, sent_nums: set | None = None) -> dict:
     """Queue, batch and tracking rows for the frames that have an answer.
 
     ``h`` supplies support, top-1 accuracy and the canonicaliser, the same three
@@ -251,7 +324,9 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
     rule reads the top-1 minus top-2 margin (``by_margin``), a batch holds at most
     `MISSION_CAP` queue frames of one mission, `SITE_CAP` of one site and `SEASON_CAP`
     of one season, and one frame per crown is queued; the others take the label of
-    the queued frame once it is in ``labels`` (key -> species).
+    the queued frame once it is in ``labels`` (key -> species). ``pins`` (`read_pins`)
+    keep their batch and ``sent_nums`` (the round numbers sent) are never reused;
+    see `pack_pinned`.
     """
     census = read_species_column(CENSUS_CSV, "n") if census is None else census
     iucn = read_species_column(IUCN_CSV, "iucn_category") if iucn is None else iucn
@@ -272,13 +347,15 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
     queue_rows = [[q, key, "", pred, f"{conf:.6f}", support.get(pred, 0),
                    fmt(top1_of.get(pred)) if pred in top1_of else "", "", ""]
                   for q, key, pred, conf, _ in decided]
-    batch_rows = pack_priority_first(queue_rows, priority, mission)
+    batch_rows, pins_dropped = pack_pinned(queue_rows, pins or [], sent, sent_nums or set(),
+                                           priority, mission)
     rarity = {k: [census.get(sp.lower(), ""), iucn.get(sp.lower(), ""),
                   wcvp_range.get(sp.lower(), "")]
               for k, sp in species.items()}
     return {"queue_rows": with_batch_ids(queue_rows, batch_rows), "batch_rows": batch_rows,
             "missing": missing, "n_no_answer": n_no_answer, "mission": mission,
             "priority": priority, "already_sent": [k for k in pool if k in sent],
+            "pins_dropped": pins_dropped, "n_pins": len(pins or []),
             "rarity": rarity, "crown": crown, "same_crown": same_crown,
             "propagated": propagate_crown_labels(same_crown, labels or {})}
 
@@ -342,6 +419,8 @@ def summary(pool: dict, built: dict) -> str:
              f"left out, no cached prediction: {len(built['missing'])}"
              + (f" (first 5: {built['missing'][:5]})" if built["missing"] else ""),
              f"left out, already in a round ledger: {len(built['already_sent'])}",
+             f"pinned frames read: {built['n_pins']}, dropped: "
+             + (", ".join(f"{n} {why}" for why, n in built["pins_dropped"].items()) or "none"),
              (f"left out, another frame of the same crown is queued: {len(built['same_crown'])}"
               f" (labelled through it: {len(built['propagated'])})"),
              "queue sizes: " + ", ".join(f"{q} {queues[q]}" for q in QUEUE_ORDER),
@@ -374,6 +453,9 @@ def parse_args():
     ap.add_argument("--out", type=Path, required=True, help="folder to write the files to")
     ap.add_argument("--priority-missions", type=Path, default=None,
                     help="missions to sort first (default: input/priority_missions.txt)")
+    ap.add_argument("--pins", type=Path, default=PINS_CSV,
+                    help="batches kept as handed out, read first and rewritten from the "
+                         "output (default: input/pinned_batches.csv)")
     ap.add_argument("--rarity", action="store_true",
                     help="order inside each queue by IUCN, census and WCVP range (off: "
                          "lefolab wants no rarity order before a model trained on BCI labels)")
@@ -392,11 +474,16 @@ def main() -> None:
     with open(args.gt, encoding="utf-8") as f:
         labels = {r["global_key"]: r["wcvp_canonical_name"] for r in csv.DictReader(f)}
     off = {} if not args.rarity else None  # None reads the input/ tables
+    sent_nums = sent_rounds(LEDGER_DIR)
     built = build(pool, scan_cache(str(args.cache)).predictions, h,
                   ledger_keys(LEDGER_DIR), priority_missions, census=off, iucn=off,
-                  wcvp_range=off, labels=labels)
+                  wcvp_range=off, labels=labels, pins=read_pins(args.pins),
+                  sent_nums=sent_nums)
     write_files(args.out, built, pool)
+    n_pinned = write_pins(args.pins, built["batch_rows"], sent_nums)
     print(summary(pool, built))
+    print(f"pinned {n_pinned} frames of batches {first_unsent(sent_nums)} to "
+          f"{first_unsent(sent_nums) + PIN_WINDOW - 1} in {args.pins}")
     print(f"wrote send_batches.csv, send_first_queue.csv, frames.csv, propagated_labels.csv"
           f" to {args.out}")
 
