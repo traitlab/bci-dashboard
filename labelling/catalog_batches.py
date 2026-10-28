@@ -18,8 +18,16 @@ the BCI 50-ha census (`input/bci_census.csv`, fewest first), then the species
 the census does not list by WCVP range size (`input/species_range.csv`, fewest
 botanical regions first, the endemism proxy), confidence breaking ties. Label scarcity decides the
 queue, rarity decides the order inside it. And every frame of a mission listed
-in `input/priority_missions.txt` (ground data on its crowns) goes out first, in
-its own batches, whatever its queue.
+in `input/priority_missions.txt` (ground data on its crowns) goes out first,
+whatever its queue.
+
+Trees and lianas go out in separate batches. A frame is liana when species
+WCVP calls liana hold at least `LIANA_SHARE` of the score of its top-5 Pl@ntNet
+answers (`liana_share`); every other frame, shrubs and unknowns included, is
+tree: two piles, not a taxonomy. The group is a model guess, not a label. Tree
+batches come first, then liana batches, each group packed on its own: its
+priority-mission frames at the head, every batch of 100 with a random control
+drawn from the same group.
 
 Writes to --out:
   send_batches.csv      what `dispatch_round.py --batch N` sends. data_row_id is
@@ -89,7 +97,8 @@ from queues import (
 
 FRAME_FIELDS = ["global_key", "status", "queue", "batch_id", "picked_by", "mission",
                 "priority_mission", "predicted_species", "confidence", "census_stems",
-                "iucn_category", "wcvp_regions", "crown_id", "label_from", "propagated_label"]
+                "iucn_category", "wcvp_regions", "crown_id", "label_from", "propagated_label",
+                "liana_share"]
 RARITY_COLUMNS = ["census_stems", "iucn_category", "wcvp_regions"]
 # Spread caps on the queue places of a batch (85 of 100): at most this many
 # frames of one mission, one site, one season. The site and season caps leave a
@@ -109,6 +118,10 @@ PINS_CSV = Path(__file__).resolve().parents[1] / "input" / "pinned_batches.csv"
 PIN_FIELDS = ["batch_id", "global_key", "picked_by"]
 KEEP_AHEAD = 4  # unsent batches the collaborator holds; 4 is what was handed out first
 PACKING_INPUTS = "packing_inputs.json"
+# A frame whose top-5 Pl@ntNet score is at least this much on liana species goes
+# to the liana batches. Probe on 2,945 labelled tree or liana frames: AUC 0.96.
+LIANA_SHARE = 0.5
+GROWTH_GROUPS = ("tree", "liana")  # packed in this order, numbers continuous
 # How many batches the summary spells out. The first are the ones sent first.
 SUMMARY_BATCHES = 3
 INPUT = Path(__file__).resolve().parents[1] / "input"
@@ -203,34 +216,54 @@ def propagate_crown_labels(same_crown: dict, labels: dict) -> dict:
     return {k: labels[src] for k, src in same_crown.items() if src in labels}
 
 
-def pack_priority_first(queue_rows: list, priority: set, mission: dict | None = None) -> list:
-    """Every priority-mission frame in the first batches, then the 65/20/15 batches.
+def liana_share(ranked: list, form_of) -> float:
+    """The share of the top-5 score (``ranked``: (species, score) pairs) on species
+    ``form_of`` calls liana. A species with no growth form counts as not liana."""
+    top = ranked[:5]
+    total = sum(s for _, s in top)
+    return sum(s for sp, s in top if form_of(sp) == "liana") / total if total else 0.0
 
-    Ground data makes these frames a double verification of the botanists, so all
-    of them are wanted, whatever their queue: as a census of the transect, not the
-    queue's pick of it. They split evenly into as few batches as fit `BATCH_SIZE`
-    (203 frames: 68, 68, 67), with no control, since nothing in them was chosen.
-    The rest are packed as before and numbered on from there.
+
+def growth_group(share: float, threshold: float = LIANA_SHARE) -> str:
+    return "liana" if share >= threshold else "tree"
+
+
+def pack_groups(queue_rows: list, priority: set, mission: dict | None = None,
+                group: dict | None = None) -> list:
+    """Tree batches, then liana batches (``group``: key -> group, absent is tree),
+    each group packed by `pack_with_reserved_control` with its priority-mission
+    frames at the head and numbered on from the group before.
+
+    Ground data makes the priority frames a double verification of the botanists,
+    so all of them are wanted, whatever their queue: as a census of the transect,
+    not the queue's pick of it. They fill the first batches of their group, the
+    queue tops the last of them up to `BATCH_SIZE`, and every batch carries the
+    group's control.
     """
     key_at = SEND_FIRST_COLUMNS.index("global_key")
     queue_at, conf_at = (SEND_FIRST_COLUMNS.index(c) for c in ("queue", "confidence"))
-    # The queue's order, without rarity: a reorder of the queue never moves a
-    # priority frame between batches 1 to 3.
-    first = sorted((r for r in queue_rows if r[key_at] in priority),
-                   key=lambda r: (QUEUE_ORDER.index(r[queue_at]), float(r[conf_at]), r[key_at]))
-    rest = [r for r in queue_rows if r[key_at] not in priority]
-    cap = {"group_caps": spread_caps(mission) if mission else ()}
-    if not first:
-        return pack_with_reserved_control(rest, **cap)
-    n = -(-len(first) // BATCH_SIZE)
-    head = chunk_send_batches(first, batch_size=-(-len(first) // n), control_fraction=0,
-                              share=0)
-    offset = max(b[0] for b in head)
-    return head + [[b[0] + offset, *b[1:]] for b in pack_with_reserved_control(rest, **cap)]
+    # Soft species cap: a pile of few species still fills every batch but its last.
+    cap = {"group_caps": spread_caps(mission) if mission else (), "soft_species_cap": True}
+    group = group or {}
+    out: list = []
+    for g in GROWTH_GROUPS:
+        rows = [r for r in queue_rows if group.get(r[key_at], "tree") == g]
+        # The queue's order, without rarity: a reorder of the queue never moves a
+        # priority frame between the first batches.
+        first = sorted((r for r in rows if r[key_at] in priority),
+                       key=lambda r: (QUEUE_ORDER.index(r[queue_at]), float(r[conf_at]),
+                                      r[key_at]))
+        packed = pack_with_reserved_control([r for r in rows if r[key_at] not in priority],
+                                            first=first, **cap)
+        offset = max((b[0] for b in out), default=0)
+        out += [[b[0] + offset, *b[1:]] for b in packed]
+    return out
 
 
-def pack_with_reserved_control(rows: list, seed: int = CONTROL_SEED, **cap) -> list:
-    """The 65/20/15 batches with the control drawn once from the whole pool.
+def pack_with_reserved_control(rows: list, seed: int = CONTROL_SEED, first: list = (),
+                               **cap) -> list:
+    """The 65/20/15 batches with the control drawn once from the whole pool,
+    after the ``first`` rows (uncapped, in their order, no control drawn from them).
 
     The main queue draws each batch's control from what its queue picks leave,
     so a reorder of the queue (a rarity table, the margin rule) moves the control
@@ -242,12 +275,26 @@ def pack_with_reserved_control(rows: list, seed: int = CONTROL_SEED, **cap) -> l
     """
     key_at, queue_at = (SEND_FIRST_COLUMNS.index(c) for c in ("global_key", "queue"))
     per = control_size()
+    room = BATCH_SIZE - per
     by_key = sorted(rows, key=lambda r: r[key_at])
-    n_control = round(len(rows) * per / BATCH_SIZE)  # the control's share of the pool
+    # The control's share of the pool, first rows included: they take it too.
+    n_control = min(len(by_key), round((len(rows) + len(first)) * per / BATCH_SIZE))
     control = random.Random(seed).sample(by_key, n_control) if per else []
     drawn = {r[key_at] for r in control}
-    queued = chunk_send_batches([r for r in rows if r[key_at] not in drawn],
-                                batch_size=BATCH_SIZE - per, control_fraction=0, **cap)
+    left = [r for r in rows if r[key_at] not in drawn]
+    queued = (chunk_send_batches(list(first), batch_size=room, control_fraction=0, share=0)
+              if first else [])
+    n_head = max((b[0] for b in queued), default=0)
+    gap = room - sum(b[0] == n_head for b in queued) if queued else 0
+    if gap and left:
+        # The queue tops the last first-rows batch up: its own first batch, cut to the gap.
+        top = [b for b in chunk_send_batches(left, batch_size=gap, control_fraction=0, **cap)
+               if b[0] == 1]
+        queued += [[n_head, *b[1:]] for b in top]
+        took = {b[2] for b in top}
+        left = [r for r in left if r[key_at] not in took]
+    queued += [[b[0] + n_head, *b[1:]] for b in
+               chunk_send_batches(left, batch_size=room, control_fraction=0, **cap)]
     n = max((b[0] for b in queued), default=1 if control else 0)
     for b in range(1, n + 1):
         chunk = control[(b - 1) * per:b * per] if b < n else control[(b - 1) * per:]
@@ -284,13 +331,13 @@ def write_pins(path: Path, batch_rows: list, pins: list, sent_nums: set,
 
 
 def pack_pinned(queue_rows: list, pins: list, sent: set, sent_nums: set, priority: set,
-                mission: dict) -> tuple[list, dict]:
+                mission: dict, group: dict | None = None) -> tuple[list, dict]:
     """(batch rows, dropped counts): pinned frames where they were, the rest after.
 
     A pinned frame is dropped only when it has been recorded as sent, its batch
     number has been sent (the rest of that batch returns to the pool), or it is no
-    longer queued. The rest of the pool is packed as before and numbered past the
-    highest pinned or sent number, so no number is reused or restarted at 1.
+    longer queued. The rest of the pool is packed by `pack_groups` and numbered past
+    the highest pinned or sent number, so no number is reused or restarted at 1.
     """
     key_at, pred_at, queue_at = (SEND_FIRST_COLUMNS.index(c)
                                  for c in ("global_key", "predicted_species", "queue"))
@@ -311,14 +358,16 @@ def pack_pinned(queue_rows: list, pins: list, sent: set, sent_nums: set, priorit
              by_key[k][queue_at], picked] for k, (b, picked) in kept.items()]
     head.sort(key=lambda r: (r[0], r[2]))
     offset = max(sent_nums | {b for b, _, _ in pins}, default=0)
-    rest = pack_priority_first([r for r in queue_rows if r[key_at] not in kept], priority, mission)
+    rest = pack_groups([r for r in queue_rows if r[key_at] not in kept], priority, mission,
+                       group)
     return head + [[b[0] + offset, *b[1:]] for b in rest], dict(dropped)
 
 
 def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missions,
           census: dict | None = None, iucn: dict | None = None,
           wcvp_range: dict | None = None, labels: dict | None = None,
-          pins: list | None = None, sent_nums: set | None = None) -> dict:
+          pins: list | None = None, sent_nums: set | None = None,
+          forms: dict | None = None) -> dict:
     """Queue, batch and tracking rows for the frames that have an answer.
 
     ``h`` supplies support, top-1 accuracy and the canonicaliser, the same three
@@ -332,8 +381,10 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
     of one season, and one frame per crown is queued; the others take the label of
     the queued frame once it is in ``labels`` (key -> species). ``pins`` (`read_pins`)
     keep their batch and ``sent_nums`` (the round numbers sent) are never reused;
-    see `pack_pinned`.
+    see `pack_pinned`. ``forms`` (species -> WCVP growth form, None reads
+    input/growth_form.csv) splits trees from lianas through `liana_share`.
     """
+    forms = growth_form.load() if forms is None else forms
     census = read_species_column(CENSUS_CSV, "n") if census is None else census
     iucn = read_species_column(IUCN_CSV, "iucn_category") if iucn is None else iucn
     wcvp_range = (read_species_column(RANGE_CSV, "wcvp_regions") if wcvp_range is None
@@ -346,6 +397,10 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
     crown, same_crown = one_frame_per_crown(pool, mission)
     answered = {k: predictions[k] for k in pool if k in predictions and k not in same_crown}
     species = {k: h.canon(r[0][0]) for k, r in answered.items() if r}
+    # Rounded as frames.csv writes it, so the page check replays the same split.
+    share = {k: round(liana_share(r, lambda sp: forms.get(h.canon(sp))), 6)
+             for k, r in answered.items()}
+    group = {k: growth_group(s) for k, s in share.items()}
     # The rarity rank rides in the novelty slot: same in-queue ordering, no vectors.
     decided, n_no_answer, _ = send_first_rows(
         answered, set(), h.canon, support, top1_of, sent=sent, priority=priority,
@@ -354,7 +409,7 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
                    fmt(top1_of.get(pred)) if pred in top1_of else "", "", ""]
                   for q, key, pred, conf, _ in decided]
     batch_rows, pins_dropped = pack_pinned(queue_rows, pins or [], sent, sent_nums or set(),
-                                           priority, mission)
+                                           priority, mission, group)
     rarity = {k: [census.get(sp.lower(), ""), iucn.get(sp.lower(), ""),
                   wcvp_range.get(sp.lower(), "")]
               for k, sp in species.items()}
@@ -363,7 +418,9 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
             "priority": priority, "already_sent": [k for k in pool if k in sent],
             "pins_dropped": pins_dropped, "n_pins": len(pins or []),
             "packing_inputs": {"pins": pins or [], "sent_nums": sorted(sent_nums or ()),
-                               "sent": sorted(k for _, k, _ in pins or [] if k in sent)},
+                               "sent": sorted(k for _, k, _ in pins or [] if k in sent),
+                               "liana_share": LIANA_SHARE},
+            "liana_share": share, "group": group,
             "rarity": rarity, "crown": crown, "same_crown": same_crown,
             "propagated": propagate_crown_labels(same_crown, labels or {})}
 
@@ -381,12 +438,13 @@ def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
     key_at = SEND_BATCH_COLUMNS.index("global_key")
     with open(out / "send_batches.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(SEND_BATCH_HEADER)
+        w.writerow(SEND_BATCH_HEADER + ["growth_group"])
         for b in built["batch_rows"]:
             m = mission[b[key_at]]
             # labelbox_url stays blank: it is a link for a frame that has a data row id.
             w.writerow(b + ["", s3_uri(pool[b[key_at]]), "", "", m, site_of(m),
-                            forms.get(q[b[key_at]][species_at], growth_form.UNKNOWN), GROUP_BY])
+                            forms.get(q[b[key_at]][species_at], growth_form.UNKNOWN), GROUP_BY,
+                            built["group"].get(b[key_at], "tree")])
     why = ({k: "no_prediction" for k in built["missing"]}
            | {k: "already_sent" for k in built["already_sent"]}
            | {k: "same_crown" for k in built["same_crown"]})
@@ -402,7 +460,7 @@ def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
                         row[species_at] if row else "", row[4] if row else ""]
                        + built["rarity"].get(k, ["", "", ""])
                        + [built["crown"][k], built["same_crown"].get(k, ""),
-                          built["propagated"].get(k, "")])
+                          built["propagated"].get(k, ""), built["liana_share"].get(k, "")])
     # What pack_pinned read besides the queue, so the page check can replay it.
     with open(out / PACKING_INPUTS, "w", encoding="utf-8") as f:
         json.dump(built["packing_inputs"], f)
@@ -436,12 +494,17 @@ def summary(pool: dict, built: dict) -> str:
               f" (labelled through it: {len(built['propagated'])})"),
              "queue sizes: " + ", ".join(f"{q} {queues[q]}" for q in QUEUE_ORDER),
              f"batches: {len(batches)} of up to {BATCH_SIZE}"]
+    group_of = {bid: built["group"].get(rows[0][key_at], "tree") for bid, rows in batches.items()}
+    for g in GROWTH_GROUPS:
+        ids = [bid for bid in sorted(batches) if group_of[bid] == g]
+        lines.append(f"  {g}: {sum(len(batches[b]) for b in ids)} frames in {len(ids)} batches"
+                     + (f" ({ids[0]} to {ids[-1]})" if ids else ""))
     for bid in sorted(batches)[:SUMMARY_BATCHES]:
         rows = batches[bid]
         by_q = Counter(r[queue_at] for r in rows if r[pick_at] == "queue")
         rarity = [built["rarity"][r[key_at]] for r in rows]
         lines.append(
-            f"  batch {bid}: {len(rows)} frames, "
+            f"  batch {bid} ({group_of[bid]}): {len(rows)} frames, "
             + ", ".join(f"{q} {by_q[q]}" for q in QUEUE_ORDER if by_q[q])
             + f", control {sum(r[pick_at] == 'control' for r in rows)}, "
             f"priority mission {sum(r[key_at] in built['priority'] for r in rows)} "

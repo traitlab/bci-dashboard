@@ -62,14 +62,16 @@ def links_note(c):
 def batches_table(c):
     """Each batch's make-up, so the rule above can be checked batch by batch."""
     cat = c.catalog
-    prio = set(cat["priority_batches"])
+    prio = cat["priority_batches"]
     rows = []
     for b, brows in cat["batches"].items():
         n = Counter(r["queue"] for r in brows if r["picked_by"] == "queue")
-        rows.append([f"{b}", "yes" if b in prio else "", f"{len(brows):,}"]
+        rows.append([f"{b}", cat["growth_group"][b], f"{prio[b]:,}" if b in prio else "",
+                     f"{len(brows):,}"]
                     + [f"{n[q]:,}" for q in queues.QUEUE_ORDER]
                     + [f'{sum(r["picked_by"] == "control" for r in brows):,}'])
-    return table([("batch", True), ("priority missions", False), ("photos", True)]
+    return table([("batch", True), ("growth form", False), ("priority missions", True),
+                  ("photos", True)]
                  + [(q.replace("_", " "), True) for q in queues.QUEUE_ORDER]
                  + [("random control", True)], rows, source="send_batches.csv")
 
@@ -103,9 +105,9 @@ def p_send(c):
     pk = packer()
     body = (preview_table(c) + DISPATCH
             + more("How the batches are made up",
-                   f'<p class="note">{batch_rule(cat)} A batch takes at most '
-                   f'{queues.SPECIES_CAP} queue photos of one predicted species and, while '
-                   f'other photos are waiting, at most {pk.MISSION_CAP} of one mission, '
+                   f'<p class="note">{batch_rule(cat)} While other photos are waiting, a batch '
+                   f'takes at most {queues.SPECIES_CAP} queue photos of one predicted species, '
+                   f'{pk.MISSION_CAP} of one mission, '
                    f'{pk.SITE_CAP} of one site and {pk.SEASON_CAP} of one season. {order} The random control and the queue picks are '
                    f'compared once a round is labelled.</p>'
                    + readout_block(c) + batches_table(c))
