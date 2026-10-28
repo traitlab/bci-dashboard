@@ -268,9 +268,11 @@ jobs:
       - name: Commit the send record and the pinned batches
         # The build records batches sent by hand from the export (input/rounds/) and
         # rewrites the pin file. Both must reach main or the next run starts from the
-        # old record. Only when they changed; a rejected push fails the run, and the
+        # old record. Only when they changed, and only on a run that deploys, so the
+        # pins match the live list. A rejected push must not hold back the site: the
         # next run derives the same rows again from the export.
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.deploy)
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
