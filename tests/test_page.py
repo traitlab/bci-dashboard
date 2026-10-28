@@ -37,7 +37,7 @@ def test_every_panel_belongs_to_exactly_one_page(pagemod, panels):
     # check right after the registry), so importing the module at all is one
     # proof of this. Asserted again here so a future refactor that removes
     # that guard still has a test catching the drift.
-    internal = set(pagemod.INTERNAL_PANELS)
+    internal = set(pagemod.INTERNAL_PANELS) | set(pagemod.CATALOG_PANELS)
     external = set(pagemod.EXTERNAL_PANELS)
     assert internal | external == set(pagemod.PANELS)
     assert not (internal & external), (

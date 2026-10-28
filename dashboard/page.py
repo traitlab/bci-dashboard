@@ -23,6 +23,7 @@ from assets import css_for, esc, section, strip_comments
 from build_index import GLOSSARY, scope_byline
 from style import CSS, EVERY_PAGE_JS, JS, TABLE_ID
 from site_navigation import FAVICON, navigation
+from catalog_panels import p_send as p_catalog_send
 from confirmatory_panels import p_floor
 from history_panels import p_changes, p_confused
 from growth_form import p_growth_form
@@ -77,6 +78,8 @@ PANELS = {
     "floor": ("explanations", p_floor),
     "todo": ("label-first", p_todo),
     "send": ("label-first", p_send),
+    # The same place on the page when the tables hold the catalog batches.
+    "catalog-send": ("label-first", p_catalog_send),
     "look": ("queue-why", p_look),
     "evidence": ("queue-why", p_evidence),
     "species": ("model-health", p_species),
@@ -109,15 +112,17 @@ PANELS = {
 # send_batches.csv. External leaves the lab, carrying the confident
 # disagreements so they can be worked in Labelbox.
 INTERNAL_PANELS = ("send", "todo", "look", "evidence")
+# The queue page over the catalog batches: no order by look, so no "look".
+CATALOG_PANELS = ("catalog-send", "todo", "evidence")
 # Order inside a section is the order these ids are listed in; the sections
 # themselves order the page. The species table leads; definitions close.
 EXTERNAL_PANELS = ("species", "review", "confused", "sites", "growth", "changes",
                    "floor", "weighting", "coverage", "calibration", "terms", "counts",
                    "ceiling", "method")
 
-if set(INTERNAL_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
+if set(INTERNAL_PANELS) | set(CATALOG_PANELS) | set(EXTERNAL_PANELS) != set(PANELS):
     raise SystemExit(f"every panel belongs to a page: "
-                     f"{sorted(set(PANELS) - set(INTERNAL_PANELS) - set(EXTERNAL_PANELS))} "
+                     f"{sorted(set(PANELS) - set(INTERNAL_PANELS) - set(CATALOG_PANELS) - set(EXTERNAL_PANELS))} "
                      f"belongs to neither")
 
 

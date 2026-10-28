@@ -1,7 +1,7 @@
 """Dispatch a round selection to Labelbox Project B.
 
 Reads a selection CSV (from the send-first queue (dashboard/measure.py)), upserts a
-``selection_round`` metadata field on the chosen data rows, and creates
+``batch_id`` metadata field (the batch name) on the chosen data rows, and creates
 a labelling batch in Project B.
 
 Safety: only CREATES new batches and upserts metadata. Never deletes,
@@ -106,8 +106,14 @@ def load_selection_csv(csv_path: Path, batch_id: str | None = None,
                 if not (row.get("data_row_id") or "").strip():
                     no_id.append(gk)
                 n_control += (row.get("picked_by") or "").strip() == "control"
-    if no_id:
-        # Not in the dispatch dataset, so Labelbox would only report them missing.
+    if no_id and len(no_id) == len(global_keys):
+        # Every id blank is a file nobody could resolve offline: the catalog pool
+        # (`catalog_batches.py`) is in no local inventory. Step 2 looks each key up
+        # in the dataset, and a key it lacks is reported there as missing.
+        print("  No data_row_id in this file: Labelbox is asked for them by global key.")
+    elif no_id:
+        # Some rows have one and some do not: the missing ones are not in the
+        # dispatch dataset, so Labelbox would only report them missing.
         sys.exit(f"ERROR: {len(no_id)} of the {len(global_keys)} selected rows have no data_row_id, "
                  f"so they are not in Labelbox and cannot be sent (first 5: {no_id[:5]}). "
                  f"Re-run measure.py, or drop them from the CSV.")
@@ -220,7 +226,7 @@ def drop_rows(path: Path, data_row_ids: set[str]) -> None:
 
 
 def get_or_create_round_schema(mdo) -> str:
-    """The `selection_round` field's id, creating the field the first time.
+    """The `batch_id` field's id, creating the field the first time.
 
     `get_by_name` RAISES on a field that does not exist, it does not return
     None, so the create half of this function was unreachable and every first
@@ -237,7 +243,7 @@ def get_or_create_round_schema(mdo) -> str:
     from labelbox.schema.data_row_metadata import DataRowMetadataKind
     schema = mdo.create_schema(
         name=METADATA_SCHEMA_NAME,
-        kind=DataRowMetadataKind.number,
+        kind=DataRowMetadataKind.string,
     )
     print(f"  Created metadata schema '{METADATA_SCHEMA_NAME}' (id={schema.uid})")
     return schema.uid
@@ -245,7 +251,7 @@ def get_or_create_round_schema(mdo) -> str:
 
 # What creating the field needs, said in the script rather than only in a
 # handover: on 2026-09-07 our key read the ontology fine, found no
-# `selection_round`, and was refused the create with `Forbidden resource`. The
+# `batch_id`, and was refused the create with `Forbidden resource`. The
 # same key is refused `export` on every project and pages instead. So the field
 # has to be made once by someone with organisation rights, and after that this
 # function takes the reuse path. Until then no round can go out, whatever the
@@ -254,7 +260,7 @@ FORBIDDEN_HELP = (
     f"Creating the '{METADATA_SCHEMA_NAME}' field was refused. This key can read the "
     f"metadata ontology but not add to it. Ask whoever administers the Labelbox "
     f"organisation to create a Data Row Metadata field named '{METADATA_SCHEMA_NAME}' "
-    f"of kind Number, once, then run this again: it will find the field and reuse it.")
+    f"of kind Text (String), once, then run this again: it will find the field and reuse it.")
 
 
 def page_data_row_ids(dataset) -> dict[str, str]:
@@ -371,6 +377,19 @@ def priority_for_batch(batch_id, explicit=None):
     return min(max(n, 1), MAX_PRIORITY)
 
 
+def with_basename_aliases(key_to_id: dict[str, str]) -> dict[str, str]:
+    """Also answer to each photo's bare file name when exactly one key ends in it.
+
+    The 2024_bci dataset keys photos as `<flight folder>/<file name>` while the
+    catalog pool names them by file name alone. A name two keys share stays
+    unmatched and is reported missing, never guessed.
+    """
+    by_name: dict[str, list[str]] = {}
+    for key, uid in key_to_id.items():
+        by_name.setdefault(key.rsplit("/", 1)[-1], []).append(uid)
+    return {n: ids[0] for n, ids in by_name.items() if len(ids) == 1} | key_to_id
+
+
 def match_keys(global_keys, key_to_id):
     """The selected photos that Labelbox actually has, and a warning for the rest.
 
@@ -387,8 +406,8 @@ def match_keys(global_keys, key_to_id):
     return matched, missing
 
 
-def tag_round(client, matched_keys, key_to_id, round_no):
-    """Stamp the round number onto each data row, in chunks Labelbox accepts.
+def tag_round(client, matched_keys, key_to_id, name):
+    """Stamp the batch name onto each data row, in chunks Labelbox accepts.
 
     The tag is what a closed round is found by later: `close_round.py` reads
     the batch, and the metadata is what survives if the batch is renamed.
@@ -407,7 +426,7 @@ def tag_round(client, matched_keys, key_to_id, round_no):
     updates = [
         lb.DataRowMetadata(
             data_row_id=key_to_id[gk],
-            fields=[lb.DataRowMetadataField(schema_id=schema_id, value=float(round_no))],
+            fields=[lb.DataRowMetadataField(schema_id=schema_id, value=name)],
         )
         for gk in matched_keys
     ]
@@ -417,7 +436,7 @@ def tag_round(client, matched_keys, key_to_id, round_no):
         print(f"  Batch {i // UPSERT_CHUNK + 1}: {len(batch)} rows tagged")
 
 
-def create_batch(client, project_name, matched_keys, round_no, priority):
+def create_batch(client, project_name, data_row_ids, round_no, priority):
     """Put the round in front of the botanists, named so a human can find it.
 
     The name carries the round number and the day it went out, which is what
@@ -430,10 +449,10 @@ def create_batch(client, project_name, matched_keys, round_no, priority):
 
     batch = project.create_batch(
         name=rounds.batch_name(round_no),
-        global_keys=matched_keys,
+        data_rows=data_row_ids,
         priority=priority,
     )
-    print(f"  Created batch: {batch.name} ({len(matched_keys)} data rows, priority={priority})")
+    print(f"  Created batch: {batch.name} ({len(data_row_ids)} data rows, priority={priority})")
     return batch
 
 
@@ -475,7 +494,8 @@ def main() -> None:
     print(f"  Species in this send: {n_species}, of which {small} with 1 or 2 photos")
     if args.dry_run:
         print(f"\nDRY RUN: would tag and batch {len(global_keys)} keys as round "
-              f"{args.round}. Nothing written, no API call made.")
+              f"{args.round}, batch '{rounds.batch_name(args.round)}'. Nothing written, "
+              f"no API call made.")
         return
 
     client = lb.Client(api_key=settings.api_key())
@@ -483,17 +503,20 @@ def main() -> None:
     print(f"\nStep 2 - Fetching data row IDs from '{combined_dataset_name}'...")
     key_to_id = fetch_data_row_ids(client, combined_dataset_name)
     print(f"  Exported {len(key_to_id)} data rows")
+    key_to_id = with_basename_aliases(key_to_id)
     matched_keys, missing = match_keys(global_keys, key_to_id)
 
-    print(f"\nStep 3 - Upserting '{METADATA_SCHEMA_NAME}' = {args.round} on {len(matched_keys)} rows...")
-    tag_round(client, matched_keys, key_to_id, args.round)
+    name = rounds.batch_name(args.round)
+    print(f"\nStep 3 - Upserting '{METADATA_SCHEMA_NAME}' = {name} on {len(matched_keys)} rows...")
+    tag_round(client, matched_keys, key_to_id, name)
 
     priority = priority_for_batch(args.batch, args.priority)
     print(f"\nStep 4 - Creating labelling batch in Project B at priority {priority}...")
     # Ledger first: a crash after the batch exists must not let a rerun send again.
     ledger = record_sent(matched_keys, args.round, args.csv, args.batch, key_to_id, LEDGER_DIR)
     try:
-        batch = create_batch(client, project_b_name, matched_keys, args.round, priority)
+        batch = create_batch(client, project_b_name, [key_to_id[k] for k in matched_keys],
+                             args.round, priority)
     except (Exception, SystemExit):
         print(f"  Ledger rows kept in {ledger}. If Labelbox made no batch, delete them "
               f"there before re-running, or they are skipped as sent.")
@@ -512,7 +535,7 @@ def main() -> None:
     print(f"  Data rows:      {len(matched_keys) - len(failed)}")
     print(f"  Missing keys:   {len(missing)}")
     print(f"  Project:        {project_b_name}")
-    print(f"  Metadata field: {METADATA_SCHEMA_NAME} = {args.round}")
+    print(f"  Metadata field: {METADATA_SCHEMA_NAME} = {rounds.batch_name(args.round)}")
     print(f"  Ledger:         {ledger} (the record of the control arm)")
     print(f"  Priority:       {priority}"
           + ("" if args.priority is not None else f" (from batch {args.batch})"

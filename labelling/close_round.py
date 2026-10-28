@@ -64,7 +64,7 @@ def near_misses(project, round_num: int) -> list[str]:
     """Batch names that mention this round but are not named like one.
 
     A batch built by hand in the Labelbox interface is usually right except for
-    its name: `Round 3`, or `Round 3 - Sept 4`. Nothing can close those, and the
+    its name: `batch3_2026-10`, or `batch0003_Oct`. Nothing can close those, and the
     fix is a rename, so the names go in the error rather than leaving whoever
     ran this to guess whether the batch exists at all.
     """

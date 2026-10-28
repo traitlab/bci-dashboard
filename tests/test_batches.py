@@ -628,3 +628,16 @@ def test_the_share_env_var_is_read_like_the_batch_size(queues):
     for bad in ("x", "-1", "2.5"):
         with pytest.raises(ValueError):
             queues._share_from_env(bad)
+
+
+def test_a_priority_frame_does_not_pull_its_species_ahead(queues):
+    """Priority frames of a species pack as their own group, so a large species
+    with one priority frame does not fill the first batch ahead of the other
+    priority frames queued just behind it."""
+    s0, s1 = rows(60, 10)[:60], rows(60, 10)[60:]
+    queue_rows = [s0[0], *s1, *s0[1:]]  # send_first_rows puts priority frames first
+    priority = frozenset([s0[0][1]] + [r[1] for r in s1])
+    batches = uncapped(queues)(queue_rows, batch_size=20, control_fraction=0,
+                               share=0, priority=priority)
+    first = {key for bid, _, key, *_ in batches if bid == 1}
+    assert priority <= first

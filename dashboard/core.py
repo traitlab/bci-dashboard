@@ -574,6 +574,16 @@ def _inventory_pairs(paths):
 _MISSION_FOLDER_RE = re.compile(r"(?:^|/)(\d{8}_([a-z0-9]+)_[^/]*)")
 
 
+def mission_of_url(url: str) -> str:
+    """The mission folder a frame URL sits in, or "" for a URL that names none.
+
+    The same folder pattern ``inventory_origins`` reads off ``row_data``, for a
+    frame that has a URL and no inventory row (the catalog pool).
+    """
+    found = _MISSION_FOLDER_RE.search(str(url or ""))
+    return found.group(1) if found else ""
+
+
 def inventory_origins(path=LEGACY_INVENTORIES) -> dict[str, tuple[str, str]]:
     """global_key -> (mission, site), off the inventory.
 

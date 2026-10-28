@@ -56,7 +56,7 @@ def run(dispatch_round, tmp_path, monkeypatch):
     def create_batch(c, p, keys, r, pri):
         # the ledger must already hold the rows when Labelbox is called
         calls.append(("batch", list(keys), (ledger / "round_2.csv").exists()))
-        return SimpleNamespace(name="Round 2 - x", failed_data_row_ids=iter(failed))
+        return SimpleNamespace(name="batch0002_2026-10", failed_data_row_ids=iter(failed))
 
     monkeypatch.setattr(d, "create_batch", create_batch)
 
@@ -73,7 +73,7 @@ def run(dispatch_round, tmp_path, monkeypatch):
 
 def test_a_key_from_an_earlier_round_is_skipped_and_counted(run, capsys):
     calls = run()
-    assert ("batch", ["new1.JPG", "new2.JPG"], True) in calls
+    assert ("batch", ["id_new1.JPG", "id_new2.JPG"], True) in calls
     assert ("tag", ["new1.JPG", "new2.JPG"]) in calls
     assert "Skipped 1 keys already sent" in capsys.readouterr().out
 
@@ -136,7 +136,7 @@ def test_rows_labelbox_refused_are_dropped_from_the_ledger_and_re_sent(run):
         assert [r["global_key"] for r in csv.DictReader(f)] == ["new1.JPG"]
     run.failed.clear()
     calls = run()  # new2 is not skipped as sent
-    assert calls[-1][:2] == ("batch", ["new2.JPG"])
+    assert calls[-1][:2] == ("batch", ["id_new2.JPG"])
 
 
 def test_a_zero_byte_ledger_gets_its_header(dispatch_round, tmp_path):
@@ -179,3 +179,11 @@ def test_species_with_one_or_two_photos_are_counted(dispatch_round, tmp_path):
            [["1", "a", "x"], ["1", "b", "x"], ["1", "c", "x"], ["1", "d", "y"], ["1", "e", ""]])
     _write(tmp_path / "send_first_queue.csv", ["global_key", "predicted_species"], [["e", "z"]])
     assert dispatch_round.fragment_species(["a", "b", "c", "d", "e"], csv_path, "1") == (2, 3)
+
+
+def test_a_bare_file_name_finds_its_row_only_when_one_key_ends_in_it(dispatch_round):
+    keys = dispatch_round.with_basename_aliases({"flightA/x.JPG": "1", "flightA/y.JPG": "2", "flightB/y.JPG": "3",
+                                  "z.JPG": "4"})
+    matched, missing = dispatch_round.match_keys(["x.JPG", "y.JPG", "z.JPG", "flightB/y.JPG"], keys)
+    assert [keys[k] for k in matched] == ["1", "4", "3"]
+    assert missing == ["y.JPG"]
