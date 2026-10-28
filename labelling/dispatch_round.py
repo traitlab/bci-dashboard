@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -54,8 +55,11 @@ import core  # same GT path as read_round, BCI_DASHBOARD_DATA included
 GT_CSV = Path(core.GT_CSV)
 # Tracked, one file per round. No expert labels belong in it.
 LEDGER_DIR = REPO / "input" / "rounds"
+# The species columns freeze the state that put a frame in its queue: later
+# labels move a species between queues, so a read-out must not re-derive it.
 LEDGER_FIELDS = ["round", "batch_id", "global_key", "data_row_id", "picked_by", "queue",
-                 "predicted_species", "confidence", "mission", "site", "dispatched_at"]
+                 "predicted_species", "confidence", "species_labelled_crowns",
+                 "species_top1_accuracy", "mission", "site", "dispatched_at"]
 
 # How many metadata rows go up in one bulk_upsert call. Not the botanist-session
 # batch size: `queues.BATCH_SIZE` is that one, and it is a different number for a
@@ -172,6 +176,37 @@ def record_sent(keys, round_no, csv_path: Path, batch_id: str | None,
                        batch_id=row.get("batch_id") or batch_id or "")
             w.writerow([row.get(c, "") for c in LEDGER_FIELDS])
     return path
+
+
+def commit_ledger(path: Path, round_no: int) -> bool:
+    """Commit the round ledger in place, so the control-arm record cannot be
+    lost to an uncommitted checkout. False, with the manual command printed,
+    when git refuses (no repo, hook failure, nothing to commit)."""
+    git = ["git", "-C", str(path.parent)]
+    try:
+        subprocess.run([*git, "add", "--", str(path)], check=True, capture_output=True)
+        subprocess.run([*git, "commit", "-q", "-m", f"data(rounds): round {round_no} ledger"],
+                       check=True, capture_output=True)
+        return True
+    except (OSError, subprocess.CalledProcessError) as e:
+        err = getattr(e, "stderr", b"") or b""
+        print(f"  WARNING: ledger not committed ({err.decode(errors='replace').strip() or e}). "
+              f"Run: git add {path} && git commit -m 'data(rounds): round {round_no} ledger'")
+        return False
+
+
+def fragment_species(keys, csv_path: Path, batch_id: str | None) -> tuple[int, int]:
+    """(species with 1 or 2 photos in this send, species in this send). Tracks the
+    open question whether tiny species fragments slow the botanists down."""
+    sent, queue = _by_key(csv_path, batch_id), _by_key(csv_path.with_name("send_first_queue.csv"))
+    per_species = {}
+    for k in keys:
+        # same precedence as record_sent: the batch row, then the queue row
+        sp = (sent.get(k, {}).get("predicted_species")
+              or queue.get(k, {}).get("predicted_species") or "").strip()
+        if sp:
+            per_species[sp] = per_species.get(sp, 0) + 1
+    return sum(n <= 2 for n in per_species.values()), len(per_species)
 
 
 def drop_rows(path: Path, data_row_ids: set[str]) -> None:
@@ -436,6 +471,8 @@ def main() -> None:
     where = f"{args.csv}" + (f" batch {args.batch}" if args.batch else "")
     print(f"Step 1 - Loaded {len(global_keys)} global keys from {where}")
 
+    small, n_species = fragment_species(global_keys, args.csv, args.batch)
+    print(f"  Species in this send: {n_species}, of which {small} with 1 or 2 photos")
     if args.dry_run:
         print(f"\nDRY RUN: would tag and batch {len(global_keys)} keys as round "
               f"{args.round}. Nothing written, no API call made.")
@@ -476,11 +513,13 @@ def main() -> None:
     print(f"  Missing keys:   {len(missing)}")
     print(f"  Project:        {project_b_name}")
     print(f"  Metadata field: {METADATA_SCHEMA_NAME} = {args.round}")
-    print(f"  Ledger:         {ledger} (commit it: it is the record of the control arm)")
+    print(f"  Ledger:         {ledger} (the record of the control arm)")
     print(f"  Priority:       {priority}"
           + ("" if args.priority is not None else f" (from batch {args.batch})"
              if args.batch else " (no batch given)"))
     print(rule)
+    if commit_ledger(ledger, args.round):
+        print("  Ledger committed. Push it: git push")
 
 
 if __name__ == "__main__":

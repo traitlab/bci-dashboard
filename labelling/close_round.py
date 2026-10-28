@@ -162,7 +162,7 @@ def new_gt_entries(rows, project_uid, existing_keys):
     export.
     """
     entries: list[tuple[str, str]] = []
-    skipped = SimpleNamespace(existing=0, no_label=0, no_species=0)
+    skipped = SimpleNamespace(existing=0, no_label=0, no_species=0, no_species_keys=[])
 
     for row in rows:
         gk = row.get("data_row", {}).get("global_key", "")
@@ -180,10 +180,24 @@ def new_gt_entries(rows, project_uid, existing_keys):
         species = extract_dominant_species(project_labels[0])
         if not species:
             skipped.no_species += 1
+            skipped.no_species_keys.append(gk)
             continue
 
         entries.append((gk, species))
     return entries, skipped
+
+
+def arm_counts(keys, round_num: int, ledger_dir: Path = REPO / "input" / "rounds") -> str:
+    """'prioritised a, control b' for the keys, from the round's ledger. Junk and
+    unparseable photos per arm are the TypiClust risk: the prioritised arm picks
+    the least typical photos, so it may pick more photos that are not a tree."""
+    path = ledger_dir / f"round_{round_num}.csv"
+    if not path.exists():
+        return "no ledger, arms unknown"
+    with open(path, newline="", encoding="utf-8") as f:
+        control = {r["global_key"] for r in csv.DictReader(f) if r.get("picked_by") == "control"}
+    n_control = sum(k in control for k in keys)
+    return f"prioritised {len(keys) - n_control}, control {n_control}"
 
 
 def append_gt(path, entries):
@@ -237,7 +251,8 @@ def main() -> None:
     print(f"  New labels:         {len(new_entries)}")
     print(f"  Already in GT:      {skipped.existing}")
     print(f"  No labels yet:      {skipped.no_label}")
-    print(f"  No species parsed:  {skipped.no_species}")
+    print(f"  No species parsed:  {skipped.no_species} "
+          f"({arm_counts(skipped.no_species_keys, args.round)})")
 
     if not new_entries:
         print("\nNothing to append.")

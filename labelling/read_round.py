@@ -15,7 +15,9 @@ Inputs, all local, no network:
            Rows with no `predicted_species` have no first guess and are left out of
            the correction rate only.
   --sent / --queue  explicit overrides: a send_batches.csv (its batch_id read as the
-           round) and a send_first_queue.csv whose `predicted_species` wins.
+           round) and a send_first_queue.csv whose `predicted_species` wins. The
+           queue file also gives today's species state, so each round prints how
+           many of its queue 2 species are no longer reliable.
   --gt     gt_dominant_taxon.csv, which `close_round.py` appends to.
 
 A round is closed when at least one of its sent rows has a label in the GT file;
@@ -23,8 +25,13 @@ otherwise this prints "pending" and exits 0. "New" and "long-tail" are judged
 against the GT rows that are not in this round or any later one. Long-tail
 includes new species.
 
+Queue 2 rows are also read per confidence band, from the confidence the ledger
+froze at dispatch. Labels can knock a species out of queue 2, so a band read off
+today's queue would count only the species whose guesses held up.
+
 Writes build/tables/round_readout.csv (one row per scope and arm) for a page step,
-from --all only: a single --round run prints and leaves the file alone.
+from --all only: a single --round run prints and leaves the file alone. The pooled
+rows name the rounds they sum, so per-round drift stays visible beside them.
 
 Usage:
     python labelling/read_round.py --round 1
@@ -42,11 +49,12 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "dashboard"))
 
 import core
+from queues import SHARE_QUEUE
 from score_confirmatory import wilson
 
 ARMS = ("prioritised", "control")
 COUNTS = ("n_sent", "n_labelled", "n_with_guess", "corrections", "new_rows", "long_tail_rows")
-OUT_COLUMNS = ["scope", "status", "arm", "n_sent", "n_labelled", "n_with_guess",
+OUT_COLUMNS = ["scope", "rounds", "status", "arm", "n_sent", "n_labelled", "n_with_guess",
                "corrections", "corrections_lo", "corrections_hi",
                "new_rows", "new_lo", "new_hi", "new_species",
                "long_tail_rows", "long_tail_lo", "long_tail_hi"]
@@ -65,6 +73,52 @@ def _norm(name: str) -> str:
     return (name or "").strip().lower()
 
 
+def arms_of(row: dict) -> list[str]:
+    """The arm, plus `prioritised:<queue>` so a round that mixes queues reads
+    per queue, plus `prioritised:<queue 2>:<band>` from the dispatch confidence.
+    Control rows carry no queue split: they are the random draw."""
+    arm = arm_of(row)
+    queue = (row.get("queue") or "").strip()
+    if arm != "prioritised" or not queue:
+        return [arm]
+    arms = [arm, f"{arm}:{queue}"]
+    try:
+        conf = float(row.get("confidence") or "")
+    except ValueError:
+        return arms
+    if queue == SHARE_QUEUE:
+        arms.append(f"{arm}:{queue}:{int(conf * 10) / 10:.1f}")  # the bands share_rows uses
+    return arms
+
+
+def knocked_out(mine: list[dict], queue_rows: list[dict]) -> tuple[int, dict]:
+    """Queue 2 species of one round that today's queue says are no longer reliable.
+
+    Returns (queue 2 species sent, {species: Counter of where its unsent frames sit
+    now}). A species with no frames left in the queue cannot be judged and is left out.
+    """
+    was = {_norm(r.get("predicted_species", "")) for r in mine
+           if arm_of(r) == "prioritised" and (r.get("queue") or "").strip() == SHARE_QUEUE}
+    was.discard("")
+    now: dict[str, dict] = {}
+    for r in queue_rows:
+        sp = _norm(r.get("predicted_species", ""))
+        if sp in was:
+            st = now.setdefault(sp, {"where": Counter(), "n": r.get("species_labelled_crowns"),
+                                     "top1": r.get("species_top1_accuracy")})
+            st["where"][r["queue"]] += 1
+    out = {}
+    for sp, st in now.items():
+        try:
+            reliable = (int(float(st["n"])) >= core.WELL_SAMPLED_MIN_N
+                        and float(st["top1"]) >= core.RELIABLE_MIN_TOP1)
+        except (TypeError, ValueError):
+            reliable = False
+        if not reliable:
+            out[sp] = st["where"]
+    return len(was), out
+
+
 def read_round(sent: list[dict], gt: dict[str, str], guess: dict[str, str],
                round_no: int) -> dict:
     """One round's per-arm counts. `status` is pending when nothing is labelled."""
@@ -74,21 +128,22 @@ def read_round(sent: list[dict], gt: dict[str, str], guess: dict[str, str],
     before = Counter(_norm(s) for k, s in gt.items() if k not in later)
     arms = {a: {**dict.fromkeys(COUNTS, 0), "new_species": set()} for a in ARMS}
     for r in mine:
-        c = arms[arm_of(r)]
-        c["n_sent"] += 1
-        label = _norm(gt.get(r["global_key"], ""))
-        if not label:
-            continue
-        c["n_labelled"] += 1
-        first = _norm(guess.get(r["global_key"], ""))
-        if first:
-            c["n_with_guess"] += 1
-            c["corrections"] += label != first
-        if before[label] == 0:
-            c["new_rows"] += 1
-            c["new_species"].add(label)
-        c["long_tail_rows"] += before[label] < core.WELL_SAMPLED_MIN_N
-    closed = any(c["n_labelled"] for c in arms.values())
+        for a in arms_of(r):
+            c = arms.setdefault(a, {**dict.fromkeys(COUNTS, 0), "new_species": set()})
+            c["n_sent"] += 1
+            label = _norm(gt.get(r["global_key"], ""))
+            if not label:
+                continue
+            c["n_labelled"] += 1
+            first = _norm(guess.get(r["global_key"], ""))
+            if first:
+                c["n_with_guess"] += 1
+                c["corrections"] += label != first
+            if before[label] == 0:
+                c["new_rows"] += 1
+                c["new_species"].add(label)
+            c["long_tail_rows"] += before[label] < core.WELL_SAMPLED_MIN_N
+    closed = any(arms[a]["n_labelled"] for a in ARMS)
     return {"round": round_no, "status": "closed" if closed else "pending", "arms": arms}
 
 
@@ -97,15 +152,17 @@ def pool(results: list[dict]) -> dict:
     arms = {a: {**dict.fromkeys(COUNTS, 0), "new_species": 0} for a in ARMS}
     for res in results:
         for a, c in res["arms"].items():
+            arms.setdefault(a, {**dict.fromkeys(COUNTS, 0), "new_species": 0})
             for k in COUNTS:
                 arms[a][k] += c[k]
             arms[a]["new_species"] += len(c["new_species"])
     return arms
 
 
-def out_row(scope: str, arm: str, c: dict) -> dict:
+def out_row(scope: str, arm: str, c: dict, rounds: str = "") -> dict:
     ns = c["new_species"] if isinstance(c["new_species"], int) else len(c["new_species"])
-    row = {"scope": scope, "status": "closed", "arm": arm, "new_species": ns,
+    row = {"scope": scope, "rounds": rounds or scope, "status": "closed", "arm": arm,
+           "new_species": ns,
            **{k: c[k] for k in COUNTS}}
     for key, hits, n in (("corrections", c["corrections"], c["n_with_guess"]),
                          ("new", c["new_rows"], c["n_labelled"]),
@@ -120,9 +177,9 @@ def render(title: str, rows: list[dict]) -> str:
         return f"{r[hits]}/{r[n]} [{r[key + '_lo']:.0%},{r[key + '_hi']:.0%}]" if r[n] else "-"
 
     out = [title,
-           f"  {'arm':12} {'n':>4} {'corrections':>22} {'new to project':>22} {'long-tail':>22}"]
+           f"  {'arm':32} {'n':>4} {'corrections':>22} {'new to project':>22} {'long-tail':>22}"]
     for r in rows:
-        out.append(f"  {r['arm']:12} {r['n_labelled']:>4} "
+        out.append(f"  {r['arm']:32} {r['n_labelled']:>4} "
                    f"{cell(r, 'corrections', 'n_with_guess', 'corrections'):>22} "
                    f"{cell(r, 'new_rows', 'n_labelled', 'new'):>22} "
                    f"{cell(r, 'long_tail_rows', 'n_labelled', 'long_tail'):>22}"
@@ -139,7 +196,8 @@ def parse_args():
     which.add_argument("--all", action="store_true", help="pool every closed round")
     ap.add_argument("--ledger-dir", type=Path, default=REPO / "input" / "rounds")
     ap.add_argument("--sent", type=Path, help="send_batches.csv instead of the ledgers")
-    ap.add_argument("--queue", type=Path, help="send_first_queue.csv for the first guesses")
+    ap.add_argument("--queue", type=Path,
+                    help="send_first_queue.csv: first guesses, and today's species state")
     ap.add_argument("--gt", type=Path, default=Path(core.GT_CSV))
     ap.add_argument("--out", type=Path, default=REPO / "build/tables/round_readout.csv")
     return ap.parse_args()
@@ -163,8 +221,8 @@ def main() -> None:
     gt = ({r["global_key"]: r["wcvp_canonical_name"] for r in read_rows(args.gt)}
           if args.gt.exists() else {})
     guess = {r["global_key"]: r.get("predicted_species") or "" for r in sent}
-    if args.queue and args.queue.exists():
-        guess.update({r["global_key"]: r["predicted_species"] for r in read_rows(args.queue)})
+    queue_rows = read_rows(args.queue) if args.queue and args.queue.exists() else []
+    guess.update({r["global_key"]: r["predicted_species"] for r in queue_rows})
     if args.round is not None:
         wanted = [args.round]
     else:
@@ -179,12 +237,19 @@ def main() -> None:
             print(f"round {r['round']}: pending (no labels for its sent rows in {args.gt.name})")
             out.append({"scope": str(r["round"]), "status": "pending"})
             continue
-        rows = [out_row(str(r["round"]), a, r["arms"][a]) for a in ARMS]
+        rows = [out_row(str(r["round"]), a, r["arms"][a]) for a in r["arms"]]
         print(render(f"round {r['round']}", rows))
+        if queue_rows:
+            mine = [s for s in sent if s["round"].strip() == str(r["round"])]
+            n_was, gone = knocked_out(mine, queue_rows)
+            where = sum(gone.values(), Counter())
+            print(f"  queue 2 species no longer reliable today: {len(gone)} of {n_was}"
+                  + (f"; their unsent frames sit in {dict(sorted(where.items()))}" if gone else ""))
         out += rows
     if args.all:
         if closed:
-            rows = [out_row("pooled", a, c) for a, c in pool(closed).items()]
+            names = ";".join(str(r["round"]) for r in closed)
+            rows = [out_row("pooled", a, c, names) for a, c in pool(closed).items()]
             print(render(f"pooled over rounds {[r['round'] for r in closed]}", rows))
             out += rows
         else:

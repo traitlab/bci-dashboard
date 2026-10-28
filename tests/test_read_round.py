@@ -148,3 +148,48 @@ def test_all_with_no_ledger_is_a_clean_no_op(rr, tmp_path, monkeypatch, capsys):
     rr.main()
     assert "nothing to read" in capsys.readouterr().out
     assert not out.exists()
+
+
+def test_a_round_that_mixes_queues_reads_per_queue(rr):
+    sent = [{"round": "1", "global_key": k, "picked_by": p, "queue": q}
+            for k, p, q in (("a", "queue", "long_tail"), ("b", "queue", "low_conf_known"),
+                            ("c", "queue", "low_conf_known"), ("d", "control", "normal"))]
+    gt = {"a": "x", "b": "y", "c": "z", "d": "x"}
+    guess = {"a": "x", "b": "q", "c": "z", "d": "x"}
+    arms = rr.read_round(sent, gt, guess, 1)["arms"]
+    assert arms["prioritised"]["n_sent"] == 3 and arms["control"]["n_sent"] == 1
+    assert arms["prioritised:low_conf_known"]["corrections"] == 1
+    assert arms["prioritised:long_tail"]["n_labelled"] == 1
+    assert "control:normal" not in arms
+
+
+def test_queue_two_reads_per_band_from_the_dispatch_confidence(rr):
+    sent = [{"round": "1", "global_key": k, "picked_by": "queue", "queue": "low_conf_known",
+             "confidence": c} for k, c in (("a", "0.05"), ("b", "0.09"), ("c", "0.31"), ("d", ""))]
+    sent.append({"round": "1", "global_key": "e", "picked_by": "queue", "queue": "long_tail",
+                 "confidence": "0.05"})
+    arms = rr.read_round(sent, {}, {}, 1)["arms"]
+    assert arms["prioritised:low_conf_known:0.0"]["n_sent"] == 2
+    assert arms["prioritised:low_conf_known:0.3"]["n_sent"] == 1
+    assert arms["prioritised:low_conf_known"]["n_sent"] == 4  # no confidence, no band
+    assert not any(a.startswith("prioritised:long_tail:") for a in arms)
+
+
+def test_a_species_labels_knocked_out_of_queue_two_is_counted_with_where_it_went(rr):
+    mine = [{"global_key": k, "picked_by": p, "queue": q, "predicted_species": sp}
+            for k, p, q, sp in (("a", "queue", "low_conf_known", "Kept"),
+                                ("b", "queue", "low_conf_known", "dropped"),
+                                ("c", "queue", "low_conf_known", "sold out"),
+                                ("d", "control", "low_conf_known", "control only"),
+                                ("e", "queue", "long_tail", "other"))]
+    today = [{"predicted_species": sp, "queue": q, "species_labelled_crowns": n,
+              "species_top1_accuracy": a}
+             for sp, q, n, a in (("kept", "low_conf_known", "40", "0.95"),
+                                 ("dropped", "normal", "40", "0.88"),
+                                 ("dropped", "normal", "40", "0.88"),
+                                 ("dropped", "long_tail", "40", "0.88"),
+                                 ("control only", "normal", "40", "0.5"))]
+    n_was, gone = rr.knocked_out(mine, today)
+    # control rows are the random draw, not queue 2; "sold out" has no frames left to judge
+    assert n_was == 3
+    assert gone == {"dropped": {"normal": 2, "long_tail": 1}}

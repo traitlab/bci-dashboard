@@ -589,3 +589,42 @@ def test_the_capped_packing_golden(queues):
         ((2, "species 1"), 5), ((2, "species 2"), 2), ((2, "species 3"), 2),
         ((3, "species 1"), 5), ((4, "species 1"), 5), ((5, "species 1"), 5),
         ((6, "species 1"), 5)]
+
+
+def test_a_share_takes_queue_two_rows_one_per_confidence_band_first(queues):
+    base = rows(90, 90)
+    low = [["low_conf_known", f"l{k}.JPG", "", "species L", conf, 0, 0.0, k + 1, "", ""]
+           for k, conf in enumerate([0.45, 0.05, 0.25, 0.35, 0.15, 0.08])]
+    batches = queues.chunk_send_batches(base + low, batch_size=100, control_fraction=0, share=3,
+                                        species_cap=10**9)
+    first = [key for bid, _, key, *_ in batches if bid == 1]
+    # one per band, ascending: 0.05 (band 0), 0.15 (band 1), 0.25 (band 2), then species 0 fills
+    assert first[:3] == ["l1.JPG", "l4.JPG", "l2.JPG"]
+    # 3 shared + species 0 (90), then species 1 fills the room left and its rest opens batch 2
+    assert len(first) == 100 and sum(k.startswith("s0_") for k in first) == 90
+    second = [key for bid, _, key, *_ in batches if bid == 2]
+    assert second[:3] == ["l5.JPG", "l3.JPG", "l0.JPG"]  # the bands left: 0, 3, 4
+    assert len({key for _, _, key, *_ in batches}) == len(batches) == 186
+
+
+def test_an_oversized_species_after_the_share_is_cut_at_the_room_left(queues):
+    low = [["low_conf_known", f"l{k}.JPG", "", "species L", 0.05 + k / 100, 0, 0.0, k + 1, "", ""]
+           for k in range(3)]
+    batches = queues.chunk_send_batches(low + rows(120), batch_size=100, control_fraction=0, share=3,
+                                        species_cap=10**9)
+    assert sizes(batches) == [100, 23]
+
+
+def test_a_share_of_zero_restores_the_2026_08_05_order(queues):
+    low = [["low_conf_known", "l.JPG", "", "species L", 0.2, 0, 0.0, 1, "", ""]]
+    batches = queues.chunk_send_batches(rows(5) + low, batch_size=100, control_fraction=0, share=0)
+    assert [key for _, _, key, *_ in batches][-1] == "l.JPG"  # queue 1 first, queue 2 after
+    shared = queues.chunk_send_batches(rows(5) + low, batch_size=100, control_fraction=0)
+    assert next(key for _, _, key, *_ in shared) == "l.JPG"
+
+
+def test_the_share_env_var_is_read_like_the_batch_size(queues):
+    assert queues._share_from_env(None) == 20 and queues._share_from_env(" 0 ") == 0
+    for bad in ("x", "-1", "2.5"):
+        with pytest.raises(ValueError):
+            queues._share_from_env(bad)

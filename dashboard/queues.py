@@ -138,6 +138,49 @@ def _group_by_from_env(raw: str | None, default: str = "species") -> str:
 
 GROUP_BY = _group_by_from_env(os.environ.get("BCI_GROUP_BY"))
 
+# Places per batch reserved for the low-confidence, known-species queue, spread
+# over its confidence bands so the read-out is a curve of wrong first guesses
+# per band. 20 since 2026-10-26 (feedback-2026-10-22/04-decisions.md); 0 is the
+# 2026-08-05 order, all of queue 1 first.
+SHARE_QUEUE = "low_conf_known"
+
+
+def _share_from_env(raw: str | None, default: int = 20) -> int:
+    """``BCI_QUEUE2_SHARE``, or 20 when unset or empty. Rejected loudly, like the
+    batch size: a typo must not silently move a queue up."""
+    if raw is None or not raw.strip():
+        return default
+    try:
+        n = int(raw.strip())
+    except ValueError:
+        raise ValueError(f"BCI_QUEUE2_SHARE must be a whole number, got {raw!r}") from None
+    if n < 0:
+        raise ValueError(f"BCI_QUEUE2_SHARE must be 0 or more, got {n}")
+    return n
+
+
+QUEUE2_SHARE = _share_from_env(os.environ.get("BCI_QUEUE2_SHARE"))
+
+
+def share_rows(queue_rows: list, taken: set, share: int) -> list:
+    """Up to ``share`` untaken rows of ``SHARE_QUEUE``, one per confidence band
+    in turn (0.0, 0.1, ... ascending), each band in queue order."""
+    queue_at = SEND_FIRST_COLUMNS.index("queue")
+    conf_at = SEND_FIRST_COLUMNS.index("confidence")
+    bands: dict = defaultdict(list)
+    for i, r in enumerate(queue_rows):
+        if i not in taken and r[queue_at] == SHARE_QUEUE:
+            bands[int(float(r[conf_at]) * 10)].append(i)
+    out: list = []
+    while len(out) < share and bands:
+        for b in sorted(bands):
+            out.append(bands[b].pop(0))
+            if not bands[b]:
+                del bands[b]
+            if len(out) == share:
+                break
+    return out
+
 # The share of every batch drawn at random from the photos not sent yet instead
 # of from the head of the queue: the random control. Each closed round then
 # compares the queue's picks with random ones drawn from the same pool, which
@@ -322,7 +365,8 @@ def control_size(batch_size: int = BATCH_SIZE,
 def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
                        control_fraction: float = CONTROL_FRACTION,
                        group_by: str = GROUP_BY, seed: int = CONTROL_SEED,
-                       species_cap: int = SPECIES_CAP) -> list:
+                       species_cap: int = SPECIES_CAP,
+                       share: int = QUEUE2_SHARE) -> list:
     """Species-grouped, priority-first batches over an already-ordered
     ``queue_rows`` (send_first_queue.csv order). Each species is visited once,
     at its highest-priority row; its rows travel together. Every batch is filled
@@ -338,6 +382,10 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
 
     ``group_by="rank"`` instead cuts the queue in strict rank order into
     fixed-size chunks, each row labelled with its own species.
+
+    ``share`` places of each batch go first to ``SHARE_QUEUE`` rows, one per
+    confidence band in turn (``share_rows``), before the queue order fills the
+    rest. When that queue is empty the places go back to the queue order.
 
     Each batch's queue rows are packed first, then the batch takes a random
     control sized from them: about ``control_fraction`` of the batch total, at
@@ -384,8 +432,14 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
         pieces: list = []
         held = 0
         held_by: Counter = Counter()
+        for i in share_rows(queue_rows, taken, min(share, cap)):
+            sp = queue_rows[i][species_at]
+            pieces.append((sp, [i]))
+            held += 1
+            held_by[sp] += 1
+            taken.add(i)
         j = 0  # a capped species is skipped, not popped: it stays for the next batch
-        while j < len(pending):
+        while j < len(pending) and held < cap:
             sp, idx = pending[j]
             rows = [i for i in idx if i not in taken]
             if not rows:
@@ -405,8 +459,6 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
             held += len(take)
             held_by[sp] += len(take)
             taken.update(take)
-            if held == cap:
-                break
         if not pieces:
             break
         batch_id += 1

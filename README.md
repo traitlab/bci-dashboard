@@ -59,7 +59,7 @@ The ranking lands in `data/next_batch/queue_novelty.csv`. The weekly refresh wri
 
 ### Batches carry each species whole
 
-`send_batches.csv` packs the ordered queue into batches of 100, or `BCI_BATCH_SIZE`. A species ships at the place of its highest-ranked photo, with every other photo of that species beside it. Every batch gives 15% of its places (`CONTROL_FRACTION`) to photos drawn at random from the photos not sent yet, as a comparison for the queue. See [The random control](#the-random-control).
+`send_batches.csv` packs the ordered queue into batches of 100, or `BCI_BATCH_SIZE`. 20 places of each batch (`BCI_QUEUE2_SHARE`) go first to the low-confidence, known-species queue, one photo per confidence band in turn, until that queue is empty. A species ships at the place of its highest-ranked photo, with every other photo of that species beside it. Every batch gives 15% of its places (`CONTROL_FRACTION`) to photos drawn at random from the photos not sent yet, as a comparison for the queue. See [The random control](#the-random-control).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="diagrams/batches-dark.svg">
@@ -72,7 +72,7 @@ So the queues mix in send order. A queue 4 photo ships with its species' photos 
 
 Every batch reserves 15% of its places (`CONTROL_FRACTION`, 15 of 100) for photos drawn uniformly at random from the photos not sent yet. They are marked `picked_by == control` in `send_batches.csv`, sit at the end of their batch under the species group `control`, and are never sent twice. The draw is seeded (`CONTROL_SEED`), so every run writes the same file. `CONTROL_FRACTION = 0` turns it off.
 
-Why: the control is the only unbiased comparison for whether the queue order fills gaps faster than random. Once a batch is labelled, `labelling/read_round.py` compares the queue's picks with the random ones from the same batch, with intervals, and the queue page shows the result. Later pools are reshaped by the queue, so the comparison has to be drawn in every batch and cannot be added afterwards.
+Why: the control is the only unbiased comparison for whether the queue order fills gaps faster than random. Once a batch is labelled, `labelling/read_round.py` compares the queue's picks with the random ones from the same batch, with intervals, and the queue page shows the result. Later pools are reshaped by the queue, so the comparison has to be drawn in every batch and cannot be added afterwards. Queue 2 is also read per confidence band, from the confidence the round ledger recorded at dispatch. Labels can knock a species out of queue 2, and a band read off today's queue would keep only the species whose guesses held up.
 
 Cost: 15% of the labelling time goes to photos the queue would not have picked first. The last batch takes fewer control photos when the pool runs short, and always keeps at least one queue photo.
 
