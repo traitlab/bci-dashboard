@@ -11,11 +11,16 @@ pool with deep enough queues has to come out as the 65 / 20 / 15 mix.
 
 from __future__ import annotations
 
+import csv
 from types import SimpleNamespace
 
 PRIORITY = "20260424_bcishannon_wptsendero_m3e"
 OTHER = "20260402_bcishannon_wptjaco7524_m3e"
 BASE = "https://example.org/lefolab_drone_missions_wpt/"
+
+
+def other(i):
+    return OTHER.replace("7524", f"{7524 + i % 10}")
 
 
 def url(mission, key):
@@ -24,17 +29,19 @@ def url(mission, key):
 
 def synthetic_pool(n_rare=200, n_known=60, n_priority_rare=40):
     """(pool, predictions, per_species). Each rare frame is its own species, so
-    nothing hits the per-batch species cap; "Good sp" is well sampled, accurate
-    and guessed at low confidence, so it lands in the low-confidence queue."""
+    nothing hits the per-batch species cap, and the non-priority frames spread
+    over ten missions so nothing hits the per-batch mission cap; "Good sp" is
+    well sampled, accurate and guessed at low confidence, so it lands in the
+    low-confidence queue."""
     pool, predictions = {}, {}
     for i in range(n_rare):
         key = f"rare{i:03d}.JPG"
-        mission = PRIORITY if i < n_priority_rare else OTHER
+        mission = PRIORITY if i < n_priority_rare else other(i)
         pool[key] = url(mission, key)
         predictions[key] = [(f"Rare sp{i}", 0.4)]
     for i in range(n_known):
         key = f"known{i:03d}.JPG"
-        pool[key] = url(OTHER, key)
+        pool[key] = url(other(i), key)
         predictions[key] = [("Good sp", 0.1 + i / 1000)]
     per_species = [{"species": "Good sp", "n_labelled_frames": 100, "top1_accuracy": 0.95}]
     return pool, predictions, per_species
@@ -186,3 +193,47 @@ def test_the_input_rarity_files_read_and_an_absent_file_is_empty(catalog_batches
     iucn = catalog_batches.read_species_column(catalog_batches.IUCN_CSV, "iucn_category")
     assert census["faramea occidentalis"] == "1717"
     assert "LC" not in set(iucn.values())
+
+
+def test_a_second_frame_of_a_crown_is_not_queued_and_names_the_frame_its_label_comes_from(
+        catalog_batches, tmp_path):
+    pool = {"DJI_1_V_7524tele.JPG": url(OTHER, "DJI_1_V_7524tele.JPG"),
+            "DJI_2_V_7524tele.JPG": url(OTHER, "DJI_2_V_7524tele.JPG"),
+            "DJI_3_V_7524tele.JPG": url(PRIORITY, "DJI_3_V_7524tele.JPG")}
+    predictions = {k: [("Sp", 0.3)] for k in pool}
+    built = catalog_batches.build(pool, predictions, health([]), set(), set(), census={}, iucn={})
+    assert built["same_crown"] == {"DJI_2_V_7524tele.JPG": "DJI_1_V_7524tele.JPG"}
+    assert [r[1] for r in built["queue_rows"]] == ["DJI_1_V_7524tele.JPG", "DJI_3_V_7524tele.JPG"]
+    catalog_batches.write_files(tmp_path, built, pool)
+    frames = list(csv.DictReader((tmp_path / "frames.csv").open(encoding="utf-8")))
+    second = next(f for f in frames if f["global_key"] == "DJI_2_V_7524tele.JPG")
+    assert (second["status"], second["label_from"]) == ("same_crown", "DJI_1_V_7524tele.JPG")
+    assert second["crown_id"] == f"{OTHER}/7524"
+
+
+def test_the_low_confidence_rule_reads_the_margin_in_the_catalog(queues):
+    """Top-1 0.55 with top-2 0.45: sure enough by top-1, ambiguous by margin."""
+    support, top1 = {"Sure": 50}, {"Sure": 0.95}
+    preds = {"a": [("Sure", 0.55), ("Other", 0.45)]}
+    plain, _, _ = queues.send_first_rows(preds, set(), lambda n: n, support, top1)
+    margin, _, _ = queues.send_first_rows(preds, set(), lambda n: n, support, top1, by_margin=True)
+    assert (plain[0][0], margin[0][0]) == ("normal", "low_conf_known")
+    assert margin[0][3] == 0.55  # the confidence column stays the top-1 score
+
+
+def test_no_batch_holds_more_than_the_mission_cap(queues, catalog_batches):
+    """120 frames of one mission, 120 species, and a second mission with 60: the
+    first batches each take at most MISSION_CAP of the big mission, the capped
+    rows keep their rank and nothing is lost."""
+    rows = [["long_tail", f"m1_{i:03d}", "", f"Sp {i}", "0.300000", 0, "", "", ""] for i in range(120)]
+    rows += [["long_tail", f"m2_{i:03d}", "", f"Sq {i}", "0.400000", 0, "", "", ""] for i in range(60)]
+    mission = {r[1]: r[1][:2] for r in rows}
+    batches = queues.chunk_send_batches(rows, group_of=mission, group_cap=catalog_batches.MISSION_CAP)
+    per = {}
+    for b in batches:
+        if b[4] == "queue":
+            per.setdefault(b[0], []).append(mission[b[2]])
+    assert max(v.count("m1") for v in per.values()) == catalog_batches.MISSION_CAP
+    assert sorted(b[2] for b in batches) == sorted(r[1] for r in rows)
+    first = [b[2] for b in batches if b[0] == 1 and b[4] == "queue" and mission[b[2]] == "m1"]
+    assert first == [f"m1_{i:03d}" for i in range(catalog_batches.MISSION_CAP)]

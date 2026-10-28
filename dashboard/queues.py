@@ -28,7 +28,6 @@ from core import (
     WELL_SAMPLED_MIN_N,
 )
 
-
 # Queue names, in the order a botanist should work through them.
 QUEUE_ORDER = ["long_tail", "low_conf_known", "normal", "can_wait"]
 # The bottom queue, what the wait rule pushes down. Nobody works it, so the
@@ -383,7 +382,8 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
                        group_by: str = GROUP_BY, seed: int = CONTROL_SEED,
                        species_cap: int = SPECIES_CAP,
                        share: int = QUEUE2_SHARE,
-                       priority: frozenset = frozenset()) -> list:
+                       priority: frozenset = frozenset(),
+                       group_of: dict | None = None, group_cap: int | None = None) -> list:
     """Species-grouped, priority-first batches over an already-ordered
     ``queue_rows`` (send_first_queue.csv order). Each species is visited once,
     at its highest-priority row; its rows travel together. Every batch is filled
@@ -417,6 +417,11 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
     ``priority`` is a set of global keys whose rows form their own group per
     species, so a priority frame does not pull the rest of its species into the
     batch with it. The species cap still counts both groups together.
+
+    ``group_of`` maps a global key to a second grouping (a mission, say) and
+    ``group_cap`` is the most queue rows of one such group a batch holds, the
+    way ``species_cap`` works for a species: a capped row keeps its place and
+    opens a later batch. Share rows are counted but not capped. None caps nothing.
     """
     if batch_size < 1:
         raise ValueError(f"batch_size must be at least 1, got {batch_size}")
@@ -453,11 +458,17 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
         pieces: list = []
         held = 0
         held_by: Counter = Counter()
+        held_group: Counter = Counter()
+
+        def group(i):
+            return group_of.get(queue_rows[i][key_at]) if group_of else None
+
         for i in share_rows(queue_rows, taken, min(share, cap)):
             sp = queue_rows[i][species_at]
             pieces.append((sp, [i]))
             held += 1
             held_by[sp] += 1
+            held_group[group(i)] += 1
             taken.add(i)
         j = 0  # a capped species is skipped, not popped: it stays for the next batch
         while j < len(pending) and held < cap:
@@ -470,10 +481,22 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
             if room_sp <= 0:
                 j += 1
                 continue
-            # A species larger than the room left fills it; the rest opens the next batch.
-            take = rows[:min(room_sp, cap - held)]
-            if len(take) < len(rows):
-                pending[j] = (sp, rows[len(take):])
+            # A species larger than the room left fills it; the rest opens the next
+            # batch. A row whose group is at its cap stays behind, in rank order.
+            room = min(room_sp, cap - held)
+            take, keep = [], []
+            for i in rows:
+                g = group(i)
+                if len(take) < room and (group_cap is None or g is None or held_group[g] < group_cap):
+                    take.append(i)
+                    held_group[g] += 1
+                else:
+                    keep.append(i)
+            if not take:
+                j += 1
+                continue
+            if keep:
+                pending[j] = (sp, keep)
             else:
                 pending.pop(j)
             pieces.append((sp, take))
@@ -544,18 +567,23 @@ def with_batch_ids(queue_rows: list, batch_rows: list) -> list:
     return out
 
 
-def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> str:
+def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict,
+                        margin: float | None = None) -> str:
     """Which queue an unlabelled crown lands in, from its top prediction alone.
 
     ``support``: labelled-crown count per species. ``top1``: measured accuracy
     per species. Absent from both means never labelled. First rule wins, so a
     weak prediction on a rare species stays in the long tail.
+
+    ``margin``, top-1 minus top-2 score, replaces ``conf`` in the low-confidence
+    rule when given: a reliable species whose two best names are close is the
+    frame a label settles. None keeps the top-1 rule.
     """
     n = support.get(pred, 0)
     a = top1.get(pred)
     if n < WELL_SAMPLED_MIN_N or (a is not None and a < HARD_MAX_TOP1):
         return "long_tail"
-    if a is not None and a >= RELIABLE_MIN_TOP1 and conf < LOW_CONF:
+    if a is not None and a >= RELIABLE_MIN_TOP1 and (conf if margin is None else margin) < LOW_CONF:
         return "low_conf_known"
     if conf >= WAIT_CONF and n >= WELL_SAMPLED_MIN_N:
         return "can_wait"
@@ -564,7 +592,7 @@ def queue_of_prediction(pred: str, conf: float, support: dict, top1: dict) -> st
 
 def send_first_rows(predictions, joined_stems, canon, support, top1,
                     novelty=None, key_prefix="", splits=None, sent=(),
-                    priority=frozenset()) -> tuple:
+                    priority=frozenset(), by_margin=False) -> tuple:
     """Every unlabelled frame's queue, in the order send_first_queue.csv writes.
 
     Returns ``([(queue, stem, species, confidence, novelty_rank), ...],
@@ -597,6 +625,12 @@ def send_first_rows(predictions, joined_stems, canon, support, top1,
     their queue, ahead of novelty and confidence: the frames of missions that
     have ground data. It reorders inside a queue and never moves a frame between
     queues. Empty, which is the default, changes nothing.
+
+    ``by_margin`` hands `queue_of_prediction` the top-1 minus top-2 score as its
+    margin (the top-1 score alone when there is no second name), so the
+    low-confidence rule reads ambiguity between two names instead of a low first
+    score. The confidence column stays the top-1 score. False, the default, is
+    the top-1 rule the main queue uses.
     """
     novelty = novelty or {}
     splits = splits or {}
@@ -614,7 +648,8 @@ def send_first_rows(predictions, joined_stems, canon, support, top1,
             n_no_answer += 1
             continue
         pred, conf = ranked[0]
-        rows.append((queue_of_prediction(pred, conf, support, top1), stem, pred, conf,
+        margin = (conf - ranked[1][1] if len(ranked) > 1 else conf) if by_margin else None
+        rows.append((queue_of_prediction(pred, conf, support, top1, margin), stem, pred, conf,
                      novelty.get(key_prefix + stem, NO_NOVELTY)))
     rows.sort(key=lambda r: (QUEUE_ORDER.index(r[0]), key_prefix + r[1] not in priority,
                              r[4], r[3], r[1]))

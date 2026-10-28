@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -67,8 +68,16 @@ from queues import (
 
 FRAME_FIELDS = ["global_key", "status", "queue", "batch_id", "picked_by", "mission",
                 "priority_mission", "predicted_species", "confidence", "census_stems",
-                "iucn_category"]
+                "iucn_category", "crown_id", "label_from"]
 RARITY_COLUMNS = ["census_stems", "iucn_category"]
+# At most this many queue frames of one mission in a batch, so a sitting spreads
+# over sites. Same size as the species cap; the pool's species-grouped packing
+# already lands at most 14 per mission, so this binds only on a lopsided pool.
+MISSION_CAP = 20
+# The crown a frame shows: the number before "tele" in a waypoint-mission key
+# (DJI_..._V_7524tele.JPG is crown 7524 of its mission). Numbers restart per
+# mission, so the crown is the pair. A key without one is its own crown.
+CROWN_SUFFIX = re.compile(r"_(\d+)tele\.JPG$", re.IGNORECASE)
 # How many batches the summary spells out. The first are the ones sent first.
 SUMMARY_BATCHES = 3
 INPUT = Path(__file__).resolve().parents[1] / "input"
@@ -112,13 +121,33 @@ def read_pool(path: Path) -> dict[str, str]:
     return pool
 
 
+def crown_of(key: str, mission: str) -> str:
+    m = CROWN_SUFFIX.search(key)
+    return f"{mission}/{m.group(1)}" if m else f"{mission}/{key}"
+
+
+def one_frame_per_crown(pool: dict, mission: dict) -> tuple[dict, dict]:
+    """(crown_id of every key, key -> the earlier key of the same crown). One
+    frame of a crown goes to the botanist; its label is propagated to the rest
+    (`label_from` in frames.csv) instead of costing a second look."""
+    crown = {k: crown_of(k, mission[k]) for k in pool}
+    first: dict = {}
+    same = {}
+    for k, c in crown.items():
+        if c in first:
+            same[k] = first[c]
+        else:
+            first[c] = k
+    return crown, same
+
+
 def site_of(mission: str) -> str:
     """The second part of `<yyyymmdd>_<site>_<waypoint>_<aircraft>`, or blank."""
     parts = mission.split("_")
     return parts[1] if len(parts) > 2 else ""
 
 
-def pack_priority_first(queue_rows: list, priority: set) -> list:
+def pack_priority_first(queue_rows: list, priority: set, mission: dict | None = None) -> list:
     """Every priority-mission frame in the first batches, then the 65/20/15 batches.
 
     Ground data makes these frames a double verification of the botanists, so all
@@ -130,13 +159,14 @@ def pack_priority_first(queue_rows: list, priority: set) -> list:
     key_at = SEND_FIRST_COLUMNS.index("global_key")
     first = [r for r in queue_rows if r[key_at] in priority]
     rest = [r for r in queue_rows if r[key_at] not in priority]
+    cap = {"group_of": mission, "group_cap": MISSION_CAP if mission else None}
     if not first:
-        return chunk_send_batches(rest)
+        return chunk_send_batches(rest, **cap)
     n = -(-len(first) // BATCH_SIZE)
     head = chunk_send_batches(first, batch_size=-(-len(first) // n), control_fraction=0,
                               share=0)
     offset = max(b[0] for b in head)
-    return head + [[b[0] + offset, *b[1:]] for b in chunk_send_batches(rest)]
+    return head + [[b[0] + offset, *b[1:]] for b in chunk_send_batches(rest, **cap)]
 
 
 def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missions,
@@ -147,7 +177,9 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
     things `measure.send_queue` hands `send_first_rows`. Frames without a cached
     answer are left out and returned by key, never dropped without a word.
     ``census`` (species -> stems) and ``iucn`` (species -> category) order each
-    queue through `rarity_rank`; None reads the `input/` files.
+    queue through `rarity_rank`; None reads the `input/` files. The low-confidence
+    rule reads the top-1 minus top-2 margin (``by_margin``), a batch holds at most
+    `MISSION_CAP` queue frames of one mission, and one frame per crown is queued.
     """
     census = read_species_column(CENSUS_CSV, "n") if census is None else census
     iucn = read_species_column(IUCN_CSV, "iucn_category") if iucn is None else iucn
@@ -156,22 +188,23 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
     missing = [k for k in pool if k not in predictions]
     mission = {k: mission_of_url(u) for k, u in pool.items()}
     priority = {k for k, m in mission.items() if m in priority_missions}
-    answered = {k: predictions[k] for k in pool if k in predictions}
+    crown, same_crown = one_frame_per_crown(pool, mission)
+    answered = {k: predictions[k] for k in pool if k in predictions and k not in same_crown}
     species = {k: h.canon(r[0][0]) for k, r in answered.items() if r}
     # The rarity rank rides in the novelty slot: same in-queue ordering, no vectors.
     decided, n_no_answer, _ = send_first_rows(
         answered, set(), h.canon, support, top1_of, sent=sent, priority=priority,
-        novelty=rarity_rank(species, census, iucn))
+        novelty=rarity_rank(species, census, iucn), by_margin=True)
     queue_rows = [[q, key, "", pred, f"{conf:.6f}", support.get(pred, 0),
                    fmt(top1_of.get(pred)) if pred in top1_of else "", "", ""]
                   for q, key, pred, conf, _ in decided]
-    batch_rows = pack_priority_first(queue_rows, priority)
+    batch_rows = pack_priority_first(queue_rows, priority, mission)
     rarity = {k: [census.get(sp.lower(), ""), iucn.get(sp.lower(), "")]
               for k, sp in species.items()}
     return {"queue_rows": with_batch_ids(queue_rows, batch_rows), "batch_rows": batch_rows,
             "missing": missing, "n_no_answer": n_no_answer, "mission": mission,
             "priority": priority, "already_sent": [k for k in pool if k in sent],
-            "rarity": rarity}
+            "rarity": rarity, "crown": crown, "same_crown": same_crown}
 
 
 def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
@@ -194,7 +227,9 @@ def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
             # mission, the second is a link for a frame that has a data row id.
             w.writerow(b + ["", "", "", "", m, site_of(m),
                             forms.get(q[b[key_at]][species_at], growth_form.UNKNOWN), GROUP_BY])
-    why = {k: "no_prediction" for k in built["missing"]} | {k: "already_sent" for k in built["already_sent"]}
+    why = ({k: "no_prediction" for k in built["missing"]}
+           | {k: "already_sent" for k in built["already_sent"]}
+           | {k: "same_crown" for k in built["same_crown"]})
     placed = {b[key_at]: b for b in built["batch_rows"]}
     with open(out / "frames.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
@@ -205,7 +240,8 @@ def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
             w.writerow([k, status, b[3] if b else "", b[0] if b else "", b[4] if b else "",
                         mission[k], k in built["priority"],
                         row[species_at] if row else "", row[4] if row else ""]
-                       + built["rarity"].get(k, ["", ""]))
+                       + built["rarity"].get(k, ["", ""])
+                       + [built["crown"][k], built["same_crown"].get(k, "")])
 
 
 def summary(pool: dict, built: dict) -> str:
@@ -223,6 +259,7 @@ def summary(pool: dict, built: dict) -> str:
              f"left out, no cached prediction: {len(built['missing'])}"
              + (f" (first 5: {built['missing'][:5]})" if built["missing"] else ""),
              f"left out, already in a round ledger: {len(built['already_sent'])}",
+             f"left out, another frame of the same crown is queued: {len(built['same_crown'])}",
              "queue sizes: " + ", ".join(f"{q} {queues[q]}" for q in QUEUE_ORDER),
              f"batches: {len(batches)} of up to {BATCH_SIZE}"]
     for bid in sorted(batches)[:SUMMARY_BATCHES]:
