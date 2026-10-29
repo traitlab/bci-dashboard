@@ -4,7 +4,7 @@ Dated 2026-10-29, written before any label arrives.
 
 ## Estimand
 
-Top-1 accuracy over the pool of predicted-tree frames in `send_batches.csv`. A frame counts as correct when the model's first guess equals the label. The model sees the centre crop only, the fixed 1280 px square from the middle of the frame (`predict/photo.py`, 13.7% of the frame). The label is as in CONTEXT.md: the species with the largest crown area in the whole frame, which the botanist labels from the whole frame in Labelbox. The two usually agree; when the aim misses, the guess is scored against the largest crown, not the centre one. This matches every published number on the dashboard.
+Top-1 accuracy over the pool of predicted-tree frames in `send_batches.csv`. A frame counts as correct when the model's first guess equals the label. The model sees the centre crop only, the fixed 1280 px square from the middle of the frame (`predict/photo.py`, 13.7% of the frame). The label is as in CONTEXT.md: the species with the largest crown area in the whole frame, derived from the crowns the botanist outlines over the whole frame in Labelbox (no "dominant" field exists there). The two usually agree; when the aim misses, the guess is scored against the largest crown, not the centre one. This matches every published number on the dashboard.
 
 ## Estimator
 

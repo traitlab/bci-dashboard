@@ -142,3 +142,16 @@ def test_no_dates_at_all_writes_a_header_and_says_nothing_more(gfe, tmp_path):
     out = tmp_path / "d.csv"
     gfe.merge_label_dates({}, {"comb_DJI_1.JPG"}, out)
     assert out.read_text(encoding="utf-8").strip() == "global_key,labelled_at"
+
+
+def test_a_crown_with_no_box_area_stops_the_merge_instead_of_guessing(gfe, tmp_path):
+    """A segmentation mask exports without a bounding box, so its area reads as
+    zero and the largest-crown rule would pick the first crown by accident."""
+    row = json.loads(line("DJI_1.JPG", "2026-07-20T09:00:00.000Z"))
+    obj = row["projects"][PROJECT]["labels"][0]["annotations"]["objects"][0]
+    del obj["bounding_box"]
+    obj["mask"] = {"url": "https://example.org/mask.png"}
+    p = tmp_path / "e.ndjson"
+    p.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="DJI_1.JPG"):
+        gfe.export_dominants(p)
