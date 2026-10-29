@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import csv
+import random
 
 import pytest
 from conftest import REPO, load
@@ -193,3 +194,33 @@ def test_a_species_labels_knocked_out_of_queue_two_is_counted_with_where_it_went
     # control rows are the random draw, not queue 2; "sold out" has no frames left to judge
     assert n_was == 3
     assert gone == {"dropped": {"normal": 2, "long_tail": 1}}
+
+
+def test_ppi_interval_covers_and_is_narrower_than_the_plain_control(rr):
+    rng = random.Random(1)
+    f = [rng.betavariate(2, 2) for _ in range(2000)]
+    y = [float(rng.random() < 0.15 + 0.7 * a) for a in f]  # informative but miscalibrated
+    truth, fbar = sum(y) / len(y), sum(f) / len(f)
+    hit = w_ppi = w_plain = 0
+    reps = 300
+    for k in range(reps):
+        i = rng.sample(range(len(f)), 60)
+        ys, fs = [y[j] for j in i], [f[j] for j in i]
+        lo, hi = rr.ppi_interval(ys, fs, fbar, b=200, seed=k)
+        hit += lo <= truth <= hi
+        w_ppi += hi - lo
+        p = sum(ys) / 60
+        w_plain += 2 * 1.96 * (p * (1 - p) / 60) ** 0.5
+    assert hit / reps >= 0.90
+    assert w_ppi < w_plain
+
+
+def test_ppi_with_constant_confidence_is_the_plain_mean(rr):
+    assert rr.ppi_est([1.0, 0.0, 1.0, 1.0], [0.5] * 4, 0.9) == pytest.approx(0.75)
+
+
+def test_render_ppi_small_control_has_no_interval(rr):
+    keys = [f"c{i}" for i in range(3)]
+    sent = [{"global_key": k, "picked_by": "control"} for k in keys]
+    out = rr.render_ppi(sent, {"comb_" + k: "A" for k in keys}, dict.fromkeys(keys, ("a", 0.5)))
+    assert "ppi" in out and "control" in out and out.count("[") == 1
