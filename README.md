@@ -152,7 +152,7 @@ Only the scripts in `labelling/` and `predict/` import them. Those scripts write
   <img alt="Which scripts use labelfirst and crownfirst, the files they write, and the pages that read them" src="diagrams/packages.svg">
 </picture>
 
-The refresh runs `assess_species.py` and `rank_queue.py`. A person runs the other checks when the labels or the inventory change a lot. `RESEARCH.md` says what each check does.
+The refresh runs `assess_species.py` and `rank_queue.py`. A person runs the other checks when the labels or the inventory change a lot. [`RESEARCH.md`](RESEARCH.md) says what each check does.
 
 | What you see | Package | When | File |
 |---|---|---|---|
