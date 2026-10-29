@@ -22,6 +22,10 @@ Measured the same way, median 95% half-width around a pool accuracy near 0.68: o
 
 Per-species accuracy on control rows only, reported with counts. No pass mark.
 
+## Blinding
+
+The batch sent to Labelbox carries no guess, no queue and no control mark, and its rows are in random order. The public site does: `send_first_queue.csv` and the explorer page name Pl@ntNet's first guess for every photo, and `send_batches.csv` marks the control rows. Hiding one file would not change that, since the repo and its Pages are public. So the blinding is a rule, not a lock: the botanist labels from Labelbox alone and does not look a photo up on the site while labelling. The reply that sends batch 1 says so.
+
 ## Not claimed
 
 - Accuracy on frames Pl@ntNet calls liana, or on `can_wait` frames: neither is sent, so the pool is the frames worth a botanist's time, not every frame.

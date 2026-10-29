@@ -1,8 +1,8 @@
-"""The README quotes six numbers, and prose cannot import a constant.
+"""The README quotes five numbers, and prose cannot import a constant.
 
 Every one of them is a setting or a count that lives somewhere in the tree:
 the crop size, the share of the frame it covers, the coverage gate, how many
-names we ask Pl@ntNet for, how many CSVs a measurement pass writes, and how
+names we ask Pl@ntNet for, and how
 many frames were frozen for the experiment. Written out in Markdown they are
 copies, and a copy that nobody compares is how a front page ends up
 describing the settings of a year ago.
@@ -53,22 +53,13 @@ def test_the_candidate_list_length(readme, core):
         f"argument about unproven misses names a list of another length.")
 
 
-def test_how_many_csvs_a_measurement_pass_writes(readme, measure):
-    csvs = [name for name in measure.OUTPUTS if name.endswith(".csv")]
-    words = {7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 13: "thirteen", 14: "fourteen",
-             12: "twelve"}
-    assert f"{words[len(csvs)]} CSVs" in readme, (
-        f"measure.OUTPUTS writes {len(csvs)} CSVs and the diagram in the README "
-        f"says a different number.")
-
-
-def test_how_many_frames_were_frozen(readme, core):
+def test_how_many_frames_are_in_the_method_sample(readme, core):
     root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
-    frozen = os.path.join(root, "input", "confirmatory_frames_2026-08.csv")
-    with open(frozen, encoding="utf-8") as fh:
+    sample = os.path.join(root, "input", "confirmatory_frames_2026-08.csv")
+    with open(sample, encoding="utf-8") as fh:
         n = sum(1 for _ in csv.DictReader(fh))
-    assert re.search(rf"\b{n} frames frozen before", readme), (
-        f"{frozen} holds {n} frames and the README says another number. That "
+    assert re.search(rf"\b{n} labelled frames fixed on", readme), (
+        f"{sample} holds {n} frames and the README says another number. That "
         f"count is the sample size behind the headline.")
 
 
@@ -329,14 +320,8 @@ def test_readme_names_the_csvs_no_build_reads_back(readme, measure):
             f"measure.NOT_READ_BACK_BY_A_BUILD holds {name} and the README no "
             f"longer names it among the CSVs no build reads back.")
     words = {2: "Two", 3: "Three", 4: "Four", 5: "Five"}
-    # Both halves of the sentence are counts the code holds: how many go unread
-    # and how many there are. The second was written as a literal and went
-    # stale the first time measure.OUTPUTS grew.
-    total = len([name for name in measure.OUTPUTS if name.endswith(".csv")])
-    totals = {9: "nine", 10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen"}
-    assert readme.count(f"{words[len(named)]} of the {totals[total]} CSVs") == 1, (
-        f"{len(named)} of {total} CSVs go unread and the README counts "
-        f"different numbers.")
+    assert readme.count(f"{words[len(named)]} CSVs in `build/tables`") == 1, (
+        f"{len(named)} CSVs go unread and the README counts a different number.")
 
 
 def test_dashboard_imports_neither_research_library(readme, core):
