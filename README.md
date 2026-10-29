@@ -60,15 +60,15 @@ The ranking lands in `data/next_batch/queue_novelty.csv`. The weekly refresh wri
 
 `labelling/catalog_batches.py` packs the catalog pool (the dataset rows in no project) into batches of 100 and writes `send_batches.csv`. Antoine sends one batch at a time with `bin/send_batch.py`. The rules, in order:
 
-1. **Only photos Pl@ntNet calls a tree.** A photo is liana when liana species hold half or more of its top-5 score (`LIANA_SHARE`). Liana photos and `can_wait` photos stay in `send_first_queue.csv` with a blank `batch_id`. A `can_wait` photo is a species with 10 or more labelled crowns that the model already names with confidence. The botanists label trees: Antoine's decision.
-2. **Priority missions first.** Every photo of a mission in `input/priority_missions.txt` (ground data on its crowns) fills the first batches, whatever its queue.
+1. **Priority missions first, and complete.** Every photo of a mission in `input/priority_missions.txt` (ground data on its crowns) fills the first batches, whatever its queue or group. The transect is a census, so each crown gets its second identification.
+2. **Of the rest, only photos Pl@ntNet calls a tree.** A photo is liana when liana species hold half or more of its top-5 score (`LIANA_SHARE`). Liana photos and `can_wait` photos stay in `send_first_queue.csv` with a blank `batch_id`. A `can_wait` photo is a species with 10 or more labelled crowns that the model already names with confidence. The botanists label trees: Antoine's decision.
 3. **Then the queues in order,** rarest species first inside a queue, at most 20 photos of one species per batch (`SPECIES_CAP`).
 4. **15 control photos per batch** (`CONTROL_FRACTION`), drawn at random from the pool before packing, seeded (`CONTROL_SEED`). See [The random control](#the-random-control).
 5. **Random order inside the batch,** seeded per batch. The botanist cannot read the guess off the grouping. Labelbox never gets the guess: the sender pushes the data row and the batch name only.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="diagrams/batches-dark.svg">
-  <img alt="Predicted trees only, priority missions first, 15 control photos per batch of 100, each batch shuffled and sent with send_batch.py" src="diagrams/batches.svg">
+  <img alt="Priority missions whole, then predicted trees only, 15 control photos per batch of 100, each batch shuffled and sent with send_batch.py" src="diagrams/batches.svg">
 </picture>
 
 Batches 1 to 4 are pinned in `input/pinned_batches.csv`. The weekly refresh keeps four unsent batches pinned ahead (`KEEP_AHEAD`), so a label change never moves a photo Antoine is about to send. The page build refuses a `send_batches.csv` that is not the exact packing, order included.

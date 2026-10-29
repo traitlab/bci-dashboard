@@ -19,16 +19,18 @@ the census does not list by WCVP range size (`input/species_range.csv`, fewest
 botanical regions first, the endemism proxy), confidence breaking ties. Label scarcity decides the
 queue, rarity decides the order inside it. And every frame of a mission listed
 in `input/priority_missions.txt` (ground data on its crowns) goes out first,
-whatever its queue.
+whatever its queue or group: the transect is a census (Antoine, 2026-10).
 
-Only predicted trees go out (Antoine's decision), and no `can_wait` frame: both
-stay in the queue file with a blank batch_id. A frame is liana when species
+Of the rest, only predicted trees go out (Antoine's decision), and no `can_wait`
+frame: both stay in the queue file with a blank batch_id. A frame is liana when species
 WCVP calls liana hold at least `LIANA_SHARE` of the score of its top-5 Pl@ntNet
 answers (`liana_share`); every other frame, shrubs and unknowns included, is
 tree: two piles, not a taxonomy. The group is a model guess, not a label. The
 rows of a batch are written in a seeded random order, so the botanist cannot
 read the prediction off the species grouping. A pinned batch keeps its frames
-whatever their group or queue.
+whatever their group or queue, so a change to who goes out empties
+`input/pinned_batches.csv` in the same PR while none of those batches is sent;
+the next refresh pins them again and numbers continue past the highest sent.
 
 Writes to --out:
   send_batches.csv      what `dispatch_round.py --batch N` sends. data_row_id is
@@ -251,15 +253,16 @@ def pack_groups(queue_rows: list, priority: set, mission: dict | None = None,
     group = group or {}
     out: list = []
     for g in SENT_GROUPS:
-        rows = [r for r in queue_rows if group.get(r[key_at], "tree") == g
-                and r[queue_at] != WAIT_QUEUE]
+        rows = [r for r in queue_rows if r[key_at] not in priority
+                and group.get(r[key_at], "tree") == g and r[queue_at] != WAIT_QUEUE]
+        # Every priority frame, whatever its queue or group: the transect is a
+        # census, so a can_wait or liana guess still gets its second identification.
         # The queue's order, without rarity: a reorder of the queue never moves a
         # priority frame between the first batches.
-        first = sorted((r for r in rows if r[key_at] in priority),
+        first = sorted((r for r in queue_rows if r[key_at] in priority),
                        key=lambda r: (QUEUE_ORDER.index(r[queue_at]), float(r[conf_at]),
-                                      r[key_at]))
-        packed = pack_with_reserved_control([r for r in rows if r[key_at] not in priority],
-                                            first=first, **cap)
+                                      r[key_at])) if g == SENT_GROUPS[0] else []
+        packed = pack_with_reserved_control(rows, first=first, **cap)
         offset = max((b[0] for b in out), default=0)
         out += [[b[0] + offset, *b[1:]] for b in packed]
     return out

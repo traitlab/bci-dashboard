@@ -1,5 +1,5 @@
 flowchart LR
-    q["send_first_queue.csv<br/>queue, then rarity"] --> t["Keep predicted trees,<br/>drop liana and can_wait"]
+    q["send_first_queue.csv<br/>queue, then rarity"] --> t["Keep priority missions whole,<br/>then predicted trees only"]
     t --> c["Draw 15 control photos<br/>per batch, uniform, seeded"]
     c --> p["Priority missions first,<br/>then the queues,<br/>batches of 100"]
     p --> s["Shuffle each batch,<br/>seeded"]

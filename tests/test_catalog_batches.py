@@ -178,13 +178,19 @@ def liana_pool(n=400):
 
 def test_batches_hold_predicted_trees_only_and_never_a_can_wait_row(catalog_batches, queues):
     pool, predictions, per_species, forms = liana_pool()
+    pool["known000.JPG"] = url(PRIORITY, "known000.JPG")  # a priority can_wait frame
     built = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY},
                                   forms=forms)
     queue_of = {r[1]: r[0] for r in built["queue_rows"]}
     assert "liana" in built["group"].values() and queues.WAIT_QUEUE in queue_of.values()
     batched = {b[2] for b in built["batch_rows"]}
-    assert batched and all(built["group"].get(k, "tree") == "tree" for k in batched)
-    assert all(queue_of[k] != queues.WAIT_QUEUE for k in batched)
+    priority = {k for k, u in pool.items() if PRIORITY in u}
+    assert priority <= batched, "a priority frame goes out whatever its queue or group"
+    assert queue_of["known000.JPG"] == queues.WAIT_QUEUE
+    assert any(built["group"].get(k) == "liana" for k in priority)
+    rest = batched - priority
+    assert rest and all(built["group"].get(k, "tree") == "tree" for k in rest)
+    assert all(queue_of[k] != queues.WAIT_QUEUE for k in rest)
     assert all(r[-1] == "" for r in built["queue_rows"] if r[1] not in batched)
     unbatched = [r for r in built["queue_rows"] if r[1] not in batched]
     assert unbatched and all(built["group"].get(r[1], "tree") == "liana" or r[0] == queues.WAIT_QUEUE
