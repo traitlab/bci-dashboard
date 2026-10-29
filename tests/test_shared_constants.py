@@ -134,8 +134,8 @@ DOC_NUMBERS = [
     ("the crop's share of the frame", "README.md", _crop_share),
     ("the coverage gate", "README.md",
      lambda: f"`MIN_CROP_COVERAGE` ({value_of('MIN_CROP_COVERAGE', 'dashboard/core.py')})"),
-    ("the frozen sample", "README.md",
-     lambda: f"{value_of('N', 'predict/draw_confirmatory.py')} frames"),
+    ("the method sample", "README.md",
+     lambda: f"{value_of('N', 'predict/draw_confirmatory.py')} labelled frames fixed on"),
 ]
 
 
