@@ -28,7 +28,7 @@ The batch sent to Labelbox carries no guess, no queue and no control mark, and i
 
 ## Not claimed
 
-- Accuracy on frames Pl@ntNet calls liana, or on `can_wait` frames: neither is sent, so the pool is the frames worth a botanist's time, not every frame.
+- Accuracy on frames Pl@ntNet calls liana, or on `can_wait` frames: outside the priority missions neither is sent, so the pool is the frames worth a botanist's time, not every frame. The priority missions (`input/priority_missions.txt`) go out complete, lianas and `can_wait` included, because the transect is a census; their control rows count like any other.
 - Label noise: there are no repeat labels, since labelling capacity may be one person.
 
 ## Pass marks
