@@ -136,6 +136,12 @@ def export_dominants(ndjson_path: Path):
                             "width": int(w), "height": int(h),
                             "lb_label": sp,
                         })
+    no_area = sorted(stem for stem, counts in area.items() if counts and not any(counts.values()))
+    if no_area:
+        raise SystemExit(
+            f"{len(no_area)} labelled frame(s) carry crowns with no box area, first "
+            f"{no_area[0]}: segmentation masks? The label is the largest crown area, "
+            "so this export cannot be merged until the reader knows the mask's area.")
     dominants = {stem: counts.most_common(1)[0][0]
                  for stem, counts in area.items() if counts}
     return dominants, boxes, row_ids, dates
