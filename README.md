@@ -1,6 +1,6 @@
 # BCI dashboard
 
-Botanists outline tree crowns in drone photos of BCI and name each species in Labelbox. Pl@ntNet, a plant-naming service, predicts the species in the same photos. This repo turns those two sources into self-contained HTML pages that answer two questions:
+Botanists outline tree crowns in drone photos of BCI and name each species in Labelbox. Pl@ntNet, a plant-naming service, guesses the species in the same photos. This repo turns the two into HTML pages that answer two questions:
 
 1. **How well does Pl@ntNet name BCI trees?** The model-health page, for anyone outside the lab.
 2. **Which photo should a botanist label next?** The queue page, for the labelling team.
@@ -12,7 +12,7 @@ Botanists outline tree crowns in drone photos of BCI and name each species in La
   <img alt="Drone frames pass through Labelbox and Pl@ntNet to measure.py, which feeds the model-health and queue pages" src="diagrams/pipeline.svg">
 </picture>
 
-Both pages read one measurement pass, so they cannot disagree. The builders read only files on disk, so the same files always give the same page. Each builder recomputes every number it prints and stops if `build/tables` disagrees, batch assignment included.
+One measurement pass feeds both pages, so they cannot disagree. The builders read only files on disk. Each builder recomputes every number it prints and stops if `build/tables` disagrees, batch assignment included.
 
 ## The pages
 
@@ -21,8 +21,7 @@ The site publishes these pages from `docs/`:
 - the model-health page, by `dashboard/build_external.py`: per species, how often the top prediction is right, on how many labelled frames, and why the species carries its status
 - the queue page, by `dashboard/build_internal.py`
 - the photo explorer, by `dashboard/build_explorer.py` from `labelling/export_explorer.py`
-- the photo atlas (drone map and similar photos), by `dashboard/build_embedding_atlas.py` from `labelling/project_atlas_tsne.py`
-- the crown-first atlas, by `dashboard/build_embedding_atlas.py`
+- the photo atlas (drone map and similar photos) and the crown-first atlas, by `dashboard/build_embedding_atlas.py` from `labelling/project_atlas_tsne.py`
 - the index and about pages, by `dashboard/build_index.py`
 
 ## What to label next
@@ -36,11 +35,11 @@ The queue page orders every unlabelled photo that has a cached Pl@ntNet answer.
   <img alt="The rule that sends each unlabelled photo to queue 1, 2, 3 or 4" src="diagrams/queue-rule.svg">
 </picture>
 
-`send_first_queue.csv` lists the queues in order 1, 2, 3, 4. A photo that reaches the third test belongs to a species with 10 or more labelled frames, so a confident prediction there is enough to push it down the queue. The two-part wait rule behind queue 4 is measured on frames held back for grading, and the queue page shows every confidence line it was compared against.
+`send_first_queue.csv` lists the queues in order 1, 2, 3, 4. A photo that reaches the third test belongs to a species with 10 or more labelled frames. A confident guess there is enough to push it down the queue. The wait rule behind queue 4 is measured on frames held back for grading. The queue page shows every confidence line it was compared against.
 
 The numbers are `dashboard/core.py` constants and the rule is `queues.queue_of_prediction`. The page prints both from the same source.
 
-A frame held back for grading (it carries a split in `data/splits.csv`) never enters a queue, and neither does a frame Pl@ntNet returned no answer for. The page counts both.
+A frame held back for grading (it carries a split in `data/splits.csv`) never enters a queue. Neither does a frame Pl@ntNet returned no answer for. The page counts both.
 
 ### Inside a queue, the least familiar photo goes first
 
@@ -51,9 +50,9 @@ Pl@ntNet turns each centre crop into 768 numbers that describe how the photo loo
   <img alt="The ordering loop: pick the queued photo least like everything covered, add it, repeat" src="diagrams/queue-order.svg">
 </picture>
 
-A photo very like one just picked drops back. Confidence only breaks a tie. The picking is `greedy_kcenter` from labelfirst, and no label or prediction steers it.
+A photo very like one just picked drops back. Confidence only breaks a tie. The picking is `greedy_kcenter` from labelfirst, and no label or guess steers it.
 
-On the frames a botanist has already named, the order covers half of their species in far fewer photos than a random order, on every seed. `labelling/rank_queue.py --backtest` is the check, and the queue page prints the current figures and draws its curve.
+On the labelled frames, this order covers half of their species in far fewer photos than a random order, on every seed. `labelling/rank_queue.py --backtest` is the check. The queue page prints the current figures and draws the curve.
 
 The ranking lands in `data/next_batch/queue_novelty.csv`. The weekly refresh writes it and `bin/refresh.sh` does not. `dashboard/build_internal.py` refuses to build when the file is missing or ranks none of the queued photos.
 
@@ -61,30 +60,30 @@ The ranking lands in `data/next_batch/queue_novelty.csv`. The weekly refresh wri
 
 `labelling/catalog_batches.py` packs the catalog pool (the dataset rows in no project) into batches of 100 and writes `send_batches.csv`. Antoine sends one batch at a time with `bin/send_batch.py`. The rules, in order:
 
-1. **Only photos Pl@ntNet calls a tree.** A photo is liana when liana species hold half or more of its top-5 score (`LIANA_SHARE`). Liana photos, and `can_wait` photos (a species with 10 or more labelled crowns that the model already names with confidence), stay in `send_first_queue.csv` with a blank `batch_id`. The botanists label trees: Antoine's decision.
+1. **Only photos Pl@ntNet calls a tree.** A photo is liana when liana species hold half or more of its top-5 score (`LIANA_SHARE`). Liana photos and `can_wait` photos stay in `send_first_queue.csv` with a blank `batch_id`. A `can_wait` photo is a species with 10 or more labelled crowns that the model already names with confidence. The botanists label trees: Antoine's decision.
 2. **Priority missions first.** Every photo of a mission in `input/priority_missions.txt` (ground data on its crowns) fills the first batches, whatever its queue.
 3. **Then the queues in order,** rarest species first inside a queue, at most 20 photos of one species per batch (`SPECIES_CAP`).
-4. **15 control photos per batch** (`CONTROL_FRACTION`), drawn uniformly at random from the pool before packing, seeded (`CONTROL_SEED`). See [The random control](#the-random-control).
-5. **Random order inside the batch,** seeded per batch. The botanist cannot read the guess off the grouping, and Labelbox never gets the guess: the sender pushes the data row and the batch name only.
+4. **15 control photos per batch** (`CONTROL_FRACTION`), drawn at random from the pool before packing, seeded (`CONTROL_SEED`). See [The random control](#the-random-control).
+5. **Random order inside the batch,** seeded per batch. The botanist cannot read the guess off the grouping. Labelbox never gets the guess: the sender pushes the data row and the batch name only.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="diagrams/batches-dark.svg">
   <img alt="Predicted trees only, priority missions first, 15 control photos per batch of 100, each batch shuffled and sent with send_batch.py" src="diagrams/batches.svg">
 </picture>
 
-Batches 1 to 4 are pinned in `input/pinned_batches.csv`, and the weekly refresh keeps four unsent batches pinned ahead (`KEEP_AHEAD`). A label change never moves a photo Antoine is about to send. The page build refuses a `send_batches.csv` that is not the exact packing, order included.
+Batches 1 to 4 are pinned in `input/pinned_batches.csv`. The weekly refresh keeps four unsent batches pinned ahead (`KEEP_AHEAD`), so a label change never moves a photo Antoine is about to send. The page build refuses a `send_batches.csv` that is not the exact packing, order included.
 
-Rounds go to the `2024_bci` project from the `2024_bci` dataset. A Labelbox batch is named `batchXXXX_YYYY-MM`, for example `batch0001_2026-10`: a four-digit counter and the month it is sent. Every data row in it carries that name in the `batch_id` metadata field, a String. The file has no data row ids, so the sender looks them up by global key. Run: `python labelling/catalog_batches.py --pool data/predictions_catalog_2026/input.csv --cache data/predictions_catalog_2026/cache --out build/catalog_batches`
+Batches go to the `2024_bci` project from the `2024_bci` dataset. A Labelbox batch is named `batchXXXX_YYYY-MM`, for example `batch0001_2026-10`: a counter and the month it is sent. Every data row in it carries that name in the `batch_id` metadata field. The file has no data row ids, so the sender looks them up by global key. Run: `python labelling/catalog_batches.py --pool data/predictions_catalog_2026/input.csv --cache data/predictions_catalog_2026/cache --out build/catalog_batches`
 
-The main pool's `send_batches.csv`, from `dashboard/measure.py` when there is no catalog pool, still packs each species whole with 20 places per batch for queue 2 (`BCI_QUEUE2_SHARE`). The catalog pool is what ships.
+Without a catalog pool, `dashboard/measure.py` writes a `send_batches.csv` for the main pool. That one packs each species whole, with 20 places per batch for queue 2 (`BCI_QUEUE2_SHARE`). The catalog pool is what ships.
 
 ### The random control
 
-The 15 control photos in every batch are a uniform sample of the pool, so their labels give the pool's top-1 accuracy with no bias from the queue. They are marked `picked_by == control` in `send_batches.csv`, mixed into the batch like any other photo, and never sent twice. The draw is seeded, so every run writes the same file. `CONTROL_FRACTION = 0` turns it off.
+The 15 control photos in every batch are a random sample of the pool. Their labels give the pool's top-1 accuracy with no bias from the queue. They are marked `picked_by == control` in `send_batches.csv`, mixed into the batch like any other photo, and never sent twice. The draw is seeded, so every run writes the same file. `CONTROL_FRACTION = 0` turns it off.
 
-What it reads: `labelling/read_round.py --sent docs/send_batches.csv --cache data/predictions_catalog_2026/cache` prints the pool accuracy two ways. The plain control share with a Wilson interval, and PPI++ (Angelopoulos, Duchi and Zrnic 2023). PPI++ adds the model's top-1 confidence over every pool photo and narrows the interval by about a fifth. The control labels are the only truth; the confidence only reduces noise, and under 60 control photos (four batches) only the Wilson interval is read. Round 1 reads the number to about plus or minus 9 points. `input/rounds/preregistration.md` fixed the estimand, the label rule and "no pass mark" before any label arrived.
+`labelling/read_round.py --sent docs/send_batches.csv --cache data/predictions_catalog_2026/cache` prints the pool accuracy two ways. First the plain control share with its range. Then PPI++ (Angelopoulos, Duchi and Zrnic 2023), which adds the model's confidence over every pool photo and narrows the range by about a fifth. The control labels are the only truth. Under 60 control photos (four batches), read only the plain range. Round 1 reads the number to about plus or minus 9 points. `input/rounds/preregistration.md` fixed the estimand, the label rule and "no pass mark" before any label arrived.
 
-Why a control in every batch: later pools are reshaped by the queue, so the comparison cannot be drawn afterwards. It is also the only unbiased comparison for whether the queue order fills gaps faster than random, which `read_round.py` reports per round from the ledgers, with intervals, on the queue page. Queue 2 is read per confidence band from the confidence the ledger recorded at dispatch, because a label can knock a species out of queue 2 afterwards.
+Why a control in every batch: later pools are reshaped by the queue, so the comparison cannot be drawn afterwards. It is also the only fair test of whether the queue order fills gaps faster than random. `read_round.py` reports that per round from the ledgers, with ranges, on the queue page. Queue 2 is read per confidence band from the confidence recorded at dispatch, because a label can knock a species out of queue 2 afterwards.
 
 Cost: 15% of the labelling time goes to photos the queue would not have picked first. The last batch takes fewer control photos when the pool runs short, and always keeps at least one queue photo.
 
@@ -96,15 +95,15 @@ Three things to know before reading a number:
 - **Every other rate comes from a fixed 1280x1280 centre crop**, 13.7% of the frame, while a botanist draws crowns anywhere in it. The pages score every frame with no coverage condition applied. `MIN_CROP_COVERAGE` (0.50) asks a different question: does the frame's own label fill half of the *crop* the model was sent. The pages only report it, in `coverage_gate.csv`. `labelling/next_batch.py` filters on it.
 - **A miss counts only inside a known population.** A species missing from a cached list of five names is unproven either way.
 
-Box geometry comes from the labels. The fetch records the crop it sent (`ingest_photos.stamp_geometry()`), but the cached predictions carry none, so `crop_overlap.crop_rect()` reconstructs it from the frame constants.
+Box geometry comes from the labels. The fetch records the crop it sent (`ingest_photos.stamp_geometry()`). The cached guesses carry none, so `crop_overlap.crop_rect()` rebuilds it from the frame constants.
 
 ## Before adding a model for rare species
 
-The dashboard grades Pl@ntNet and trains nothing. A classifier might one day be added for species with few labelled frames, or for crowns that only carry a genus. A BioCLIP-2.5 fish classifier over 17,393 species already measured a few of the obvious fixes on held-out labels:
+The dashboard grades Pl@ntNet and trains nothing. A classifier might one day be added for species with few labelled frames, or for crowns that only carry a genus. A BioCLIP-2.5 fish classifier over 17,393 species already measured the obvious fixes on held-out labels:
 
-- **Pulling a thin species toward its genus average made thin species worse, not better.** The test used 68 held-out queries whose species had five photos or fewer. Top-1 fell from 0.4706 with no pull to 0.3971 at beta=5 and 0.2647 at beta=8, with the same shape on every backbone tried. Over all 579 queries it was flat or down. For species with no photos at all, a plain genus average did beat a thin species average. A genus fallback for zero-frame species is a separate question.
-- **Hubness correction (CSLS) and pooling scores at genus or family level did not clear their bars:** +0.0022 against +0.005 for CSLS, -0.0017 for genus pooling and -0.0065 for family pooling.
-- **Fine-tuning helped.** A sub-center ArcFace fine-tune of the BioCLIP-2.5 image tower gained +3.8 points on species with photos. Averaging scores from several fine-tuned models, each read by its own head, added +0.032.
+- **Pulling a thin species toward its genus average made thin species worse.** On 68 held-out queries with five photos or fewer, top-1 fell from 0.47 to 0.40 and then 0.26 as the pull grew, on every backbone tried. A plain genus average did beat a thin species average only for species with no photos at all.
+- **Hubness correction (CSLS) and pooling scores at genus or family level did not clear their bars.**
+- **Fine-tuning helped.** A sub-center ArcFace fine-tune of the image tower gained +3.8 points on species with photos. Averaging several fine-tuned models added +3.2 more.
 
 These are fish photos, not drone crowns, so treat them as priors to check, not results.
 
@@ -129,7 +128,7 @@ bin/refresh.sh path/to/export.ndjson                  # a named export instead o
 
 ## The weekly refresh
 
-`.github/workflows/weekly-refresh.yml` runs `bin/refresh_snapshot.py` every Tuesday and Friday, on the newest Sunday export. It downloads the Sunday export from the Arbutus bucket (variables `ARBUTUS_S3_ENDPOINT`, `BCI_LABELBOX_EXPORTS`, `BCI_LABELBOX_PROJECTS`; secrets `ARBUTUS_S3_ACCESS_KEY`, `ARBUTUS_S3_SECRET_KEY`) and runs these steps:
+`.github/workflows/weekly-refresh.yml` runs `bin/refresh_snapshot.py` every Tuesday and Friday, on the newest Sunday export. It downloads the export from the Arbutus bucket (variables `ARBUTUS_S3_ENDPOINT`, `BCI_LABELBOX_EXPORTS`, `BCI_LABELBOX_PROJECTS`; secrets `ARBUTUS_S3_ACCESS_KEY`, `ARBUTUS_S3_SECRET_KEY`) and runs these steps:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="diagrams/weekly-refresh-dark.svg">
@@ -147,18 +146,16 @@ A dated `snapshots/` folder records a day the labels moved. No build reads one b
 - `docs/` is the published site, with the CSVs its pages link.
 - `diagrams/` holds the README flowcharts as mermaid source. `bin/render_diagrams.sh` redraws their SVGs.
 
-Three of the fourteen CSVs in `build/tables` are evidence a person opens rather than page input: `filter_gain.csv`, `name_reconciliation.csv` and `coverage_gate.csv`. `measure.NOT_READ_BACK_BY_A_BUILD` names them.
+Three CSVs in `build/tables` are evidence a person opens rather than page input: `filter_gain.csv`, `name_reconciliation.csv` and `coverage_gate.csv`. `measure.NOT_READ_BACK_BY_A_BUILD` names them.
 
-`input/boxes/` is tracked, unlike the other data folders, because the frame list in it defines the population every number is counted over. Each module's docstring says why it is shaped the way it is.
+`input/boxes/` is tracked, unlike the other data folders, because the frame list in it defines the population every number is counted over.
 
 ## Research libraries
 
-Two private Python packages do the research work behind the queue page and the model-health page:
+Two private Python packages do the research work behind the two pages:
 
-- **labelfirst** works on any items a model turns into numbers. It puts the unlabelled photos in order, least like everything already labelled first. It then tests that order against a random order.
-- **crownfirst** is built on labelfirst and knows about crowns, flights and sites. It grades Pl@ntNet for each species, and it keeps that grading fair.
-
-In short, labelfirst says which photo a botanist names next. crownfirst says how far to trust Pl@ntNet for each species.
+- **labelfirst** works on any items a model turns into numbers. It puts the unlabelled photos in order, least like everything already labelled first, and tests that order against a random order.
+- **crownfirst** is built on labelfirst and knows about crowns, flights and sites. It grades Pl@ntNet for each species, and keeps that grading fair.
 
 Only the scripts in `labelling/` and `predict/` import them. Those scripts write files, and `dashboard/` only reads those files. So the pages build without either package.
 
@@ -187,19 +184,13 @@ The refresh runs `assess_species.py` and `rank_queue.py` every Tuesday and Frida
 
 ### How each check works
 
-Every check starts from how a photo looks: the 768 numbers Pl@ntNet makes from a centre crop. Close numbers mean two photos look alike to the model.
+Every check starts from the 768 numbers per centre crop that order the queues (see [Inside a queue, the least familiar photo goes first](#inside-a-queue-the-least-familiar-photo-goes-first)).
 
 #### On the queue page
 
-**Which photo goes next?** See [Inside a queue, the least familiar photo goes first](#inside-a-queue-the-least-familiar-photo-goes-first). The picking is labelfirst's `greedy_kcenter`.
+**Does the order beat a random order?** `rank_queue.py --audit` replays labelling on the labelled frames. Each replay starts from 200 random labelled frames and adds 20 rounds of 20 photos. It counts the rare species found, meaning those with 5 labelled frames or fewer. The order and a random order each run from 8 random starts. labelfirst compares the two curves and gives a range and a p-value. First, `predict_al_benefit` asks if any order can help: how often does a labelled frame's nearest neighbour have the same species?
 
-**Does the order beat a random order?** `rank_queue.py --audit` replays labelling on the labelled frames. Each replay starts from 200 random labelled frames and adds 20 rounds of 20 photos. It counts the rare species found, meaning those with 5 labelled frames or fewer.
-
-The order and a random order each run from 8 random starts. labelfirst compares the two curves and gives a range and a p-value. First, `predict_al_benefit` asks if any order can help: how often does a labelled frame's nearest neighbour have the same species?
-
-**Is it finding plants, or places?** A photo can look new because it comes from a new site or export batch, not a new species. `rank_queue.py --confound` holds the site or the export batch fixed. It then asks if "looks new" still goes with "rare species".
-
-It shuffles the frames inside each group 5,000 times to see how often chance does as well. The page says the link holds, is partly the batch, or is mostly the batch.
+**Is it finding plants, or places?** A photo can look new because it comes from a new site or export batch, not a new species. `rank_queue.py --confound` holds the site or the export batch fixed and asks if "looks new" still goes with "rare species". It shuffles the frames inside each group 5,000 times to see how often chance does as well. The page says the link holds, is partly the batch, or is mostly the batch.
 
 **Species found per photo.** `rank_queue.py --backtest` puts the labelled frames in order without reading their labels. It compares the species found against 16 random orders, and the queue page draws the curve.
 
@@ -217,17 +208,13 @@ The page shows how many of the 8 draws agree, and stays blank under 10 frames.
 
 **Why do the two names differ?** crownfirst lists the frames where Pl@ntNet's top prediction is not the label. It sorts each one as two different species, one species under two names, or a label that stops at genus or family.
 
-**How many plausible names?** A plain classifier learns from how the photos look, in 5 folds. For each frame it lists the names it cannot rule out, built to hold the right name 90% of the time.
-
-For lists of 1, 2, 3, 5 and 10 names, it reports how many frames get one and how often the first name is right. A second run keeps each flight whole in one fold. This classifier is not Pl@ntNet.
+**How many plausible names?** A plain classifier learns from how the photos look, in 5 folds. For each frame it lists the names it cannot rule out, built to hold the right name 90% of the time. For lists of 1, 2, 3, 5 and 10 names, it reports how many frames get one and how often the first name is right. A second run keeps each flight whole in one fold. This classifier is not Pl@ntNet.
 
 **How many species are still unlabelled?** labelfirst's `estimate_richness` counts the species seen once and seen twice. From those counts it estimates how many species no label names yet (Chao1).
 
 #### Behind every grade
 
-**Flights held back whole.** Frames from one flight are near-copies of each other. `draw_holdout.py` holds back 1 flight in 5, and every species with two or more flights keeps one for training.
-
-Training frames from another flight within 30 m of a held frame are dropped too. The queue never sends a held frame, and the model-health page grades Pl@ntNet again on them.
+**Flights held back whole.** Frames from one flight are near-copies of each other. `draw_holdout.py` holds back 1 flight in 5, and every species with two or more flights keeps one for training. Training frames from another flight within 30 m of a held frame are dropped too. The queue never sends a held frame, and the model-health page grades Pl@ntNet again on them.
 
 ### Other uses
 
