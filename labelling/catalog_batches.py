@@ -21,13 +21,14 @@ queue, rarity decides the order inside it. And every frame of a mission listed
 in `input/priority_missions.txt` (ground data on its crowns) goes out first,
 whatever its queue.
 
-Trees and lianas go out in separate batches. A frame is liana when species
+Only predicted trees go out (Antoine's decision), and no `can_wait` frame: both
+stay in the queue file with a blank batch_id. A frame is liana when species
 WCVP calls liana hold at least `LIANA_SHARE` of the score of its top-5 Pl@ntNet
 answers (`liana_share`); every other frame, shrubs and unknowns included, is
-tree: two piles, not a taxonomy. The group is a model guess, not a label. Tree
-batches come first, then liana batches, each group packed on its own: its
-priority-mission frames at the head, every batch of 100 with a random control
-drawn from the same group.
+tree: two piles, not a taxonomy. The group is a model guess, not a label. The
+rows of a batch are written in a seeded random order, so the botanist cannot
+read the prediction off the species grouping. A pinned batch keeps its frames
+whatever their group or queue.
 
 Writes to --out:
   send_batches.csv      what `dispatch_round.py --batch N` sends. data_row_id is
@@ -88,6 +89,7 @@ from queues import (
     SEND_BATCH_HEADER,
     SEND_FIRST_COLUMNS,
     SEND_FIRST_HEADER,
+    WAIT_QUEUE,
     chunk_send_batches,
     control_size,
     load_priority_missions,
@@ -122,6 +124,7 @@ PACKING_INPUTS = "packing_inputs.json"
 # to the liana batches. Probe on 2,945 labelled tree or liana frames: AUC 0.96.
 LIANA_SHARE = 0.5
 GROWTH_GROUPS = ("tree", "liana")  # packed in this order, numbers continuous
+SENT_GROUPS = ("tree",)  # Antoine's decision: the botanists get predicted trees only
 # How many batches the summary spells out. The first are the ones sent first.
 SUMMARY_BATCHES = 3
 INPUT = Path(__file__).resolve().parents[1] / "input"
@@ -230,9 +233,10 @@ def growth_group(share: float, threshold: float = LIANA_SHARE) -> str:
 
 def pack_groups(queue_rows: list, priority: set, mission: dict | None = None,
                 group: dict | None = None) -> list:
-    """Tree batches, then liana batches (``group``: key -> group, absent is tree),
-    each group packed by `pack_with_reserved_control` with its priority-mission
-    frames at the head and numbered on from the group before.
+    """Tree batches only, Antoine's decision (``group``: key -> group, absent is
+    tree), packed by `pack_with_reserved_control` with its priority-mission frames
+    at the head. Liana rows and `can_wait` rows stay in the queue file but never
+    in a batch (a pinned one is kept by `pack_pinned`).
 
     Ground data makes the priority frames a double verification of the botanists,
     so all of them are wanted, whatever their queue: as a census of the transect,
@@ -246,8 +250,9 @@ def pack_groups(queue_rows: list, priority: set, mission: dict | None = None,
     cap = {"group_caps": spread_caps(mission) if mission else (), "soft_species_cap": True}
     group = group or {}
     out: list = []
-    for g in GROWTH_GROUPS:
-        rows = [r for r in queue_rows if group.get(r[key_at], "tree") == g]
+    for g in SENT_GROUPS:
+        rows = [r for r in queue_rows if group.get(r[key_at], "tree") == g
+                and r[queue_at] != WAIT_QUEUE]
         # The queue's order, without rarity: a reorder of the queue never moves a
         # priority frame between the first batches.
         first = sorted((r for r in rows if r[key_at] in priority),
@@ -363,6 +368,18 @@ def pack_pinned(queue_rows: list, pins: list, sent: set, sent_nums: set, priorit
     return head + [[b[0] + offset, *b[1:]] for b in rest], dict(dropped)
 
 
+def shuffle_within(batch_rows: list) -> list:
+    """The same batches, each in a seeded random order: the botanist must not read
+    the prediction off the species grouping. Seeded per batch, so a refresh that keeps
+    a batch's frames keeps its order."""
+    by_batch: dict = {}
+    for b in batch_rows:
+        by_batch.setdefault(b[0], []).append(b)
+    for n, rows in by_batch.items():
+        random.Random(f"{CONTROL_SEED}:{n}").shuffle(rows)
+    return [b for rows in by_batch.values() for b in rows]
+
+
 def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missions,
           census: dict | None = None, iucn: dict | None = None,
           wcvp_range: dict | None = None, labels: dict | None = None,
@@ -410,10 +427,17 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
                   for q, key, pred, conf, _ in decided]
     batch_rows, pins_dropped = pack_pinned(queue_rows, pins or [], sent, sent_nums or set(),
                                            priority, mission, group)
+    batch_rows = shuffle_within(batch_rows)
     rarity = {k: [census.get(sp.lower(), ""), iucn.get(sp.lower(), ""),
                   wcvp_range.get(sp.lower(), "")]
               for k, sp in species.items()}
-    return {"queue_rows": with_batch_ids(queue_rows, batch_rows), "batch_rows": batch_rows,
+    batched = {b[2] for b in batch_rows}
+    stray = [r[1] for r in queue_rows if r[1] not in batched and r[0] != WAIT_QUEUE
+             and group.get(r[1], "tree") in SENT_GROUPS]
+    if stray:  # only liana and can_wait rows may stay out of a batch
+        raise ValueError(f"{len(stray)} sendable frames were never packed, first {stray[0]}")
+    return {"queue_rows": with_batch_ids(queue_rows, batch_rows, allow_unbatched=True),
+            "batch_rows": batch_rows,
             "missing": missing, "n_no_answer": n_no_answer, "mission": mission,
             "priority": priority, "already_sent": [k for k in pool if k in sent],
             "pins_dropped": pins_dropped, "n_pins": len(pins or []),

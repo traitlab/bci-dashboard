@@ -98,6 +98,7 @@ def check(verify_dir) -> str:
         [[r[c] for c in queues.SEND_FIRST_COLUMNS] for r in qrows],
         [tuple(p) for p in used["pins"]], set(used["sent"]), set(used["sent_nums"]),
         priority, mission, group)
+    want = cb.shuffle_within(want)
     got = [[r[c] for c in queues.SEND_BATCH_COLUMNS] for r in brows]
     if [[str(v) for v in row] for row in want] != got:
         fail("send_batches.csv is not the packing labelling/catalog_batches.py makes from "

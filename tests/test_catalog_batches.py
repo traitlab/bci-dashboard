@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import csv
 import re
+from itertools import pairwise
 from types import SimpleNamespace
 
 PRIORITY = "20260424_bcishannon_wptsendero_m3e"
@@ -164,30 +165,62 @@ def test_the_liana_share_is_the_top_5_score_on_liana_species(catalog_batches):
     assert catalog_batches.liana_share([], forms) == 0.0
 
 
-def test_trees_then_lianas_each_100_a_batch_with_its_own_control(catalog_batches):
-    """One growth form per batch, tree batches numbered first, every batch but the
-    last of its form full, the priority frames first in their form, and the
-    control of a batch drawn from its own form."""
-    pool, predictions, per_species = synthetic_pool(n_rare=400, n_priority_rare=60)
-    for i in range(0, 400, 3):  # a third of the frames, priority ones too, guess a liana
+def liana_pool(n=400):
+    """A pool where every third frame guesses a liana, and 60 known-species
+    frames in the can_wait queue (well sampled and accurate at high confidence)."""
+    pool, predictions, per_species = synthetic_pool(n_rare=n, n_priority_rare=60)
+    for i in range(0, n, 3):
         predictions[f"rare{i:03d}.JPG"] = [(f"Vine sp{i}", 0.3), (f"Rare sp{i}", 0.1)]
-    forms = {f"Vine sp{i}": "liana" for i in range(400)}
+    for k in [k for k in pool if k.startswith("known")]:
+        predictions[k] = [("Good sp", 0.95)]
+    return pool, predictions, per_species, {f"Vine sp{i}": "liana" for i in range(n)}
+
+
+def test_batches_hold_predicted_trees_only_and_never_a_can_wait_row(catalog_batches, queues):
+    pool, predictions, per_species, forms = liana_pool()
     built = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY},
                                   forms=forms)
-    rows, group = built["batch_rows"], built["group"]
-    groups = {}
-    for b in rows:
-        groups.setdefault(b[0], set()).add(group[b[2]])
-    assert all(len(g) == 1 for g in groups.values())
-    order = [groups[n].pop() for n in sorted(groups)]
-    assert order == sorted(order, key=["tree", "liana"].index) and "liana" in order
-    for g in ("tree", "liana"):
-        ids = [n for n in sorted(groups) if order[n - 1] == g]
-        sizes = [sum(b[0] == n for b in rows) for n in ids]
-        assert all(n == 100 for n in sizes[:-1]) and sizes[-1] <= 100
-        prio = {b[0] for b in rows if b[2] in built["priority"] and group[b[2]] == g}
-        assert prio == {ids[0]}
-        assert all(sum(b[0] == n and b[4] == "control" for b in rows) == 15 for n in ids[:-1])
+    queue_of = {r[1]: r[0] for r in built["queue_rows"]}
+    assert "liana" in built["group"].values() and queues.WAIT_QUEUE in queue_of.values()
+    batched = {b[2] for b in built["batch_rows"]}
+    assert batched and all(built["group"].get(k, "tree") == "tree" for k in batched)
+    assert all(queue_of[k] != queues.WAIT_QUEUE for k in batched)
+    assert all(r[-1] == "" for r in built["queue_rows"] if r[1] not in batched)
+    unbatched = [r for r in built["queue_rows"] if r[1] not in batched]
+    assert unbatched and all(built["group"].get(r[1], "tree") == "liana" or r[0] == queues.WAIT_QUEUE
+                             for r in unbatched)
+
+
+def test_a_pinned_liana_or_can_wait_frame_stays_in_its_pinned_batch(catalog_batches, queues):
+    pool, predictions, per_species, forms = liana_pool()
+    built = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY},
+                                  forms=forms)
+    queue_of = {r[1]: r[0] for r in built["queue_rows"]}
+    liana = next(k for k, g in built["group"].items() if g == "liana")
+    wait = next(k for k, q in queue_of.items() if q == queues.WAIT_QUEUE)
+    pins = [(1, liana, "queue"), (1, wait, "control")]
+    again = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY},
+                                  forms=forms, pins=pins)
+    kept = {b[2]: b for b in again["batch_rows"] if b[0] == 1}
+    assert kept[liana][4] == "queue" and kept[wait][4] == "control"
+
+
+def test_the_rows_of_a_written_batch_are_shuffled_the_same_way_every_run(
+        catalog_batches, tmp_path):
+    pool, predictions, per_species = synthetic_pool(n_rare=130, n_known=40)
+
+    def written(out):
+        built = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY})
+        catalog_batches.write_files(out, built, pool)
+        with open(out / "send_batches.csv", encoding="utf-8") as f:
+            return [r for r in csv.DictReader(f) if r["batch_id"] == "1"]
+
+    rows = written(tmp_path / "a")
+    keys, species = [r["global_key"] for r in rows], [r["species_group"] for r in rows]
+    assert len(keys) == 100 and keys != sorted(keys)
+    runs = sum(a != b for a, b in pairwise(species))
+    assert runs > len(set(species))  # not grouped: a species recurs after others
+    assert rows == written(tmp_path / "b")
 
 
 def test_frames_with_no_cached_answer_are_reported_not_dropped(catalog_batches):

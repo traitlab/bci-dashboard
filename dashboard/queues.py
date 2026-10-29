@@ -551,7 +551,7 @@ def chunk_send_batches(queue_rows: list, batch_size: int = BATCH_SIZE,
     return batches
 
 
-def with_batch_ids(queue_rows: list, batch_rows: list) -> list:
+def with_batch_ids(queue_rows: list, batch_rows: list, allow_unbatched: bool = False) -> list:
     """``queue_rows`` again, each row carrying the batch it was packed into.
 
     The batcher is the only thing that knows the answer, so the column is filled
@@ -572,7 +572,7 @@ def with_batch_ids(queue_rows: list, batch_rows: list) -> list:
             raise ValueError(f"{key} is in more than one send batch")
         of_key[key] = b[batch_at]
     missing = [r[key_at] for r in queue_rows if r[key_at] not in of_key]
-    if missing:
+    if missing and not allow_unbatched:
         raise ValueError(f"{len(missing)} queued frames were never packed into a "
                          f"batch, first {missing[0]}")
     # Set by position, and short rows padded first: the batcher runs on rows
@@ -583,7 +583,7 @@ def with_batch_ids(queue_rows: list, batch_rows: list) -> list:
     out = []
     for r in queue_rows:
         row = list(r) + [""] * (len(SEND_FIRST_COLUMNS) - len(r))
-        row[at] = of_key[r[key_at]]
+        row[at] = of_key.get(r[key_at], "")
         out.append(row)
     return out
 

@@ -71,7 +71,7 @@ def test_the_check_passes_on_the_files_as_written(catalog_queue, tables):
 def test_a_batch_file_edited_by_hand_stops_the_build(catalog_queue, tables):
     path = tables / "send_batches.csv"
     lines = path.read_text(encoding="utf-8").splitlines()
-    lines[1], lines[2] = lines[2], lines[1]
+    lines[1] = "99" + lines[1][lines[1].index(","):]  # a frame moved to another batch
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     with pytest.raises(SystemExit, match="not the packing"):
         catalog_queue.queue.check(str(tables))
