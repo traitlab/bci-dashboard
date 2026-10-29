@@ -87,7 +87,7 @@ Why a control in every batch: later pools are reshaped by the queue, so the comp
 
 Three things to know before reading a number:
 
-- **The headline is measured crown by crown.** One call goes to Pl@ntNet per labelled crown, pooled to the frame by box area, on 300 frames frozen before the numbers existed. `input/confirmatory_frames_2026-08.csv` is that list. It is the cost of naming trees already found, not of finding them.
+- **The headline is crown-by-crown.** One Pl@ntNet call per outlined crown, combined per frame by crown area, since the frame's label is the species with the most crown area. It is read off the method sample, the 300 labelled frames fixed on 2026-08-26 (`input/confirmatory_frames_2026-08.csv`). It scores naming a crown a botanist already outlined, not finding one.
 - **Every other rate comes from a fixed 1280x1280 centre crop**, 13.7% of the frame, while a botanist draws crowns anywhere in it. The pages score every frame with no coverage condition applied. `MIN_CROP_COVERAGE` (0.50) asks a different question: does the frame's own label fill half of the *crop* the model was sent. The pages only report it, in `coverage_gate.csv`. `labelling/next_batch.py` filters on it.
 - **A miss counts only inside a known population.** A species missing from a cached list of five names is unproven either way.
 

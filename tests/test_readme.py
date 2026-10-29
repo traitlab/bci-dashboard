@@ -53,13 +53,13 @@ def test_the_candidate_list_length(readme, core):
         f"argument about unproven misses names a list of another length.")
 
 
-def test_how_many_frames_were_frozen(readme, core):
+def test_how_many_frames_are_in_the_method_sample(readme, core):
     root = os.path.dirname(os.path.dirname(os.path.abspath(core.__file__)))
-    frozen = os.path.join(root, "input", "confirmatory_frames_2026-08.csv")
-    with open(frozen, encoding="utf-8") as fh:
+    sample = os.path.join(root, "input", "confirmatory_frames_2026-08.csv")
+    with open(sample, encoding="utf-8") as fh:
         n = sum(1 for _ in csv.DictReader(fh))
-    assert re.search(rf"\b{n} frames frozen before", readme), (
-        f"{frozen} holds {n} frames and the README says another number. That "
+    assert re.search(rf"\b{n} labelled frames fixed on", readme), (
+        f"{sample} holds {n} frames and the README says another number. That "
         f"count is the sample size behind the headline.")
 
 
