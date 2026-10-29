@@ -30,7 +30,9 @@ PROJECT = DATASET = "2024_bci"
 NAME_RE = re.compile(r"^batch(\d{4})_(\d{4}-\d{2})$")  # rounds.BATCH_NAME_RE
 
 
-def batch_name(n: int, day: datetime.date) -> str:
+def batch_name(n: int, day: datetime.date | None = None) -> str:
+    """As rounds.batch_name: the UTC month, so any sender's clock agrees."""
+    day = day or datetime.datetime.now(datetime.timezone.utc).date()
     return f"batch{n:04d}_{day:%Y-%m}"
 
 
@@ -73,7 +75,7 @@ def main(argv: list[str]) -> None:
     missing = [k for k in keys if k not in uid]
     if missing:
         sys.exit(f"{len(missing)} photos of batch {n} are not in {DATASET}: {missing[:5]}")
-    name = batch_name(n, datetime.datetime.now(datetime.timezone.utc).date())
+    name = batch_name(n)
     if argv[1] == "show":
         again = "batch" if len(argv) == 2 else f"batch {n}"
         print(f"batch {n}: {len(keys)} photos, all in {DATASET}; `{again}` creates {name}")

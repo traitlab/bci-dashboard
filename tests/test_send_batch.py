@@ -25,6 +25,28 @@ def test_the_name_is_the_one_the_refresh_records(send, rounds):
     assert send.NAME_RE.pattern == rounds.BATCH_NAME_RE.pattern
 
 
+def test_both_take_the_utc_month_whatever_the_local_clock(send, rounds, monkeypatch):
+    """31 Oct 23:30 in Panama is 1 Nov in UTC: both senders name it November."""
+    panama = datetime.datetime(2026, 10, 31, 23, 30,
+                               tzinfo=datetime.timezone(datetime.timedelta(hours=-5)))
+
+    class Clock(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return panama.astimezone(tz) if tz else panama.replace(tzinfo=None)
+
+    class Today(datetime.date):
+        @classmethod
+        def today(cls):
+            return panama.date()
+
+    monkeypatch.setattr(rounds, "datetime", Clock)
+    monkeypatch.setattr(rounds, "date", Today)
+    monkeypatch.setattr(send.datetime, "datetime", Clock)
+    monkeypatch.setattr(send.datetime, "date", Today)
+    assert send.batch_name(7) == rounds.batch_name(7) == "batch0007_2026-11"
+
+
 def test_the_next_batch_is_the_lowest_not_in_labelbox(send):
     sent = send.sent_numbers(["batch0001_2026-10", "batch0002_2026-11", "trial run",
                               "batch00031_2026-10", "batch0004_old"])

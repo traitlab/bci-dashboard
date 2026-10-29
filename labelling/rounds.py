@@ -14,7 +14,7 @@ Stdlib only, so a test can import it without Labelbox installed.
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, datetime, timezone
 
 # The metadata field, and the kind it holds. The value is the batch name, a
 # string such as `batch0001_2026-10`, so a row says which batch it went out in
@@ -23,13 +23,15 @@ from datetime import date
 METADATA_SCHEMA_NAME = "batch_id"
 
 # `batch0001_2026-10`, and nothing else. The counter is four digits, zero
-# padded; the month is the one it was sent in, not the day.
+# padded; the month is the UTC month it was sent in, not the day, so every
+# sender's clock gives the same name.
 BATCH_NAME_RE = re.compile(r"^batch(\d{4})_(\d{4}-\d{2})$")
 
 
 def batch_name(round_no: int, day: date | None = None) -> str:
     """The name a round's batch carries. One writer, so one shape."""
-    return f"batch{round_no:04d}_{(day or date.today()).strftime('%Y-%m')}"
+    day = day or datetime.now(timezone.utc).date()
+    return f"batch{round_no:04d}_{day:%Y-%m}"
 
 
 def batch_name_prefix(round_no: int) -> str:
