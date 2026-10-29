@@ -57,24 +57,34 @@ On the frames a botanist has already named, the order covers half of their speci
 
 The ranking lands in `data/next_batch/queue_novelty.csv`. The weekly refresh writes it and `bin/refresh.sh` does not. `dashboard/build_internal.py` refuses to build when the file is missing or ranks none of the queued photos.
 
-### Batches carry each species whole
+### Batches: predicted trees, in random order
 
-`send_batches.csv` packs the ordered queue into batches of 100, or `BCI_BATCH_SIZE`. 20 places of each batch (`BCI_QUEUE2_SHARE`) go first to the low-confidence, known-species queue, one photo per confidence band in turn, until that queue is empty. A species ships at the place of its highest-ranked photo, with every other photo of that species beside it. Every batch gives 15% of its places (`CONTROL_FRACTION`) to photos drawn at random from the photos not sent yet, as a comparison for the queue. See [The random control](#the-random-control).
+`labelling/catalog_batches.py` packs the catalog pool (the dataset rows in no project) into batches of 100 and writes `send_batches.csv`. Antoine sends one batch at a time with `bin/send_batch.py`. The rules, in order:
 
-Rounds go to the `2024_bci` project from the `2024_bci` dataset. A round's Labelbox batch is named `batchXXXX_YYYY-MM`, for example `batch0001_2026-10`: a four-digit counter and the month it is sent. Every data row in it carries that name in the `batch_id` metadata field, a String. Frames from the missions in `input/priority_missions.txt` (ground data on the crowns) go first inside each queue. In the catalog pool they all go out in their own first batches, with no control. The random control does not read that list. The first round comes from the catalog pool, the dataset rows in no project, packed by the same queue and batch code. The file it writes has no data row ids, so `dispatch_round.py` looks them up by global key, and its `--dry-run` shows the plan. It also writes `send_first_queue.csv` and `frames.csv`. Run: `python labelling/catalog_batches.py --pool data/predictions_catalog_2026/input.csv --cache data/predictions_catalog_2026/cache --out build/catalog_batches`
+1. **Only photos Pl@ntNet calls a tree.** A photo is liana when liana species hold half or more of its top-5 score (`LIANA_SHARE`). Liana photos, and `can_wait` photos (a species with 10 or more labelled crowns that the model already names with confidence), stay in `send_first_queue.csv` with a blank `batch_id`. The botanists label trees: Antoine's decision.
+2. **Priority missions first.** Every photo of a mission in `input/priority_missions.txt` (ground data on its crowns) fills the first batches, whatever its queue.
+3. **Then the queues in order,** rarest species first inside a queue, at most 20 photos of one species per batch (`SPECIES_CAP`).
+4. **15 control photos per batch** (`CONTROL_FRACTION`), drawn uniformly at random from the pool before packing, seeded (`CONTROL_SEED`). See [The random control](#the-random-control).
+5. **Random order inside the batch,** seeded per batch. The botanist cannot read the guess off the grouping, and Labelbox never gets the guess: the sender pushes the data row and the batch name only.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="diagrams/batches-dark.svg">
-  <img alt="send_first_queue.csv is grouped by species, packed into batches of 100, and sent to Labelbox with dispatch_round.py" src="diagrams/batches.svg">
+  <img alt="Predicted trees only, priority missions first, 15 control photos per batch of 100, each batch shuffled and sent with send_batch.py" src="diagrams/batches.svg">
 </picture>
 
-So the queues mix in send order. A queue 4 photo ships with its species' photos from queue 2 or 3. Only a species with no photo in queues 1 to 3 waits for the last batches.
+Batches 1 to 4 are pinned in `input/pinned_batches.csv`, and the weekly refresh keeps four unsent batches pinned ahead (`KEEP_AHEAD`). A label change never moves a photo Antoine is about to send. The page build refuses a `send_batches.csv` that is not the exact packing, order included.
+
+Rounds go to the `2024_bci` project from the `2024_bci` dataset. A Labelbox batch is named `batchXXXX_YYYY-MM`, for example `batch0001_2026-10`: a four-digit counter and the month it is sent. Every data row in it carries that name in the `batch_id` metadata field, a String. The file has no data row ids, so the sender looks them up by global key. Run: `python labelling/catalog_batches.py --pool data/predictions_catalog_2026/input.csv --cache data/predictions_catalog_2026/cache --out build/catalog_batches`
+
+The main pool's `send_batches.csv`, from `dashboard/measure.py` when there is no catalog pool, still packs each species whole with 20 places per batch for queue 2 (`BCI_QUEUE2_SHARE`). The catalog pool is what ships.
 
 ### The random control
 
-Every batch reserves 15% of its places (`CONTROL_FRACTION`, 15 of 100) for photos drawn uniformly at random from the photos not sent yet. They are marked `picked_by == control` in `send_batches.csv`, sit at the end of their batch under the species group `control`, and are never sent twice. The draw is seeded (`CONTROL_SEED`), so every run writes the same file. `CONTROL_FRACTION = 0` turns it off.
+The 15 control photos in every batch are a uniform sample of the pool, so their labels give the pool's top-1 accuracy with no bias from the queue. They are marked `picked_by == control` in `send_batches.csv`, mixed into the batch like any other photo, and never sent twice. The draw is seeded, so every run writes the same file. `CONTROL_FRACTION = 0` turns it off.
 
-Why: the control is the only unbiased comparison for whether the queue order fills gaps faster than random. Once a batch is labelled, `labelling/read_round.py` compares the queue's picks with the random ones from the same batch, with intervals, and the queue page shows the result. Later pools are reshaped by the queue, so the comparison has to be drawn in every batch and cannot be added afterwards. Queue 2 is also read per confidence band, from the confidence the round ledger recorded at dispatch. Labels can knock a species out of queue 2, and a band read off today's queue would keep only the species whose guesses held up.
+What it reads: `labelling/read_round.py --sent docs/send_batches.csv --cache data/predictions_catalog_2026/cache` prints the pool accuracy two ways. The plain control share with a Wilson interval, and PPI++ (Angelopoulos, Duchi and Zrnic 2023). PPI++ adds the model's top-1 confidence over every pool photo and narrows the interval by about a fifth. The control labels are the only truth; the confidence only reduces noise, and under 60 control photos (four batches) only the Wilson interval is read. Round 1 reads the number to about plus or minus 9 points. `input/rounds/preregistration.md` fixed the estimand, the label rule and "no pass mark" before any label arrived.
+
+Why a control in every batch: later pools are reshaped by the queue, so the comparison cannot be drawn afterwards. It is also the only unbiased comparison for whether the queue order fills gaps faster than random, which `read_round.py` reports per round from the ledgers, with intervals, on the queue page. Queue 2 is read per confidence band from the confidence the ledger recorded at dispatch, because a label can knock a species out of queue 2 afterwards.
 
 Cost: 15% of the labelling time goes to photos the queue would not have picked first. The last batch takes fewer control photos when the pool runs short, and always keeps at least one queue photo.
 
