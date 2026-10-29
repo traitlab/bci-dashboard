@@ -63,7 +63,7 @@ def test_batch_1_keeps_its_frames_when_the_labels_move_frames_between_queues(
 def test_a_pinned_batch_stays_whole_while_the_rest_regroups_by_growth_form(
         catalog_batches, tmp_path):
     """A batch handed out before the tree and liana split keeps its mixed frames
-    and number; the rest of the pool repacks into single-form batches after it."""
+    and number; the rest of the pool repacks into tree-only batches after it."""
     pins = tmp_path / "pins.csv"
     pool, predictions, per_species = synthetic_pool()
     first = run(catalog_batches, per_species, pins, tmp_path, hand_out=1)
@@ -76,7 +76,7 @@ def test_a_pinned_batch_stays_whole_while_the_rest_regroups_by_growth_form(
     group = second["group"]
     assert {group[k] for k in batch(second, 1)} == {"tree", "liana"}
     rest = {b[0] for b in second["batch_rows"]} - {1}
-    assert all(len({group[k] for k in batch(second, n)}) == 1 for n in rest)
+    assert all({group[k] for k in batch(second, n)} == {"tree"} for n in rest)
 
 
 def send(ledger, number, keys):

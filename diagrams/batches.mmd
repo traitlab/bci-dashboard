@@ -1,8 +1,10 @@
 flowchart LR
-    q["send_first_queue.csv<br/>queue, then rank"] --> g["Group photos by species,<br/>placed at its<br/>highest-ranked photo"]
-    g --> p["Pack the groups<br/>into batches of 100"]
-    p --> b1["Batch 1<br/>plus the random<br/>comparison photos"]
-    p --> bn["Batches 2, 3, and on"]
-    b1 --> d["dispatch_round.py<br/>--batch N"]
+    q["send_first_queue.csv<br/>queue, then rarity"] --> t["Keep predicted trees,<br/>drop liana and can_wait"]
+    t --> c["Draw 15 control photos<br/>per batch, uniform, seeded"]
+    c --> p["Priority missions first,<br/>then the queues,<br/>batches of 100"]
+    p --> s["Shuffle each batch,<br/>seeded"]
+    s --> b1["Batches 1 to 4<br/>pinned"]
+    s --> bn["Batches 5 and on"]
+    b1 --> d["send_batch.py"]
     bn --> d
     d --> lb["Labelbox"]

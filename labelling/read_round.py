@@ -29,6 +29,11 @@ Queue 2 rows are also read per confidence band, from the confidence the ledger
 froze at dispatch. Labels can knock a species out of queue 2, so a band read off
 today's queue would count only the species whose guesses held up.
 
+With --sent, the pool is every frame in that send_batches.csv and a top-1 accuracy row is
+printed twice: the plain control share (Wilson), and a PPI++ estimate (Angelopoulos, Duchi and
+Zrnic 2023) that uses the model's top-1 confidence over the whole pool to narrow the interval.
+The control rows stay the only source of truth: the confidence only reduces variance.
+
 Writes build/tables/round_readout.csv (one row per scope and arm) for a page step,
 from --all only: a single --round run prints and leaves the file alone. The pooled
 rows name the rounds they sum, so per-round drift stays visible beside them.
@@ -41,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import random
 import sys
 from collections import Counter
 from pathlib import Path
@@ -49,8 +55,14 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "dashboard"))
 
 import core
+from health import scan_cache
 from queues import SHARE_QUEUE
 from score_confirmatory import wilson
+
+BOOT_B, BOOT_SEED = 1000, 20261029
+# Fewer labelled control frames: estimate, no interval. The bootstrap undercovers below
+# this: 0.875 at 15 frames against 0.945 at 60 on 3,749 real labelled frames (200 draws).
+MIN_PPI_N = 60
 
 ARMS = ("prioritised", "control")
 COUNTS = ("n_sent", "n_labelled", "n_with_guess", "corrections", "new_rows", "long_tail_rows")
@@ -172,6 +184,57 @@ def out_row(scope: str, arm: str, c: dict, rounds: str = "") -> dict:
     return row
 
 
+def ppi_est(y: list[float], f: list[float], f_pool_mean: float) -> float:
+    """PPI++ mean of y over the pool: lam * mean(f_pool) + mean(y - lam * f), lam in [0, 1]."""
+    n = len(y)
+    my, mf = sum(y) / n, sum(f) / n
+    var = sum((a - mf) ** 2 for a in f)
+    lam = min(1.0, max(0.0, sum((a - mf) * (b - my) for a, b in zip(f, y)) / var)) if var else 0.0
+    return lam * f_pool_mean + my - lam * mf
+
+
+def ppi_interval(y: list[float], f: list[float], f_pool_mean: float,
+                 b: int = BOOT_B, seed: int = BOOT_SEED) -> tuple[float, float]:
+    """Percentile 95% bootstrap over the control frames, lam refit on each resample."""
+    rng = random.Random(seed)
+    n = len(y)
+    ests = []
+    for _ in range(b):
+        i = rng.choices(range(n), k=n)
+        ests.append(ppi_est([y[j] for j in i], [f[j] for j in i], f_pool_mean))
+    ests.sort()
+    return ests[int(0.025 * b)], ests[min(b - 1, int(0.975 * b))]
+
+
+def render_ppi(sent: list[dict], gt: dict[str, str], top: dict[str, tuple[str, float]]) -> str:
+    """Pool top-1 accuracy: plain control share beside the PPI++ estimate.
+
+    `top` maps a cache stem to the model's (top-1 species, probability).
+    """
+    def stem(r):
+        return r["global_key"].removeprefix(core.GT_KEY_PREFIX)
+
+    gt = {k.removeprefix(core.GT_KEY_PREFIX): v for k, v in gt.items()}
+    f_pool = [top[stem(r)][1] for r in sent if stem(r) in top]
+    ctrl = [(float(_norm(gt[stem(r)]) == _norm(top[stem(r)][0])), top[stem(r)][1])
+            for r in sent if arm_of(r) == "control" and _norm(gt.get(stem(r), "")) and stem(r) in top]
+    y, f = [a for a, _ in ctrl], [c for _, c in ctrl]
+    out = [f"pool top-1 accuracy ({len(sent)} frames in the pool, {len(f_pool)} with a confidence)",
+           f"  {'estimate':10} {'n':>4} {'top-1':>6} {'95% interval':>14}"]
+    if not y or not f_pool:
+        return "\n".join(out + ["  -  no labelled control frames with a confidence yet"])
+    mean_pool = sum(f_pool) / len(f_pool)
+    lo, hi = wilson(int(sum(y)), len(y))
+    out.append(f"  {'control':10} {len(y):>4} {sum(y) / len(y):>6.1%} [{lo:.1%},{hi:.1%}]")
+    est = f"{ppi_est(y, f, mean_pool):>6.1%}"
+    if len(y) < MIN_PPI_N:
+        out.append(f"  {'ppi':10} {len(y):>4} {est} {'-':>14}")
+    else:
+        lo, hi = ppi_interval(y, f, mean_pool)
+        out.append(f"  {'ppi':10} {len(y):>4} {est} [{lo:.1%},{hi:.1%}]")
+    return "\n".join(out)
+
+
 def render(title: str, rows: list[dict]) -> str:
     def cell(r, hits, n, key):
         return f"{r[hits]}/{r[n]} [{r[key + '_lo']:.0%},{r[key + '_hi']:.0%}]" if r[n] else "-"
@@ -198,6 +261,8 @@ def parse_args():
     ap.add_argument("--sent", type=Path, help="send_batches.csv instead of the ledgers")
     ap.add_argument("--queue", type=Path,
                     help="send_first_queue.csv: first guesses, and today's species state")
+    ap.add_argument("--cache", type=Path, default=Path(core.CACHE_DIR),
+                    help="Pl@ntNet answer cache: the pool's top-1 species and probability")
     ap.add_argument("--gt", type=Path, default=Path(core.GT_CSV))
     ap.add_argument("--out", type=Path, default=REPO / "build/tables/round_readout.csv")
     return ap.parse_args()
@@ -255,6 +320,9 @@ def main() -> None:
         else:
             print("pooled: pending (no round closed)")
             out.append({"scope": "pooled", "status": "pending"})
+    if args.sent:
+        preds = scan_cache(args.cache).predictions
+        print(render_ppi(sent, gt, {k: v[0] for k, v in preds.items() if v}))
     if not args.all:
         return  # a lone round must not overwrite the page file's other rounds
     args.out.parent.mkdir(parents=True, exist_ok=True)
