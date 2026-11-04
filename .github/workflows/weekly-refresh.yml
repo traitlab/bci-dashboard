@@ -30,7 +30,8 @@ concurrency:
 
 jobs:
   refresh:
-    if: github.repository == 'traitlab/bci-dashboard' && github.ref == 'refs/heads/main'
+    # A branch may run it only as validation: deploy off, so no site, manifest or pin push.
+    if: github.repository == 'traitlab/bci-dashboard' && (github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && !inputs.deploy))
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:

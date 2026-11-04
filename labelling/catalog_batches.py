@@ -36,9 +36,11 @@ Writes to --out:
   send_batches.csv      what `dispatch_round.py --batch N` sends. data_row_id is
                         blank: no local inventory has these rows, and the
                         dispatcher looks the ids up in the dataset by global key.
+                        handed_out is True for a pinned batch.
   send_first_queue.csv  the same frames in queue order, beside it because
                         `dispatch_round.py` reads the species, confidence and
-                        support for the round ledger from there.
+                        support for the round ledger from there. no_batch_reason
+                        says why a frame has no batch (pushed_down, predicted_liana).
   frames.csv            every pool frame: its queue and batch, or why it has none.
 
 Batches already handed out stay put. `input/pinned_batches.csv` holds exactly the
@@ -86,6 +88,8 @@ from queues import (
     CONTROL_GROUP,
     CONTROL_SEED,
     GROUP_BY,
+    PREDICTED_LIANA,
+    PUSHED_DOWN,
     QUEUE_ORDER,
     SEND_BATCH_COLUMNS,
     SEND_BATCH_HEADER,
@@ -452,26 +456,30 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
             "propagated": propagate_crown_labels(same_crown, labels or {})}
 
 
-def write_files(out: Path, built: dict, pool: dict[str, str]) -> None:
+def write_files(out: Path, built: dict, pool: dict[str, str], pinned=frozenset()) -> None:
+    """``pinned``: the batch numbers handed out, marked in send_batches.csv."""
     out.mkdir(parents=True, exist_ok=True)
     mission, forms = built["mission"], growth_form.load()
     q = {r[SEND_FIRST_COLUMNS.index("global_key")]: r for r in built["queue_rows"]}
     species_at = SEND_FIRST_COLUMNS.index("predicted_species")
     with open(out / "send_first_queue.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(SEND_FIRST_HEADER + RARITY_COLUMNS)
+        w.writerow(SEND_FIRST_HEADER + RARITY_COLUMNS + ["no_batch_reason"])
+        batch_at = SEND_FIRST_COLUMNS.index("batch_id")
         for r in built["queue_rows"]:
-            w.writerow(r + ["", mission[r[1]], site_of(mission[r[1]])] + built["rarity"][r[1]])
+            # Only `can_wait` and liana rows stay out (`build` raises on any other).
+            why = "" if r[batch_at] != "" else PUSHED_DOWN if r[0] == WAIT_QUEUE else PREDICTED_LIANA
+            w.writerow(r + ["", mission[r[1]], site_of(mission[r[1]])] + built["rarity"][r[1]] + [why])
     key_at = SEND_BATCH_COLUMNS.index("global_key")
     with open(out / "send_batches.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(SEND_BATCH_HEADER + ["growth_group"])
+        w.writerow(SEND_BATCH_HEADER + ["growth_group", "handed_out"])
         for b in built["batch_rows"]:
             m = mission[b[key_at]]
             # labelbox_url stays blank: it is a link for a frame that has a data row id.
             w.writerow(b + ["", s3_uri(pool[b[key_at]]), "", "", m, site_of(m),
                             forms.get(q[b[key_at]][species_at], growth_form.UNKNOWN), GROUP_BY,
-                            built["group"].get(b[key_at], "tree")])
+                            built["group"].get(b[key_at], "tree"), b[0] in pinned])
     why = ({k: "no_prediction" for k in built["missing"]}
            | {k: "already_sent" for k in built["already_sent"]}
            | {k: "same_crown" for k in built["same_crown"]})
@@ -588,9 +596,9 @@ def main() -> None:
     built = build(pool, scan_cache(str(args.cache)).predictions, h,
                   ledger_keys(LEDGER_DIR), priority_missions, census=off, iucn=off,
                   wcvp_range=off, labels=labels, pins=pins, sent_nums=sent_nums)
-    write_files(args.out, built, pool)
     pinned = write_pins(args.pins, built["batch_rows"], pins, sent_nums, args.hand_out,
                         args.keep_ahead)
+    write_files(args.out, built, pool, set(pinned))
     print(summary(pool, built))
     print(f"pinned batches {', '.join(map(str, pinned)) or 'none'} in {args.pins}")
     print(f"wrote send_batches.csv, send_first_queue.csv, frames.csv, propagated_labels.csv"

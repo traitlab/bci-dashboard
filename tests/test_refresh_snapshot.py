@@ -572,3 +572,17 @@ def test_preflight_names_every_unmapped_mission_in_one_error(tmp_path):
         refresh.validate_photo_missions(tmp_path, [export])
     assert "20990101_a_m3e, 20990102_b_m3e" in str(error.value)
     assert KNOWN not in str(error.value)
+
+
+def test_pool_overlap_lists_catalog_photos_also_in_the_evaluation(tmp_path):
+    sys.path.insert(0, str(REPO / "dashboard"))
+    cache, catalog, tables = tmp_path / "predictions/cache", tmp_path / "catalog", tmp_path / "tables"
+    for d in (cache, catalog, tables):
+        d.mkdir(parents=True)
+    (cache / "DJI_1_zoom.JPG.json").write_text("{}")
+    (catalog / "input.csv").write_text("global_key\nDJI_1_zoom.JPG\nDJI_2_zoom.JPG\n")
+    refresh.write_pool_overlap(tmp_path, catalog, tables)
+    assert (tables / "pool_overlap.csv").read_text() == "global_key\nDJI_1_zoom.JPG\n"
+    (catalog / "input.csv").write_text("global_key\nDJI_2_zoom.JPG\n")
+    refresh.write_pool_overlap(tmp_path, catalog, tables)
+    assert (tables / "pool_overlap.csv").read_text() == "global_key\n"

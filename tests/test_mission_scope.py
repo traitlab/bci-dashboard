@@ -25,18 +25,23 @@ ORIGINS = {"comb_a.JPG": ("20240911_sitea_w_m3e", "sitea"),
            "comb_c.JPG": ("20250101_siteb_w_m3e", "siteb")}
 
 
-def health(*stems, labelled=(), scored=()):
-    """``scored`` is (stem, label, top prediction) per frame labelled to a species."""
+def health(*stems, labelled=(), scored=(), unscored=()):
+    """``scored`` is (stem, label, top prediction) per frame labelled to a species.
+    ``unscored`` is (stem, species_level, has_answer) per other frame with a reviewed label."""
+    sp_recs = [{"global_key": "comb_" + s, "gt": gt, "species_level": True, "ranked": [(guess, 0.9)]}
+               for s, gt, guess in scored]
+    other = [{"global_key": "comb_" + s, "species_level": level, "ranked": [("x", 0.9)] * has}
+             for s, level, has in unscored]
     return SimpleNamespace(
         predictions=dict.fromkeys(stems, []), labelled_stems=set(labelled),
-        sp_recs=[{"global_key": "comb_" + s, "gt": gt, "ranked": [(guess, 0.9)]}
-                 for s, gt, guess in scored])
+        sp_recs=sp_recs, records=sp_recs + other)
 
 
 def row(mission, site, *n):
-    return dict(zip(("mission", "site", "n_frames", "n_labelled", "n_scored",
-                     "n_correct_top1", "first_capture", "last_capture"),
-                    (mission, site, *n, *([""] * (6 - len(n))))))
+    """``n`` runs n_frames to n_above_species; the capture dates default to blank."""
+    return dict(zip(("mission", "site", "n_frames", "n_labelled", "n_scored", "n_correct_top1",
+                     "n_reviewed", "n_no_answer", "n_above_species", "first_capture", "last_capture"),
+                    (mission, site, *n, *([0] * (7 - len(n))), "", "")[:11]))
 
 
 MISSION_A, MISSION_B = ORIGINS["comb_a.JPG"][0], ORIGINS["comb_c.JPG"][0]
@@ -46,7 +51,7 @@ def test_rows_count_every_frame_and_keep_unplaced_ones_blank(mods):
     h = health("a.JPG", "b.JPG", "c.JPG", "lost.JPG", labelled=("a.JPG", "b.JPG", "lost.JPG"),
                scored=[("a.JPG", "x", "x"), ("b.JPG", "x", "y"), ("lost.JPG", "y", "y")])
     assert mods.scope.rows(h, ORIGINS) == [
-        row("", "", 1, 1, 1, 1), row(MISSION_A, "sitea", 2, 2, 2, 1),
+        row("", "", 1, 1, 1, 1, 1), row(MISSION_A, "sitea", 2, 2, 2, 1, 2),
         row(MISSION_B, "siteb", 1, 0, 0, 0)]
     assert mods.scope.rows(health(), ORIGINS) == []
 
@@ -57,7 +62,20 @@ def test_rows_take_capture_dates_from_the_frame_stamps(mods):
     [r] = mods.scope.rows(health(*stems), origins)
     assert (r["first_capture"], r["last_capture"]) == ("20250811", "20260322")
     # A snapshot written before the dates still verifies.
-    assert mods.scope.CHECKED == mods.scope.COLUMNS[:6]
+    assert mods.scope.CHECKED == mods.scope.COLUMNS[:9]
+
+
+def test_the_scored_branch_adds_up_from_the_columns(mods):
+    """n_reviewed = n_scored + n_no_answer + n_above_species, and the labelled frames
+    left over carry a Labelbox label not yet reviewed."""
+    h = health("a.JPG", "b.JPG", "c.JPG", "d.JPG", "lost.JPG",
+               labelled=("a.JPG", "b.JPG", "c.JPG", "d.JPG"), scored=[("a.JPG", "x", "x")],
+               unscored=[("b.JPG", True, False), ("c.JPG", False, True)])
+    [r] = [r for r in mods.scope.rows(h, {"comb_" + s: ("m", "s") for s in h.predictions})]
+    assert (r["n_labelled"], r["n_reviewed"], r["n_scored"], r["n_no_answer"], r["n_above_species"]) == (4, 3, 1, 1, 1)
+    assert r["n_reviewed"] == r["n_scored"] + r["n_no_answer"] + r["n_above_species"]
+    # d.JPG is labelled but not reviewed, so it is in no column of the split.
+    assert r["n_labelled"] - r["n_reviewed"] == 1
 
 
 def test_the_sites_panel_gives_each_rate_its_count(mods):
@@ -87,3 +105,5 @@ def test_the_check_passes_skips_and_aborts(mods, tmp_path):
         mods.history.check_scope(str(tmp_path), table[:1])
     with pytest.raises(SystemExit, match="VERIFY FAIL: scope.csv"):
         mods.history.check_scope(str(tmp_path), [{**table[0], "n_labelled": 9}, table[1]])
+    with pytest.raises(SystemExit, match="VERIFY FAIL: scope.csv"):
+        mods.history.check_scope(str(tmp_path), [{**table[0], "n_no_answer": 9}, table[1]])

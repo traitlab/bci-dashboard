@@ -311,6 +311,6 @@ def test_mark_first_use_skips_scripts_options_and_existing_abbr(pagemod):
             '<abbr title="x">Frames</abbr><svg><text>mission</text></svg><p>close-ups</p>')
     out = pagemod.mark_first_use(body)
     assert out.count("<abbr") == 2
-    assert out.endswith('<p><abbr title="One drone photo, aimed at one tree crown. A frame is the same '
-                        'thing. It can show more crowns than the one it is aimed at.">close-ups</abbr></p>')
+    assert out.endswith('<p><abbr title="A frame is one drone photo, aimed at one tree crown. It can show more '
+                        'crowns than the one it is aimed at. The labelling team calls it a close-up.">close-ups</abbr></p>')
     assert pagemod.mark_first_use("") == "" and pagemod.mark_first_use("<p>no terms</p>") == "<p>no terms</p>"

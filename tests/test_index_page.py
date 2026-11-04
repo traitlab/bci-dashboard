@@ -229,81 +229,195 @@ def test_about_carries_caveats_glossary_and_no_data(build_index, tmp_path):
         build_index.available_names(str(tmp_path)))
 
 
+def _write(tmp_path, name, header, *rows):
+    (tmp_path / name).write_text("\n".join([header, *rows]) + "\n", encoding="utf-8")
+
+
 def _scope_tables(tmp_path):
-    (tmp_path / "per_species_health.csv").write_text(
-        "species,n_labelled_frames\na,10\nb,5\n", encoding="utf-8")
-    (tmp_path / "scope.csv").write_text(
-        "mission,site,n_frames,n_labelled\n,,4,1\n20240911_sitea_w_m3e,sitea,20,12\n"
-        "20250101_siteb_w_m3e,siteb,6,0\n20260114_sitea_x_m3e,sitea,10,5\n", encoding="utf-8")
-    keys = ["DJI_20240911145743_0030_V_1zoom.JPG", "DJI_20260322092500_0001_V_2zoom.JPG",
-            "DJI_20250101000000_0002_V_3zoom.JPG"]
-    (tmp_path / "send_batches.csv").write_text(
-        "global_key,image_url,mission\n" + "".join(f"{k},,m\n" for k in keys), encoding="utf-8")
+    """36 frames, 17 labelled, 10 scored; 13 carry a checked label (10 scored, 2 with no
+    usable answer, 1 whose label stops above species), 4 a Labelbox label not yet checked."""
+    _write(tmp_path, "scope.csv",
+           "mission,site,n_frames,n_labelled,n_scored,n_correct_top1,n_reviewed,n_no_answer,"
+           "n_above_species,first_capture,last_capture",
+           "20240911_sitea_w_m3e,sitea,20,12,6,3,9,2,1,20240911,20250101",
+           "20250101_siteb_w_m3e,siteb,6,0,0,0,0,0,0,,",
+           "20260114_sitea_x_m3e,sitea,10,5,4,2,4,0,0,20260114,20260322")
+    _write(tmp_path, "per_species_health.csv", "species,n_labelled_frames", "a,6", "b,4")
 
 
-def test_scope_sentence_numbers_equal_the_table_counts(build_index, tmp_path):
-    fake_build(tmp_path)
+def _outgoing_tables(tmp_path, sent=1, no_species=2):
+    """11 photos in no project: 1 sent, 3 ready (batches 1-2, one from a priority mission),
+    2 packed after them (batch 3), 3 kept out (1 pushed down, 2 predicted liana), 2 with no species.
+    frames.csv marks every unbatched frame no_answer, so the kept-out ones are told apart by the queue."""
+    _write(tmp_path, "frames.csv", "global_key,status,priority_mission",
+           "a1,batched,True", *[f"{k},batched,False" for k in ("a2", "b1", "c1", "c2")],
+           "w1,no_answer,True", "l1,no_answer,False", "l2,no_answer,False",
+           *[f"s{i},already_sent,False" for i in range(sent)],
+           *[f"n{i},no_answer,False" for i in range(no_species)])
+    _write(tmp_path, "send_batches.csv", "batch_id,global_key,handed_out",
+           "1,a1,True", "1,a2,True", "2,b1,True", "3,c1,False", "3,c2,False")
+    _write(tmp_path, "send_first_queue.csv", "global_key,batch_id,no_batch_reason",
+           "a1,1,", "a2,1,", "b1,2,", "c1,3,", "c2,3,", "w1,,pushed_down", "l1,,predicted_liana", "l2,,predicted_liana")
+
+
+EVALUATION = (
+    '<p>Frames in the Pl@ntNet evaluation: <a href="scope.csv">36</a> &middot; 3 missions &middot; 2 sites '
+    '&middot; flown 2024-09-11 to 2026-03-22</p>'
+    '<ul><li><a href="scope.csv">17 labelled</a>: a botanist outlined the crowns in the frame; the label is '
+    'the species covering the most crown area<ul>'
+    '<li><a href="per_species_health.csv">10 scored on Model health</a> (2 species): since 2026-09-29, '
+    'only frames whose species name was checked for the official BCI data publication, and with a Pl@ntNet '
+    'answer naming at least one species</li>'
+    '<li>7 not scored: 4 with a Labelbox label not yet checked for publication, 2 with no usable Pl@ntNet '
+    'answer, 1 with a label that stops above species</li></ul></li>'
+    '<li><a href="scope.csv">19 not yet labelled</a>, already in the botanists\' Labelbox project</li></ul>'
+    '<p>The reference labels changed on 2026-09-29; scores before then used the Labelbox labels.</p>')
+def outgoing(apart=""):
+    return (
+        '<p>Photos going out for labelling: 11 photos in the 2024_bci Labelbox dataset '
+        f'that are not yet in a Labelbox project, the workspace where botanists label.{apart}</p>'
+        '<ul><li>1 sent to the botanists\' Labelbox project so far</li>'
+        '<li>5 in batches of up to 100<ul>'
+        '<li><a href="send_batches.csv">3</a> ready to send (batches 1-2, handed to the labelling coordinator; '
+        'they do not change), 1 of them from priority missions: their crowns were also identified on the ground, so a label can be '
+        'checked twice</li>'
+        '<li>2 packed after them (batch 3, these can still change)</li></ul></li>'
+        '<li><a href="send_first_queue.csv">3</a> in no batch<ul><li>1 pushed down the queue: Pl@ntNet is already '
+        'confident and the species has enough labels, so they wait until Pl@ntNet\'s model changes. The current '
+        'model is from 20 March 2026 (release 7.5)</li>'
+        '<li>2 predicted liana, which are not sent: since 2026-10-29 only predicted trees go out, and the liana '
+        'call is a Pl@ntNet guess</li></ul></li>'
+        '<li>2 left out: the Pl@ntNet answer names no species</li></ul>')
+
+
+OUTGOING = outgoing()
+LEAD = ("<p>Drone photos of tree crowns only. A tree whose crown was not photographed is not here. "
+        "A frame is one drone photo.</p>")
+
+
+def test_scope_breakdown_matches_the_target_wording_off_the_tables(build_index, tmp_path):
     _scope_tables(tmp_path)
+    _outgoing_tables(tmp_path)
+    _write(tmp_path, "pool_overlap.csv", "global_key")
+    s = build_index.scope_breakdown(str(tmp_path))
+    assert s == LEAD + EVALUATION + outgoing(" None of them is among the frames in the evaluation above.")
+    # The words the page must not use.
+    assert not re.search(r"close-up|queued|can_wait|Antoine", s, re.IGNORECASE)
+    fake_build(tmp_path)
     (tmp_path / "embedding-atlas.html").write_text("<html>Atlas</html>")
-    s = build_index.scope_sentence(str(tmp_path))
-    # Every frame, the unplaced row included; missions and sites only where named.
-    assert ("40 close-ups from 3 missions at 2 sites, photographed 2024-09-11 to 2026-01-14, "
-            "18 of them labelled") in s
-    assert "15 labelled frames across 2 species are scored on Model health" in s
-    assert "3 unlabelled photos are queued for labelling." in s
-    assert "Drone-photographed crowns only" in s
-    home = build_index.build(str(tmp_path))
-    about = build_index.build_about(build_index.available_names(str(tmp_path)), s)
-    # The full sentence lives on About; the landing page carries the short line.
-    assert s in about and s not in home and '<h2 id="scope">' in about
-    # The first use of crown and frame carries its glossary definition.
-    assert 'Drone-photographed crowns only. <a href="scope.csv">40 frames, 2 sites</a>.' in re.sub(r"</?abbr[^>]*>", "", home)
-    assert home.count(">crowns</abbr>") == 1 and home.count(">frames</abbr>") == 1
-    for out in (home, about):
-        assert 'href="embedding-atlas.html#view=locations">See the map' in out
+    about = build_index.build_about(build_index.available_names(str(tmp_path)), build_index.scope_breakdown(str(tmp_path)))
+    assert '<h2 id="scope">Data scope</h2>' in about and s in about
+    assert 'href="embedding-atlas.html#view=locations">See the map' in about
+    # Nested lists, not a table or a wall of text, so a phone reads them in order.
+    assert about.count("<ul>") - build_index.build_about({"about.html"}).count("<ul>") == 5
+    assert s not in build_index.build(str(tmp_path))
 
 
-def test_scope_byline_links_the_map_and_the_table_only_when_present(build_index, tmp_path):
+def test_each_branch_is_left_out_when_its_table_is_absent(build_index, tmp_path):
+    assert build_index.scope_breakdown(str(tmp_path)) == LEAD
+    assert "Data scope" not in build_index.build_about({"about.html"})
+    _scope_tables(tmp_path)
+    assert build_index.scope_breakdown(str(tmp_path)) == LEAD + EVALUATION
+    (tmp_path / "per_species_health.csv").unlink()
+    # With no species table the scored figure comes off scope.csv alone, without a species count.
+    assert "<a href=\"per_species_health.csv\">10 scored on Model health</a>: since" in build_index.scope_breakdown(str(tmp_path))
+    _write(tmp_path, "scope.csv", "mission,site,n_frames,n_labelled", ",,3,1")
+    assert build_index.scope_breakdown(str(tmp_path)) == LEAD + (
+        '<p>Frames in the Pl@ntNet evaluation: <a href="scope.csv">3</a></p>'
+        '<ul><li><a href="scope.csv">1 labelled</a>: a botanist outlined the crowns in the frame; the label is '
+        'the species covering the most crown area</li><li><a href="scope.csv">2 not yet labelled</a>, '
+        'already in the botanists\' Labelbox project</li></ul>')
+    (tmp_path / "scope.csv").unlink()
+    _outgoing_tables(tmp_path)
+    assert build_index.scope_breakdown(str(tmp_path)) == LEAD + OUTGOING
+    # A queue file from before the reason column is the main pool's, not the catalog's.
+    _write(tmp_path, "send_first_queue.csv", "global_key,batch_id", "a1,1")
+    assert build_index.scope_breakdown(str(tmp_path)) == LEAD
+    (tmp_path / "frames.csv").unlink()
+
+
+def test_empty_tables_leave_their_branch_out_and_zero_rows_are_not_printed(build_index, tmp_path):
+    _write(tmp_path, "scope.csv", "mission,site,n_frames,n_labelled")
+    _write(tmp_path, "frames.csv", "global_key,status,priority_mission")
+    _write(tmp_path, "send_batches.csv", "batch_id,global_key,handed_out")
+    _write(tmp_path, "send_first_queue.csv", "global_key,batch_id,no_batch_reason")
+    assert build_index.scope_breakdown(str(tmp_path)) == LEAD
+    _outgoing_tables(tmp_path, sent=0, no_species=0)
+    s = build_index.scope_breakdown(str(tmp_path))
+    assert "<li>0 sent to the botanists' Labelbox project so far" in s and "names no species" not in s
+    # Nothing kept out, nothing from a priority mission: those clauses go, not "0 ...".
+    _write(tmp_path, "frames.csv", "global_key,status,priority_mission", "a1,batched,False", "b1,batched,False")
+    _write(tmp_path, "send_batches.csv", "batch_id,global_key,handed_out", "1,a1,True", "2,b1,False")
+    _write(tmp_path, "send_first_queue.csv", "global_key,batch_id,no_batch_reason", "a1,1,", "b1,2,")
+    s = build_index.scope_breakdown(str(tmp_path))
+    assert "in no batch" not in s and "priority" not in s and "1</a> ready to send (batch 1, handed" in s
+    assert "1 packed after them (batch 2, these can still change)" in s
+
+
+@pytest.mark.parametrize("header, rows, gap", [
+    ("mission,site,n_frames,n_labelled,n_scored,n_reviewed,n_no_answer,n_above_species",
+     [",,10,6,4,6,1,0"], "6 frames with a checked label are not 4 scored + 1 with no usable answer"),
+    ("mission,site,n_frames,n_labelled", [",,3,5"], "more labelled frames than frames"),
+    ("mission,site,n_frames,n_labelled,n_scored", [",,10,6,7"], "7 frames are scored but only 6 are labelled"),
+    ("mission,site,n_frames,n_labelled,n_scored,n_reviewed,n_no_answer,n_above_species",
+     [",,10,3,3,5,2,0"], "5 frames have a checked label but only 3 are labelled"),
+    ("mission,site,n_frames,n_labelled,n_scored", [",,36,17,9"], "scope.csv scores 9 frames, per_species_health.csv 10"),
+])
+def test_an_evaluation_branch_that_does_not_sum_to_its_parent_stops_the_build(
+        build_index, tmp_path, header, rows, gap):
+    _scope_tables(tmp_path)
+    _write(tmp_path, "scope.csv", header, *rows)
+    if "per_species_health" not in gap:  # the other gaps must show without the species table to catch them
+        (tmp_path / "per_species_health.csv").unlink()
+    with pytest.raises(SystemExit, match=r"VERIFY FAIL: the About scope does not add up, .*" + re.escape(gap)):
+        build_index.scope_breakdown(str(tmp_path))
+
+
+def test_a_photo_no_branch_accounts_for_stops_the_build(build_index, tmp_path):
+    _outgoing_tables(tmp_path)
+    with open(tmp_path / "frames.csv", "a", encoding="utf-8") as fh:
+        fh.write("x,no_prediction,False\n")
+    with pytest.raises(SystemExit, match=r"the About scope does not add up, the 12 photos in no project are not "
+                                         r"1 sent \+ 3 ready \+ 2 packed \+ 1 pushed_down \+ 2 liana \+ 2 no_species"):
+        build_index.scope_breakdown(str(tmp_path))
+
+
+def test_scope_byline_links_each_count_to_its_table(build_index, tmp_path):
     full = ' <a href="about.html#scope">Full scope</a>.'
     line = build_index.scope_byline(str(tmp_path), {"index.html"})
     assert line == f'<div class="subtitle">Drone-photographed crowns only.{full}</div>'
     _scope_tables(tmp_path)
+    _outgoing_tables(tmp_path)
     line = build_index.scope_byline(str(tmp_path), {"embedding-atlas.html"})
     assert line == ('<div class="subtitle">Drone-photographed crowns only. '
-                    '<a href="scope.csv">40 frames, 2 sites</a>. '
-                    f'<a href="embedding-atlas.html#view=locations">See the map</a>.{full}</div>')
-    # A table that names no site gives the frame count alone.
-    (tmp_path / "scope.csv").write_text("mission,site,n_frames,n_labelled\n,,1,0\n", encoding="utf-8")
-    assert '<a href="scope.csv">1 frame</a>.' in build_index.scope_byline(str(tmp_path), set())
+                    '<a href="scope.csv">36 frames</a> in the evaluation: <a href="scope.csv">17 labelled</a>, '
+                    '<a href="per_species_health.csv">10 scored</a>. '
+                    '<a href="send_batches.csv">3 photos</a> ready to send.'
+                    f' <a href="embedding-atlas.html#view=locations">See the map</a>.{full}</div>')
+    # No scored figure and one ready photo: each part is left out or singular on its own.
+    (tmp_path / "per_species_health.csv").unlink()
+    _write(tmp_path, "scope.csv", "mission,site,n_frames,n_labelled", ",,1,0")
+    _write(tmp_path, "send_batches.csv", "batch_id,global_key,handed_out", "1,a1,True", "2,a2,False")
+    _write(tmp_path, "send_first_queue.csv", "global_key,batch_id,no_batch_reason",
+           "a1,1,", "a2,2,", "w1,,pushed_down", "l1,,predicted_liana", "l2,,predicted_liana")
+    _write(tmp_path, "frames.csv", "global_key,status,priority_mission", *[f"{k},batched,False" for k in ("a1", "a2")],
+           "w1,batched,False", "l1,batched,False", "l2,batched,False")
+    assert build_index.scope_byline(str(tmp_path), set()) == (
+        '<div class="subtitle">Drone-photographed crowns only. <a href="scope.csv">1 frame</a> in the evaluation: '
+        '<a href="scope.csv">0 labelled</a>. <a href="send_batches.csv">1 photo</a> ready to send.'
+        f'{full}</div>')
 
 
-def test_scope_sentence_singular_and_undated(build_index, tmp_path):
-    (tmp_path / "scope.csv").write_text(
-        "mission,site,n_frames,n_labelled\n20240911_sitea_w_m3e,sitea,1,0\n", encoding="utf-8")
-    s = build_index.scope_sentence(str(tmp_path))
-    assert "1 close-up from 1 mission at 1 site, photographed on 2024-09-11, 0 of them labelled." in s
-    (tmp_path / "scope.csv").write_text(
-        "mission,site,n_frames,n_labelled\n,,3,2\nsite_a,a,2,0\n", encoding="utf-8")
-    s = build_index.scope_sentence(str(tmp_path))
-    assert "5 close-ups from 1 mission at 1 site, 2 of them labelled." in s
-    assert "photographed" not in s.replace("Drone-photographed", "")
-
-
-def test_scope_sentence_dates_come_from_capture_stamps_not_folder_names(build_index, tmp_path):
+def test_scope_breakdown_dates_come_from_capture_stamps_not_folder_names(build_index, tmp_path):
     # A 2025 mission holds March 2026 photos; a row with no stamp falls back to its folder date.
-    (tmp_path / "scope.csv").write_text(
-        "mission,site,n_frames,n_labelled,first_capture,last_capture\n"
-        "20250811_sitea_w_m3e,sitea,2,1,20250811,20260322\n20240911_siteb_w_m3e,siteb,1,0,,\n",
-        encoding="utf-8")
-    assert "photographed 2024-09-11 to 2026-03-22" in build_index.scope_sentence(str(tmp_path))
-
-
-def test_scope_sentence_omits_what_the_tables_cannot_give(build_index, tmp_path):
-    assert build_index.scope_sentence(str(tmp_path)) == "Drone-photographed crowns only, not every tree."
-    assert "Data scope" not in build_index.build_about({"about.html"})
-    (tmp_path / "scope.csv").write_text("mission,site,n_frames,n_labelled\n,,3,1\n", encoding="utf-8")
-    assert build_index.scope_sentence(str(tmp_path)) == (
-        "Drone-photographed crowns only, not every tree. 3 close-ups, 1 of them labelled.")
+    _write(tmp_path, "scope.csv", "mission,site,n_frames,n_labelled,first_capture,last_capture",
+           "20250811_sitea_w_m3e,sitea,2,1,20250811,20260322", "20240911_siteb_w_m3e,siteb,1,0,,")
+    assert "flown 2024-09-11 to 2026-03-22" in build_index.scope_breakdown(str(tmp_path))
+    _write(tmp_path, "scope.csv", "mission,site,n_frames,n_labelled", "20240911_sitea_w_m3e,sitea,1,0")
+    s = build_index.scope_breakdown(str(tmp_path))
+    assert "1 mission &middot; 1 site &middot; flown on 2024-09-11" in s
+    _write(tmp_path, "scope.csv", "mission,site,n_frames,n_labelled", ",,3,2", "site_a,a,2,0")
+    assert "flown" not in build_index.scope_breakdown(str(tmp_path))
 
 
 def test_intro_names_the_audience_and_the_limits(build_index, tmp_path):
@@ -327,4 +441,31 @@ def test_about_glossary_defines_the_data_terms(build_index):
         "Close-up", "Crown", "Centre crown", "Segmentation version", "Mission"]
     for term, meaning in build_index.GLOSSARY:
         assert f"<dt>{term}</dt><dd>{meaning}</dd>" in about
-    assert "A frame is the same thing" in about
+    assert "The labelling team calls it a close-up" in about
+
+
+def test_scope_breakdown_states_the_pool_overlap_only_as_measured(build_index, tmp_path):
+    _scope_tables(tmp_path)
+    _outgoing_tables(tmp_path)
+    assert build_index.scope_breakdown(str(tmp_path)) == LEAD + EVALUATION + OUTGOING
+    _write(tmp_path, "pool_overlap.csv", "global_key", "a1", "b1")
+    assert build_index.scope_breakdown(str(tmp_path)) == (
+        LEAD + EVALUATION + outgoing(" 2 of them are also frames in the evaluation above."))
+
+
+def test_the_published_pages_count_the_scope_off_the_run_tables(build_index, tmp_path, monkeypatch):
+    """frames.csv is not published, so About counted off docs/ alone loses the photos going out."""
+    docs, tables = tmp_path / "docs", tmp_path / "tables"
+    docs.mkdir()
+    tables.mkdir()
+    fake_build(docs)
+    _scope_tables(tables)
+    _outgoing_tables(tables)
+    _write(tables, "pool_overlap.csv", "global_key")
+    monkeypatch.setattr("sys.argv", ["build_index.py", "--build", str(docs), "--tables", str(tables),
+                                     "--out", str(docs / "index.html"), "--about-out", str(docs / "about.html")])
+    build_index.main()
+    assert outgoing(" None of them is among the frames in the evaluation above.") in (docs / "about.html").read_text()
+    assert "ready to send." in (docs / "index.html").read_text()
+    from conftest import REPO
+    assert '--tables "$BUILD/tables"' in (REPO / "bin" / "publish_pages.sh").read_text(encoding="utf-8")

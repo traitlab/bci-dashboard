@@ -13,9 +13,12 @@ import html
 import os
 import re
 import sys
+from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from core import REFERENCE_SWITCHED_ON, plantnet_version_words
+from queues import PREDICTED_LIANA, PUSHED_DOWN, TREES_ONLY_SINCE
 from site_navigation import CSS as NAVIGATION_CSS, FAVICON, navigation
 
 # A tile is (file, title, purpose, fragment, figure). The registry holds the
@@ -70,7 +73,7 @@ CAVEATS = ("Photo counts do not measure tree abundance.",
 
 
 GLOSSARY = (
-    ("Close-up", "One drone photo, aimed at one tree crown. A frame is the same thing. It can show more crowns than the one it is aimed at."),
+    ("Close-up", "A frame is one drone photo, aimed at one tree crown. It can show more crowns than the one it is aimed at. The labelling team calls it a close-up."),
     ("Crown", "The top of one tree, as seen from the drone."),
     ("Centre crown", "The crown the frame is aimed at. Pl@ntNet is sent the centre crop, the middle square of the frame, which should hold this crown. "
                      "The label of the frame is the species with the most crown area in the whole frame, usually this crown but not always."),
@@ -108,47 +111,183 @@ def many(n: int, word: str) -> str:
     return f"{n:,} {word}{'' if n == 1 else 's'}"
 
 
-def scope_sentence(build_dir: str) -> str:
-    """What the data covers, counted off the published tables. A figure whose
-    table is absent is left out, never typed. About carries it in full."""
-    parts = ["Drone-photographed crowns only, not every tree"]
+def _fail(why: str):
+    raise SystemExit(f"VERIFY FAIL: the About scope does not add up, {why}")
+
+
+def _num(rows: list, col: str) -> int:
+    return sum(int(r[col]) for r in rows)
+
+
+def _a(name: str, text: str) -> str:
+    return f'<a href="{name}">{text}</a>'
+
+
+def _evaluation(build_dir: str) -> dict | None:
+    """The Pl@ntNet evaluation's counts off scope.csv (and per_species_health.csv
+    for the scored frames), or None without scope.csv. Stops the build when a
+    branch does not sum to its parent. A column an older table lacks leaves its
+    figure out, never typed."""
     scope = _rows(build_dir, "scope.csv")
-    if scope:
-        # Every frame with a cached answer, labelled or not. Mission and site are
-        # blank where the inventory does not name them; a mission starts with the
-        # flight date, but a mission folder can hold later photos, so the capture
-        # stamps in the frame names set the range and the folder date fills in
-        # for a row without one. The date in a file name is when it was written, not flown.
-        missions = {r["mission"] for r in scope if r["mission"]}
-        sites = {r["site"] for r in scope if r["site"]}
-        dates = sorted(d for r in scope for d in (
-            (r.get("first_capture"), r.get("last_capture")) if r.get("first_capture")
-            else re.findall(r"^\d{8}", r["mission"])))
-        first, last = (f"{d[:4]}-{d[4:6]}-{d[6:]}" for d in (dates[0], dates[-1])) if dates else ("", "")
-        span = (f", photographed {first} to {last}" if first != last
-                else f", photographed on {first}" if dates else "")
-        source = f" from {many(len(missions), 'mission')} at {many(len(sites), 'site')}" if missions else ""
-        frames, labelled = (sum(int(r[k]) for r in scope) for k in ("n_frames", "n_labelled"))
-        parts.append(f"{many(frames, 'close-up')}{source}{span}, {labelled:,} of them labelled")
+    if not scope:
+        return None
+    if any(int(r["n_labelled"]) > int(r["n_frames"]) for r in scope):
+        _fail("scope.csv has a mission with more labelled frames than frames, so labelled "
+              "+ not yet labelled is not the frames")
+    frames, labelled = _num(scope, "n_frames"), _num(scope, "n_labelled")
+    # Every frame with a cached answer, labelled or not. Mission and site are
+    # blank where the inventory does not name them; a mission starts with the
+    # flight date, but a mission folder can hold later photos, so the capture
+    # stamps in the frame names set the range and the folder date fills in
+    # for a row without one. The date in a file name is when it was written, not flown.
+    dates = sorted(d for r in scope for d in (
+        (r.get("first_capture"), r.get("last_capture")) if r.get("first_capture")
+        else re.findall(r"^\d{8}", r["mission"])))
+    first, last = (f"{d[:4]}-{d[4:6]}-{d[6:]}" for d in (dates[0], dates[-1])) if dates else ("", "")
+    out = {"frames": frames, "labelled": labelled, "scored": None, "species": None, "not_scored": (),
+           "missions": len({r["mission"] for r in scope if r["mission"]}),
+           "sites": len({r["site"] for r in scope if r["site"]}),
+           "flown": f"{first} to {last}" if first != last else f"on {first}" if dates else ""}
     health = _rows(build_dir, "per_species_health.csv")
-    if health:
-        n = sum(int(r["n_labelled_frames"]) for r in health)
-        parts.append(f"{n:,} labelled frames across {len(health)} species are scored on Model health")
-    queue = _rows(build_dir, "send_batches.csv")
-    if queue:
-        parts.append(f"{len(queue):,} unlabelled photos are queued for labelling")
-    return ". ".join(parts) + "."
+    scored = _num(health, "n_labelled_frames") if health else None
+    out["species"] = len(health)
+    if "n_scored" in scope[0]:
+        if scored is not None and scored != _num(scope, "n_scored"):
+            _fail(f"scope.csv scores {_num(scope, 'n_scored'):,} frames, per_species_health.csv {scored:,}")
+        scored = _num(scope, "n_scored")
+    if scored is None:
+        return out
+    if scored > labelled:
+        _fail(f"{scored:,} frames are scored but only {labelled:,} are labelled")
+    out["scored"] = scored
+    if "n_reviewed" in scope[0]:
+        reviewed, no_answer, above = (_num(scope, c) for c in ("n_reviewed", "n_no_answer", "n_above_species"))
+        if reviewed != scored + no_answer + above:
+            _fail(f"{reviewed:,} frames with a checked label are not {scored:,} scored + {no_answer:,} with "
+                  f"no usable answer + {above:,} with a label above species")
+        if reviewed > labelled:
+            _fail(f"{reviewed:,} frames have a checked label but only {labelled:,} are labelled")
+        out["not_scored"] = ((labelled - reviewed, "with a Labelbox label not yet checked for publication"),
+                             (no_answer, "with no usable Pl@ntNet answer"),
+                             (above, "with a label that stops above species"))
+    return out
+
+
+def _batch_ids(rows: list) -> list:
+    return sorted({int(r["batch_id"]) for r in rows})
+
+
+def _outgoing(build_dir: str) -> dict | None:
+    """Where the 2024_bci photos in no project stand, off frames.csv, send_batches.csv
+    and send_first_queue.csv, or None unless all three hold the catalog batches."""
+    frames, batches = _rows(build_dir, "frames.csv"), _rows(build_dir, "send_batches.csv")
+    queue = _rows(build_dir, "send_first_queue.csv")
+    if not (frames and batches and queue and "handed_out" in batches[0] and "no_batch_reason" in queue[0]):
+        return None
+    status, why = Counter(r["status"] for r in frames), Counter(r["no_batch_reason"] for r in queue)
+    ready = [r for r in batches if r["handed_out"] == "True"]
+    packed = [r for r in batches if r["handed_out"] != "True"]
+    priority = {r["global_key"] for r in frames if r["priority_mission"] == "True"}
+    # frames.csv calls every unbatched frame no_answer, the kept-out ones too:
+    # only a frame with no row in the queue has no species in its answer.
+    queued = {r["global_key"] for r in queue}
+    no_species = sum(r["status"] == "no_answer" and r["global_key"] not in queued for r in frames)
+    out = {"pool": len(frames), "sent": status["already_sent"], "no_species": no_species,
+           "ready": len(ready), "ready_ids": _batch_ids(ready), "priority": sum(r["global_key"] in priority for r in ready),
+           "packed": len(packed), "packed_ids": _batch_ids(packed),
+           "pushed_down": why[PUSHED_DOWN], "liana": why[PREDICTED_LIANA]}
+    parts = ("sent", "ready", "packed", "pushed_down", "liana", "no_species")
+    if sum(out[p] for p in parts) != out["pool"]:
+        _fail(f"the {out['pool']:,} photos in no project are not " + " + ".join(f"{out[p]:,} {p}" for p in parts)
+              + f" (frames.csv statuses: {dict(status)})")
+    return out
+
+
+def _apart(build_dir: str) -> str:
+    """The overlap of the two populations as the build measured it (pool_overlap.csv),
+    or nothing when this build did not measure it."""
+    if not os.path.isfile(os.path.join(build_dir, "pool_overlap.csv")):
+        return ""
+    if shared := len(_rows(build_dir, "pool_overlap.csv")):
+        return f" {shared:,} of them are also frames in the evaluation above."
+    return " None of them is among the frames in the evaluation above."
+
+
+def _batches(ids: list) -> str:
+    span = f"{ids[0]}-{ids[-1]}" if len(ids) > 1 and ids == list(range(ids[0], ids[-1] + 1)) else ", ".join(map(str, ids))
+    return f"batch{'' if len(ids) == 1 else 'es'} {span}"
+
+
+def _ul(items: list) -> str:
+    """A nested list: an item is its text, or (text, sub-items)."""
+    return "<ul>" + "".join(f"<li>{i if isinstance(i, str) else i[0] + _ul(i[1])}</li>" for i in items) + "</ul>"
+
+
+def scope_breakdown(build_dir: str) -> str:
+    """What each count on the site covers and why it drops, as HTML counted off the
+    published tables. Two populations, never pooled: the frames in the Pl@ntNet
+    evaluation, and the photos going out for labelling. A branch whose table is
+    absent is left out, never typed. About carries it in full."""
+    out = [("<p>Drone photos of tree crowns only. A tree whose crown was not photographed is not here. "
+            "A frame is one drone photo.</p>")]
+    if e := _evaluation(build_dir):
+        head = [f"Frames in the Pl@ntNet evaluation: {_a('scope.csv', format(e['frames'], ','))}"]
+        head += [many(e[k], word) for k, word in (("missions", "mission"), ("sites", "site")) if e[k]]
+        if e["flown"]:
+            head.append(f"flown {e['flown']}")
+        subs = []
+        if e["scored"] is not None:
+            species = f" ({e['species']:,} species)" if e["species"] else ""
+            subs.append(f"{_a('per_species_health.csv', format(e['scored'], ',') + ' scored on Model health')}{species}: "
+                        f"since {REFERENCE_SWITCHED_ON}, only frames whose species name was checked for the official BCI data "
+                        "publication, and with a Pl@ntNet answer naming at least one species")
+            if reasons := [f"{n:,} {text}" for n, text in e["not_scored"] if n]:
+                subs.append(f"{e['labelled'] - e['scored']:,} not scored: " + ", ".join(reasons))
+        labelled = (f"{_a('scope.csv', format(e['labelled'], ',') + ' labelled')}: a botanist outlined the crowns in the "
+                    "frame; the label is the species covering the most crown area")
+        unlabelled = (f"{_a('scope.csv', format(e['frames'] - e['labelled'], ',') + ' not yet labelled')}, "
+                      "already in the botanists' Labelbox project")
+        out += [f"<p>{' &middot; '.join(head)}</p>", _ul([(labelled, subs) if subs else labelled, unlabelled])]
+        if e["scored"] is not None:
+            out.append(f"<p>The reference labels changed on {REFERENCE_SWITCHED_ON}; scores before then "
+                       "used the Labelbox labels.</p>")
+    if o := _outgoing(build_dir):
+        ready = (f"{_a('send_batches.csv', format(o['ready'], ','))} ready to send "
+                 f"({_batches(o['ready_ids'])}, handed to the labelling coordinator; they do not change)")
+        if o["priority"]:
+            ready += (f", {o['priority']:,} of them from priority missions: their crowns were also identified "
+                      "on the ground, so a label can be checked twice")
+        packed = f"{o['packed']:,} packed after them ({_batches(o['packed_ids'])}, these can still change)"
+        items = [f"{o['sent']:,} sent to the botanists' Labelbox project so far",
+                 (f"{o['ready'] + o['packed']:,} in batches of up to 100", [ready, packed])]
+        kept = [f"{o[k]:,} {text}" for k, text in (
+            ("pushed_down", ("pushed down the queue: Pl@ntNet is already confident and the species has enough "
+                             "labels, so they wait until Pl@ntNet's model changes. The current model is from "
+                             f"{plantnet_version_words()}")),
+            ("liana", (f"predicted liana, which are not sent: since {TREES_ONLY_SINCE} only predicted trees go out, "
+                       "and the liana call is a Pl@ntNet guess"))) if o[k]]
+        if kept:
+            items.append((f"{_a('send_first_queue.csv', format(o['pushed_down'] + o['liana'], ','))} in no batch", kept))
+        if o["no_species"]:
+            items.append(f"{o['no_species']:,} left out: the Pl@ntNet answer names no species")
+        apart = _apart(build_dir) if e else ""
+        out += [(f"<p>Photos going out for labelling: {o['pool']:,} photos in the 2024_bci Labelbox dataset "
+                 f"that are not yet in a Labelbox project, the workspace where botanists label.{apart}</p>"), _ul(items)]
+    return "".join(out)
 
 
 def scope_short(build_dir: str, present) -> str:
-    """The scope in one line, as HTML: frames and sites linked to the table they
-    are counted off, the map when built, and About's full scope sentence."""
-    scope = _rows(build_dir, "scope.csv")
+    """The scope in one line, as HTML: the evaluation's frames, labelled and scored,
+    and the photos ready to send, each linked to the table it is counted off, the
+    map when built, and About's full scope."""
     counts = ""
-    if scope:
-        sites = len({r["site"] for r in scope if r["site"]})
-        words = many(sum(int(r["n_frames"]) for r in scope), "frame") + (f", {many(sites, 'site')}" if sites else "")
-        counts = f' <a href="scope.csv">{words}</a>.'
+    if e := _evaluation(build_dir):
+        counts = f' {_a("scope.csv", many(e["frames"], "frame"))} in the evaluation: {_a("scope.csv", format(e["labelled"], ",") + " labelled")}'
+        if e["scored"] is not None:
+            counts += ", " + _a("per_species_health.csv", format(e["scored"], ",") + " scored")
+        counts += "."
+    if o := _outgoing(build_dir):
+        counts += f' {_a("send_batches.csv", many(o["ready"], "photo"))} ready to send.'
     return (f'Drone-photographed crowns only.{counts}{_map_link(present)}'
             ' <a href="about.html#scope">Full scope</a>.')
 
@@ -164,7 +303,9 @@ def available_names(build_dir: str) -> set:
     return {n for n in names if os.path.isfile(os.path.join(build_dir, n))} | {"index.html", "about.html"}
 
 
-def build(build_dir: str) -> str:
+def build(build_dir: str, tables: str = "") -> str:
+    """The landing page off the pages in build_dir; the scope line is counted off
+    ``tables`` (the run's tables, where the private frames.csv is), else build_dir."""
     present = available_names(build_dir)
     browse = [p for p in OPTIONAL_PAGES if p[0] == "explorer.html" and p[0] in present]
     tiles = []
@@ -197,7 +338,7 @@ def build(build_dir: str) -> str:
             + '<div class="tasks">' + "".join(card(*tile) for tile in tiles) + '</div>'
             + (f'<p class="more">{more}</p>' if more else "")
             + (f'<p class="scope">{html.escape(shared)}</p>' if shared else "")
-            + f'<p class="scope">{scope_short(build_dir, present)}</p>'
+            + f'<p class="scope">{scope_short(tables or build_dir, present)}</p>'
             + "</main></body></html>\n")
     return head + mark_first_use(main)
 
@@ -207,8 +348,9 @@ def _map_link(present) -> str:
             if "embedding-atlas.html" in present else "")
 
 
-def _scope_html(sentence: str, present) -> str:
-    return f'<p class="scope">{html.escape(sentence)}{_map_link(present)}</p>'
+def _scope_html(breakdown: str, present) -> str:
+    link = _map_link(present).strip()
+    return f'{breakdown}{f"<p>{link}</p>" if link else ""}'
 
 
 def build_about(available, scope: str = "") -> str:
@@ -248,9 +390,11 @@ def main() -> None:
     ap.add_argument("--build", default="build")
     ap.add_argument("--out", default=os.path.join("docs", "index.html"))
     ap.add_argument("--about-out", default=os.path.join("docs", "about.html"))
+    ap.add_argument("--tables", default="", help="the run's tables the scope is counted off; default --build")
     args = ap.parse_args()
-    for path, out in ((args.out, build(args.build)),
-                      (args.about_out, build_about(available_names(args.build), scope_sentence(args.build)))):
+    tables = args.tables or args.build
+    for path, out in ((args.out, build(args.build, tables)),
+                      (args.about_out, build_about(available_names(args.build), scope_breakdown(tables)))):
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(out)

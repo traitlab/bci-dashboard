@@ -251,10 +251,32 @@ def test_the_written_files_have_the_dispatch_columns_and_blank_row_ids(
     built = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY})
     catalog_batches.write_files(tmp_path, built, pool)
     lines = (tmp_path / "send_batches.csv").read_text(encoding="utf-8").splitlines()
-    assert lines[0].split(",") == queues.SEND_BATCH_HEADER + ["growth_group"]
+    assert lines[0].split(",") == queues.SEND_BATCH_HEADER + ["growth_group", "handed_out"]
     assert len(list(tmp_path.glob("*.csv"))) == 4
     frames = (tmp_path / "frames.csv").read_text(encoding="utf-8").splitlines()
     assert len(frames) == len(pool) + 1
+
+
+def test_the_files_say_why_a_frame_has_no_batch_and_which_batches_are_handed_out(
+        catalog_batches, queues, tmp_path):
+    pool, predictions, per_species, forms = liana_pool()
+    built = catalog_batches.build(pool, predictions, health(per_species), set(), {PRIORITY},
+                                  forms=forms)
+    catalog_batches.write_files(tmp_path, built, pool, {1, 2})
+    with open(tmp_path / "send_first_queue.csv", encoding="utf-8") as f:
+        queue = list(csv.DictReader(f))
+    with open(tmp_path / "send_batches.csv", encoding="utf-8") as f:
+        batches = list(csv.DictReader(f))
+    # Blank when batched; a can_wait row is pushed down, any other unbatched row is a liana.
+    assert {r["no_batch_reason"] for r in queue if r["batch_id"]} == {""}
+    assert {r["no_batch_reason"] for r in queue if not r["batch_id"]} == {
+        queues.PUSHED_DOWN, queues.PREDICTED_LIANA}
+    assert all((r["queue"] == queues.WAIT_QUEUE) == (r["no_batch_reason"] == queues.PUSHED_DOWN)
+               for r in queue if not r["batch_id"])
+    assert {r["batch_id"] for r in batches if r["handed_out"] == "True"} == {"1", "2"}
+    assert {r["handed_out"] for r in batches} == {"True", "False"}
+    # Both columns come after the ones the packing and its identity check compare.
+    assert list(queue[0])[:len(queues.SEND_FIRST_HEADER)] == queues.SEND_FIRST_HEADER
 
 
 def test_each_sent_frame_names_its_private_arbutus_location(catalog_batches, tmp_path):
