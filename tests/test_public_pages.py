@@ -342,7 +342,10 @@ def test_every_public_page_states_the_scope_from_the_scope_table(public_site):
     for name in PUBLIC_PAGES - {"about.html"}:
         page = public_site[name]
         visible = re.sub(r"<[^>]+>", "", page)
-        assert "Drone-photographed crowns only. 40 frames in the evaluation: 35 labelled" in visible, name
+        assert (
+            "Drone-photographed crowns only. 40 frames in the evaluation: 35 labelled"
+            in visible
+        ), name
         assert '<a href="scope.csv">' in page and 'href="about.html#scope"' in page, (
             name
         )
@@ -395,7 +398,10 @@ def test_the_scope_byline_counts_every_frame_the_fixture_holds(synthetic_page):
     if "What to label next" not in html and "How well does Pl@ntNet" not in html:
         return
     visible = re.sub(r"<[^>]+>", "", html)
-    assert "Drone-photographed crowns only. 40 frames in the evaluation: 35 labelled" in visible
+    assert (
+        "Drone-photographed crowns only. 40 frames in the evaluation: 35 labelled"
+        in visible
+    )
     assert '<a href="scope.csv">' in html
     assert "scope.csv: 1 mission and site rows match" in stdout
     if "How well does Pl@ntNet" in html:
