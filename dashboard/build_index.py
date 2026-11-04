@@ -303,7 +303,9 @@ def available_names(build_dir: str) -> set:
     return {n for n in names if os.path.isfile(os.path.join(build_dir, n))} | {"index.html", "about.html"}
 
 
-def build(build_dir: str) -> str:
+def build(build_dir: str, tables: str = "") -> str:
+    """The landing page off the pages in build_dir; the scope line is counted off
+    ``tables`` (the run's tables, where the private frames.csv is), else build_dir."""
     present = available_names(build_dir)
     browse = [p for p in OPTIONAL_PAGES if p[0] == "explorer.html" and p[0] in present]
     tiles = []
@@ -336,7 +338,7 @@ def build(build_dir: str) -> str:
             + '<div class="tasks">' + "".join(card(*tile) for tile in tiles) + '</div>'
             + (f'<p class="more">{more}</p>' if more else "")
             + (f'<p class="scope">{html.escape(shared)}</p>' if shared else "")
-            + f'<p class="scope">{scope_short(build_dir, present)}</p>'
+            + f'<p class="scope">{scope_short(tables or build_dir, present)}</p>'
             + "</main></body></html>\n")
     return head + mark_first_use(main)
 
@@ -388,9 +390,11 @@ def main() -> None:
     ap.add_argument("--build", default="build")
     ap.add_argument("--out", default=os.path.join("docs", "index.html"))
     ap.add_argument("--about-out", default=os.path.join("docs", "about.html"))
+    ap.add_argument("--tables", default="", help="the run's tables the scope is counted off; default --build")
     args = ap.parse_args()
-    for path, out in ((args.out, build(args.build)),
-                      (args.about_out, build_about(available_names(args.build), scope_breakdown(args.build)))):
+    tables = args.tables or args.build
+    for path, out in ((args.out, build(args.build, tables)),
+                      (args.about_out, build_about(available_names(args.build), scope_breakdown(tables)))):
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(out)

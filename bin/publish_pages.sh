@@ -54,7 +54,9 @@ for f in $(cd "$BUILD" && grep -ho 'href="[A-Za-z0-9_]*\.csv"' $PAGES \
 done
 
 # Keep already-published standalone explorers discoverable when only the
-# operational pages were rebuilt during this refresh.
-python3 "$REPO/dashboard/build_index.py" --build "$DOCS" --out "$DOCS/index.html" --about-out "$DOCS/about.html"
+# operational pages were rebuilt during this refresh. The scope is counted off
+# build/tables, which holds frames.csv; docs/ does not, it is not published.
+python3 "$REPO/dashboard/build_index.py" --build "$DOCS" --tables "$BUILD/tables" \
+  --out "$DOCS/index.html" --about-out "$DOCS/about.html"
 
 echo "publish: docs/ updated. Commit it to put the change on the site."

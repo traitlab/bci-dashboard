@@ -451,3 +451,21 @@ def test_scope_breakdown_states_the_pool_overlap_only_as_measured(build_index, t
     _write(tmp_path, "pool_overlap.csv", "global_key", "a1", "b1")
     assert build_index.scope_breakdown(str(tmp_path)) == (
         LEAD + EVALUATION + outgoing(" 2 of them are also frames in the evaluation above."))
+
+
+def test_the_published_pages_count_the_scope_off_the_run_tables(build_index, tmp_path, monkeypatch):
+    """frames.csv is not published, so About counted off docs/ alone loses the photos going out."""
+    docs, tables = tmp_path / "docs", tmp_path / "tables"
+    docs.mkdir()
+    tables.mkdir()
+    fake_build(docs)
+    _scope_tables(tables)
+    _outgoing_tables(tables)
+    _write(tables, "pool_overlap.csv", "global_key")
+    monkeypatch.setattr("sys.argv", ["build_index.py", "--build", str(docs), "--tables", str(tables),
+                                     "--out", str(docs / "index.html"), "--about-out", str(docs / "about.html")])
+    build_index.main()
+    assert outgoing(" None of them is among the frames in the evaluation above.") in (docs / "about.html").read_text()
+    assert "ready to send." in (docs / "index.html").read_text()
+    from conftest import REPO
+    assert '--tables "$BUILD/tables"' in (REPO / "bin" / "publish_pages.sh").read_text(encoding="utf-8")
