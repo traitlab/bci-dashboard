@@ -78,6 +78,21 @@ MAX_BUNDLE_BYTES = 2 * 1024**3
 MAX_BUNDLE_MEMBERS = 100_000
 
 
+def write_pool_overlap(data: Path, catalog: Path, tables: Path) -> None:
+    """Photos in both the evaluation (main cache) and the catalog pool, by file name,
+    so About states the overlap from the run, not from memory. Not published."""
+    from core import frame_key
+
+    main = {frame_key(f.name.removesuffix(".json")) for f in (data / "predictions/cache").glob("*.json")}
+    with (catalog / "input.csv").open(encoding="utf-8", newline="") as fh:
+        shared = sorted(r["global_key"] for r in csv.DictReader(fh) if frame_key(r["global_key"]) in main)
+    if shared:
+        print(f"::warning::{len(shared)} catalog pool photos are also in the evaluation, "
+              f"first: {shared[:5]}", flush=True)
+    with (tables / "pool_overlap.csv").open("w", encoding="utf-8", newline="") as fh:
+        fh.write("global_key\n" + "".join(f"{k}\n" for k in shared))
+
+
 def unpack(archive: Path, destination: Path) -> None:
     """Accept regular files beneath data/ only, before writing any archive entry."""
     if destination.exists() and any(destination.iterdir()):
@@ -451,6 +466,7 @@ def refresh(
                 *(["--live", str(live)] if live.is_file() else []), research=True, env=env)
         catalog = data / CATALOG_POOL
         if (catalog / "input.csv").is_file() and (catalog / "cache").is_dir():
+            write_pool_overlap(data, catalog, tables)
             run(repo, "labelling/catalog_batches.py", "--pool", str(catalog / "input.csv"),
                 "--cache", str(catalog / "cache"), "--out", str(tables),
                 "--hand-out", str(hand_out), env=env)
