@@ -11,13 +11,17 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run_atlas(points, checks, initial_hash="#frame=query&view=photos", comparison=None, page=None, encoder="Crownfirst test encoder"):
+TAXON_COLOURS = {"A": "#E69F00", "B": "#56B4E9", "Fam1": "#56B4E9", "Fam2": "#E69F00", "Fabaceae": "#E69F00"}
+
+
+def run_atlas(points, checks, initial_hash="#frame=query&view=photos", comparison=None, page=None, encoder="Crownfirst test encoder", taxon_colours=TAXON_COLOURS):
     if not shutil.which("node"):
         pytest.skip("Node is needed to execute mission view behavior")
     html = runpy.run_path(ROOT / "dashboard/embedding_atlas_assets.py")["HTML"]
     script = html.split("<script>")[1].split("</script>")[0]
     payload = {
         "points": points,
+        "taxon_colours": taxon_colours,
         "provenance": {
             "encoder": encoder,
             "labels": {"available": True},

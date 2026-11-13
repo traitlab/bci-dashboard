@@ -114,8 +114,8 @@ def test_plot_click_compares_without_changing_selection_and_marker_keeps_label_c
     assert "Selected photo, ringed" in HTML
     run_atlas(plot_photos(), r"""
 const click=index=>{const [x,y]=plotHits.find(h=>h[2]===index);plot.onpointerdown({offsetX:x,offsetY:y,pointerId:1});plot.onpointerup({offsetX:x,offsetY:y})};
-assert.equal(PLOT_COLOURS.includes(mapPointColour(P[0],0,0,'locations',new Map(),null)),false);assert.equal(PLOT_COLOURS.map(c=>c.toLowerCase()).includes('#f6bd4f'),false);
-const pc=context('plot');pc.fills=[];draw();assert.equal(pc.fills.at(-1),PLOT_COLOURS[0]);
+const treeColours=Object.values(TREE_COLOURS).map(c=>c.toLowerCase());assert.equal(treeColours.includes(mapPointColour(P[0],0,0,'locations',new Map(),null).toLowerCase()),false);assert.equal(treeColours.includes('#f6bd4f'),false);
+const pc=context('plot');pc.fills=[];draw();assert.equal(pc.fills.at(-1),TREE_COLOURS.A);
 click(7);assert.equal($('photoComparison').open,true);assert.equal(selected,0);assert.equal(photoPair.rank,0);assert.equal(photoComparison.plotPoint,true);assert.deepEqual(photoComparison.candidates,[[7,null]]);
 assert.equal($('comparisonCandidate').hidden,false);assert.equal($('photoComparisonRank').textContent,'Plot point');assert.match($('photoComparisonScore').textContent,/not a stored match/);
 assert.equal($('previousComparison').disabled,true);assert.equal($('nextComparison').disabled,true);assert.equal($('reviewNote').disabled,true);assert.equal($('downloadReviewRecord').disabled,true);assert.match($('reviewDownloadStatus').textContent,/stored matches only/);
@@ -126,20 +126,19 @@ const [x,y]=plotHits.find(h=>h[2]===7);plot.onpointerdown({offsetX:x,offsetY:y,p
 """)
 
 
-def test_plot_legend_counts_drawn_points_names_selected_other_label_and_fits_filters():
+def test_plot_legend_counts_drawn_points_names_every_group_and_fits_filters():
     run_atlas(plot_photos(), r"""
 const names=()=>$('plotLegend').children.map(b=>b.children[1].textContent);
-select(12);assert.deepEqual(names(),['A (3)','B (2)','C (1)','D (1)','E (1)','F (1)','G (1)','H (1)','Other families (2)','No recorded family (2)','Selected: J (other family)']);assert.equal(plotClass(P[12]),8);
-const own=$('plotLegend').children.at(-1);assert.equal(own.children[0].style.background,'#8c8c8c');assert.equal(own.onclick,undefined);assert.equal(own.getAttribute('aria-pressed'),null);
-select(0);assert.deepEqual(names().slice(7),['H (1)','Other families (2)','No recorded family (2)']);
+select(12);assert.deepEqual(names(),['A (3)','B (2)','C (1)','D (1)','E (1)','F (1)','G (1)','H (1)','I (1)','J (1)','No recorded family (2)']);assert.equal(plotClass(P[12]),9);
+select(0);assert.deepEqual(names().slice(7),['H (1)','I (1)','J (1)','No recorded family (2)']);
 assert.deepEqual(plotView,{k:1,x:0,y:0});
 $('group').value='Without recorded label';$('group').onchange();assert.deepEqual(visible,[13,14]);assert.deepEqual(names(),['A (1)','No recorded family (2)']);
 assert.deepEqual(plotHits.map(h=>h[2]).sort((a,b)=>a-b),[0,13,14]);
-$('plotLegend').children[1].onclick();assert.equal(mapFocus?.key,classKey(9));
-select(13);$('search').value='p1';$('search').oninput();assert.deepEqual(visible,[13,14]);assert.deepEqual(names(),['No recorded family (2)']);assert.equal(mapFocus?.key,classKey(9));assert.equal($('plotLegend').children[0].getAttribute('aria-pressed'),'true');
+$('plotLegend').children[1].onclick();assert.equal(mapFocus?.key,classKey(10));
+select(13);$('search').value='p1';$('search').oninput();assert.deepEqual(visible,[13,14]);assert.deepEqual(names(),['No recorded family (2)']);assert.equal(mapFocus?.key,classKey(10));assert.equal($('plotLegend').children[0].getAttribute('aria-pressed'),'true');
 assert.equal(plotView.k,2);for(const [x,y] of plotHits){assert.ok(x>=24.99&&x<=640-24.99&&y>=24.99&&y<=520-24.99,`${x},${y}`)}
-$('search').value='p13';$('search').oninput();assert.deepEqual(names(),['No recorded family (1)']);assert.equal(mapFocus?.key,classKey(9));assert.equal(plotView.k,64);
-$('clearBrowseFilters').onclick();assert.deepEqual(plotView,{k:1,x:0,y:0});assert.equal(names().length,10);assert.equal(mapFocus?.key,classKey(9));
+$('search').value='p13';$('search').oninput();assert.deepEqual(names(),['No recorded family (1)']);assert.equal(mapFocus?.key,classKey(10));assert.equal(plotView.k,64);
+$('clearBrowseFilters').onclick();assert.deepEqual(plotView,{k:1,x:0,y:0});assert.equal(names().length,11);assert.equal(mapFocus?.key,classKey(10));
 """)
 
 

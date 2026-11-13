@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from build_index import available_names
 from page import scoped_photo_page
+from taxon_colours import tree_colours
 
 
 def build(source, output, scope_dir=None):
@@ -34,6 +35,7 @@ def build(source, output, scope_dir=None):
     template = template.replace("__SITE_CSS__", site["CSS"]).replace(
         "__SITE_NAV__", site["navigation"](current)
     )
+    data["taxon_colours"] = tree_colours()
     payload = json.dumps(data, separators=(",", ":"), allow_nan=False).replace("<", "\\u003c")
     destination = Path(output)
     destination.parent.mkdir(parents=True, exist_ok=True)

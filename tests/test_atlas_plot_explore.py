@@ -13,8 +13,8 @@ def plot_photos():
 def test_plot_colours_by_label_draws_ranked_matches_and_supports_zoom_pan_hover():
     run_atlas(plot_photos(), r"""
 const legend=$('plotLegend').children;
-assert.deepEqual(legend.map(b=>b.children[1].textContent),['A (3)','B (2)','C (1)','D (1)','E (1)','F (1)','G (1)','H (1)','Other families (2)','No recorded family (2)']);
-assert.equal(plotClass(P[11]),8);assert.equal(plotClass(P[13]),9);assert.equal(legend[8].children[0].style.background,'#8c8c8c');
+assert.deepEqual(legend.map(b=>b.children[1].textContent),['A (3)','B (2)','C (1)','D (1)','E (1)','F (1)','G (1)','H (1)','I (1)','J (1)','No recorded family (2)']);
+assert.equal(plotClass(P[11]),8);assert.equal(plotClass(P[13]),10);assert.equal(legend[0].children[0].style.background,'#E69F00');assert.equal(legend[8].children[0].style.background,'#cfd8dd');assert.equal(legend[10].children[0].style.background,'#cfd8dd');
 const pc=context('plot');pc.fills=[];pc.arcs=[];pc.texts=[];pc.lines=[];draw();
 assert.deepEqual(pc.fills.slice(0,2),['#cfd8dd','#cfd8dd']);assert.deepEqual(pc.arcs.slice(0,2),[2,2]);assert.equal(pc.fills.at(-1),'#E69F00');assert.deepEqual(pc.arcs.slice(-4),[10,10,14,9]);
 assert.deepEqual(pc.fills.slice(-3,-1),['#E69F00','#56B4E9']);assert.deepEqual(pc.texts.map(t=>t[0]),['1','2']);

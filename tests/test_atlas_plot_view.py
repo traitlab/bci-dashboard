@@ -37,17 +37,17 @@ assert.equal(atlasView,__VIEW__);assert.equal($(__PANEL__).hidden,false);assert.
 
 def test_label_colours_are_fixed_from_full_data_across_filter_and_selection():
     run_atlas(plot_photos(), r"""
-const colours=()=>P.map(p=>PLOT_COLOURS[plotClass(p)]),before=colours(),swatch=name=>$('plotLegend').children.find(b=>b.children[1].textContent.startsWith(name+' ('))?.children[0].style.background;
-assert.deepEqual(plotTop,['A','B','C','D','E','F','G','H']);assert.equal(swatch('B'),'#56B4E9');
+const colours=()=>P.map(p=>plotColour(plotClass(p))),before=colours(),swatch=name=>$('plotLegend').children.find(b=>b.children[1].textContent.startsWith(name+' ('))?.children[0].style.background;
+assert.deepEqual(plotTop,['A','B','C','D','E','F','G','H','I','J']);assert.equal(swatch('B'),'#56B4E9');
 select(12);assert.deepEqual(colours(),before);assert.equal(swatch('B'),'#56B4E9');
-const pc=context('plot');pc.fills=[];draw();assert.equal(pc.fills.at(-1),'#8c8c8c');
-select(4);$('search').value='p4';$('search').oninput();assert.equal(visible.includes(0),false);assert.deepEqual(plotTop,['A','B','C','D','E','F','G','H']);assert.deepEqual(colours(),before);
+const pc=context('plot');pc.fills=[];draw();assert.equal(pc.fills.at(-1),'#cfd8dd');
+select(4);$('search').value='p4';$('search').oninput();assert.equal(visible.includes(0),false);assert.deepEqual(plotTop,['A','B','C','D','E','F','G','H','I','J']);assert.deepEqual(colours(),before);
 assert.equal(swatch('B'),'#56B4E9');assert.equal(swatch('A'),undefined);pc.fills=[];draw();assert.equal(pc.fills.at(-1),'#56B4E9');
 $('plotLegend').children[0].onclick();assert.equal(mapFocus?.key,classKey(1));
 """)
 
 
-def test_no_labels_and_fewer_than_eight_labels():
+def test_no_labels_and_a_single_label():
     run_atlas(plot_photos()[:3], r"""
 assert.deepEqual(plotTop,['A']);assert.deepEqual($('plotLegend').children.map(b=>b.children[1].textContent),['A (3)']);
 """)
@@ -65,7 +65,7 @@ def test_plot_colours_by_recorded_family_not_by_label():
         p["family"] = None if p["label"] is None else "Fam1" if p["label"] in ("A", "B") else "Fam2"
     run_atlas(points, r"""
 assert.deepEqual(plotTop,['Fam2','Fam1']);assert.deepEqual($('plotLegend').children.map(b=>b.children[1].textContent),['Fam2 (8)','Fam1 (5)','No recorded family (2)']);
-assert.equal(plotClass(P[0]),1);assert.equal(plotClass(P[5]),0);assert.equal(plotClass(P[13]),9);
+assert.equal(plotClass(P[0]),1);assert.equal(plotClass(P[5]),0);assert.equal(plotClass(P[13]),2);
 const pc=context('plot');pc.fills=[];draw();assert.equal(pc.fills.at(-1),'#56B4E9');assert.equal(pc.fills.filter(f=>f==='#E69F00').length,8);
 $('plotLegend').children[0].onclick();assert.equal(mapFocus?.key,classKey(0));
 """)
