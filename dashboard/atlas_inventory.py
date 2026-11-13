@@ -52,13 +52,24 @@ def _positioned(photo: dict[str, Any]) -> bool:
 
 
 def recorded_lineage(photo: dict[str, Any], taxa: dict[str, dict[str, Any]]):
-    """Family and genus of the photo's recorded taxon, never of a predicted one."""
+    """Clade to genus of the photo's recorded taxon, never of a predicted one."""
+    return lineage(photo.get("recorded_taxon"), taxa)
+
+
+def predicted_lineage(photo: dict[str, Any], taxa: dict[str, dict[str, Any]]):
+    """Clade to family of the Pl@ntNet top prediction, kept apart from the recorded label."""
+    prediction = photo.get("prediction") or {}
+    found = lineage(prediction.get("taxon") if prediction.get("status") == "ok" else None, taxa)
+    return {rank: found[rank] for rank in ("clade", "order", "family")}
+
+
+def lineage(taxon_id: Any, taxa: dict[str, dict[str, Any]]):
     found: dict[str, str] = {}
-    taxon = taxa.get(photo.get("recorded_taxon"))
+    taxon = taxa.get(taxon_id)
     while taxon and taxon["rank"] not in found:
         found[taxon["rank"]] = taxon["name"]
         taxon = taxa.get(taxon["parent"])
-    return found.get("family"), found.get("genus")
+    return {rank: found.get(rank) for rank in ("clade", "order", "family", "genus")}
 
 
 def join_photo_inventory(
@@ -161,10 +172,14 @@ def join_photo_inventory(
                 neighbours=[],
                 other_mission_neighbours=None,
             )
-        point["family"], point["genus"] = recorded_lineage(photo, taxa)
+        point.update(recorded_lineage(photo, taxa))
+        point["predicted"] = predicted_lineage(photo, taxa)
         points.append(point)
     result = copy.deepcopy(atlas)
     result["points"] = points
+    result["taxon_common"] = {
+        t["name"]: t["common"] for t in taxa.values() if t.get("common")
+    }
     result["provenance"]["photo_inventory"] = {
         "source": source,
         "inventory_sha256": digest,

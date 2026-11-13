@@ -25,9 +25,9 @@ data.provenance.projection='t-SNE (openTSNE)';data.provenance.encoder='Pl@ntNet 
 data.provenance.projection_fidelity={knn_recall_at_10:.463,pca_knn_recall_at_10:.034};draw();assert.match($('plotExplanation').textContent,/ About 46% of each photo.s 10 closest matches are among its 10 nearest points\. Cluster/);
 data.provenance.projection_fidelity={knn_recall_at_10:.454,pca_knn_recall_at_10:.031};draw();assert.match($('plotExplanation').textContent,/About 45% /);
 data.provenance.projection='PCA';draw();assert.match($('plotExplanation').textContent,/two PCA components/);
-legend[1].onclick();assert.equal(plotFocus,1);assert.deepEqual(legend.map(b=>b.getAttribute('aria-pressed')),legend.map((_,i)=>String(i===1)));
+legend[1].onclick();assert.equal(mapFocus?.key,classKey(1));let shown=[...$('plotLegend').children];assert.deepEqual(shown.map(b=>b.getAttribute('aria-pressed')),shown.map((_,i)=>String(i===1)));
 pc.fills=[];draw();assert.equal(pc.fills.filter(f=>f==='#56B4E9').length,2);assert.equal(pc.fills.filter(f=>f==='#E69F00').length,2);assert.equal(pc.fills.filter(f=>f==='#dde4e8').length,11);
-legend[1].onclick();assert.equal(plotFocus,null);assert.equal(legend.every(b=>b.getAttribute('aria-pressed')==='false'),true);
+shown[1].onclick();assert.equal(mapFocus,null);assert.equal([...$('plotLegend').children].every(b=>b.getAttribute('aria-pressed')==='false'),true);
 $('mapMissionMode').value='other';$('mapMissionMode').onchange();pc.texts=[];draw();assert.deepEqual(pc.texts.map(t=>t[0]),['1']);$('mapMissionMode').value='all';$('mapMissionMode').onchange();
 const target=plotHits.find(h=>h[2]===7),[tx,ty]=target;
 plot.onwheel({deltaY:-1,offsetX:tx,offsetY:ty,preventDefault(){}});assert.equal(plotView.k,1.25);const after=plotHits.find(h=>h[2]===7);assert.ok(Math.abs(after[0]-tx)<1e-9&&Math.abs(after[1]-ty)<1e-9);

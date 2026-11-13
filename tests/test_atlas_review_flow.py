@@ -135,11 +135,11 @@ select(0);assert.deepEqual(names().slice(7),['H (1)','Other families (2)','No re
 assert.deepEqual(plotView,{k:1,x:0,y:0});
 $('group').value='Without recorded label';$('group').onchange();assert.deepEqual(visible,[13,14]);assert.deepEqual(names(),['A (1)','No recorded family (2)']);
 assert.deepEqual(plotHits.map(h=>h[2]).sort((a,b)=>a-b),[0,13,14]);
-$('plotLegend').children[1].onclick();assert.equal(plotFocus,9);
-select(13);$('search').value='p1';$('search').oninput();assert.deepEqual(visible,[13,14]);assert.deepEqual(names(),['No recorded family (2)']);assert.equal(plotFocus,9);assert.equal($('plotLegend').children[0].getAttribute('aria-pressed'),'true');
+$('plotLegend').children[1].onclick();assert.equal(mapFocus?.key,classKey(9));
+select(13);$('search').value='p1';$('search').oninput();assert.deepEqual(visible,[13,14]);assert.deepEqual(names(),['No recorded family (2)']);assert.equal(mapFocus?.key,classKey(9));assert.equal($('plotLegend').children[0].getAttribute('aria-pressed'),'true');
 assert.equal(plotView.k,2);for(const [x,y] of plotHits){assert.ok(x>=24.99&&x<=640-24.99&&y>=24.99&&y<=520-24.99,`${x},${y}`)}
-$('search').value='p13';$('search').oninput();assert.deepEqual(names(),['No recorded family (1)']);assert.equal(plotFocus,9);assert.equal(plotView.k,64);
-$('clearBrowseFilters').onclick();assert.deepEqual(plotView,{k:1,x:0,y:0});assert.equal(names().length,10);assert.equal(plotFocus,9);
+$('search').value='p13';$('search').oninput();assert.deepEqual(names(),['No recorded family (1)']);assert.equal(mapFocus?.key,classKey(9));assert.equal(plotView.k,64);
+$('clearBrowseFilters').onclick();assert.deepEqual(plotView,{k:1,x:0,y:0});assert.equal(names().length,10);assert.equal(mapFocus?.key,classKey(9));
 """)
 
 

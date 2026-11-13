@@ -43,7 +43,7 @@ select(12);assert.deepEqual(colours(),before);assert.equal(swatch('B'),'#56B4E9'
 const pc=context('plot');pc.fills=[];draw();assert.equal(pc.fills.at(-1),'#8c8c8c');
 select(4);$('search').value='p4';$('search').oninput();assert.equal(visible.includes(0),false);assert.deepEqual(plotTop,['A','B','C','D','E','F','G','H']);assert.deepEqual(colours(),before);
 assert.equal(swatch('B'),'#56B4E9');assert.equal(swatch('A'),undefined);pc.fills=[];draw();assert.equal(pc.fills.at(-1),'#56B4E9');
-$('plotLegend').children[0].onclick();assert.equal(plotFocus,1);
+$('plotLegend').children[0].onclick();assert.equal(mapFocus?.key,classKey(1));
 """)
 
 
@@ -67,7 +67,7 @@ def test_plot_colours_by_recorded_family_not_by_label():
 assert.deepEqual(plotTop,['Fam2','Fam1']);assert.deepEqual($('plotLegend').children.map(b=>b.children[1].textContent),['Fam2 (8)','Fam1 (5)','No recorded family (2)']);
 assert.equal(plotClass(P[0]),1);assert.equal(plotClass(P[5]),0);assert.equal(plotClass(P[13]),9);
 const pc=context('plot');pc.fills=[];draw();assert.equal(pc.fills.at(-1),'#56B4E9');assert.equal(pc.fills.filter(f=>f==='#E69F00').length,8);
-$('plotLegend').children[0].onclick();assert.equal(plotFocus,0);
+$('plotLegend').children[0].onclick();assert.equal(mapFocus?.key,classKey(0));
 """)
 
 
