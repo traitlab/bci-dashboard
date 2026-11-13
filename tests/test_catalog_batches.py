@@ -162,6 +162,8 @@ def test_the_liana_share_is_the_top_5_score_on_liana_species(catalog_batches):
     assert catalog_batches.liana_share(ranked, forms) == 0.5
     assert catalog_batches.growth_group(0.5) == "liana"
     assert catalog_batches.growth_group(0.499999) == "tree"
+    assert catalog_batches.growth_group(0.1, "liana") == "liana"  # a liana first guess
+    assert catalog_batches.growth_group(0.1, "tree") == "tree"
     assert catalog_batches.liana_share([], forms) == 0.0
 
 

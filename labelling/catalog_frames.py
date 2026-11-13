@@ -135,8 +135,11 @@ def liana_share(ranked: list, form_of) -> float:
     return sum(s for sp, s in top if form_of(sp) == "liana") / total if total else 0.0
 
 
-def growth_group(share: float, threshold: float = LIANA_SHARE) -> str:
-    return "liana" if share >= threshold else "tree"
+def growth_group(share: float, first_form: str | None = None,
+                 threshold: float = LIANA_SHARE) -> str:
+    """Liana when lianas hold ``threshold`` of the top-5 score or the first guess
+    (growth form ``first_form``) is a liana, so no liana name reaches a tree batch."""
+    return "liana" if share >= threshold or first_form == "liana" else "tree"
 
 
 # The batches kept as handed out to the collaborator.
