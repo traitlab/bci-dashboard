@@ -112,8 +112,9 @@ def p_send(c):
                    f'compared once a round is labelled.</p>'
                    + readout_block(c) + batches_table(c))
             + more("Queue sizes and where the photos are", pool_table(c) + links_note(c)))
-    return panel(f"What to send to the botanist next: {c.n_batches} batches of "
-                 f"{c.n_unlab:,} unlabelled photos",
+    n_batched = sum(len(rows) for rows in cat["batches"].values())
+    return panel(f"What to send to the botanist next: {c.n_batches} batches holding "
+                 f"{n_batched:,} of {c.n_unlab:,} unlabelled photos",
                  f"<b>Send the batches in order.</b> {batch_rule(cat)} "
                  f'<a href="send_first_queue.csv">send_first_queue.csv</a> holds the same '
                  f"photos in queue order, one row per frame.",

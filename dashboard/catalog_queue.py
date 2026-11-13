@@ -16,6 +16,7 @@ import sys
 from collections import Counter, defaultdict
 
 import core as hc
+import growth_form
 import queues
 from history import fail
 
@@ -92,7 +93,9 @@ def check(verify_dir) -> str:
         with open(path, encoding="utf-8") as f:
             used = json.load(f)
     threshold = used.get("liana_share", cb.LIANA_SHARE)
-    group = {r["global_key"]: cb.growth_group(float(r["liana_share"]), threshold)
+    forms = growth_form.load()
+    group = {r["global_key"]: cb.growth_group(float(r["liana_share"]),
+                                              forms.get(r["predicted_species"]), threshold)
              for r in frames if r.get("liana_share")}
     want, _ = cb.pack_pinned(
         [[r[c] for c in queues.SEND_FIRST_COLUMNS] for r in qrows],
@@ -121,10 +124,14 @@ def batch_rule(cat) -> str:
             n = sum(len(cat["batches"][b]) for b in ids)
             piles.append(f"{g} batches {ids[0]} to {ids[-1]} ({n:,} photos)" if len(ids) > 1
                          else f"{g} batch {ids[0]} ({n:,} photos)")
-    head = ("Trees and lianas go in separate batches: " + ", then ".join(piles) + ". A photo "
+    sent = packer().SENT_GROUPS
+    head = (("Only predicted trees go to the botanists: " if sent == ("tree",) else
+             "Each growth form goes in its own batches: ") + ", then ".join(piles) + ". A photo "
             f"is liana when lianas hold at least {packer().LIANA_SHARE:.0%} of the score of "
-            "its top 5 Pl@ntNet answers, a model guess, not a label; every other photo, "
-            "shrubs and unknowns too, is tree. ") if piles else ""
+            "its top 5 Pl@ntNet answers or its first guess is a liana, a model guess, not a "
+            "label; every other photo, shrubs and unknowns too, is tree. "
+            + ("Liana photos stay in the queue file without a batch, except on priority "
+               "missions. " if "liana" not in sent else "")) if piles else ""
     prio = cat["priority_batches"]
     if prio:
         head += (f"The {sum(prio.values()):,} queued frames of the priority missions, the "

@@ -79,7 +79,8 @@ def test_a_batch_file_edited_by_hand_stops_the_build(catalog_queue, tables):
 
 def test_the_rule_names_the_priority_batch_and_the_mix(catalog_queue, tables):
     rule = catalog_queue.queue.batch_rule(catalog_queue.queue.load(str(tables))["catalog"])
-    assert rule.startswith("Trees and lianas go in separate batches: tree batches 1 to 3")
+    assert rule.startswith("Only predicted trees go to the botanists: tree batches 1 to 3")
+    assert "or its first guess is a liana" in rule and "Liana photos stay in the queue file" in rule
     assert "The 40 queued frames of the priority missions" in rule and "(batch 1)" in rule
     assert "Each batch of at most 100 carries 15 random control" in rule
     assert "up to 20 photos from the low-confidence queue" in rule

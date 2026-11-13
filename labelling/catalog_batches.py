@@ -24,7 +24,7 @@ whatever its queue or group: the transect is a census (Antoine, 2026-10).
 Of the rest, only predicted trees go out (Antoine's decision), and no `can_wait`
 frame: both stay in the queue file with a blank batch_id. A frame is liana when species
 WCVP calls liana hold at least `LIANA_SHARE` of the score of its top-5 Pl@ntNet
-answers (`liana_share`); every other frame, shrubs and unknowns included, is
+answers (`liana_share`), or its first guess is a liana; every other frame, shrubs and unknowns included, is
 tree: two piles, not a taxonomy. The group is a model guess, not a label. The
 rows of a batch are written in a seeded random order, so the botanist cannot
 read the prediction off the species grouping. A pinned batch keeps its frames
@@ -312,7 +312,7 @@ def build(pool: dict[str, str], predictions: dict, h, sent: set, priority_missio
     # Rounded as frames.csv writes it, so the page check replays the same split.
     share = {k: round(liana_share(r, lambda sp: forms.get(h.canon(sp))), 6)
              for k, r in answered.items()}
-    group = {k: growth_group(s) for k, s in share.items()}
+    group = {k: growth_group(s, forms.get(species.get(k))) for k, s in share.items()}
     # The rarity rank rides in the novelty slot: same in-queue ordering, no vectors.
     decided, n_no_answer, _ = send_first_rows(
         answered, set(), h.canon, support, top1_of, sent=sent, priority=priority,
