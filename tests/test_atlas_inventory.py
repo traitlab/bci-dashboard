@@ -111,8 +111,11 @@ def test_missing_model_photo_has_no_invented_representation_and_join_is_idempote
         "model_available": False,
         "neighbours": [],
         "other_mission_neighbours": None,
+        "clade": None,
+        "order": None,
         "family": None,
         "genus": None,
+        "predicted": {"clade": None, "order": None, "family": None},
     }
     assert JOIN(first, catalogue, SOURCE) == first
 
