@@ -63,12 +63,12 @@ def test_position_recomputes_on_filters_and_restores_without_changing_selection(
 const first=state.frame;
 assert.equal($('photoPosition').textContent,'Photo 1 of 6 matching photos');
 setState({source:'recorded',taxon:'f'});assert.equal(state.frame,first);
-assert.equal($('photoPosition').textContent,'Photo 1 of 3 matching photos');
+assert.equal($('photoPosition').textContent,'Photo 1 of 4 matching photos');
 $('nextPhoto').onclick();assert.equal(state.frame,'b');const saved=location.hash;
-assert.equal($('photoPosition').textContent,'Photo 2 of 3 matching photos');
+assert.equal($('photoPosition').textContent,'Photo 2 of 4 matching photos');
 setState({taxon:'s'});assert.equal(state.frame,'b');assert.match($('photoPosition').textContent,/outside these filters/);
 location.hash=saved;listeners.hashchange();assert.equal(state.frame,'b');
-assert.equal($('photoPosition').textContent,'Photo 2 of 3 matching photos');
+assert.equal($('photoPosition').textContent,'Photo 2 of 4 matching photos');
 setState({frame:first,status:'compare'});
 assert.equal($('photoPosition').textContent,'Photo 1 of 1 matching photos');
 assert.equal($('previousPhoto').disabled,true);assert.equal($('nextPhoto').disabled,true);

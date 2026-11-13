@@ -81,8 +81,8 @@ def test_taxon_membership_counts_compose_without_promoting_guesses_to_labels():
 const assert=require('node:assert/strict');
 assert.equal(readExplorerState('',c.photos).source,'recorded');assert.equal(readExplorerState('#source=prediction',c.photos).source,'prediction');const s={...readExplorerState('',c.photos),source:'prediction'};
 assert.deepEqual(matchingPhotoKeys(c,{...s,taxon:'s'}),['b','d']);
-assert.deepEqual(matchingPhotoKeys(c,{...s,source:'recorded',taxon:'f'}),['a & ä /?.JPG','b','c']);
-assert.equal(taxonCounts(c,{...s,source:'recorded'}).get('f'),3);assert.equal(taxonCounts(c,s).get('f'),3);
+assert.deepEqual(matchingPhotoKeys(c,{...s,source:'recorded',taxon:'f'}),['a & ä /?.JPG','b','c','d']);
+assert.equal(taxonCounts(c,{...s,source:'recorded'}).get('f'),4);assert.equal(taxonCounts(c,s).get('f'),3);
 assert.equal(taxonCounts(c,s).get('unassigned'),2);assert.deepEqual(matchingPhotoKeys(c,{...s,taxon:'unassigned'}),['c','e']);
 const composed={...s,taxon:'s',status:'with',search:'flight-a'};assert.deepEqual(matchingPhotoKeys(c,composed),['b']);assert.equal(taxonCounts(c,composed).get('s'),1);
 assert.deepEqual(matchingPhotoKeys(c,{...s,taxon:'missing-taxon'}),[]);assert.deepEqual(matchingPhotoKeys(c,{...s,source:'another-model'}),[]);assert.deepEqual(matchingPhotoKeys(c,{...s,status:'bad-filter'}),[]);
@@ -105,11 +105,11 @@ assert.equal(document.activeElement,$('labelStatus'));assert.deepEqual($('labelS
 assert.match($('resultCount').textContent,/1 of 6/);assert.match($('outsideNotice').textContent,/outside these filters/);
 assert.equal($('gallery').children.length,1);assert.equal(state.frame,'a & ä /?.JPG');
 root('recorded').focus();root('recorded').onclick();assert.equal(state.source,'recorded');assert.equal(state.taxon,'any');
-assert.deepEqual(counts(),{all:4,with:4,without:0,compare:1});assert.equal(root('recorded').getAttribute('aria-pressed'),'true');
+assert.deepEqual(counts(),{all:5,with:4,without:1,compare:1});assert.equal(root('recorded').getAttribute('aria-pressed'),'true');
 assert.equal(document.activeElement,root('recorded'));
-assert.equal($('labelStatus').value,'without');assert.match($('resultCount').textContent,/0 of 6/);
-assert.equal($('gallery').children.length,0);
-setState({status:'with'});assert.deepEqual(counts(),{all:4,with:4,without:0,compare:1});
+assert.equal($('labelStatus').value,'without');assert.match($('resultCount').textContent,/1 of 6/);
+assert.equal($('gallery').children.length,1);
+setState({status:'with'});assert.deepEqual(counts(),{all:5,with:4,without:1,compare:1});
 setState({search:'no photo matches'});assert.deepEqual(counts(),{all:0,with:0,without:0,compare:0});
 assert.equal($('gallery').children.length,0);assert.match($('resultCount').textContent,/0 of 6/);
 """, initial_hash=SELECTED)
@@ -122,16 +122,16 @@ def test_taxon_roots_filter_by_source_and_split_the_filtered_population():
     run_browser(r"""
 function root(source){return $('taxonomy').querySelector('[data-root="'+source+'"]')}
 assert.deepEqual(labelStatusCounts(catalogue,state),{all:7,with:5,without:2,compare:1});
-assert.equal(root('recorded').children[1].textContent.trim(),'4');assert.equal(root('prediction').children[1].textContent.trim(),'4');assert.equal(root('recorded').getAttribute('aria-pressed'),'false');assert.equal(root('prediction').getAttribute('aria-pressed'),'true');
+assert.equal(root('recorded').children[1].textContent.trim(),'5');assert.equal(root('prediction').children[1].textContent.trim(),'4');assert.equal(root('recorded').getAttribute('aria-pressed'),'false');assert.equal(root('prediction').getAttribute('aria-pressed'),'true');
 setState({source:'recorded',status:'with'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['a & ä /?.JPG','b','c','e','z']);
 setState({taxon:'f',search:'no matches',status:'without'});assert.equal(root('recorded').children[1].textContent,'0');
 setState({taxon:'',search:'',status:'all'});assert.equal(matchingPhotoKeys(catalogue,state).length,7);
 setState({source:'prediction',taxon:'unassigned'});assert.deepEqual(matchingPhotoKeys(catalogue,state),['c','e','whitespace']);
 assert.equal($('browseTitle').textContent,'No Pl@ntNet prediction or unresolved name');assert.match($('sourceHelp').textContent,/Taxa below use the Pl@ntNet top prediction/);
 setState({taxon:'any'});assert.equal($('browseTitle').textContent,'Any Pl@ntNet taxon');assert.deepEqual(matchingPhotoKeys(catalogue,state).filter(k=>['c','e','whitespace'].includes(k)),[]);assert.equal(matchingPhotoKeys(catalogue,state).length,4);
-setState({source:'recorded'});assert.equal($('browseTitle').textContent,'Any recorded taxon');assert.deepEqual(matchingPhotoKeys(catalogue,state),['a & ä /?.JPG','b','c','z']);assert.equal(taxonCounts(catalogue,state).get('any'),4);assert.equal(taxonCounts(catalogue,state).get('unassigned'),3);
-setState({status:'without'});assert.equal(taxonCounts(catalogue,state).get('any'),0);assert.equal(matchingPhotoKeys(catalogue,state).length,0);assert.match($('activeFilters').children[0].textContent,/^Taxon \(recorded label\): Any recorded taxon/);
-setState({taxon:'unassigned',status:'all'});assert.equal($('browseTitle').textContent,'No recorded label or unresolved name');assert.match($('sourceHelp').textContent,/Taxa below use the recorded label/);setState({source:'prediction'});
+setState({source:'recorded'});assert.equal($('browseTitle').textContent,'Any recorded or predicted taxon');assert.deepEqual(matchingPhotoKeys(catalogue,state),['a & ä /?.JPG','b','c','d','z']);assert.equal(taxonCounts(catalogue,state).get('any'),5);assert.equal(taxonCounts(catalogue,state).get('unassigned'),2);
+setState({status:'without'});assert.equal(taxonCounts(catalogue,state).get('any'),1);assert.deepEqual(matchingPhotoKeys(catalogue,state),['d']);assert.match($('activeFilters').children[0].textContent,/^Taxon \(recorded label\): Any recorded or predicted taxon/);
+setState({taxon:'unassigned',status:'all'});assert.equal($('browseTitle').textContent,'No recorded label or Pl@ntNet prediction, or unresolved name');assert.match($('sourceHelp').textContent,/Taxa below use the recorded label/);setState({source:'prediction'});
 assert.deepEqual(labelStatusCounts(catalogue,state),{all:3,with:2,without:1,compare:0});
 """, payload=data)
 
