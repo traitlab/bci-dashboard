@@ -5,11 +5,23 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import csv
 import re
 from collections import Counter
 from pathlib import Path
 
 PROJECT = "k-central-america"
+
+
+# APG IV / PPG I placement and common name of each family, order and clade; a family not listed stays at the top.
+def _table(name):
+    with open(Path(__file__).resolve().parents[1] / "input" / name) as f:
+        return {row[next(iter(row))]: row for row in csv.DictReader(f)}
+
+
+FAMILY_ORDER = _table("family_order.csv")
+ORDER_CLADE = _table("order_clade.csv")
+CLADE_COMMON = _table("clade_common.csv")
 
 
 def canonical_frame(key):
@@ -117,15 +129,25 @@ class Taxonomy:
             key = other
         return None
 
-    def add(self, taxon_id, name, rank, parent):
+    def add(self, taxon_id, name, rank, parent, common=None):
         row = {"id": taxon_id, "name": name, "rank": rank, "parent": parent}
+        if common:
+            row["common"] = common
         if taxon_id in self.taxa and self.taxa[taxon_id] != row:
             raise ValueError(f"Conflicting taxonomy for {taxon_id}")
         self.taxa[taxon_id] = row
         return taxon_id
 
     def family(self, name):
-        return self.add("local:family:" + name, name, "family", None)
+        row = FAMILY_ORDER.get(name)
+        if row is None:
+            return self.add("local:family:" + name, name, "family", None)
+        order = ORDER_CLADE[row["order"]]
+        clade = self.add("local:clade:" + order["clade"], order["clade"], "clade", None,
+                         CLADE_COMMON[order["clade"]]["common"])
+        parent = self.add("local:order:" + row["order"], row["order"], "order", clade,
+                          order["common"])
+        return self.add("local:family:" + name, name, "family", parent, row["common"])
 
     def genus(self, name, family):
         parent = self.family(family)

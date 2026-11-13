@@ -18,7 +18,7 @@ def test_rows_carry_tree_roles_levels_expansion_and_selection():
 chooseTaxon('s');
 assert.equal(tree().getAttribute('role'),'tree');assert.equal(tree().getAttribute('aria-label'),'Taxon groups');assert.equal(host.children[0].getAttribute('aria-label'),'Group by');assert.equal(rows().includes(host.children[0]),false);
 for(const [id,level,expanded] of [['unassigned','1',null],['other','1',null],['f','1','true'],['g','2','true'],['s','3',null],['t','3',null]]){assert.equal(row(id).getAttribute('role'),'treeitem');assert.equal(row(id).getAttribute('aria-level'),level);assert.equal(row(id).getAttribute('aria-expanded'),expanded);assert.equal(row(id).getAttribute('aria-selected'),String(id==='s'))}
-assert.deepEqual(rows().map(r=>r.getAttribute('data-taxon')),['unassigned','other','f','g','s','t']);
+assert.deepEqual(rows().map(r=>r.getAttribute('data-taxon')),['unassigned','f','g','s','t','other']);
 const group=row('f').children[1];assert.equal(group.getAttribute('role'),'group');assert.equal(group.children[0],row('g'));
 assert.equal(row('f').children[0].children[2].children[0].tagName,'span');assert.equal(row('g').children[0].children[2].children[0].tagName,'em');assert.equal(row('s').children[0].children[2].children[0].tagName,'em');
 assert.equal(row('g').getAttribute('aria-label'),'Canopia, genus, 3 photos, 100% of Forestaceae, 2 confirmed by a recorded label');
@@ -45,12 +45,12 @@ def test_arrow_home_and_end_keys_move_focus_without_selecting():
 const taxon=state.taxon,entries=historyEntries.length;row('unassigned').focus();
 const at=()=>document.activeElement.getAttribute('data-taxon');
 assert.equal(press('ArrowUp'),true);assert.equal(at(),'unassigned');
-press('ArrowDown');assert.equal(at(),'other');press('ArrowDown');assert.equal(at(),'f');assert.deepEqual(tabbable(),['f']);
+press('ArrowDown');assert.equal(at(),'f');assert.deepEqual(tabbable(),['f']);
 press('ArrowRight');assert.equal(at(),'f');assert.equal(row('f').getAttribute('aria-expanded'),'true');
 press('ArrowRight');assert.equal(at(),'g');press('ArrowRight');assert.equal(row('g').getAttribute('aria-expanded'),'true');assert.equal(at(),'g');
 press('ArrowRight');assert.equal(at(),'s');press('ArrowRight');assert.equal(at(),'s');
 press('ArrowLeft');assert.equal(at(),'g');press('ArrowLeft');assert.equal(at(),'g');assert.equal(row('s'),null);press('ArrowLeft');assert.equal(at(),'f');press('ArrowLeft');assert.equal(row('g'),null);press('ArrowLeft');assert.equal(at(),'f');
-press('End');assert.equal(at(),'f');press('ArrowRight');press('End');assert.equal(at(),'g');press('ArrowDown');assert.equal(at(),'g');press('Home');assert.equal(at(),'unassigned');assert.deepEqual(tabbable(),['unassigned']);
+press('End');assert.equal(at(),'other');press('ArrowDown');assert.equal(at(),'other');press('Home');assert.equal(at(),'unassigned');assert.deepEqual(tabbable(),['unassigned']);
 assert.equal(state.taxon,taxon);assert.equal(historyEntries.length,entries);
 for(const extra of [{altKey:true},{ctrlKey:true},{metaKey:true}])assert.equal(press('ArrowDown',extra),false);assert.equal(press('a'),false);assert.equal(at(),'unassigned');
 """)

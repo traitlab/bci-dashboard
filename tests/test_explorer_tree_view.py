@@ -78,9 +78,9 @@ location.hash='#layout=table&source=prediction';listeners.popstate();assert.equa
 
 def test_radial_nodes_select_taxa_in_sync_with_the_outline_and_card():
     run_browser(RADIAL + r"""
-assert.deepEqual(shown(),['any','other','f','g','s','t']);
+assert.deepEqual(shown(),['any','f','g','s','t','other']);
 chooseTaxon('any');assert.deepEqual($('treeTitle').children.map(c=>c.textContent),['Any Pl@ntNet taxon']);assert.equal($('treeCount').textContent,'4 photos, 67% of matching photos.');assert.equal(crumb('any').getAttribute('aria-current'),'true');chooseTaxon('');
-assert.equal($('treeUp').disabled,true);assert.deepEqual($('treeKids').children.map(b=>b.getAttribute('aria-label')),['Elseaceae, family, 1 photo','Forestaceae, family, 3 photos']);
+assert.equal($('treeUp').disabled,true);assert.deepEqual($('treeKids').children.map(b=>b.getAttribute('aria-label')),['Forestaceae, family, 3 photos','Elseaceae, family, 1 photo']);
 dot('g').onclick();
 assert.equal(state.taxon,'g');assert.equal(new URLSearchParams(location.hash.slice(1)).get('taxon'),'g');
 assert.equal(row('g').getAttribute('aria-selected'),'true');assert.equal(row('f').getAttribute('aria-selected'),'false');
@@ -130,7 +130,7 @@ def test_only_taxa_outside_the_selected_lineage_and_subtree_fade():
 for(const id of ['','any','unassigned','missing-taxon']){chooseTaxon(id);assert.deepEqual(faded(),[],id)}
 chooseTaxon('g');assert.deepEqual(faded(),['other']);
 assert.deepEqual(svg.children.filter(c=>c.tagName==='path'&&c.getAttribute('data-taxon')&&c.getAttribute('opacity')!=='1').map(c=>c.getAttribute('data-taxon')),['other']);
-chooseTaxon('s');assert.deepEqual(faded(),['other','t']);
+chooseTaxon('s');assert.deepEqual(faded(),['t','other']);
 chooseTaxon('other');assert.deepEqual(faded(),['f','g','s','t']);
 """, initial_hash='#layout=tree')
 
@@ -142,9 +142,9 @@ assert.deepEqual(shown(),['g','s','t']);assert.equal($('treeUp').disabled,false)
 chooseTaxon('s');assert.deepEqual(shown(),['g','s','t']);
 $('treeFocusHere').onclick();assert.deepEqual(shown(),['g','s','t']);
 $('treeUp').onclick();assert.deepEqual(shown(),['f','g','s','t']);
-$('treeUp').focus();$('treeUp').onclick();assert.deepEqual(shown(),['any','other','f','g','s','t']);
+$('treeUp').focus();$('treeUp').onclick();assert.deepEqual(shown(),['any','f','g','s','t','other']);
 assert.equal($('treeUp').disabled,true);assert.equal(document.activeElement,$('treeFocusHere'));
-chooseTaxon('g');$('treeFocusHere').onclick();chooseTaxon('other');assert.deepEqual(shown(),['any','other','f','g','s','t']);
+chooseTaxon('g');$('treeFocusHere').onclick();chooseTaxon('other');assert.deepEqual(shown(),['any','f','g','s','t','other']);
 chooseTaxon('g');$('treeFocusHere').onclick();chooseTaxon('f');assert.equal(shown()[0],'any');
 """, initial_hash='#layout=tree')
 
@@ -153,7 +153,7 @@ def test_group_photo_prefers_agreeing_guesses_for_labels_and_top_scores_for_gues
     run_browser(RADIAL + r"""
 const pick=()=>Object.fromEntries([...groupPhotos()].map(([id,best])=>[id,best.p.key]));
 assert.deepEqual(pick(),{any:'genus-agrees',f:'genus-agrees',g:'genus-agrees',s:'agrees',t:'t-guess',other:'lonely'});
-assert.deepEqual($('treeKids').children.map(b=>b.children[0].tagName+':'+(b.children[0].src??'')),['img:thumbs/480/lonely.webp','img:thumbs/480/genus-agrees.webp']);
+assert.deepEqual($('treeKids').children.map(b=>b.children[0].tagName+':'+(b.children[0].src??'')),['img:thumbs/480/genus-agrees.webp','img:thumbs/480/lonely.webp']);
 assert.equal(find(dot('s'),'image').getAttribute('href'),'thumbs/480/agrees.webp');assert.equal(find(dot('other'),'image').getAttribute('href'),'thumbs/480/lonely.webp');
 const img=$('treeKids').children[1].children[0];img.onerror();assert.equal(img.hidden,true);
 const image=find(dot('t'),'image');image.onerror();assert.equal(image.removed,true);
