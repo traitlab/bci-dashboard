@@ -11,7 +11,7 @@ import confused_pairs
 import core as hc
 import reference
 from assets import esc, panel, pctf, table
-from snapshot_delta import model_age_words
+from snapshot_delta import STALE_DAYS, model_age_words
 
 # A long list of moved species is a table nobody reads past the top.
 MOVED_SHOWN = 15
@@ -86,6 +86,24 @@ def _model_note(built: str) -> str:
             + ". The Model column changes when the recorded model version is updated.</p>")
 
 
+def _freshness_note(rows: list[dict]) -> str:
+    """The newest photo and label dates, with a warning when either is stale."""
+    def words(r):
+        if r["newest"] is None:
+            return f"no {r['what']} date recorded"
+        return esc(hc.date_words(r["newest"])) + (
+            f" ({r['age']} days before the build)" if r["age"] is not None else "")
+    lines = "".join(f"<li>Newest {r['what']}: {words(r)}.</li>" for r in rows)
+    stale = [r["what"] for r in rows if r["stale"]]
+    warn = (f'<div class="warn"><strong>The newest {" and newest ".join(stale)} '
+            f"{'is' if len(stale) == 1 else 'are'} missing or more than "
+            f"{STALE_DAYS} days old.</strong> New photos or labels may have stopped "
+            f"arriving, or a source filter may be stale.</div>" if stale else "")
+    return ('<p class="note">How recent the data is, over the frames in the snapshot. '
+            "Photos are dated by capture, labels by when the botanist drew them.</p>"
+            f"<ul>{lines}</ul>{warn}")
+
+
 def p_confused(c):
     """The wrong top predictions that repeat: which two species the model swaps,
     and, once an earlier refresh recorded them, each pair's count back then."""
@@ -144,7 +162,8 @@ def p_changes(c):
                  + '<p class="note">Labels changed since baseline counts frames labelled in both '
                  'the baseline ground truth and now with a different species. It is cumulative, '
                  'not per refresh, and only the count is recorded.</p>')
-    body = _model_note(c.generated) + body
+    fresh = getattr(c, "freshness", None)
+    body = (_freshness_note(fresh) if fresh else "") + _model_note(c.generated) + body
     return panel("Since the last update",
                  "<b>Read this before comparing today's rates with an earlier visit.</b> "
                  "It compares the last two Labelbox exports.",

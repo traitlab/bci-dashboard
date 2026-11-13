@@ -14,6 +14,7 @@ Read with the standard library only, like everything under dashboard/.
 
 from __future__ import annotations
 
+import csv
 import re
 from datetime import date
 
@@ -29,6 +30,41 @@ def _date(text: str):
         return date(*map(int, m.groups())) if m else None
     except ValueError:
         return None
+
+
+STALE_DAYS = 14
+# A DJI file name carries the capture time: DJI_<YYYYMMDDhhmmss>_...
+PHOTO_DATE_RE = re.compile(r"DJI_(\d{4})(\d{2})(\d{2})\d{6}_")
+
+
+def _newest(days):
+    return max((d for d in days if d), default=None)
+
+
+def freshness(photo_keys, label_dates_csv: str, built: str) -> list[dict]:
+    """Newest photo and newest label in the snapshot, and whether each is older
+    than STALE_DAYS on the build date. A date that cannot be found is stale: a
+    stalled feed and an unrecorded one look the same on the page.
+
+    Photos are dated by capture, read off the frame names. Labels are dated by
+    the ``gt_label_dates.csv`` sidecar (when the botanist drew), absent until
+    ``gt_from_export.py`` has written it.
+    """
+    found = (PHOTO_DATE_RE.search(k) for k in photo_keys)
+    photo = _newest(f"{m[1]}-{m[2]}-{m[3]}" for m in found if m)
+    try:
+        with open(label_dates_csv, newline="", encoding="utf-8") as f:
+            label = _newest(r["labelled_at"][:10] for r in csv.DictReader(f))
+    except OSError:
+        label = None
+    now = _date(built)
+    out = []
+    for what, newest in (("photo", photo), ("label", label)):
+        then = _date(newest)
+        age = (now - then).days if then and now else None
+        out.append({"what": what, "newest": newest, "age": age,
+                    "stale": then is None or (age is not None and age > STALE_DAYS)})
+    return out
 
 
 def model_age_words(version: str, built: str) -> str | None:
