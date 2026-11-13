@@ -56,6 +56,7 @@ def test_exact_catalogue_join_preserves_all_representation_evidence_and_input_fi
         point.pop("predicted")
         point["neighbours"][0][0] = 1 - point["neighbours"][0][0]
     assert result.pop("taxon_common") == {}
+    assert result.pop("taxon_colours")
     result["points"].reverse()
     provenance = result["provenance"].pop("annotation_links")
     inventory = result["provenance"].pop("photo_inventory")
@@ -79,7 +80,9 @@ def test_optional_catalogue_preserves_existing_builder_and_comparison_contract(t
     build = runpy.run_path(str(BUILDER))["build"]
     old_output, enriched_output = tmp_path / "old.html", tmp_path / "enriched.html"
     build(source, old_output, comparison=comparison)
-    assert payload(old_output) == {**atlas, "comparison": comparison_data}
+    old = payload(old_output)
+    assert old.pop("taxon_colours")
+    assert old == {**atlas, "comparison": comparison_data}
     build(source, enriched_output, comparison=comparison, catalogue=annotations)
     enriched = payload(enriched_output)
     assert enriched["comparison"] == comparison_data

@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from atlas_inventory import join_photo_inventory
 from build_index import available_names
 from page import scoped_photo_page
+from taxon_colours import tree_colours
 
 
 def validate_comparison(atlas, comparison):
@@ -65,6 +66,7 @@ def build(source, output, comparison=None, catalogue=None, scope_dir=None):
     template = template.replace("__SITE_CSS__", site["CSS"]).replace(
         "__SITE_NAV__", site["navigation"](current)
     )
+    data["taxon_colours"] = tree_colours()
     payload = json.dumps(data, separators=(",", ":"), allow_nan=False).replace(
         "<", "\\u003c"
     )

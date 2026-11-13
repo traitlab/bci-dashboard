@@ -74,27 +74,24 @@ chooseTaxon('t');assert.equal(row('f').getAttribute('aria-expanded'),'true');ass
 """)
 
 
-def test_family_colours_match_the_atlas_palette_and_ranking():
-    data = catalogue()
+def test_family_colours_come_from_the_tree_colours_and_children_shade_within_them():
+    data = {**catalogue(), "taxon_colours": {"Forestaceae": "#e69f00", "Elseaceae": "#56b4e9"}}
     run_browser(TREE + r"""
-chooseTaxon('s');assert.equal(row('f').children[0].children[1].style.background,'#E69F00');assert.equal(row('other').children[0].children[1].style.background,'#8c8c8c');assert.equal(share('s')['--c'],'#E69F00');assert.equal(row('unassigned').children[0].children[1].style.background,'#cfd8dd');
-assert.equal(shade('#E69F00',0),'#E69F00');assert.equal(shade('#E69F00',0.45),'rgb(233,170,29)');assert.match(shade('#E69F00',-0.35),/^rgb\(/);
+chooseTaxon('s');assert.equal(row('f').children[0].children[1].style.background,'#e69f00');assert.equal(row('other').children[0].children[1].style.background,'#56b4e9');assert.equal(share('s')['--c'],'#e69f00');assert.equal(row('unassigned').children[0].children[1].style.background,'#cfd8dd');
+assert.equal(shade('#e69f00',0),'#e69f00');assert.match(shade('#e69f00',0.45),/^rgb\(/);assert.match(shade('#e69f00',-0.35),/^rgb\(/);
 """, payload=data)
-    # Counts 10 down to 1; "tie" draws with fam7 and wins on name; fam8's unplotted photos must not lift it.
-    taxa = [{"id": f"fam{i}", "name": f"Family {chr(75 - i)}", "rank": "family", "parent": None} for i in range(10)] + [{"id": "tie", "name": "Family A", "rank": "family", "parent": None}]
-    counts = {f"fam{i}": 10 - i for i in range(10)} | {"tie": 3}
-    photos = [{"key": f"{taxon}-{n}", "recorded_taxon": taxon, "representation": {}} for taxon, total in counts.items() for n in range(total)]
-    photos += [{"key": f"unplotted-{n}", "recorded_taxon": "fam8", "representation": None} for n in range(5)]
-    node(helpers() + "\nconst c=" + json.dumps({"photos": photos, "taxa": taxa}) + r""";
-const assert=require('node:assert/strict'),palette=familyPalette(c);
-assert.deepEqual([...palette],[['fam0','#E69F00'],['fam1','#56B4E9'],['fam2','#009E73'],['fam3','#A0A000'],['fam4','#0072B2'],['fam5','#D55E00'],['fam6','#CC79A7'],['tie','#882255']]);
-assert.equal(familyPalette({photos:[],taxa:[]}).size,0);
-""")
+    # Without a catalogue entry the family falls back to the neutral colour instead of failing.
+    run_browser(TREE + r"""
+chooseTaxon('s');assert.equal(row('f').children[0].children[1].style.background,TAXON_COLOURS[8]);
+""", payload=catalogue())
 
 
 def test_atlas_and_explorer_share_one_palette():
-    lists = [re.search(r"(?:PLOT|TAXON)_COLOURS=(\[[^\]]+\])", (ROOT / name).read_text()).group(1) for name in ["dashboard/embedding_atlas_assets.py", "dashboard/explorer_assets.py"]]
-    assert lists[0] == lists[1]
+    for name in ["dashboard/build_embedding_atlas.py", "dashboard/build_explorer.py"]:
+        text = (ROOT / name).read_text()
+        assert 'from taxon_colours import tree_colours' in text and 'data["taxon_colours"] = tree_colours()' in text
+    for name in ["dashboard/embedding_atlas_assets.py", "dashboard/explorer_assets.py"]:
+        assert re.search(r"TREE_COLOURS=(?:data|catalogue)\.taxon_colours\|\|\{\}", (ROOT / name).read_text())
 
 
 def test_confirmed_counts_need_the_recorded_lineage_to_hold_the_taxon():
