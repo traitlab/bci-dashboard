@@ -37,6 +37,7 @@ jobs:
     permissions:
       contents: write
       actions: read
+      issues: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -269,6 +270,27 @@ jobs:
               command += ['--export-date', (exports_dir / 'export_date.txt').read_text().strip()]
           subprocess.run(command, check=True)
           PY
+      - name: Open, update or close the stale-feed issue
+        # One issue, stable title. Photos or labels older than 14 days open or
+        # update it; both fresh closes it. Never fails the refresh.
+        if: github.event_name == 'schedule' || inputs.deploy
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          action=$(python bin/freshness_issue.py --body-file "$RUNNER_TEMP/stale-body.md")
+          title='Data feed stale'
+          number=$(gh issue list --state open --label data-feed --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ "$action" = open ]; then
+            if [ -n "$number" ]; then
+              gh issue comment "$number" --body-file "$RUNNER_TEMP/stale-body.md"
+            else
+              gh label create data-feed --description 'Photos or labels stopped arriving' 2>/dev/null || true
+              gh issue create --title "$title" --label data-feed --body-file "$RUNNER_TEMP/stale-body.md"
+            fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --comment 'Photos and labels are both fresh again.'
+          fi
       - name: Keep the refresh manifest for the next run
         # A validation-only run deploys nothing, so it must not become "the last update".
         if: github.event_name == 'schedule' || inputs.deploy
