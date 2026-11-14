@@ -28,6 +28,10 @@ REPO = os.environ.get("BCI_DASHBOARD_REPO") or os.path.dirname(
 BASE = os.environ.get("BCI_DASHBOARD_DATA") or os.path.join(REPO, "data")
 
 GT_CSV = os.path.join(BASE, "gt_dominant_taxon.csv")
+# When each frame was labelled, written beside GT_CSV by gt_from_export.py.
+GT_LABEL_DATES_CSV = os.path.join(BASE, "gt_label_dates.csv")
+# The 2026 catalog pool: photos in Labelbox not yet sent for labelling.
+CATALOG_INPUT_CSV = os.path.join(BASE, "predictions_catalog_2026", "input.csv")
 # The reviewed-label ground truth ``labelling/gt_from_publication.py`` writes.
 # Same two columns as GT_CSV plus ``label_source``, which splits the frames into
 # two populations measure.py reports side by side and never pools silently: a

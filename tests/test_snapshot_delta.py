@@ -191,3 +191,47 @@ def test_the_model_note_gives_the_version_and_the_date_it_was_checked(mods):
     assert "still what the endpoint reported on" in html
     assert "changes when the recorded model version is updated" in html
     assert "A new model would show" not in html
+
+
+KEYS = ["DJI_20260301090000_0001_V_1zoom.JPG", "comb_DJI_20260310090000_0002_V_2zoom.JPG",
+        "not-a-dji-name.JPG"]
+
+
+def label_csv(tmp_path, *stamps):
+    p = tmp_path / "gt_label_dates.csv"
+    p.write_text("global_key,labelled_at\n" + "".join(
+        f"k{i},{s}\n" for i, s in enumerate(stamps)), encoding="utf-8")
+    return str(p)
+
+
+def test_fresh_photos_and_labels_raise_no_warning(mods, tmp_path):
+    rows = mods.delta.freshness(KEYS, label_csv(tmp_path, "2026-03-01T09:00:00.000Z",
+                                                "2026-03-08T11:00:00.000Z"), "2026-03-15")
+    assert [(r["what"], r["newest"], r["age"], r["stale"]) for r in rows] == [
+        ("photo", "2026-03-10", 5, False), ("label", "2026-03-08", 7, False)]
+    html = mods.panels._freshness_note(rows)
+    assert "10 March 2026" in html and 'class="warn"' not in html
+
+
+def test_a_stale_date_warns_past_fourteen_days_and_not_at_fourteen(mods, tmp_path):
+    csv_ = label_csv(tmp_path, "2026-03-01T09:00:00.000Z")
+    rows = mods.delta.freshness(KEYS, csv_, "2026-03-24")  # photo 14 days, label 23
+    assert [r["stale"] for r in rows] == [False, True]
+    html = mods.panels._freshness_note(rows)
+    assert "The newest label is missing or more than 14 days old" in html
+
+
+def test_missing_dates_are_a_warning_not_a_crash(mods, tmp_path):
+    rows = mods.delta.freshness(["nothing.JPG"], str(tmp_path / "absent.csv"), "2026-03-15")
+    assert [(r["newest"], r["age"], r["stale"]) for r in rows] == [(None, None, True)] * 2
+    html = mods.panels._freshness_note(rows)
+    assert "no photo date recorded" in html and "no label date recorded" in html
+    assert "newest photo and newest label are missing" in html
+    # An empty sidecar and an unreadable build date are missing too, never a crash.
+    assert mods.delta.freshness([], label_csv(tmp_path), "soon")[1]["stale"] is True
+
+
+def test_the_changes_panel_carries_the_freshness_note_when_given(mods):
+    c = SimpleNamespace(changes=mods.delta.compute([A, B]), generated="2026-10-22",
+                        freshness=mods.delta.freshness(KEYS, "absent.csv", "2026-03-15"))
+    assert "Newest photo: 10 March 2026" in mods.panels.p_changes(c)

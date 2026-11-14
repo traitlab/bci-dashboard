@@ -16,6 +16,7 @@ One file that opens from file://.
 
 from __future__ import annotations
 
+import csv
 import os
 import sys
 
@@ -67,6 +68,14 @@ def build(h, *, generated, verify_dir, fallback_tag, available_pages=None):
     # figures.prepare because the manifest is a refresh artifact, not a table.
     c.generated = generated
     c.changes = snapshot_delta.compute(manifest.read(hc.MANIFEST))
+    # Graded frames stop at the last evaluation flight; the catalog shows new uploads.
+    keys = [r["global_key"] for r in h.split_rows]
+    try:
+        with open(hc.CATALOG_INPUT_CSV, newline="", encoding="utf-8") as f:
+            keys += [r["global_key"] for r in csv.DictReader(f)]
+    except OSError:
+        pass
+    c.freshness = snapshot_delta.freshness(keys, hc.GT_LABEL_DATES_CSV, generated)
 
     # The first screen is landing.py: the rates, the correction they are read
     # against, the species by status, and the review list. Everything that
