@@ -427,3 +427,33 @@ def test_a_held_frame_takes_the_label_of_the_frame_it_was_held_behind(catalog_ba
     frames = {f["global_key"]: f for f in csv.DictReader((tmp_path / "frames.csv").open(encoding="utf-8"))}
     assert frames["DJI_2_V_7524tele.JPG"]["propagated_label"] == "Ceiba pentandra"
     assert "labelled through it: 1" in catalog_batches.summary(pool, built)
+
+
+def test_the_queue_reranks_when_labels_arrive_between_two_weekly_states(catalog_batches):
+    """Week 1, then week 2: a frame labelled since leaves the pool (as `catalog_pool`
+    drops every file in a project export), a frame recorded as sent is skipped, a
+    long-tail species that gained labels leaves the long tail, and the random control
+    stays flagged and is drawn only from frames still queueable."""
+    pool, predictions, per_species = synthetic_pool()
+    week1 = catalog_batches.build(pool, predictions, health(per_species), set(), set())
+    labelled, sent = "rare000.JPG", "rare001.JPG"
+    pool2 = {k: u for k, u in pool.items() if k != labelled}
+    per_species2 = per_species + [
+        {"species": "Rare sp5", "n_labelled_frames": 100, "top1_accuracy": 0.95}]
+    week2 = catalog_batches.build(pool2, predictions, health(per_species2), {sent}, set())
+
+    def queue_of(built):
+        return {r[1]: r[0] for r in built["queue_rows"]}
+
+    assert {labelled, sent} <= set(queue_of(week1))
+    assert not {labelled, sent} & {b[2] for b in week2["batch_rows"]}
+    assert not {labelled, sent} & set(queue_of(week2))
+    assert queue_of(week1)["rare005.JPG"] == "long_tail"
+    assert queue_of(week2)["rare005.JPG"] != "long_tail"
+    assert [r[1] for r in week1["queue_rows"]] != [r[1] for r in week2["queue_rows"]]
+    for built in (week1, week2):
+        first = [b for b in built["batch_rows"] if b[0] == 1]
+        assert sum(b[4] == "control" for b in first) == 15
+        assert all(b[1] == "control" for b in first if b[4] == "control")
+    control2 = {b[2] for b in week2["batch_rows"] if b[4] == "control"}
+    assert control2 <= set(pool2) - {sent}
