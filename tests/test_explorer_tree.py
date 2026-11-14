@@ -3,7 +3,7 @@
 import json
 import re
 
-from test_explorer_browser import ROOT, catalogue, helpers, node, run_browser
+from test_explorer_browser import ROOT, catalogue, helpers, node, run_browser, template
 
 TREE = r"""
 const host=$('taxonomy'),tree=()=>host.children.at(-1),row=id=>host.querySelector('[data-taxon="'+id+'"]');
@@ -27,6 +27,9 @@ assert.equal(row('t').getAttribute('aria-label'),'Canopia lutea, species, 1 phot
 assert.equal(share('g')['--s'],'100.00%');assert.equal(share('g')['--k'],'66.67%');assert.equal(share('f')['--s'],'50.00%');assert.equal(share('t')['--k'],'0.00%');
 assert.equal(host.children[2].textContent,'Bar: share of the group above. Dark: a recorded label agrees.');
 setState({source:'recorded'});assert.equal(host.children.length,3);assert.equal(row('f').getAttribute('aria-label'),'Forestaceae, family, 3 photos, 50% of matching photos');assert.equal(share('f')['--k'],share('f')['--s']);
+setState({source:'mixed'});assert.equal(host.children.length,4);assert.equal(host.children[2].textContent,'Bar: share of the group above. Dark: recorded label. Light: Pl@ntNet prediction, no recorded label.');
+// Photo d has no recorded label: it sits under its predicted species, counted but not marked as labelled.
+assert.equal(row('g').getAttribute('aria-label'),'Canopia, genus, 3 photos, 75% of Forestaceae, 2 confirmed by a recorded label');assert.equal(share('g')['--s'],'75.00%');assert.equal(share('g')['--k'],'50.00%');
 """)
 
 
@@ -104,3 +107,18 @@ assert.equal(counts.get('s'),3);assert.equal(confirmed.get('s'),undefined);asser
 assert.equal(confirmed.get('other'),1);assert.equal(confirmed.has('unassigned'),false);
 const none=new Map();taxonCounts(c,{...s,search:'no photo matches'},none);assert.equal(none.size,0);assert.deepEqual([...taxonCounts(c,s)],[...counts]);
 """)
+
+
+def test_unlabelled_photo_sits_under_its_prediction_and_names_default_to_scientific():
+    data = catalogue()
+    for taxon in data["taxa"]:
+        taxon["common"] = taxon["name"] + " (common)"
+    assert '<button id="treeScientific" aria-pressed="true">' in template()
+    run_browser(TREE + r"""
+const named=id=>row(id).children[0].children[2].children[0].textContent;
+setState({source:'mixed',taxon:'s'});
+assert.deepEqual(matchingPhotoKeys(catalogue,state),['a & ä /?.JPG','d']);
+assert.equal(row('s').getAttribute('aria-label'),'Canopia alba, species, 2 photos, 67% of Canopia, 1 confirmed by a recorded label');
+assert.equal(named('f'),'Forestaceae');assert.equal(scientificNames,true);
+scientificNames=false;render();assert.equal(named('f'),'Forestaceae (common)');
+""", payload=data, default_source=True, initial_hash="#source=mixed")

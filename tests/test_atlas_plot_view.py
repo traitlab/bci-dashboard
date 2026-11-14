@@ -88,3 +88,9 @@ def test_wide_screens_put_map_and_plot_in_two_columns_and_narrow_ones_stack():
     assert "#closePlot{display:none}" not in HTML
     assert HTML.index('id="mapView"') < HTML.index('id="plotView"') < HTML.index('id="mapHelp"')
     assert HTML.index('id="plotView"') < HTML.index('id="modelComparisonView"')
+
+
+def test_taxon_names_default_to_scientific_in_both_toggles():
+    assert "plotScientific=true" in HTML
+    for button in ("plotScientific", "mapScientific"):
+        assert f'<button id="{button}" aria-pressed="true">Scientific names</button>' in HTML
