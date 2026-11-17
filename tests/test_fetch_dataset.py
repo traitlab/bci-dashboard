@@ -101,3 +101,41 @@ def test_only_a_complete_export_replaces_the_previous_file(fetch_dataset, tmp_pa
                                           "fixture-project", str(tmp_path))
     assert result == str(target)
     assert [json.loads(line) for line in target.read_text().splitlines()] == [export_row()]
+
+
+def membership_row(key, **projects):
+    return {"data_row": {"global_key": key},
+            "projects": {pid: {"project_details": details} for pid, details in projects.items()}}
+
+
+def test_membership_counts_a_project_only_when_the_row_is_in_one_of_its_batches(fetch_dataset):
+    """A catalog export answers for every project it is asked about. A row
+    outside a project still comes back under its id, with a status and no batch."""
+    from types import SimpleNamespace
+    projects = [SimpleNamespace(uid=f"p{i}") for i in range(fetch_dataset.PROJECT_IDS_PER_EXPORT + 1)]
+    asked = []
+
+    def export(params):
+        asked.append(params["project_ids"])
+        if len(asked) == 1:
+            return ExportTask([
+                membership_row("sent.JPG", p0={"batch_id": "b1", "workflow_status": "DONE"},
+                               p1={"workflow_status": "TO_LABEL"}),
+                membership_row("free.JPG", p0={"workflow_status": "TO_LABEL"})])
+        return ExportTask([membership_row("free.JPG", p30={"workflow_status": "TO_LABEL"}),
+                           membership_row("sent.JPG", p30={"batch_id": "b2"})])
+
+    client = SimpleNamespace(get_projects=lambda: projects)
+    got = fetch_dataset.project_membership(client, SimpleNamespace(uid="d", export=export))
+    assert [len(ids) for ids in asked] == [fetch_dataset.PROJECT_IDS_PER_EXPORT, 1]
+    assert got == {"sent.JPG": ["p0", "p30"], "free.JPG": []}
+
+
+def test_a_key_that_may_not_export_yields_no_membership(fetch_dataset):
+    from types import SimpleNamespace
+
+    def export(params):
+        raise fetch_dataset.AuthorizationError("Insufficient permissions")
+
+    client = SimpleNamespace(get_projects=lambda: [SimpleNamespace(uid="p0")])
+    assert fetch_dataset.project_membership(client, SimpleNamespace(uid="d", export=export)) is None

@@ -155,7 +155,14 @@ def reconcile(dataset_rows: list[dict], in_project: dict, log) -> list[dict]:
     """State the two populations inside the dataset, in plain counts."""
     migrated = [r for r in dataset_rows if r["global_key"].startswith("migrated/")]
     labelled = [r for r in dataset_rows if r["global_key"] in in_project]
-    unlabelled = [r for r in dataset_rows if r["global_key"] not in in_project]
+    # An inventory fetched with an export-enabled key says which rows are in
+    # any project. Without it, one project's export only rules out that project,
+    # and rows sitting in a sibling project are counted unsent.
+    from_catalog = bool(dataset_rows) and all("projects" in r for r in dataset_rows)
+    if from_catalog:
+        unlabelled = [r for r in dataset_rows if not r["projects"]]
+    else:
+        unlabelled = [r for r in dataset_rows if r["global_key"] not in in_project]
 
     log("--- WHAT IS IN THE DATASET ---")
     log(f"dataset 2024_bci rows                 : {len(dataset_rows)}")
@@ -164,7 +171,8 @@ def reconcile(dataset_rows: list[dict], in_project: dict, log) -> list[dict]:
     log(f"already in project 2024_bci           : {len(labelled)}")
     log(f"  of which migrated/                  : "
         f"{sum(1 for r in labelled if r['global_key'].startswith('migrated/'))}")
-    log(f"not in the project                    : {len(unlabelled)}")
+    log(f"not in {'any project (catalog)' if from_catalog else 'the project (export)  '}  "
+        f"   : {len(unlabelled)}")
     log(f"  of which migrated/                  : "
         f"{sum(1 for r in unlabelled if r['global_key'].startswith('migrated/'))}")
     status = Counter(v["workflow_status"] for k, v in in_project.items()

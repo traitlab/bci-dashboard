@@ -11,6 +11,11 @@ export task, for a dataset any more than for a project. ``data_rows()`` is a
 plain paged read and is permitted. The cost is that embeddings and annotations
 are not reachable this way, only identifiers, media attributes, and metadata.
 
+A key that may export also gets each row's project membership, from a catalog
+export (``project_membership``), written as ``projects`` on every row. That is
+what tells ``next_batch.py`` a row is in no project at all, rather than only
+absent from the one project export on disk.
+
 ``--project`` switches the same script to the other half of the inventory. A
 data row id is only half a deep link: the other half is the project the row
 opens in, and a dataset listing cannot say which project any row is in. Only a
@@ -48,15 +53,18 @@ import argparse
 import json
 import os
 import sys
-import time
 import tempfile
+import time
 from datetime import date
 
 import labelbox as lb
 import settings
+from lbox.exceptions import AuthorizationError
 
 OUT_PATH = "data/dataset_rows.jsonl"
 EXPORT_DIR = "data/exports"
+# The SDK refuses a catalog export naming more projects than this.
+PROJECT_IDS_PER_EXPORT = 30
 
 # What an export has to carry for gt_from_export.py to mint an id and a label
 # from it. Deliberately narrow: no attachments, no metadata, no predictions.
@@ -94,6 +102,40 @@ def row_to_dict(row) -> dict:
         "metadata": metadata,
         "created_at": str(row.created_at),
     }
+
+
+def project_membership(client, dataset) -> dict[str, list[str]] | None:
+    """global_key -> ids of every project the row is in, or None if the key may not export.
+
+    This is the half a paged listing cannot give: which rows are already in a
+    project, in any project, rather than in the one export someone dropped on
+    disk. A catalog export answers it, but only for the projects it is asked
+    about, and it answers for every one of them: a row that is not in a project
+    still comes back under that project's id, with a workflow status and no
+    batch. A row is in a project when it is in one of its batches, so
+    ``batch_id`` is the test, not the presence of the project's key.
+    """
+    project_ids = [p.uid for p in client.get_projects()]
+    member: dict[str, set[str]] = {}
+    for i in range(0, len(project_ids), PROJECT_IDS_PER_EXPORT):
+        try:
+            task = dataset.export(params={
+                "data_row_details": False, "metadata_fields": False,
+                "project_details": True, "label_details": False,
+                "project_ids": project_ids[i:i + PROJECT_IDS_PER_EXPORT]})
+        except AuthorizationError as refused:
+            print(f"WARNING: export refused ({refused}); rows carry no project "
+                  f"membership, next_batch.py falls back to --export", file=sys.stderr)
+            return None
+        task.wait_till_done()
+        if task.has_errors():
+            raise RuntimeError(f"membership export for {dataset.uid} reported errors")
+        for row in task.get_buffered_stream():
+            record = row.json
+            member.setdefault(record["data_row"]["global_key"], set()).update(
+                pid for pid, project in (record.get("projects") or {}).items()
+                if (project.get("project_details") or {}).get("batch_id"))
+    return {key: sorted(ids) for key, ids in member.items()}
 
 
 def export_project(client, project_id: str, out_dir: str) -> str:
@@ -173,12 +215,17 @@ def main(argv=None) -> int:
     dataset = client.get_dataset(dataset_id)
     print(f"dataset {dataset.name} ({dataset.uid}), row_count={dataset.row_count}")
 
+    membership = project_membership(client, dataset)
+
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     started = time.time()
     written = 0
     with open(args.out, "w") as out:
         for row in dataset.data_rows():
-            out.write(json.dumps(row_to_dict(row)) + "\n")
+            record = row_to_dict(row)
+            if membership is not None:
+                record["projects"] = membership.get(row.global_key, [])
+            out.write(json.dumps(record) + "\n")
             written += 1
             if written % 500 == 0:
                 print(f"  {written} rows  {time.time() - started:.0f}s", flush=True)
@@ -193,7 +240,11 @@ def main(argv=None) -> int:
     with open(provenance, "w", encoding="utf-8") as fh:
         fh.write(f"Paged from Labelbox dataset {dataset.name} ({dataset.uid}) "
                  f"on {date.today().isoformat()}: {written} rows, "
-                 f"row_count reported {dataset.row_count}.\n")
+                 f"row_count reported {dataset.row_count}. "
+                 + ("Project membership: none, the key may not export.\n"
+                    if membership is None else
+                    f"Project membership from a catalog export: "
+                    f"{sum(1 for ids in membership.values() if not ids)} rows in no project.\n"))
     print(f"wrote {provenance}")
     if written != dataset.row_count:
         print(f"WARNING: paged {written} rows but row_count reports "
