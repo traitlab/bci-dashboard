@@ -76,7 +76,7 @@ def test_every_class_a_builder_writes_has_a_rule_in_the_stylesheet(style):
             continue
         # Standalone explorers own their inline CSS; dashboard panels use style.py.
         embedded = (re.search(r"<style>(.*?)</style>", src, re.DOTALL)
-                    if name in ("embedding_atlas_assets.py", "explorer_assets.py") else None)
+                    if name in ("embedding_atlas_assets.py", "explorer_assets.py", "crown_map_assets.py") else None)
         page_css = (set(_CLASS_RE.findall(re.sub(r"\{[^}]*\}", "", embedded.group(1).replace("__SITE_CSS__", shared_css))))
                     if embedded else css)
         for m in _EMITTED_RE.finditer(src):

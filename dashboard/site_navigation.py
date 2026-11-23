@@ -9,6 +9,7 @@ LINKS = (
     ("explorer.html", "Browse photos"),
     ("embedding-atlas.html#view=locations", "Drone map"),
     ("embedding-atlas.html#view=photos", "Similar photos"),
+    ("crown-map.html", "Crown map"),
     ("model_health_dashboard.html", "Model health"),
     ("label_queue_dashboard.html", "Labelling queue"),
     ("about.html", "About"),
