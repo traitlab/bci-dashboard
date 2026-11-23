@@ -526,9 +526,9 @@ def refresh(
         published = stage / "docs"
         shutil.copytree(repo / "docs", published)
         # The explorer and embedding atlas are rebuilt from this run's vectors.
-        # The crownfirst atlas needs an external experiment file, and the crown map
-        # holds no data, so both are copied.
-        names = ["crownfirst-atlas.html", "crown-map.html"]
+        # The crownfirst atlas needs an external experiment file, so it is copied.
+        # The crown map holds no data and is published from docs/ as built.
+        names = ["crownfirst-atlas.html"]
         try:
             build_atlas_pages(repo, data, stage, rendered, tables, env=env)
         except subprocess.CalledProcessError as error:
