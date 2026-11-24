@@ -17,6 +17,15 @@ A guess is not a label. No botanist checked these crowns. Use a guess as a reaso
 
 If the map says that the data link did not open, the link is out of date. Ask the team for a new link.
 
+### Optional: the drone mosaic
+
+The usual background is a satellite image. It is not sharp when you zoom in. The team also has a link to the drone mosaic of 16 June 2025, which is the image that the outlines come from.
+
+1. Add `&img=` and the mosaic link to the end of the address.
+2. Press Enter. From zoom 15, the map shows the drone mosaic below the crowns.
+
+The mosaic link is private, as the data link is.
+
 ## Read the map
 
 - **One shape is one crown.** A detection model drew the outline. A botanist did not.
@@ -74,3 +83,4 @@ The build makes no network call. It puts only the taxon tree and its colours in 
 | confidence | The score from 0% to 100% that the classifier gives to a guess. |
 | test crowns | Crowns with a label that the classifier did not see in training. Accuracy is measured on them. |
 | data link | The private address of the crown file. |
+| mosaic link | The private address of the drone mosaic tiles. Optional. |
