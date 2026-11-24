@@ -31,6 +31,8 @@ If the map says that the data link did not open, the link is out of date. Ask th
 | See the first guess for a crown | Point at the crown. |
 | See the five guesses for a crown | Click the crown. |
 | Close the five guesses | Press Escape. |
+| Read a crown without a mouse | Press Tab until the map has the focus. A white cross shows at the centre. Move the map with the arrow keys. Press Enter to read the crown under the cross. |
+| Find more candidates for one species | Show only that species. Then select "Also where it is a lower guess". The map adds the crowns that have the species as guess two to five. |
 | See where one species is | Type its name in **Show only one species**, or click a name in **Most common first guesses**, or click a crown and then **Show only this species**. |
 | See all species again | Click **Show all**. |
 | Hide the unsure guesses | Move the slider below the chart. The grey bars are the crowns that you hide. |
