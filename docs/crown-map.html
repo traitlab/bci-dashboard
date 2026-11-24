@@ -72,7 +72,7 @@ aside h1{font-size:20px;margin:0 0 6px}aside p{color:var(--slate);margin:0 0 12p
 <div id="legend" aria-live="polite"></div>
 <section class="about"><h2>How to read this map</h2>
 <details><summary>What is an outline?</summary><p>Each outline is the edge of one tree crown, seen from above in drone photos of Barro Colorado Island, Panama. A detection model drew the outlines. Two crowns that touch can be one tree, and one big tree can be two outlines. Small trees under the canopy do not show.</p></details>
-<details><summary>How was this map made?</summary><p>A crown detection model (CanopyRS) drew the outlines on <span id="imagery">drone photos of the forest plots, at about 2 cm per pixel</span>. The BCI crown classifier then scored each crown against 77 species. Five copies of the classifier, trained from different random starts, each give a score; the map shows their mean.</p><p id="heldout" hidden></p><p>The classifier learned from photos at about 2 cm per pixel. Photos at another resolution can lower its accuracy.</p></details>
+<details><summary>How was this map made?</summary><p>A crown detection model (CanopyRS) drew the outlines on <span id="imagery">drone photos of the forest plots, at about 2 cm per pixel</span>. The BCI crown classifier scored crowns against 77 species in the earlier drone photos of the forest plots, at about 2 cm per pixel. Five copies of the classifier, trained from different random starts, each give a score; the map shows their mean.</p><p id="guessed" hidden>A crown here gets a species guess only when it covers the same area as a crown that the classifier scored (overlap of at least half). Plain grey outlines have no guess.</p><p id="heldout" hidden></p><p>The classifier learned from photos at about 2 cm per pixel. On the whole-island mosaic, at 3.8 cm per pixel, its first guess was right for only about 1 in 7 labelled crowns, so this map does not use guesses from that mosaic.</p></details>
 <details><summary>What does the colour show?</summary><p>The colour shows the family of the model's first guess. Families in the same order or clade have similar colours. Grey means the family has no colour in the scheme.</p></details>
 <details><summary>What is confidence?</summary><p>Confidence is the probability that the model gives to its first guess, from 0% to 100%. A fainter outline has a lower confidence. Confidence is the model's own score, not a measured accuracy: a high score can still be wrong. Use the slider to hide guesses below a level; the bars that it hides turn grey in the chart.</p></details>
 <details><summary>What are the five guesses?</summary><p>Click a crown to see the model's five highest-ranked species and their confidence.</p></details>
@@ -87,16 +87,16 @@ const hidden=new Set();
 if(!src){document.getElementById('main-content').innerHTML='<div id="empty"><h1>Crown map</h1><p>This map needs a data link. The crowns are not published with the site; ask the team for the link.</p></div>';}
 else{
 maplibregl.addProtocol('pmtiles',new pmtiles.Protocol().tile);
-const lookup=['coalesce',...['top1_family','top1_order','top1_clade'].map(k=>['get',['get',k],['literal',COLOURS]]),GREY];
+const lookup=['coalesce',...['top1_family','top1_order','top1_clade'].map(k=>['get',['to-string',['get',k]],['literal',COLOURS]]),GREY];
 const map=new maplibregl.Map({container:'map',hash:'view',maxZoom:21,center:[-79.85,9.155],zoom:15,style:{version:8,glyphs:'https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf',
  sources:{imagery:{type:'raster',tileSize:256,maxzoom:18,attribution:'Imagery: Esri, Maxar, Earthstar Geographics',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}']},
  crowns:{type:'vector',url:'pmtiles://'+src}},
  layers:[{id:'imagery',type:'raster',source:'imagery'},
  {id:'hit',type:'fill',source:'crowns','source-layer':'crowns',paint:{'fill-color':'#000','fill-opacity':0}},
- {id:'crowns',type:'line',source:'crowns','source-layer':'crowns',paint:{'line-color':lookup,'line-width':['interpolate',['linear'],['zoom'],14,1,19,2.5],'line-opacity':['interpolate',['linear'],['get','top1_p'],0,.35,1,1]}},
+ {id:'crowns',type:'line',source:'crowns','source-layer':'crowns',paint:{'line-color':lookup,'line-width':['interpolate',['linear'],['zoom'],14,1,19,2.5],'line-opacity':['interpolate',['linear'],['coalesce',['get','top1_p'],.6],0,.35,1,1]}},
  {id:'names',type:'symbol',source:'crowns','source-layer':'crowns',minzoom:18.5,layout:{'text-field':['get','top1_name'],'text-font':['Noto Sans Regular'],'text-size':12,'text-max-width':8},paint:{'text-color':'#fff','text-halo-color':'rgba(0,0,0,.75)','text-halo-width':1.5}}]}});
 map.addControl(new maplibregl.NavigationControl(),'top-right');map.addControl(new maplibregl.ScaleControl(),'bottom-left');
-function filter(){const min=+document.getElementById('minp').value,f=['all',['>=',['get','top1_p'],min],['!',['in',['get','top1_family'],['literal',[...hidden]]]]];for(const id of['hit','crowns','names'])map.setFilter(id,f);}
+function filter(){const min=+document.getElementById('minp').value,f=['all',['any',['!',['has','top1_p']],['>=',['get','top1_p'],min]],['!',['in',['get','top1_family'],['literal',[...hidden]]]]];for(const id of['hit','crowns','names'])map.setFilter(id,f);}
 document.getElementById('minp').oninput=e=>{document.getElementById('minpv').textContent=Math.round(e.target.value*100)+'%';filter();shade();};
 const open=new Set();
 function famsOf(node){return typeof node==='string'?[node]:node[1].flatMap(famsOf);}
@@ -111,7 +111,7 @@ function legend(){const seen={};for(const f of map.querySourceFeatures('crowns',
    +`<span class="tc" style="--s:${c/total*100}%;--c:${COLOURS[name]||GREY}">${c.toLocaleString()}</span></div>`;
   if(isOpen)h+='<ul role="group">'+kids.map(k=>row(k,rank==='clade'?'order':'family')).join('')+'</ul>';return h+'</li>';}
  const tops=TREE.filter(keep).sort((a,b)=>count(b)-count(a));
- document.getElementById('legend').innerHTML=tops.length?`<div class="legend-head"><h2>Crowns in view</h2><button id="openall">${open.size?'Close all':'Open all'}</button></div><p class="legend-note">By clade, order and family. Click a name to hide it on the map.</p><ul role="tree" aria-label="Taxa in view">`+tops.map(t=>row(t,'clade')).join('')+'</ul>':'<div class="legend-head"><h2>Crowns in view</h2></div><p class="legend-note">None here. Zoom out or pan to the outlined area.</p>';}
+ document.getElementById('legend').innerHTML=tops.length?`<div class="legend-head"><h2>Crowns in view</h2><button id="openall">${open.size?'Close all':'Open all'}</button></div><p class="legend-note">By clade, order and family. Click a name to hide it on the map.</p><ul role="tree" aria-label="Taxa in view">`+tops.map(t=>row(t,'clade')).join('')+'</ul>':'<div class="legend-head"><h2>Crowns in view</h2></div><p class="legend-note">No species guesses here. Zoom out or pan to the coloured outlines.</p>';}
 document.getElementById('legend').onclick=e=>{if(e.target.id==='openall'){if(open.size)open.clear();else TREE.forEach(([c,os])=>{open.add(c);os.forEach(([o])=>open.add(o));});legend();document.getElementById('openall').focus();return;}
  const o=e.target.closest('[data-o]'),h=e.target.closest('[data-h]');
  if(o){const k=o.dataset.o;open.has(k)?open.delete(k):open.add(k);legend();document.querySelector(`[data-o="${k}"]`)?.focus();return;}
@@ -120,17 +120,18 @@ document.getElementById('legend').onclick=e=>{if(e.target.id==='openall'){if(ope
 function shade(){const min=+document.getElementById('minp').value;document.querySelectorAll('.bars i').forEach((b,i)=>b.classList.toggle('off',(i+1)/10<=min+1e-9));}
 map.on('idle',legend);
 new pmtiles.PMTiles(src).getMetadata().then(m=>{const d=JSON.parse(m.description||'{}'),n=k=>Number(d[k]);if(!(n('crowns')>0))return;const pct=k=>Math.round(n(k)*100)+'%',el=document.getElementById('stats');
- el.innerHTML=[[n('crowns').toLocaleString(),'crowns'],[n('hectares')+' ha','mapped'],[n('species'),'species named'],[n('families'),'families'],[pct('median_p'),'median confidence'],[pct('share_p80'),'at 80% or more']].map(([v,k])=>`<div><b>${v}</b><span>${k}</span></div>`).join('');el.hidden=false;
+ el.innerHTML=[[n('crowns').toLocaleString(),'crowns'],...(n('predicted')>0?[[n('predicted').toLocaleString(),'with a species guess']]:[]),[n('hectares')+' ha','mapped'],[n('species'),'species named'],[n('families'),'families'],[pct('median_p'),'median confidence'],[pct('share_p80'),'at 80% or more']].map(([v,k])=>`<div><b>${v}</b><span>${k}</span></div>`).join('');el.hidden=false;
  const h=Array.isArray(d.hist)?d.hist.map(Number):[];if(h.length===10){const mx=Math.max(...h)||1,tot=h.reduce((a,b)=>a+b,0),dl=document.getElementById('dist');
   dl.innerHTML=`<h3>Confidence of the first guess</h3><div class="bars" role="img" aria-label="Crowns by confidence, in steps of 10%: ${h.map((v,i)=>`${i*10} to ${i*10+10}%: ${v.toLocaleString()}`).join('; ')}">${h.map((v,i)=>`<i style="height:${v/mx*100}%" title="${i*10} to ${i*10+10}%: ${v.toLocaleString()} crowns (${Math.round(v/tot*100)}%)"></i>`).join('')}</div><div class="axis"><span>0%</span><span>Quartiles ${pct('q1_p')}, ${pct('median_p')}, ${pct('q3_p')}</span><span>100%</span></div>`;dl.hidden=false;shade();}
  const t=Array.isArray(d.top_species)?d.top_species.slice(0,5):[];if(t.length){const tl=document.getElementById('top');tl.innerHTML='<h3>Most common first guesses</h3><ol></ol>';
   for(const[nm,c]of t){const li=document.createElement('li'),em=document.createElement('em'),sp=document.createElement('span');em.textContent=String(nm);sp.textContent=Number(c).toLocaleString();li.append(em,sp);tl.querySelector('ol').append(li);}tl.hidden=false;}
  if(d.imagery)document.getElementById('imagery').textContent=String(d.imagery);
+ if(n('predicted')>0)document.getElementById('guessed').hidden=false;
  if(n('heldout_n')>0){const e=document.getElementById('heldout');e.textContent=`On ${n('heldout_n').toLocaleString()} test crowns that the classifier did not see in training, the first guess was right for ${pct('heldout_top1')} and the right species was among the guesses in the popup for ${pct('heldout_top5')}. The map itself uses classifiers trained on all labelled crowns.`;e.hidden=false;}
  if(d.run)document.getElementById('runid').textContent=d.run;}).catch(()=>{});
 map.on('click','hit',e=>{const p=e.features[0].properties,names=(p.top5_names||'').split('|'),ps=(p.top5_p||'').split(',').map(Number);
  const esc=s=>String(s).replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
- new maplibregl.Popup().setLngLat(e.lngLat).setHTML(`<b>${esc(p.top1_family||'')}</b><table>${names.map((n,i)=>`<tr><td>${esc(n)}</td><td>${Math.round(ps[i]*100)}%</td></tr>`).join('')}</table>`).addTo(map);});
+ new maplibregl.Popup().setLngLat(e.lngLat).setHTML(!p.top5_names?'<p>No species guess for this crown.</p>':`<b>${esc(p.top1_family||'')}</b><table>${names.map((n,i)=>`<tr><td>${esc(n)}</td><td>${Math.round(ps[i]*100)}%</td></tr>`).join('')}</table>`).addTo(map);});
 map.on('mouseenter','hit',()=>map.getCanvas().style.cursor='pointer');map.on('mouseleave','hit',()=>map.getCanvas().style.cursor='');
 }
 </script></body></html>
