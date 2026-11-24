@@ -93,7 +93,7 @@ const map=new maplibregl.Map({container:'map',hash:'view',maxZoom:21,center:[-79
  crowns:{type:'vector',url:'pmtiles://'+src}},
  layers:[{id:'imagery',type:'raster',source:'imagery'},
  {id:'hit',type:'fill',source:'crowns','source-layer':'crowns',paint:{'fill-color':'#000','fill-opacity':0}},
- {id:'crowns',type:'line',source:'crowns','source-layer':'crowns',paint:{'line-color':lookup,'line-width':['interpolate',['linear'],['zoom'],14,1,19,2.5],'line-opacity':['interpolate',['linear'],['coalesce',['get','top1_p'],.6],0,.35,1,1]}},
+ {id:'crowns',type:'line',source:'crowns','source-layer':'crowns',paint:{'line-color':lookup,'line-width':['interpolate',['linear'],['zoom'],14,1,19,2.5],'line-opacity':['interpolate',['linear'],['coalesce',['get','top1_p'],.3],0,.35,1,1]}},
  {id:'names',type:'symbol',source:'crowns','source-layer':'crowns',minzoom:18.5,layout:{'text-field':['get','top1_name'],'text-font':['Noto Sans Regular'],'text-size':12,'text-max-width':8},paint:{'text-color':'#fff','text-halo-color':'rgba(0,0,0,.75)','text-halo-width':1.5}}]}});
 map.addControl(new maplibregl.NavigationControl(),'top-right');map.addControl(new maplibregl.ScaleControl(),'bottom-left');
 function filter(){const min=+document.getElementById('minp').value,f=['all',['any',['!',['has','top1_p']],['>=',['get','top1_p'],min]],['!',['in',['get','top1_family'],['literal',[...hidden]]]]];for(const id of['hit','crowns','names'])map.setFilter(id,f);}
