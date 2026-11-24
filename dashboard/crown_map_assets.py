@@ -22,6 +22,8 @@ aside h1{font-size:20px;margin:0 0 6px}aside p{color:var(--slate);margin:0 0 12p
 .rank-clade>.tl{font-weight:650}
 .swatch{width:14px;height:14px;border:3px solid;border-radius:3px;flex:none}
 .tc{flex:0 0 56px;text-align:right;color:var(--slate);font-size:12px;font-variant-numeric:tabular-nums;padding-bottom:2px;background:linear-gradient(var(--c),var(--c)) no-repeat 100% 100%/var(--s,0) 3px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin:0 0 16px}.stats div{display:flex;flex-direction:column}.stats b{font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}.stats span{font-size:12px;color:var(--slate)}
+.about{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}.about h2{font-size:15px;margin:0 0 8px}.about details{border-bottom:1px solid var(--line)}.about summary{cursor:pointer;padding:10px 0;font-weight:600;color:var(--ink)}.about summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px}.about details p{font-size:13px}
 #empty{padding:24px;max-width:560px}
 .maplibregl-popup-content{font:14px/1.4 inherit}.maplibregl-popup-content td{padding:0 6px}
 @media(max-width:760px){body{height:auto}#main-content{grid-template-columns:1fr;grid-template-rows:60vh auto}aside{overflow:visible;border-left:0;border-top:1px solid var(--line)}}
@@ -30,7 +32,16 @@ aside h1{font-size:20px;margin:0 0 6px}aside p{color:var(--slate);margin:0 0 12p
 <main id="main-content" tabindex="-1"><div id="map"></div>
 <aside><h1>Crown map</h1><p>Each outline is one tree crown, coloured by the family of the model's first guess. Fainter outlines are guesses the model is less sure of. Zoom in for species names; click a crown for its five guesses.</p>
 <div class="control"><label for="minp">Hide guesses below <output id="minpv" for="minp">0%</output></label><input type="range" id="minp" min="0" max="0.9" step="0.1" value="0"><small>The model's confidence in its first guess.</small></div>
-<div id="legend" aria-live="polite"></div></aside></main>
+<div id="stats" class="stats" hidden></div>
+<div id="legend" aria-live="polite"></div>
+<section class="about"><h2>How to read this map</h2>
+<details><summary>What is an outline?</summary><p>Each outline is the edge of one tree crown, seen from above in drone photos of Barro Colorado Island, Panama. A detection model drew the outlines. Two crowns that touch can be one tree, and one big tree can be two outlines. Small trees under the canopy do not show.</p></details>
+<details><summary>What does the colour show?</summary><p>The colour shows the family of the model's first guess. Families in the same order or clade have similar colours. Grey means the family has no colour in the scheme.</p></details>
+<details><summary>What is confidence?</summary><p>Confidence is the probability that the model gives to its first guess, from 0% to 100%. A fainter outline has a lower confidence. Confidence is the model's own score. It is not a measured accuracy, and a high score can still be wrong. Use the slider to hide guesses below a level.</p></details>
+<details><summary>What are the five guesses?</summary><p>Click a crown to see the five species the model ranks highest, each with its confidence.</p></details>
+<details><summary>Where do the numbers come from?</summary><p>The summary numbers count every crown in the file, not only the crowns in view. The legend counts only the crowns in view. The model is the BCI crown classifier, run <span id="runid">bci-crown-20260611</span>.</p></details>
+<details><summary>How can I use this map?</summary><p>Ecologists can find where a species is common and plan field checks. Conservation teams can find large crowns of key species. Machine learning users can find areas where the model is uncertain. Treat each guess as a hypothesis to check in the field, not as a record.</p></details>
+</section></aside></main>
 <script>
 'use strict';
 const COLOURS=__COLOURS__,TREE=__TREE__,GREY='#8c8c8c';
@@ -70,6 +81,9 @@ document.getElementById('legend').onclick=e=>{if(e.target.id==='openall'){if(ope
  if(!h)return;const k=h.dataset.h,node=[...TREE,...TREE.flatMap(c=>c[1])].find(n=>n[0]===k),fams=node?famsOf(node):[k];
  const all=fams.every(f=>hidden.has(f));fams.forEach(f=>all?hidden.delete(f):hidden.add(f));filter();legend();document.querySelector(`[data-h="${k}"]`)?.focus();};
 map.on('idle',legend);
+new pmtiles.PMTiles(src).getMetadata().then(m=>{const d=JSON.parse(m.description||'{}'),n=k=>Number(d[k]);if(!(n('crowns')>0))return;const pct=k=>Math.round(n(k)*100)+'%',el=document.getElementById('stats');
+ el.innerHTML=[[n('crowns').toLocaleString(),'crowns'],[n('hectares')+' ha','mapped'],[n('species'),'species named'],[n('families'),'families'],[pct('median_p'),'median confidence'],[pct('share_p80'),'at 80% or more']].map(([v,k])=>`<div><b>${v}</b><span>${k}</span></div>`).join('');el.hidden=false;
+ if(d.run)document.getElementById('runid').textContent=d.run;}).catch(()=>{});
 map.on('click','hit',e=>{const p=e.features[0].properties,names=(p.top5_names||'').split('|'),ps=(p.top5_p||'').split(',').map(Number);
  const esc=s=>String(s).replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
  new maplibregl.Popup().setLngLat(e.lngLat).setHTML(`<b>${esc(p.top1_family||'')}</b><table>${names.map((n,i)=>`<tr><td>${esc(n)}</td><td>${Math.round(ps[i]*100)}%</td></tr>`).join('')}</table>`).addTo(map);});
