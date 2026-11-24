@@ -51,7 +51,7 @@ body{display:flex;flex-direction:column;height:100vh}
 aside{overflow:auto;padding:20px 16px;border-left:1px solid var(--line);background:var(--paper);font-size:14px}
 aside h1{font-size:20px;margin:0 0 6px}aside p{color:var(--slate);margin:0 0 12px;line-height:1.45}
 .control{margin:16px 0 20px}.control label{display:flex;justify-content:space-between;font-weight:600;color:var(--ink);margin-bottom:6px}.control output{font-variant-numeric:tabular-nums;font-weight:600}.control input[type=range]{display:block;width:calc(90% + 16px);margin:0 0 0 -8px;accent-color:var(--green)}.control input::-webkit-slider-thumb{width:16px;height:16px}.control input::-moz-range-thumb{width:16px;height:16px}.control small{display:block;color:var(--slate);font-size:12px;margin-top:2px}
-.legend-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding-top:16px;border-top:1px solid var(--line)}.legend-head h2{font-size:15px;margin:0}.legend-head button{border:0;background:none;padding:4px 2px;color:var(--green);font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}.legend-note{font-size:12px;margin:4px 0 8px!important}
+.legend-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:0 8px;padding-top:16px;border-top:1px solid var(--line)}.legend-head h2{font-size:15px;margin:0}.legend-head h2,.legend-head span{white-space:nowrap}.legend-head button{border:0;background:none;padding:4px 2px;color:var(--green);font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}.legend-note{font-size:12px;margin:4px 0 8px!important}
 #legend{margin-bottom:20px}#legend ul{list-style:none;margin:0;padding:0}#legend ul ul{padding-left:16px}
 .tn{display:flex;align-items:center;gap:2px;min-height:30px}
 .tw{flex:0 0 24px;height:28px;display:grid;place-items:center;padding:0;border:0;border-radius:var(--radius);background:none;color:var(--slate)}button.tw{cursor:pointer}.tw svg{width:12px;height:12px;transition:transform .18s cubic-bezier(.16,1,.3,1)}.tw[aria-expanded=true] svg{transform:rotate(90deg)}button.tw:hover{background:var(--pale)}
@@ -109,14 +109,14 @@ read();
 if(!src){document.getElementById('main-content').innerHTML='<div id="empty"><h1>Crown map</h1><p>This map needs a data link. The crowns are not published with the site; ask the team for the link.</p></div>';}
 else{
 const archive=new pmtiles.PMTiles(src),protocol=new pmtiles.Protocol();protocol.add(archive);maplibregl.addProtocol('pmtiles',protocol.tile);
-const P=['coalesce',['get','top1_p'],.3],EMPTY={type:'FeatureCollection',features:[]};
+const P=['coalesce',['get','top1_p'],.3],NONE=['==',['id'],-1];
 const lookup=['coalesce',...['top1_family','top1_order','top1_clade'].map(k=>['get',['to-string',['get',k]],['literal',COLOURS]]),GREY];
 const map=new maplibregl.Map({container:'map',hash:'view',maxZoom:21,center:[-79.85,9.155],zoom:15,style:{version:8,glyphs:'https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf',
  sources:{imagery:{type:'raster',tileSize:256,maxzoom:18,attribution:'Imagery: Esri, Maxar, Earthstar Geographics',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}']},
- crowns:{type:'vector',url:'pmtiles://'+src},sel:{type:'geojson',data:EMPTY}},
+ crowns:{type:'vector',url:'pmtiles://'+src}},
  layers:[{id:'imagery',type:'raster',source:'imagery'},
  {id:'hit',type:'fill',source:'crowns','source-layer':'crowns',paint:{'fill-color':lookup,'fill-opacity':['interpolate',['linear'],['zoom'],14.5,['interpolate',['linear'],P,0,.3,1,.85],17,0]}},
- {id:'sel',type:'line',source:'sel',paint:{'line-color':'#fff','line-width':6,'line-opacity':.9}},
+ {id:'sel',type:'line',source:'crowns','source-layer':'crowns',filter:NONE,paint:{'line-color':'#fff','line-width':6,'line-opacity':.9}},
  {id:'crowns',type:'line',source:'crowns','source-layer':'crowns',paint:{'line-color':lookup,'line-width':['interpolate',['linear'],['zoom'],14,1,19,2.5],'line-opacity':['interpolate',['linear'],P,0,.35,1,1]}},
  {id:'names',type:'symbol',source:'crowns','source-layer':'crowns',minzoom:18.5,layout:{'text-field':['get','top1_name'],'text-font':['Noto Sans Regular'],'text-size':12,'text-max-width':8},paint:{'text-color':'#fff','text-halo-color':'rgba(0,0,0,.75)','text-halo-width':1.5}}]}});
 map.addControl(new maplibregl.NavigationControl(),'top-right');map.addControl(new maplibregl.ScaleControl(),'bottom-left');
@@ -142,7 +142,7 @@ const hasView=Q.has('view');
 archive.getHeader().then(h=>{if(!hasView)map.fitBounds([[h.minLon,h.minLat],[h.maxLon,h.maxLat]],{padding:24,animate:false});}).catch(()=>{failed=true;notice('The data link did not open. It may be out of date: ask the team for a new link.');});
 const open=new Set();
 function famsOf(node){return typeof node==='string'?[node]:node[1].flatMap(famsOf);}
-function legend(){const a=document.activeElement,was=a&&$('legend').contains(a)&&(a.id?'#'+a.id:a.dataset.h?`[data-h="${a.dataset.h}"]`:`[data-o="${a.dataset.o}"]`);const seen={},names=new Set();for(const{properties:p}of map.querySourceFeatures('crowns',{sourceLayer:'crowns'})){names.add(p.top1_name);if(p.top1_p<min||!match(p))continue;const k=p.top1_family||'Unknown';seen[k]=(seen[k]||0)+1;}
+function legend(){const a=document.activeElement,was=a&&$('legend').contains(a)&&(a.id?'#'+a.id:a.dataset.h?`[data-h="${a.dataset.h}"]`:`[data-o="${a.dataset.o}"]`);const seen={},names=new Set(),ids=new Set();for(const{id,properties:p}of map.querySourceFeatures('crowns',{sourceLayer:'crowns'})){if(ids.has(id))continue;if(id!=null)ids.add(id);names.add(p.top1_name);if(p.top1_p<min||!match(p))continue;const k=p.top1_family||'Unknown';seen[k]=(seen[k]||0)+1;}
  offer(names);
  const total=Object.values(seen).reduce((a,b)=>a+b,0)||1;
  const count=n=>famsOf(n).reduce((a,f)=>a+(seen[f]||0),0);
@@ -154,7 +154,7 @@ function legend(){const a=document.activeElement,was=a&&$('legend').contains(a)&
    +`<span class="tc" style="--s:${c/total*100}%;--c:${COLOURS[name]||GREY}">${c.toLocaleString()}</span></div>`;
   if(isOpen)h+='<ul>'+kids.map(k=>row(k,rank==='clade'?'order':'family')).join('')+'</ul>';return h+'</li>';}
  const tops=TREE.filter(keep).sort((a,b)=>count(b)-count(a));
- const html=tops.length?`<div class="legend-head"><h2>Crowns in view</h2><span><button id="showall">${hidden.size?'Show all families':'Hide all families'}</button> <button id="openall">${open.size?'Close all':'Open all'}</button></span></div><p class="legend-note">By clade, order and family. Counts are approximate: they include crowns near the edge of the view. Click a name to hide it on the map.</p><ul aria-label="Taxa in view">`+tops.map(t=>row(t,'clade')).join('')+'</ul>':'<div class="legend-head"><h2>Crowns in view</h2></div><p class="legend-note">'+(only||min?'No crown in view passes the confidence level and species that you set. Zoom out, lower the level or show all species.':'No species guesses here. Zoom out or pan to the coloured outlines.')+'</p>';if(html===legend.last)return;$('legend').innerHTML=legend.last=html;if(was)$('legend').querySelector(was)?.focus();}
+ const html=tops.length?`<div class="legend-head"><h2>Crowns in view</h2><span><button id="showall">${hidden.size?'Show all families':'Hide all families'}</button> <button id="openall">${open.size?'Close all':'Open all'}</button></span></div><p class="legend-note">By clade, order and family. Counts include crowns near the edge of the view. Far out, the map leaves out some crowns. Click a name to hide it on the map.</p><ul aria-label="Taxa in view">`+tops.map(t=>row(t,'clade')).join('')+'</ul>':'<div class="legend-head"><h2>Crowns in view</h2></div><p class="legend-note">'+(only||min?'No crown in view passes the confidence level and species that you set. Zoom out, lower the level or show all species.':'No species guesses here. Zoom out or pan to the coloured outlines.')+'</p>';if(html===legend.last)return;$('legend').innerHTML=legend.last=html;if(was)$('legend').querySelector(was)?.focus();}
 document.getElementById('legend').onclick=e=>{if(e.target.id==='showall'){if(hidden.size)hidden.clear();else TREE.flatMap(famsOf).forEach(f=>hidden.add(f));filter();legend();document.getElementById('showall').focus();return;}
  if(e.target.id==='openall'){if(open.size)open.clear();else TREE.forEach(([c,os])=>{open.add(c);os.forEach(([o])=>open.add(o));});legend();document.getElementById('openall').focus();return;}
  const o=e.target.closest('[data-o]'),h=e.target.closest('[data-h]');
@@ -181,10 +181,9 @@ function inspect(e){const f=map.queryRenderedFeatures(e.point,{layers:['hit']})[
  const p=f.properties,names=(p.top5_names||'').split('|'),ps=(p.top5_p||'').split(',').map(Number),first=p.top1_name||names[0];
  const esc=s=>String(s).replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
  const about=[p.top1_family,p.area>0&&Math.round(p.area).toLocaleString()+' m²',p.src==='mosaic'?'guess from the whole-island mosaic':p.src&&'guess from the plot photos'].filter(Boolean).map(esc).join(', ');
- // shortcut: the outline is the clicked tile's piece of the crown, so it can stop at a tile edge; needs feature ids in the tiles to fix
- map.getSource('sel').setData({type:'Feature',geometry:f.geometry,properties:{}});
+ map.setFilter('sel',['==',['id'],f.id??-1]);
  const me=pop=new maplibregl.Popup({closeOnClick:false,focusAfterOpen:false,maxWidth:'300px'}).setLngLat(e.lngLat).setHTML(!p.top5_names?'<div class="pop"><p>No species guess for this crown.</p></div>':`<div class="pop"><h2>${esc(first)}</h2><p>${about}</p><table>${names.map((n,i)=>`<tr${n===only?' class="me"':''}><td>${esc(n)}</td><td><i style="width:${Math.round((ps[i]||0)*100)}%"></i></td><td>${Math.round((ps[i]||0)*100)}%</td></tr>`).join('')}</table><button type="button">${only===first?'Show all species':'Show only this species'}</button></div>`).addTo(map);
- me.on('close',()=>{if(pop===me){pop=null;$('say').textContent='';map.getSource('sel').setData(EMPTY);}});
+ me.on('close',()=>{if(pop===me){pop=null;$('say').textContent='';map.setFilter('sel',NONE);}});
  me.getElement().querySelector('button:not(.maplibregl-popup-close-button)')?.addEventListener('click',()=>show(first));}
 map.on('click',inspect);
 map.getCanvas().addEventListener('keydown',e=>{if(e.key==='Enter'){const c=map.getCenter();inspect({point:map.project(c),lngLat:c});const r=document.querySelector('.pop tr');$('say').textContent=(!pop?'No crown at the centre of the map.':r?[...document.querySelectorAll('.pop tr')].map(t=>t.cells[0].textContent+' '+t.cells[2].textContent).join(', '):'No species guess for this crown.');}});map.getCanvas().setAttribute('aria-label','Map of tree crowns. Arrow keys move the map, plus and minus zoom, Enter reads the crown at the centre.');
