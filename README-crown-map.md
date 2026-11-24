@@ -60,6 +60,8 @@ The mosaic link is private, as the data link is.
 - A common first guess does not show that a species is common.
 - High confidence does not show that a guess is right.
 - The accuracy on test crowns is not the accuracy of the whole map. Test crowns are easier than a typical crown outside the plots.
+- A guess does not show that the tree is one of the species that the classifier knows. The classifier knows 77 names, and the island has many more species. A crown of a different species gets one of the 77 names.
+- A name is not always a species. Nine of the 77 names are a genus or a family, because some labels do not go down to species.
 - One outline is not always one tree. Two crowns that touch can be one outline. One large tree can be two outlines. Trees below the canopy do not show.
 
 ## Change the page
