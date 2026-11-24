@@ -34,14 +34,14 @@ If the map says that the data link did not open, the link is out of date. Ask th
 | Read a crown without a mouse | Press Tab until the map has the focus. A white cross shows at the centre. Move the map with the arrow keys. Press Enter to read the crown under the cross. |
 | Find more candidates for one species | Show only that species. Then select "Also where it is a lower guess". The map adds the crowns that have the species as guess two to five. |
 | See where one species is | Type its name in **Show only one species**, or click a name in **Most common first guesses**, or click a crown and then **Show only this species**. |
-| See all species again | Click **Show all**. |
+| See all species again | Click **Show all** next to the species box. |
 | Hide the unsure guesses | Move the slider below the chart. The grey bars are the crowns that you hide. |
 | Hide or show a family, order or clade | Click its name in **Crowns in view**. |
 | Send someone the same map | Copy the address. It keeps the view, the confidence level and the species. It also holds the data link, so send it only to the team. |
 
 ## Read the numbers
 
-- The numbers above the legend count **every crown in the file**.
+- The numbers below **Crowns in view** count **every crown in the file**.
 - **Crowns in view** counts only the crowns on screen, after the confidence level and the species that you set.
 - The chart counts crowns in each 10% step of confidence.
 - **How this map was made** gives the accuracy on test crowns. These are crowns with a label that the classifier did not see in training.
