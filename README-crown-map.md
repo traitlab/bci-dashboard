@@ -42,7 +42,7 @@ If the map says that the data link did not open, the link is out of date. Ask th
 ## Read the numbers
 
 - The numbers below **Crowns in view** count **every crown in the file**.
-- **Crowns in view** counts only the crowns on screen, after the confidence level and the species that you set.
+- **Crowns in view** counts only the crowns on screen, after the confidence level and the species that you set. Each crown counts one time. When you are far out, the map does not draw all crowns, so the count is lower than the total in the file. Zoom in for a full count.
 - The chart counts crowns in each 10% step of confidence.
 - **How this map was made** gives the accuracy on test crowns. These are crowns with a label that the classifier did not see in training.
 
