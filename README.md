@@ -22,6 +22,7 @@ The site publishes these pages from `docs/`:
 - the queue page, by `dashboard/build_internal.py`
 - the photo explorer, by `dashboard/build_explorer.py`
 - the photo atlas (drone map and similar photos) and the crown-first atlas, by `dashboard/build_embedding_atlas.py`
+- the crown map, by `dashboard/build_crown_map.py`: every crown found on the whole-island mosaic, with the classifier's species guess. How to open and read it: [README-crown-map.md](README-crown-map.md)
 - the index and about pages, by `dashboard/build_index.py`
 
 ## What to label next
