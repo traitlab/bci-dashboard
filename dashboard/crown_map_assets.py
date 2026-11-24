@@ -67,20 +67,21 @@ aside h1{font-size:20px;margin:0 0 6px}aside p{color:var(--slate);margin:0 0 12p
 <script>
 'use strict';
 const COLOURS=__COLOURS__,TREE=__TREE__,GREY='#8c8c8c';
-const Q=new URLSearchParams(location.hash.slice(1)),src=Q.get('data'),$=id=>document.getElementById(id);
+const Q=new URLSearchParams(location.hash.slice(1)),src=Q.get('data'),img=Q.get('img'),$=id=>document.getElementById(id);
 const hidden=new Set();
 let min=0,only=null,wide=false,pop=null;
 function read(){const q=new URLSearchParams(location.hash.slice(1));min=Math.min(.9,Math.max(0,Math.round(q.get('min')*10)/10))||0;only=q.get('only')||null;wide=q.get('any')==='1';}
 read();
 if(!src){document.getElementById('main-content').innerHTML='<div id="empty"><h1>Crown map</h1><p>This map needs a data link. The crowns are not published with the site; ask the team for the link.</p></div>';}
 else{
-const archive=new pmtiles.PMTiles(src),protocol=new pmtiles.Protocol();protocol.add(archive);maplibregl.addProtocol('pmtiles',protocol.tile);
+const archive=new pmtiles.PMTiles(src),protocol=new pmtiles.Protocol();protocol.add(archive);if(img)protocol.add(new pmtiles.PMTiles(img));maplibregl.addProtocol('pmtiles',protocol.tile);
 const P=['coalesce',['get','top1_p'],.3],NONE=['==',['id'],-1];
 const lookup=['coalesce',...['top1_family','top1_order','top1_clade'].map(k=>['get',['to-string',['get',k]],['literal',COLOURS]]),GREY];
 const map=new maplibregl.Map({container:'map',hash:'view',maxZoom:21,center:[-79.85,9.155],zoom:15,style:{version:8,glyphs:'https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf',
  sources:{imagery:{type:'raster',tileSize:256,maxzoom:18,attribution:'Imagery: Esri, Maxar, Earthstar Geographics',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}']},
+ ...(img&&{mosaic:{type:'raster',tileSize:256,url:'pmtiles://'+img,attribution:'Drone mosaic, 16 June 2025'}}),
  crowns:{type:'vector',url:'pmtiles://'+src}},
- layers:[{id:'imagery',type:'raster',source:'imagery'},
+ layers:[{id:'imagery',type:'raster',source:'imagery'},...(img?[{id:'mosaic',type:'raster',source:'mosaic',minzoom:15}]:[]),
  {id:'hit',type:'fill',source:'crowns','source-layer':'crowns',paint:{'fill-color':lookup,'fill-opacity':['interpolate',['linear'],['zoom'],14.5,['interpolate',['linear'],P,0,.3,1,.85],17,0]}},
  {id:'sel',type:'line',source:'crowns','source-layer':'crowns',filter:NONE,paint:{'line-color':'#fff','line-width':6,'line-opacity':.9}},
  {id:'crowns',type:'line',source:'crowns','source-layer':'crowns',paint:{'line-color':lookup,'line-width':['interpolate',['linear'],['zoom'],14,1,19,2.5],'line-opacity':['interpolate',['linear'],P,0,.35,1,1]}},
